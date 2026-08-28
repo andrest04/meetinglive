@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="MeetingLive_App.RecordingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:MeetingLive_App"
+    mc:Ignorable="d">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid Padding="24" RowSpacing="20" VerticalAlignment="Top">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Record meeting" Style="{StaticResource TitleTextBlockStyle}" />
+
+            <TextBox Grid.Row="1" Header="Title"
+                     Text="{x:Bind ViewModel.MeetingTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                     MaxWidth="420" HorizontalAlignment="Stretch"
+                     AutomationProperties.AutomationId="TxtMeetingTitle" />
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <Button Command="{x:Bind ViewModel.ToggleRecordingCommand}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        AutomationProperties.AutomationId="BtnToggleRecording"
+                        AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
+                        <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
+                    </StackPanel>
+                </Button>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
+            </StackPanel>
+
+            <InfoBar Grid.Row="3" IsOpen="True" IsClosable="False"
+                     Severity="{x:Bind local:RecordingPage.StatusSeverity(ViewModel.StatusText), Mode=OneWay}"
+                     Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                     MaxWidth="520" HorizontalAlignment="Stretch" />
+
+            <StackPanel Grid.Row="4" Spacing="12"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLastMeeting), Mode=OneWay}">
+                <TextBlock Text="Last processed recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="View transcript" Click="ViewTranscript_Click"
+                            AutomationProperties.AutomationId="BtnViewTranscript" />
+                    <Button Content="View summary" Click="ViewSummary_Click"
+                            IsEnabled="{x:Bind ViewModel.HasSummary, Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnViewSummary" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

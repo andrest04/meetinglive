@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="MeetingLive_App.Dialogs.SummaryModelSetupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:MeetingLive_App.Dialogs"
+    xmlns:vm="using:MeetingLive_App.ViewModels"
+    mc:Ignorable="d"
+    Title="Set up a summary model"
+    CloseButtonText="Cancel"
+    DefaultButton="Close">
+
+    <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" MinWidth="440" MaxWidth="440">
+
+            <!-- Detecting hardware -->
+            <StackPanel Orientation="Horizontal" Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsDetectingHardware), Mode=OneWay}">
+                <ProgressRing IsActive="True" Width="20" Height="20" />
+                <TextBlock Text="Detecting hardware..." VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Selecting model -->
+            <StackPanel Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsSelectingModel), Mode=OneWay}">
+                <TextBlock Text="Choose a model to generate summaries" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="Runs entirely on this PC — no account, no server, no cost. Larger models are slower but produce better summaries."
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                <TextBlock Text="{x:Bind ViewModel.HardwareSummary, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                <ListView ItemsSource="{x:Bind ViewModel.Models, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedModel, Mode=TwoWay}"
+                          SelectionMode="Single" MaxHeight="280"
+                          AutomationProperties.AutomationId="ListModelOptions">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModelOption">
+                            <Grid Padding="8" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock Text="{x:Bind Info.UseCase}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind SpeedQualityLabel}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                                </StackPanel>
+                                <Border Grid.Column="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,4" VerticalAlignment="Top"
+                                        Background="{x:Bind RatingBrush}">
+                                    <TextBlock Text="{x:Bind RatingLabel}" Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Button Content="Download and use this model" Command="{x:Bind ViewModel.DownloadSelectedModelCommand}"
+                        IsEnabled="{x:Bind local:SummaryModelSetupDialog.IsNotNull(ViewModel.SelectedModel), Mode=OneWay}"
+                        Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left"
+                        AutomationProperties.AutomationId="BtnDownloadModel" />
+            </StackPanel>
+
+            <!-- Downloading -->
+            <StackPanel Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsDownloading), Mode=OneWay}">
+                <ProgressBar IsIndeterminate="False"
+                             Value="{x:Bind ViewModel.SelectedModel.DownloadProgressPercent, Mode=OneWay, FallbackValue=0}"
+                             Maximum="100" />
+                <TextBlock Text="{x:Bind ViewModel.DownloadStatusText, Mode=OneWay}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!-- Completed -->
+            <StackPanel Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsCompleted), Mode=OneWay}">
+                <InfoBar IsOpen="True" Severity="Success" Title="Done" Message="The model is ready to use." />
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

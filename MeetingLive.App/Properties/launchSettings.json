@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "MeetingLive.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "MeetingLive.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
