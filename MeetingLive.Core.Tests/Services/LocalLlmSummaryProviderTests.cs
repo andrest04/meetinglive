@@ -16,7 +16,8 @@ public class LocalLlmSummaryProviderTests
         var missingModelPath = Path.Combine(Path.GetTempPath(), "MeetingLiveTests_" + Guid.NewGuid(), "missing-model.gguf");
         var provider = new LocalLlmSummaryProvider(missingModelPath);
 
-        var exception = await Assert.ThrowsAsync<FileNotFoundException>(() => provider.SummarizeAsync("some transcript"));
+        var exception = await Assert.ThrowsAsync<FileNotFoundException>(
+            () => provider.SummarizeAsync("some transcript", "Some meeting", DateTimeOffset.UtcNow));
 
         Assert.Equal(missingModelPath, exception.FileName);
     }

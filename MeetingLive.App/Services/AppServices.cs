@@ -1,3 +1,4 @@
+using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 
 namespace MeetingLive_App.Services;
@@ -22,15 +23,22 @@ public static class AppServices
 
     public static IHardwareDetectionService HardwareDetection { get; } = new HardwareDetectionService();
 
-    public static IMeetingRepository Meetings { get; } = new MeetingRepository();
+    public static IMeetingRepository Meetings { get; } = new MarkdownMeetingRepository();
 
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
 
     /// <summary>
-    /// Creates a summary provider bound to the given catalog model file. A factory
-    /// (rather than a singleton) because the model can change if the user picks a
-    /// different one in Settings, and each provider owns its own loaded weights.
+    /// Creates a summary provider for the given <paramref name="kind"/>. A factory (rather
+    /// than a singleton) because the selection can change between recordings, and the Local
+    /// provider owns its own loaded model weights per instance. <paramref name="localModelPath"/>
+    /// is required for <see cref="SummaryProviderKind.Local"/> and ignored otherwise.
     /// </summary>
-    public static ISummaryProvider CreateSummaryProvider(string modelPath) =>
-        new LocalLlmSummaryProvider(modelPath);
+    public static ISummaryProvider CreateSummaryProvider(SummaryProviderKind kind, string? localModelPath) => kind switch
+    {
+        SummaryProviderKind.Local => new LocalLlmSummaryProvider(
+            localModelPath ?? throw new ArgumentNullException(nameof(localModelPath), "A local model path is required for the Local summary provider.")),
+        SummaryProviderKind.ClaudeCode => new ClaudeCodeCliSummaryProvider(new CliProcessRunner()),
+        SummaryProviderKind.Codex => new CodexCliSummaryProvider(new CliProcessRunner()),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
+    };
 }

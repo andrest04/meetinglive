@@ -44,6 +44,7 @@ public sealed partial class MainPage : Page
                 "Recording" => typeof(RecordingPage),
                 "Transcript" => typeof(TranscriptPage),
                 "Summary" => typeof(SummaryPage),
+                "History" => typeof(HistoryPage),
                 _ => null,
             };
         }

@@ -7,13 +7,80 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App.Dialogs"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:controls="using:MeetingLive_App.Controls"
     mc:Ignorable="d"
-    Title="Set up a summary model"
+    Title="Set up summary generation"
     CloseButtonText="Cancel"
     DefaultButton="Close">
 
     <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16" MinWidth="440" MaxWidth="440">
+
+            <!-- Choosing engine -->
+            <StackPanel Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsChoosingEngine), Mode=OneWay}">
+                <TextBlock Text="Choose how to generate summaries" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="Pick the engine MeetingLive should use to turn a transcript into a summary and action items."
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{x:Bind ViewModel.ChooseEngineCommand}" CommandParameter="ClaudeCode"
+                        AutomationProperties.AutomationId="BtnEngineClaudeCode">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <controls:ClaudeCodeIcon Grid.Column="0" Width="24" Height="24" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Claude Code" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Uses the Claude Code CLI already installed on this PC." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{x:Bind ViewModel.ChooseEngineCommand}" CommandParameter="Codex"
+                        AutomationProperties.AutomationId="BtnEngineCodex">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <controls:CodexIcon Grid.Column="0" Width="24" Height="24" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Codex" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Uses the Codex CLI already installed on this PC." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{x:Bind ViewModel.ChooseEngineCommand}" CommandParameter="Local"
+                        AutomationProperties.AutomationId="BtnEngineLocal">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Grid.Column="0" Width="24" Height="24" FontSize="20" Glyph="&#xE950;" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Local models" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Runs entirely on this PC — no account, no server, no cost." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+            </StackPanel>
+
+            <!-- Checking CLI -->
+            <StackPanel Spacing="12"
+                        Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsCheckingCli), Mode=OneWay}">
+                <TextBlock Text="{x:Bind ViewModel.CliCheckStatusText, Mode=OneWay}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Check again" Command="{x:Bind ViewModel.RecheckCliCommand}"
+                            Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnRecheckCli" />
+                    <Button Content="Back" Command="{x:Bind ViewModel.BackToEngineChoiceCommand}"
+                            AutomationProperties.AutomationId="BtnBackToEngineChoice" />
+                </StackPanel>
+            </StackPanel>
 
             <!-- Detecting hardware -->
             <StackPanel Orientation="Horizontal" Spacing="12"

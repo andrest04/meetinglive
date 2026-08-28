@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
@@ -13,7 +14,12 @@ public sealed partial class RecordingPage : Page
     public RecordingPage()
     {
         InitializeComponent();
-        Loaded += (_, _) => ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+        Loaded += (_, _) =>
+        {
+            ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+            ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
+            ViewModel.EnsureSummaryEngineAsync = () => SummaryModelSetupDialog.ShowAsync(XamlRoot);
+        };
     }
 
     private void ViewTranscript_Click(object sender, RoutedEventArgs e)

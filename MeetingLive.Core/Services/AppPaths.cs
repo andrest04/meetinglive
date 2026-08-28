@@ -17,7 +17,12 @@ public static class AppPaths
     /// <summary>Where downloaded GGUF summary models are cached, kept separate from the Whisper models.</summary>
     public static string SummaryModelsDirectory { get; } = Path.Combine(RootDirectory, "SummaryModels");
 
+    /// <summary>Legacy single-file JSON store. Superseded by <see cref="MeetingsDirectory"/>;
+    /// kept only so <c>MeetingsMigrationService</c> can find and migrate it.</summary>
     public static string MeetingsFilePath { get; } = Path.Combine(RootDirectory, "meetings.json");
+
+    /// <summary>Where each meeting is persisted as its own <c>{id}.md</c> file.</summary>
+    public static string MeetingsDirectory { get; } = Path.Combine(RootDirectory, "Meetings");
 
     public static string SettingsFilePath { get; } = Path.Combine(RootDirectory, "settings.json");
 
@@ -26,5 +31,6 @@ public static class AppPaths
         Directory.CreateDirectory(RecordingsDirectory);
         Directory.CreateDirectory(ModelsDirectory);
         Directory.CreateDirectory(SummaryModelsDirectory);
+        Directory.CreateDirectory(MeetingsDirectory);
     }
 }

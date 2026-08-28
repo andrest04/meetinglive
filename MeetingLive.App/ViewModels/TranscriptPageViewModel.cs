@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -8,6 +11,7 @@ namespace MeetingLive_App.ViewModels;
 public partial class TranscriptPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
+    private Guid? _recordId;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -34,6 +38,7 @@ public partial class TranscriptPageViewModel : ObservableObject
                 ? await _meetings.GetByIdAsync(id)
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
+            _recordId = record?.Id;
             Title = record?.Title ?? "No transcripts yet";
             Transcript = record?.Transcript ?? string.Empty;
             HasContent = !string.IsNullOrWhiteSpace(Transcript);
@@ -42,6 +47,27 @@ public partial class TranscriptPageViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    [RelayCommand]
+    private void CopyToClipboard()
+    {
+        if (!HasContent)
+            return;
+
+        var package = new DataPackage();
+        package.SetText(Transcript);
+        Clipboard.SetContent(package);
+    }
+
+    [RelayCommand]
+    private void OpenFileLocation()
+    {
+        if (_recordId is not { } id)
+            return;
+
+        var filePath = Path.Combine(AppPaths.MeetingsDirectory, $"{id}.md");
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
     }
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));

@@ -21,6 +21,6 @@ public static class SummaryModelResolver
                 return AppServices.LocalLlmModels.GetModelPath(model);
         }
 
-        return await SummaryModelSetupDialog.ShowAsync(xamlRoot);
+        return await SummaryModelSetupDialog.ShowForLocalModelAsync(xamlRoot);
     }
 }

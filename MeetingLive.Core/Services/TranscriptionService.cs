@@ -6,13 +6,13 @@ namespace MeetingLive.Core.Services;
 
 public sealed class TranscriptionService(string modelDirectory, GgmlType modelType = GgmlType.Base) : ITranscriptionService
 {
-    public async Task<string> TranscribeAsync(string wavFilePath, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<string> TranscribeAsync(string wavFilePath, string language = "auto", IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
         var modelPath = await EnsureModelDownloadedAsync(cancellationToken);
 
         using var whisperFactory = WhisperFactory.FromPath(modelPath);
         await using var processor = whisperFactory.CreateBuilder()
-            .WithLanguage("auto")
+            .WithLanguage(language)
             .Build();
 
         await using var audioStream = File.OpenRead(wavFilePath);

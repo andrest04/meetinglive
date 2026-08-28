@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using MeetingLive.Core.Services;
+using MeetingLive_App.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -48,10 +50,39 @@ public partial class App : Application
     /// Invoked when the application is launched.
     /// </summary>
     /// <param name="args">Details about the launch request and process.</param>
-    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+        // Meeting history is the app's only source of persisted data, so a failed
+        // migration must surface visibly instead of silently losing it.
+        Exception? migrationError = null;
+        try
+        {
+            await new MeetingsMigrationService(AppServices.Meetings).MigrateIfNeededAsync();
+        }
+        catch (Exception ex)
+        {
+            migrationError = ex;
+        }
+
         Window.Activate();
+
+        if (migrationError is not null)
+            await ShowMigrationFailureDialogAsync(migrationError);
+    }
+
+    private static async Task ShowMigrationFailureDialogAsync(Exception ex)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Meeting history migration failed",
+            Content = $"MeetingLive could not migrate your existing meeting history to the new format. " +
+                      $"Your original data was left untouched.\n\n{ex.Message}",
+            CloseButtonText = "OK",
+            XamlRoot = Window.Content.XamlRoot,
+        };
+        await dialog.ShowAsync();
     }
 }

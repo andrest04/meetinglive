@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using MeetingLive.Core.Models;
 using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App;
@@ -36,6 +37,18 @@ public sealed partial class SettingsPage : Page
     {
         if (((FrameworkElement)sender).DataContext is ModelOption option)
             ViewModel.DeleteModelCommand.Execute(option);
+    }
+
+    private void ProviderRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string tag } && Enum.TryParse<SummaryProviderKind>(tag, out var kind))
+            ViewModel.SelectProviderCommand.Execute(kind);
+    }
+
+    private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })
+            ViewModel.SelectLanguageCommand.Execute(option);
     }
 
     public static bool Not(bool value) => !value;

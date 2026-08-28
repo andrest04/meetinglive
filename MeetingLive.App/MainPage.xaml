@@ -20,6 +20,12 @@
                                  AutomationProperties.AutomationId="NavItemTranscript" />
             <NavigationViewItem Icon="List" Content="Summary" Tag="Summary"
                                  AutomationProperties.AutomationId="NavItemSummary" />
+            <NavigationViewItem Content="History" Tag="History"
+                                 AutomationProperties.AutomationId="NavItemHistory">
+                <NavigationViewItem.Icon>
+                    <FontIcon Glyph="&#xE81C;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
         </NavigationView.MenuItems>
 
         <Frame x:Name="ContentFrame" />

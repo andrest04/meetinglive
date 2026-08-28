@@ -1,12 +1,21 @@
+using MeetingLive.Core.Models;
+
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Abstraction over whatever generates the meeting summary from a transcript.
-/// The only implementation today is <see cref="LocalLlmSummaryProvider"/> (local, free,
-/// in-process via LLamaSharp), but this seam is what lets a future cloud provider
-/// (user's own API key) be added without touching the rest of the pipeline.
+/// Abstraction over whatever generates the meeting summary from a transcript. Three
+/// implementations today: <see cref="LocalLlmSummaryProvider"/> (local, free, in-process via
+/// LLamaSharp), <see cref="ClaudeCodeCliSummaryProvider"/>, and <see cref="CodexCliSummaryProvider"/>
+/// (both shell out to an already-installed, already-authenticated CLI). All three are asked to
+/// produce the same "## Summary" / "## Action Items" Markdown shape, split via
+/// <see cref="SummaryMarkdownSplitter"/>, so the rest of the pipeline never branches on which
+/// provider ran.
 /// </summary>
 public interface ISummaryProvider
 {
-    Task<string> SummarizeAsync(string transcript, CancellationToken cancellationToken = default);
+    Task<SummaryResult> SummarizeAsync(
+        string transcript,
+        string title,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default);
 }

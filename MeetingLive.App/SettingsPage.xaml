@@ -7,8 +7,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:models="using:MeetingLive.Core.Models"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:CommunityToolkit.WinUI"
+    xmlns:icons="using:MeetingLive_App.Controls"
     mc:Ignorable="d">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -71,16 +73,59 @@
             <StackPanel Spacing="4">
                 <TextBlock Text="Summary provider" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <controls:SettingsCard Header="Choose where summaries are generated"
-                                        Description="Only the local, on-device engine is available today, running for free and completely offline."
+                                        Description="Local runs entirely on this PC for free. Claude Code and Codex use an already-installed, already-authenticated CLI."
                                         ContentAlignment="Left">
                     <StackPanel Spacing="8">
-                        <RadioButtons SelectedIndex="0" AutomationProperties.AutomationId="RadioSummaryProvider">
-                            <RadioButton Content="Local (on this device)"
-                                         AutomationProperties.AutomationId="RadioProviderLocal" />
-                            <RadioButton Content="Cloud (API key) — coming soon" IsEnabled="False"
-                                         AutomationProperties.AutomationId="RadioProviderCloud" />
+                        <RadioButtons AutomationProperties.AutomationId="RadioSummaryProvider">
+                            <RadioButton IsChecked="{x:Bind ViewModel.IsLocalSelected, Mode=OneWay}"
+                                         Checked="ProviderRadioButton_Checked" Tag="Local"
+                                         AutomationProperties.AutomationId="RadioProviderLocal">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Width="16" Height="16" FontSize="16" Glyph="&#xE950;" />
+                                    <TextBlock Text="Local (on this device)" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton IsChecked="{x:Bind ViewModel.IsClaudeCodeSelected, Mode=OneWay}"
+                                         Checked="ProviderRadioButton_Checked" Tag="ClaudeCode"
+                                         AutomationProperties.AutomationId="RadioProviderClaudeCode">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:ClaudeCodeIcon Width="16" Height="16" />
+                                    <TextBlock Text="Claude Code CLI" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton IsChecked="{x:Bind ViewModel.IsCodexSelected, Mode=OneWay}"
+                                         Checked="ProviderRadioButton_Checked" Tag="Codex"
+                                         AutomationProperties.AutomationId="RadioProviderCodex">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:CodexIcon Width="16" Height="16" />
+                                    <TextBlock Text="Codex CLI" />
+                                </StackPanel>
+                            </RadioButton>
                         </RadioButtons>
+                        <TextBlock Text="{x:Bind ViewModel.CliProviderStatusText, Mode=OneWay}"
+                                   Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.ShowCliProviderStatus), Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                                   AutomationProperties.AutomationId="TxtCliProviderStatus" />
                     </StackPanel>
+                </controls:SettingsCard>
+            </StackPanel>
+
+            <!-- Meeting language -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Meeting language" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard Header="Transcription language"
+                                        Description="Auto-detect only samples the first ~30s of audio and can lock in the wrong language. Pin it if your meetings are consistently in one language."
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE775;}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                              SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=OneWay}"
+                              SelectionChanged="LanguageComboBox_SelectionChanged"
+                              AutomationProperties.AutomationId="ComboMeetingLanguage">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:TranscriptionLanguageOption">
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </controls:SettingsCard>
             </StackPanel>
 

@@ -14,7 +14,11 @@ public sealed partial class SummaryPage : Page
     public SummaryPage()
     {
         InitializeComponent();
-        Loaded += (_, _) => ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+        Loaded += (_, _) =>
+        {
+            ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+            ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
+        };
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
