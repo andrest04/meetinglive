@@ -29,8 +29,15 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         foreach (var path in Directory.EnumerateFiles(_meetingsDirectory, "*.md"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var markdown = await File.ReadAllTextAsync(path, cancellationToken);
-            records.Add(Parse(path, markdown));
+            try
+            {
+                var markdown = await File.ReadAllTextAsync(path, cancellationToken);
+                records.Add(Parse(path, markdown));
+            }
+            catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+            {
+                // One corrupt or unreadable file must not hide the rest of History.
+            }
         }
 
         return records;
@@ -165,7 +172,8 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
     }
 
     /// <summary>Finds the exact, case-sensitive <paramref name="header"/> line and
-    /// returns everything up to (but not including) the next "## " header, or null
+    /// returns everything up to (but not including) the next meeting section header
+    /// (<c>## Transcript</c> / <c>## Summary</c> / <c>## Action Items</c>), or null
     /// if the header isn't present at all.</summary>
     private static string? ExtractSection(string[] lines, int bodyStart, string header)
     {
@@ -185,7 +193,9 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         var end = lines.Length;
         for (var j = start; j < lines.Length; j++)
         {
-            if (lines[j].StartsWith("## ", StringComparison.Ordinal))
+            // Only the three meeting section headers bound a section. LLM summaries
+            // routinely contain `## Decisions` / `## Risks` which must stay in Summary.
+            if (lines[j] != header && IsMeetingSectionHeader(lines[j]))
             {
                 end = j;
                 break;
@@ -195,4 +205,7 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         var content = string.Join('\n', lines[start..end]).Trim();
         return content.Length == 0 ? null : content;
     }
+
+    private static bool IsMeetingSectionHeader(string line) =>
+        line is TranscriptHeader or SummaryHeader or ActionItemsHeader;
 }

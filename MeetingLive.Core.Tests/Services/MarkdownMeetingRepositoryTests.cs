@@ -59,6 +59,43 @@ public class MarkdownMeetingRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAsync_WhenSummaryContainsMarkdownH2_RoundtripsFullSummary()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var summary = "### Notes\nHello\n\n## Decisions\nShip it\n\n## Risks\nNone";
+        var record = CreateRecord(id, AudioPath(id));
+        record.Summary = summary;
+        record.ActionItems =
+        [
+            new ActionItem { Text = "Follow up", IsDone = false },
+        ];
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(summary, loaded.Summary);
+        Assert.Single(loaded.ActionItems);
+        Assert.Equal("Follow up", loaded.ActionItems[0].Text);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WhenOneFileIsCorrupt_ReturnsTheReadableMeetings()
+    {
+        var goodId = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        await repo.SaveAsync(CreateRecord(goodId, AudioPath(goodId)));
+        Directory.CreateDirectory(_tempDirectory);
+        await File.WriteAllTextAsync(Path.Combine(_tempDirectory, "corrupt.md"), "not a meeting");
+
+        var records = await repo.GetAllAsync();
+
+        Assert.Single(records);
+        Assert.Equal(goodId, records[0].Id);
+    }
+
+    [Fact]
     public async Task DeleteAsync_DoesNotRewriteSiblingMeetings()
     {
         var keptId = Guid.NewGuid();
