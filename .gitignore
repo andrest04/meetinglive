@@ -35,3 +35,6 @@ Thumbs.db
 
 ## Agent skill index (regenerated locally; SKILL.md files under .agents/skills are the source of truth)
 .atl/
+
+## CodeGraph local index (per-machine SQLite; not source)
+.codegraph/
