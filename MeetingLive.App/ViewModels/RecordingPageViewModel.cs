@@ -7,19 +7,21 @@ using MeetingLive_App.Services;
 namespace MeetingLive_App.ViewModels;
 
 /// <summary>
-/// Drives the record/stop flow: captures mic + system audio, then runs
-/// transcription and (optionally) summarization in the background, marshaling
-/// UI updates back through <see cref="App.DispatcherQueue"/>.
+/// Drives the record/stop flow: gates on the Nemotron engine, captures mic + system audio,
+/// streams live ASR when enabled, then (if needed) offline-recognizes the WAV and summarizes.
 /// </summary>
 public partial class RecordingPageViewModel : ObservableObject
 {
     private readonly IAudioCaptureService _audioCapture = AppServices.AudioCapture;
     private readonly ITranscriptionService _transcription = AppServices.Transcription;
+    private readonly ILiveTranscriptionService _liveTranscription = AppServices.LiveTranscription;
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
 
     private Guid _currentMeetingId;
     private DateTimeOffset _recordedAt;
     private string? _currentAudioPath;
+    private string? _streamingTranscript;
+    private bool _liveSessionActive;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -35,6 +37,11 @@ public partial class RecordingPageViewModel : ObservableObject
 
     [ObservableProperty]
     private MeetingRecord? _lastMeeting;
+
+    /// <summary>Live streaming transcript shown on the Record page. This is the real transcript,
+    /// not a preview — Stop finishes the stream and that text is saved unless it is empty.</summary>
+    [ObservableProperty]
+    private string _liveTranscriptText = string.Empty;
 
     /// <summary>
     /// Supplied by the page (needs a XamlRoot for the setup dialog): resolves,
@@ -60,36 +67,83 @@ public partial class RecordingPageViewModel : ObservableObject
     /// </summary>
     public Func<Task<(SummaryProviderKind Kind, string? LocalModelPath)?>>? EnsureSummaryEngineAsync { get; set; }
 
+    /// <summary>
+    /// Supplied by the page (needs a XamlRoot): downloads the Nemotron runtime + GGUF when
+    /// missing. Returns false if the user cancelled — Record must not start.
+    /// </summary>
+    public Func<Task<bool>>? EnsureTranscriptionEngineAsync { get; set; }
+
     public bool HasLastMeeting => LastMeeting is not null;
 
     public bool HasSummary => LastMeeting?.Summary is not null;
 
+    public RecordingPageViewModel()
+    {
+        _liveTranscription.TranscriptUpdated += OnLiveTranscriptUpdated;
+    }
+
+    private void OnLiveTranscriptUpdated(object? sender, string transcript)
+    {
+        App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = transcript);
+    }
+
     [RelayCommand(CanExecute = nameof(CanToggleRecording))]
-    private void ToggleRecording()
+    private async Task ToggleRecordingAsync()
     {
         if (IsRecording)
             StopRecording();
         else
-            StartRecording();
+            await StartRecordingAsync();
     }
 
     private bool CanToggleRecording() => !IsProcessing;
 
-    private void StartRecording()
+    private async Task StartRecordingAsync()
     {
+        if (EnsureTranscriptionEngineAsync is not null)
+        {
+            StatusText = "Preparing transcription engine...";
+            var ready = await EnsureTranscriptionEngineAsync();
+            if (!ready)
+            {
+                StatusText = "Ready to record.";
+                return;
+            }
+        }
+
         _currentMeetingId = Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;
         AppPaths.EnsureDirectoriesExist();
         _currentAudioPath = Path.Combine(AppPaths.RecordingsDirectory, $"{_currentMeetingId}.wav");
 
+        LiveTranscriptText = string.Empty;
+        _streamingTranscript = null;
+        _liveSessionActive = false;
+
         try
         {
-            _audioCapture.Start(_currentAudioPath);
+            var settings = await AppServices.Settings.LoadAsync();
+            var language = settings.ResolveTranscriptionLanguage();
+
+            if (settings.LiveTranscriptionEnabled)
+            {
+                StatusText = "Loading transcription model...";
+                await Task.Run(() => _liveTranscription.Start(language));
+                _liveSessionActive = true;
+            }
+
+            _audioCapture.Start(_currentAudioPath, settings.SelectedMicrophoneDeviceId);
             IsRecording = true;
             StatusText = "Recording... mic + system audio.";
         }
         catch (Exception ex)
         {
+            if (_liveSessionActive)
+            {
+                _liveTranscription.Stop();
+                _liveSessionActive = false;
+            }
+
             StatusText = $"Error: could not start recording ({ex.Message}).";
         }
     }
@@ -105,6 +159,12 @@ public partial class RecordingPageViewModel : ObservableObject
             StatusText = $"Error stopping the recording: {ex.Message}";
         }
 
+        if (_liveSessionActive)
+        {
+            _streamingTranscript = _liveTranscription.Stop();
+            _liveSessionActive = false;
+        }
+
         IsRecording = false;
         _ = ProcessRecordingAsync();
     }
@@ -116,15 +176,24 @@ public partial class RecordingPageViewModel : ObservableObject
 
         IsProcessing = true;
         ToggleRecordingCommand.NotifyCanExecuteChanged();
-        StatusText = "Transcribing audio...";
 
         try
         {
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
-            var transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
 
-            App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcript ready. Preparing summary...");
+            string transcript;
+            if (!string.IsNullOrWhiteSpace(_streamingTranscript))
+            {
+                transcript = _streamingTranscript;
+                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcript ready. Preparing summary...");
+            }
+            else
+            {
+                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcribing audio...");
+                transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
+                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcript ready. Preparing summary...");
+            }
 
             string? summary = null;
             IReadOnlyList<ActionItem> actionItems = [];

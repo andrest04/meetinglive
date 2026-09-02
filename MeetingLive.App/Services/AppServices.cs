@@ -17,11 +17,25 @@ public static class AppServices
 
     public static IAudioCaptureService AudioCapture { get; } = new AudioCaptureService();
 
-    public static ITranscriptionService Transcription { get; } = new TranscriptionService(AppPaths.ModelsDirectory);
+    public static IMicrophoneDeviceService Microphones { get; } = new MicrophoneDeviceService();
 
-    public static ILocalLlmModelManager LocalLlmModels { get; } = new LocalLlmModelManager(LazyModelDownloadHttpClient.Value);
+    public static IMicrophoneLevelMeterService MicrophoneLevelMeter { get; } = new MicrophoneLevelMeterService();
+
+    public static INemotronModelManager NemotronModels { get; } = new NemotronModelManager(LazyModelDownloadHttpClient.Value);
+
+    public static INemoSpeechRuntimeManager NemoSpeechRuntime { get; } = new NemoSpeechRuntimeManager(LazyModelDownloadHttpClient.Value);
+
+    public static INemoSpeechAsrEngine NemoSpeechEngine { get; } = new NativeNemoSpeechAsrEngine();
 
     public static IHardwareDetectionService HardwareDetection { get; } = new HardwareDetectionService();
+
+    public static ITranscriptionService Transcription { get; } = new TranscriptionService(
+        NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
+
+    public static ILiveTranscriptionService LiveTranscription { get; } = new LiveTranscriptionService(
+        AudioCapture, NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
+
+    public static ILocalLlmModelManager LocalLlmModels { get; } = new LocalLlmModelManager(LazyModelDownloadHttpClient.Value);
 
     public static IMeetingRepository Meetings { get; } = new MarkdownMeetingRepository();
 

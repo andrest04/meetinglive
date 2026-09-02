@@ -2,8 +2,8 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Central place for the on-disk locations MeetingLive uses for recordings,
-/// Whisper models, and JSON persistence. Everything lives under
-/// %LOCALAPPDATA%\MeetingLive so the app needs no installer-level setup.
+/// transcription/summary models, the NeMo-Speech runtime, and persistence.
+/// Everything lives under %LOCALAPPDATA%\MeetingLive so the app needs no installer-level setup.
 /// </summary>
 public static class AppPaths
 {
@@ -12,9 +12,16 @@ public static class AppPaths
 
     public static string RecordingsDirectory { get; } = Path.Combine(RootDirectory, "Recordings");
 
+    /// <summary>Legacy Whisper GGML cache. Kept so leftover files from older builds are still findable.</summary>
     public static string ModelsDirectory { get; } = Path.Combine(RootDirectory, "Models");
 
-    /// <summary>Where downloaded GGUF summary models are cached, kept separate from the Whisper models.</summary>
+    /// <summary>Where the Nemotron 3.5 ASR GGUF is cached.</summary>
+    public static string TranscriptionModelsDirectory { get; } = Path.Combine(RootDirectory, "TranscriptionModels");
+
+    /// <summary>Where extracted NeMo-Speech.cpp CPU/CUDA runtimes live (<c>cpu\</c> and <c>cuda\</c>).</summary>
+    public static string NemoSpeechRuntimeDirectory { get; } = Path.Combine(RootDirectory, "NemoSpeech");
+
+    /// <summary>Where downloaded GGUF summary models are cached, kept separate from transcription models.</summary>
     public static string SummaryModelsDirectory { get; } = Path.Combine(RootDirectory, "SummaryModels");
 
     /// <summary>Legacy single-file JSON store. Superseded by <see cref="MeetingsDirectory"/>;
@@ -30,6 +37,8 @@ public static class AppPaths
     {
         Directory.CreateDirectory(RecordingsDirectory);
         Directory.CreateDirectory(ModelsDirectory);
+        Directory.CreateDirectory(TranscriptionModelsDirectory);
+        Directory.CreateDirectory(NemoSpeechRuntimeDirectory);
         Directory.CreateDirectory(SummaryModelsDirectory);
         Directory.CreateDirectory(MeetingsDirectory);
     }

@@ -16,6 +16,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="Record meeting" Style="{StaticResource TitleTextBlockStyle}" />
@@ -44,7 +45,24 @@
                      Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                      MaxWidth="520" HorizontalAlignment="Stretch" />
 
-            <StackPanel Grid.Row="4" Spacing="12"
+            <StackPanel Grid.Row="4" Spacing="4"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                <TextBlock Text="Live transcript" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Text="Streaming transcript of this recording. This is the transcript that will be saved when you stop."
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="{ThemeResource ControlCornerRadius}"
+                        Padding="12" MaxWidth="520" HorizontalAlignment="Stretch">
+                    <ScrollViewer Height="140" VerticalScrollBarVisibility="Auto">
+                        <TextBlock Text="{x:Bind ViewModel.LiveTranscriptText, Mode=OneWay}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+
+            <StackPanel Grid.Row="5" Spacing="12"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLastMeeting), Mode=OneWay}">
                 <TextBlock Text="Last processed recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <StackPanel Orientation="Horizontal" Spacing="12">

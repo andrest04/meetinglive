@@ -1,15 +1,13 @@
 namespace MeetingLive.Core.Models;
 
 /// <summary>One entry in the curated meeting-language catalog. <see cref="Code"/> doubles as the
-/// stable identifier persisted in <see cref="AppSettings.TranscriptionLanguage"/> and as the
-/// Whisper language code passed to <c>ITranscriptionService.TranscribeAsync</c>.</summary>
+/// stable identifier persisted in <see cref="AppSettings.TranscriptionLanguage"/> and is mapped
+/// to a Nemotron locale by <c>NemotronLanguageMapper</c> before recognition.</summary>
 public sealed record TranscriptionLanguageOption(string Code, string DisplayName);
 
 /// <summary>
-/// Curated shortlist of common Whisper language codes the user can pin the meeting language
-/// to, instead of relying on Whisper's auto-detection (which only samples the first ~30s of
-/// audio and can misdetect on silence/noise/filler words at the start). Not the full ~99
-/// Whisper language list — just the languages this app's users are most likely to need.
+/// Curated shortlist of meeting-language codes the user can pin instead of auto-detect.
+/// Not an exhaustive locale list — just the languages this app's users are most likely to need.
 /// </summary>
 public static class TranscriptionLanguageCatalog
 {

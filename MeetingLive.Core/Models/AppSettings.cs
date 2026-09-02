@@ -15,7 +15,7 @@ public sealed class AppSettings
     public SummaryProviderKind ResolveSummaryProviderKind() =>
         Enum.TryParse<SummaryProviderKind>(SelectedSummaryProvider, out var kind) ? kind : SummaryProviderKind.Local;
 
-    /// <summary>The Whisper language code (<see cref="TranscriptionLanguageOption.Code"/>) the user
+    /// <summary>The meeting-language code (<see cref="TranscriptionLanguageOption.Code"/>) the user
     /// pinned in Settings, e.g. "en". Null means the default (auto-detect).</summary>
     public string? TranscriptionLanguage { get; set; }
 
@@ -23,4 +23,14 @@ public sealed class AppSettings
     /// (e.g. an older settings file from before this field existed).</summary>
     public string ResolveTranscriptionLanguage() =>
         string.IsNullOrWhiteSpace(TranscriptionLanguage) ? "auto" : TranscriptionLanguage;
+
+    /// <summary>The <see cref="NAudio.CoreAudioApi.MMDevice.ID"/> of the microphone the user picked
+    /// in Settings to record from. Null/empty means "use the OS default input device" — also the
+    /// safe fallback if the previously selected device has been unplugged or no longer exists.</summary>
+    public string? SelectedMicrophoneDeviceId { get; set; }
+
+    /// <summary>Whether live Nemotron streaming transcription runs during recording.
+    /// Defaults to <see langword="true"/>. Turning it off only defers transcription until Stop
+    /// (still Nemotron, over the WAV) — it does not switch engines.</summary>
+    public bool LiveTranscriptionEnabled { get; set; } = true;
 }

@@ -8,6 +8,7 @@
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
     xmlns:models="using:MeetingLive.Core.Models"
+    xmlns:services="using:MeetingLive.Core.Services"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:ui="using:CommunityToolkit.WinUI"
     xmlns:icons="using:MeetingLive_App.Controls"
@@ -110,11 +111,39 @@
                 </controls:SettingsCard>
             </StackPanel>
 
+            <!-- Microphone -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Microphone" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard Header="Recording device"
+                                        Description="Which physical microphone MeetingLive records your voice from. System default follows whatever Windows currently uses."
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE720;}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Microphones}"
+                              SelectedItem="{x:Bind ViewModel.SelectedMicrophone, Mode=OneWay}"
+                              SelectionChanged="MicrophoneComboBox_SelectionChanged"
+                              AutomationProperties.AutomationId="ComboMicrophoneDevice">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="services:MicrophoneDeviceOption">
+                                <TextBlock Text="{x:Bind Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </controls:SettingsCard>
+
+                <StackPanel Spacing="4" Margin="0,4,0,0">
+                    <TextBlock Text="Microphone level" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <ProgressBar Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
+                                 Minimum="0" Maximum="100"
+                                 HorizontalAlignment="Stretch"
+                                 AutomationProperties.AutomationId="ProgressMicrophoneLevel"
+                                 AutomationProperties.Name="Microphone level" />
+                </StackPanel>
+            </StackPanel>
+
             <!-- Meeting language -->
             <StackPanel Spacing="4">
                 <TextBlock Text="Meeting language" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <controls:SettingsCard Header="Transcription language"
-                                        Description="Auto-detect only samples the first ~30s of audio and can lock in the wrong language. Pin it if your meetings are consistently in one language."
+                                        Description="Pin the meeting language so transcription does not have to guess. Auto-detect is fine when meetings mix languages or you are not sure."
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE775;}">
                     <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
                               SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=OneWay}"
@@ -126,6 +155,53 @@
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
+                </controls:SettingsCard>
+            </StackPanel>
+
+            <!-- Transcription engine -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Transcription" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard Header="Nemotron 3.5 ASR Streaming 0.6B"
+                                        Description="~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install."
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE8F1;}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Download"
+                                Command="{x:Bind ViewModel.DownloadTranscriptionEngineCommand}"
+                                Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(ViewModel.IsTranscriptionEngineInstalled), Mode=OneWay}"
+                                IsEnabled="{x:Bind local:SettingsPage.Not(ViewModel.IsTranscriptionDownloading), Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnDownloadTranscriptionEngine" />
+                        <Button Content="Delete"
+                                Command="{x:Bind ViewModel.DeleteTranscriptionEngineCommand}"
+                                Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsTranscriptionEngineInstalled), Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnDeleteTranscriptionEngine" />
+                    </StackPanel>
+                </controls:SettingsCard>
+                <StackPanel Spacing="4"
+                            Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsTranscriptionDownloading), Mode=OneWay}">
+                    <ProgressBar Value="{x:Bind ViewModel.TranscriptionDownloadProgressPercent, Mode=OneWay}"
+                                 Maximum="100"
+                                 HorizontalAlignment="Stretch"
+                                 AutomationProperties.AutomationId="ProgressTranscriptionEngineDownload"
+                                 AutomationProperties.Name="Transcription engine download progress" />
+                    <TextBlock Text="{x:Bind ViewModel.TranscriptionDownloadStatusText, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                               TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="TxtTranscriptionDownloadStatus" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.TranscriptionAccelerationCaption, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7"
+                           AutomationProperties.AutomationId="TxtTranscriptionAcceleration" />
+            </StackPanel>
+
+            <!-- Live transcription -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard Header="Live transcription during recording"
+                                        Description="True streaming with Nemotron 3.5 ASR while you record. Turning this off only defers transcription until you stop — still Nemotron, not a preview."
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE90A;}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsLiveTranscriptionEnabled, Mode=OneWay}"
+                                  Toggled="LiveTranscriptionToggleSwitch_Toggled"
+                                  AutomationProperties.AutomationId="ToggleLiveTranscription" />
                 </controls:SettingsCard>
             </StackPanel>
 

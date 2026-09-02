@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App;
@@ -19,6 +20,7 @@ public sealed partial class SettingsPage : Page
     {
         InitializeComponent();
         Loaded += async (_, _) => await ViewModel.LoadCommand.ExecuteAsync(null);
+        Unloaded += (_, _) => ViewModel.StopLevelMeter();
     }
 
     private void ModelRadioButton_Checked(object sender, RoutedEventArgs e)
@@ -49,6 +51,18 @@ public sealed partial class SettingsPage : Page
     {
         if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })
             ViewModel.SelectLanguageCommand.Execute(option);
+    }
+
+    private void MicrophoneComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: MicrophoneDeviceOption option })
+            ViewModel.SelectMicrophoneCommand.Execute(option);
+    }
+
+    private void LiveTranscriptionToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggleSwitch)
+            ViewModel.ToggleLiveTranscriptionCommand.Execute(toggleSwitch.IsOn);
     }
 
     public static bool Not(bool value) => !value;

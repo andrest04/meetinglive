@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="MeetingLive_App.Dialogs.TranscriptionEngineSetupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Download transcription engine"
+    CloseButtonText="Cancel"
+    DefaultButton="Close">
+
+    <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
+        <TextBlock Text="MeetingLive needs NVIDIA Nemotron 3.5 ASR Streaming (about 0.74 GB) plus a small official NVIDIA runtime. Nothing else is installed — no Hugging Face CLI, no C++ build."
+                   TextWrapping="Wrap"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Opacity="0.7" />
+        <ProgressBar IsIndeterminate="False"
+                     Value="{x:Bind ViewModel.DownloadProgressPercent, Mode=OneWay}"
+                     Maximum="100"
+                     AutomationProperties.AutomationId="ProgressTranscriptionEngineDownload" />
+        <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   AutomationProperties.AutomationId="TxtTranscriptionEngineStatus" />
+        <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                 Severity="Error"
+                 Title="Download failed"
+                 Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
+    </StackPanel>
+</ContentDialog>

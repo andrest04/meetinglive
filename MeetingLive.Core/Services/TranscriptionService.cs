@@ -1,44 +1,48 @@
-using System.Text;
-using Whisper.net;
-using Whisper.net.Ggml;
+using NAudio.Wave;
 
 namespace MeetingLive.Core.Services;
 
-public sealed class TranscriptionService(string modelDirectory, GgmlType modelType = GgmlType.Base) : ITranscriptionService
+/// <summary>
+/// Offline Nemotron 3.5 ASR over a finished 16 kHz mono WAV. Used when live streaming was
+/// disabled or produced no text; never Whisper.
+/// </summary>
+public sealed class TranscriptionService(
+    INemotronModelManager models,
+    INemoSpeechRuntimeManager runtime,
+    INemoSpeechAsrEngine engine,
+    IHardwareDetectionService hardware) : ITranscriptionService
 {
-    public async Task<string> TranscribeAsync(string wavFilePath, string language = "auto", IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    private readonly NemoSpeechRecognizerFactory _factory = new(models, runtime, engine, hardware);
+
+    public Task<string> TranscribeAsync(
+        string wavFilePath,
+        string language = "auto",
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        var modelPath = await EnsureModelDownloadedAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        using var whisperFactory = WhisperFactory.FromPath(modelPath);
-        await using var processor = whisperFactory.CreateBuilder()
-            .WithLanguage(language)
-            .Build();
+        var samples = ReadMonoFloat32(wavFilePath);
+        var locale = NemotronLanguageMapper.ToNemotronLocale(language);
 
-        await using var audioStream = File.OpenRead(wavFilePath);
+        using var recognizer = _factory.Create();
+        var result = recognizer.Recognize(samples, sampleRate: 16000, locale);
+        progress?.Report((int)Math.Max(0, result.AudioProcessedSeconds));
 
-        var transcript = new StringBuilder();
-        await foreach (var segment in processor.ProcessAsync(audioStream, cancellationToken))
-        {
-            transcript.AppendLine($"[{segment.Start:hh\\:mm\\:ss} -> {segment.End:hh\\:mm\\:ss}] {segment.Text}");
-            progress?.Report((int)segment.End.TotalSeconds);
-        }
-
-        return transcript.ToString();
+        var accumulator = new StreamingTranscriptAccumulator();
+        accumulator.Apply(result.IsFinal ? result : result with { IsFinal = true });
+        accumulator.CommitRemainingInterim();
+        return Task.FromResult(accumulator.CommittedText);
     }
 
-    private async Task<string> EnsureModelDownloadedAsync(CancellationToken cancellationToken)
+    private static float[] ReadMonoFloat32(string wavFilePath)
     {
-        Directory.CreateDirectory(modelDirectory);
-        var modelPath = Path.Combine(modelDirectory, $"ggml-{modelType.ToString().ToLowerInvariant()}.bin");
-
-        if (!File.Exists(modelPath))
-        {
-            await using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(modelType, cancellationToken: cancellationToken);
-            await using var fileStream = File.Create(modelPath);
-            await modelStream.CopyToAsync(fileStream, cancellationToken);
-        }
-
-        return modelPath;
+        using var reader = new AudioFileReader(wavFilePath);
+        var sampleCount = (int)(reader.Length / 4);
+        var samples = new float[sampleCount];
+        var read = reader.Read(samples, 0, samples.Length);
+        if (read != samples.Length)
+            Array.Resize(ref samples, read);
+        return samples;
     }
 }

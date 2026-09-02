@@ -19,6 +19,7 @@ public sealed partial class RecordingPage : Page
             ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
             ViewModel.EnsureSummaryEngineAsync = () => SummaryModelSetupDialog.ShowAsync(XamlRoot);
+            ViewModel.EnsureTranscriptionEngineAsync = () => TranscriptionEngineResolver.EnsureReadyAsync(XamlRoot);
         };
     }
 

@@ -7,7 +7,7 @@ namespace MeetingLive.Core.Services;
 /// summarization via LLamaSharp. Not benchmarked live — RAM/quality figures are
 /// community-documented baselines, compared against the detected <see cref="HardwareProfile"/>.
 /// All entries are Q4_K_M quantizations (the standard size/quality default), downloaded
-/// on demand the same way Whisper models are. The 1B Llama entry is hosted on Hugging
+/// on demand the same way the Nemotron ASR GGUF is. The 1B Llama entry is hosted on Hugging
 /// Face by bartowski; the Gemma 4 entries are hosted by unsloth.
 /// </summary>
 public static class ModelCatalog

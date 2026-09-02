@@ -1,13 +1,16 @@
+using System.Buffers.Binary;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
+using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Captures microphone + system-audio (WASAPI loopback) simultaneously and mixes
-/// them into a single 16kHz mono PCM WAV — the format Whisper expects — so no
+/// them into a single 16kHz mono PCM WAV — the format Nemotron ASR expects — so no
 /// voice in the meeting (neither the user's nor the other participants') is lost.
+/// The same mixed stream is optionally raised as float32 frames for live streaming ASR.
 /// </summary>
 public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 {
@@ -21,12 +24,14 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     public bool IsRecording { get; private set; }
 
-    public void Start(string outputWavPath)
+    public event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
+
+    public void Start(string outputWavPath, string? microphoneDeviceId = null)
     {
         if (IsRecording)
             throw new InvalidOperationException("A recording is already in progress.");
 
-        _micCapture = new WasapiCapture();
+        _micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(microphoneDeviceId));
         _systemCapture = new WasapiLoopbackCapture();
 
         var micBuffer = CreateBuffer(_micCapture.WaveFormat);
@@ -87,7 +92,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             : new WdlResamplingSampleProvider(sample, MixFormat.SampleRate);
     }
 
-    private static void PumpLoop(IWaveProvider source, WaveFileWriter writer, CancellationToken cancellationToken)
+    private void PumpLoop(IWaveProvider source, WaveFileWriter writer, CancellationToken cancellationToken)
     {
         // MixingSampleProvider.Read() always fills the requested count (silence when a
         // source buffer is empty) — it never returns 0 — so this loop must pace itself
@@ -105,6 +110,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             {
                 writer.Write(buffer, 0, bytesRead);
                 bytesWritten += bytesRead;
+                RaisePcmFrameIfNeeded(buffer, bytesRead, source.WaveFormat.SampleRate);
             }
 
             var expectedElapsedMs = bytesWritten * 1000.0 / source.WaveFormat.AverageBytesPerSecond;
@@ -112,6 +118,23 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             if (sleepMs > 0)
                 Thread.Sleep((int)sleepMs);
         }
+    }
+
+    private void RaisePcmFrameIfNeeded(byte[] pcm16Le, int bytesRead, int sampleRate)
+    {
+        var handler = PcmFrameAvailable;
+        if (handler is null || bytesRead < 2)
+            return;
+
+        var sampleCount = bytesRead / 2;
+        var samples = new float[sampleCount];
+        for (var i = 0; i < sampleCount; i++)
+        {
+            var pcm = BinaryPrimitives.ReadInt16LittleEndian(pcm16Le.AsSpan(i * 2, 2));
+            samples[i] = pcm / 32768f;
+        }
+
+        handler(this, new PcmFrameEventArgs(samples, sampleRate));
     }
 
     public void Dispose()

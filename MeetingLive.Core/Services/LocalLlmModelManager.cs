@@ -5,7 +5,7 @@ namespace MeetingLive.Core.Services;
 /// <summary>
 /// Downloads GGUF models straight from Hugging Face into a models directory (by default
 /// <see cref="AppPaths.SummaryModelsDirectory"/>, overridable for tests), mirroring the
-/// on-demand download/cache pattern <see cref="TranscriptionService"/> uses for Whisper models.
+/// on-demand download/cache pattern used for the Nemotron ASR GGUF.
 /// Downloads land in a ".part" file first and are only moved into place once complete, so a cancelled or
 /// failed download never leaves a corrupt file that <see cref="IsModelDownloaded"/> would report as ready.
 /// </summary>
