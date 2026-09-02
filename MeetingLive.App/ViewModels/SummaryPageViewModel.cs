@@ -70,7 +70,7 @@ public partial class SummaryPageViewModel : ObservableObject
                 ? await _meetings.GetByIdAsync(id)
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
-            Title = _record?.Title ?? "No summaries yet";
+            Title = _record?.Title ?? AppStrings.Get("NoSummariesYet");
             Summary = _record?.Summary ?? string.Empty;
             HasSummary = !string.IsNullOrWhiteSpace(Summary);
             CanGenerateSummary = _record is not null && !string.IsNullOrWhiteSpace(_record.Transcript) && !HasSummary;
@@ -91,7 +91,7 @@ public partial class SummaryPageViewModel : ObservableObject
             return;
 
         IsGenerating = true;
-        StatusText = "Generating summary...";
+        StatusText = AppStrings.Get("Status_GeneratingSummary");
         try
         {
             var settings = await AppServices.Settings.LoadAsync();
@@ -99,7 +99,7 @@ public partial class SummaryPageViewModel : ObservableObject
             var provider = await ResolveSummaryProviderAsync(providerKind);
             if (provider is null)
             {
-                StatusText = "Setup cancelled.";
+                StatusText = AppStrings.Get("Status_SetupCancelled");
                 return;
             }
 
@@ -114,11 +114,11 @@ public partial class SummaryPageViewModel : ObservableObject
             LoadActionItems();
             HasSummary = true;
             CanGenerateSummary = false;
-            StatusText = "Summary generated.";
+            StatusText = AppStrings.Get("Status_SummaryGenerated");
         }
         catch (Exception ex)
         {
-            StatusText = $"Error generating the summary: {ex.Message}";
+            StatusText = AppStrings.Format("Error_GenerateSummary", ex.Message);
         }
         finally
         {

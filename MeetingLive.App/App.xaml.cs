@@ -77,10 +77,9 @@ public partial class App : Application
     {
         var dialog = new ContentDialog
         {
-            Title = "Meeting history migration failed",
-            Content = $"MeetingLive could not migrate your existing meeting history to the new format. " +
-                      $"Your original data was left untouched.\n\n{ex.Message}",
-            CloseButtonText = "OK",
+            Title = AppStrings.Get("MigrationFailed_Title"),
+            Content = AppStrings.Format("MigrationFailed_Content", ex.Message),
+            CloseButtonText = AppStrings.Get("Dialog_OK"),
             XamlRoot = Window.Content.XamlRoot,
         };
         await dialog.ShowAsync();

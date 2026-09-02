@@ -6,11 +6,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App.Dialogs"
+    xmlns:app="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
     xmlns:controls="using:MeetingLive_App.Controls"
     mc:Ignorable="d"
-    Title="Set up summary generation"
-    CloseButtonText="Cancel"
+    x:Uid="Setup_Title"
     DefaultButton="Close">
 
     <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled">
@@ -19,8 +19,8 @@
             <!-- Choosing engine -->
             <StackPanel Spacing="12"
                         Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsChoosingEngine), Mode=OneWay}">
-                <TextBlock Text="Choose how to generate summaries" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock Text="Pick the engine MeetingLive should use to turn a transcript into a summary and action items."
+                <TextBlock x:Uid="Setup_ChooseEngine" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="Setup_ChooseEngineHint"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
 
                 <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
@@ -33,8 +33,8 @@
                         </Grid.ColumnDefinitions>
                         <controls:ClaudeCodeIcon Grid.Column="0" Width="24" Height="24" />
                         <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="Claude Code" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="Uses the Claude Code CLI already installed on this PC." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                            <TextBlock x:Uid="Setup_ClaudeName" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Uid="Setup_ClaudeHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
                 </Button>
@@ -48,8 +48,8 @@
                         </Grid.ColumnDefinitions>
                         <controls:CodexIcon Grid.Column="0" Width="24" Height="24" />
                         <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="Codex" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="Uses the Codex CLI already installed on this PC." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                            <TextBlock x:Uid="Setup_CodexName" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Uid="Setup_CodexHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
                 </Button>
@@ -63,8 +63,8 @@
                         </Grid.ColumnDefinitions>
                         <FontIcon Grid.Column="0" Width="24" Height="24" FontSize="20" Glyph="&#xE950;" />
                         <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="Local models" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                            <TextBlock Text="Runs entirely on this PC — no account, no server, no cost." Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                            <TextBlock x:Uid="Setup_LocalName" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Uid="Setup_LocalHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
                 </Button>
@@ -75,9 +75,9 @@
                         Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsCheckingCli), Mode=OneWay}">
                 <TextBlock Text="{x:Bind ViewModel.CliCheckStatusText, Mode=OneWay}" TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Check again" Command="{x:Bind ViewModel.RecheckCliCommand}"
+                    <Button x:Uid="Setup_CheckAgain" Command="{x:Bind ViewModel.RecheckCliCommand}"
                             Style="{StaticResource AccentButtonStyle}" AutomationProperties.AutomationId="BtnRecheckCli" />
-                    <Button Content="Back" Command="{x:Bind ViewModel.BackToEngineChoiceCommand}"
+                    <Button x:Uid="Setup_Back" Command="{x:Bind ViewModel.BackToEngineChoiceCommand}"
                             AutomationProperties.AutomationId="BtnBackToEngineChoice" />
                 </StackPanel>
             </StackPanel>
@@ -86,14 +86,14 @@
             <StackPanel Orientation="Horizontal" Spacing="12"
                         Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsDetectingHardware), Mode=OneWay}">
                 <ProgressRing IsActive="True" Width="20" Height="20" />
-                <TextBlock Text="Detecting hardware..." VerticalAlignment="Center" />
+                <TextBlock x:Uid="Setup_DetectingHardware" VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- Selecting model -->
             <StackPanel Spacing="12"
                         Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsSelectingModel), Mode=OneWay}">
-                <TextBlock Text="Choose a model to generate summaries" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock Text="Runs entirely on this PC — no account, no server, no cost. Larger models are slower but produce better summaries."
+                <TextBlock x:Uid="Setup_ChooseModel" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="Setup_ChooseModelHint"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                 <TextBlock Text="{x:Bind ViewModel.HardwareSummary, Mode=OneWay}"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
@@ -110,11 +110,11 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="2">
                                     <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="{x:Bind Info.UseCase}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                                     <TextBlock Text="{x:Bind Info.UseCase, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                                     <TextBlock Text="{x:Bind SpeedQualityLabel}" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                                 </StackPanel>
                                 <Border Grid.Column="1" CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,4" VerticalAlignment="Top"
-                                        Background="{x:Bind RatingBrush}">
+                                        Background="{x:Bind app:FitRatingPresentation.Brush(Rating), Mode=OneWay}">
                                     <TextBlock Text="{x:Bind RatingLabel}" Style="{StaticResource CaptionTextBlockStyle}"
                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                 </Border>
@@ -122,7 +122,7 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-                <Button Content="Download and use this model" Command="{x:Bind ViewModel.DownloadSelectedModelCommand}"
+                <Button x:Uid="Setup_DownloadModel" Command="{x:Bind ViewModel.DownloadSelectedModelCommand}"
                         IsEnabled="{x:Bind local:SummaryModelSetupDialog.IsNotNull(ViewModel.SelectedModel), Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Left"
                         AutomationProperties.AutomationId="BtnDownloadModel" />
@@ -140,7 +140,7 @@
             <!-- Completed -->
             <StackPanel Spacing="12"
                         Visibility="{x:Bind local:SummaryModelSetupDialog.BoolToVisibility(ViewModel.IsCompleted), Mode=OneWay}">
-                <InfoBar IsOpen="True" Severity="Success" Title="Done" Message="The model is ready to use." />
+                <InfoBar x:Uid="Setup_Done" IsOpen="True" Severity="Success" />
             </StackPanel>
 
         </StackPanel>

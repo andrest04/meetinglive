@@ -15,17 +15,17 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="History" Style="{StaticResource TitleTextBlockStyle}" />
+        <TextBlock Grid.Row="0" x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
         <Grid Grid.Row="1">
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-            <TextBlock Text="No meetings recorded yet."
+            <TextBlock x:Uid="HistoryPage_Empty"
                        Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}"
                        Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-            <ListView ItemsSource="{x:Bind ViewModel.Meetings}"
+            <ListView ItemsSource="{x:Bind ViewModel.Meetings, Mode=OneWay}"
                       Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.HasMeetings), Mode=OneWay}"
                       SelectionMode="None"
                       AutomationProperties.AutomationId="ListMeetingHistory">
@@ -47,9 +47,9 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Content="Transcript" Click="ViewTranscript_Click" Tag="{x:Bind Id}"
+                                <Button x:Uid="HistoryPage_Transcript" Click="ViewTranscript_Click" Tag="{x:Bind Id}"
                                         AutomationProperties.AutomationId="BtnHistoryTranscript" />
-                                <Button Content="Summary" Click="ViewSummary_Click" Tag="{x:Bind Id}"
+                                <Button x:Uid="HistoryPage_Summary" Click="ViewSummary_Click" Tag="{x:Bind Id}"
                                         AutomationProperties.AutomationId="BtnHistorySummary" />
                             </StackPanel>
                         </Grid>

@@ -14,13 +14,13 @@
                      IsSettingsVisible="True"
                      SelectionChanged="NavView_SelectionChanged">
         <NavigationView.MenuItems>
-            <NavigationViewItem Icon="Microphone" Content="Record" Tag="Recording"
+            <NavigationViewItem x:Uid="Nav_Record" Icon="Microphone" Tag="Recording"
                                  AutomationProperties.AutomationId="NavItemRecording" />
-            <NavigationViewItem Icon="Document" Content="Transcript" Tag="Transcript"
+            <NavigationViewItem x:Uid="Nav_Transcript" Icon="Document" Tag="Transcript"
                                  AutomationProperties.AutomationId="NavItemTranscript" />
-            <NavigationViewItem Icon="List" Content="Summary" Tag="Summary"
+            <NavigationViewItem x:Uid="Nav_Summary" Icon="List" Tag="Summary"
                                  AutomationProperties.AutomationId="NavItemSummary" />
-            <NavigationViewItem Content="History" Tag="History"
+            <NavigationViewItem x:Uid="Nav_History" Tag="History"
                                  AutomationProperties.AutomationId="NavItemHistory">
                 <NavigationViewItem.Icon>
                     <FontIcon Glyph="&#xE81C;" />

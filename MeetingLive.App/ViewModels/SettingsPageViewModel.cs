@@ -58,7 +58,8 @@ public partial class SettingsPageViewModel : ObservableObject
 
     /// <summary>Sentinel entry meaning "use the OS default input device" — its empty
     /// <see cref="MicrophoneDeviceOption.Id"/> is never a real WASAPI device id.</summary>
-    private static readonly MicrophoneDeviceOption DefaultMicrophoneOption = new(string.Empty, "System default");
+    private static MicrophoneDeviceOption DefaultMicrophoneOption =>
+        new(string.Empty, AppStrings.Get("Microphone_SystemDefault"));
 
     public SettingsPageViewModel()
     {
@@ -225,7 +226,7 @@ public partial class SettingsPageViewModel : ObservableObject
     {
         IsTranscriptionDownloading = true;
         TranscriptionDownloadProgressPercent = 0;
-        TranscriptionDownloadStatusText = "Starting download...";
+        TranscriptionDownloadStatusText = AppStrings.Get("Status_StartingDownload");
         try
         {
             var hardware = AppServices.HardwareDetection.DetectHardware();
@@ -246,7 +247,7 @@ public partial class SettingsPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            TranscriptionAccelerationCaption = $"Download failed: {ex.Message}";
+            TranscriptionAccelerationCaption = AppStrings.Format("Error_DownloadFailedCaption", ex.Message);
         }
         finally
         {
@@ -311,7 +312,7 @@ public partial class SettingsPageViewModel : ObservableObject
         CliProviderStatusText = value == SummaryProviderKind.Local
             ? string.Empty
             : CliProviderResolver.IsOnPath(value)
-                ? "Detected on PATH."
-                : "Not found on PATH — install it before recording.";
+                ? AppStrings.Get("Status_CliOnPath")
+                : AppStrings.Get("Status_CliMissing");
     }
 }

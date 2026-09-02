@@ -39,7 +39,7 @@ public partial class TranscriptPageViewModel : ObservableObject
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
             _recordId = record?.Id;
-            Title = record?.Title ?? "No transcripts yet";
+            Title = record?.Title ?? AppStrings.Get("NoTranscriptsYet");
             Transcript = record?.Transcript ?? string.Empty;
             HasContent = !string.IsNullOrWhiteSpace(Transcript);
         }

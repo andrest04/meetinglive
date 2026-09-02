@@ -41,8 +41,11 @@ public sealed partial class RecordingPage : Page
 
     public static string RecordGlyph(bool isRecording) => isRecording ? "" : "";
 
-    public static string RecordLabel(bool isRecording) => isRecording ? "Stop" : "Record";
+    public static string RecordLabel(bool isRecording) =>
+        isRecording ? AppStrings.Get("Record_Stop") : AppStrings.Get("Record_Record");
 
     public static InfoBarSeverity StatusSeverity(string statusText) =>
-        statusText.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ? InfoBarSeverity.Error : InfoBarSeverity.Informational;
+        statusText.StartsWith(AppStrings.Get("ErrorPrefix"), StringComparison.OrdinalIgnoreCase)
+            ? InfoBarSeverity.Error
+            : InfoBarSeverity.Informational;
 }

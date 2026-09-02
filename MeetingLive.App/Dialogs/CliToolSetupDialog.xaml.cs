@@ -21,10 +21,11 @@ public sealed partial class CliToolSetupDialog : ContentDialog
         XamlRoot = xamlRoot;
 
         var (name, installHint) = DescribeFor(kind);
-        Title = $"Set up the {name} CLI";
-        InstructionsText.Text =
-            $"MeetingLive couldn't find \"{CliProviderResolver.ExecutableNameFor(kind)}\" on your PATH. {installHint} " +
-            "Once it's installed and signed in, select Retry.";
+        Title = AppStrings.Format("Cli_SetupTitle", name);
+        InstructionsText.Text = AppStrings.Format(
+            "Cli_NotFound",
+            CliProviderResolver.ExecutableNameFor(kind),
+            installHint);
 
         PrimaryButtonClick += OnPrimaryButtonClick;
     }
@@ -43,17 +44,19 @@ public sealed partial class CliToolSetupDialog : ContentDialog
             return;
 
         args.Cancel = true;
-        StatusInfoBar.Message = $"Still not found on PATH as \"{CliProviderResolver.ExecutableNameFor(_kind)}\". Install it, then try again.";
+        StatusInfoBar.Message = AppStrings.Format(
+            "Cli_StillMissing",
+            CliProviderResolver.ExecutableNameFor(_kind));
     }
 
     private static (string Name, string InstallHint) DescribeFor(SummaryProviderKind kind) => kind switch
     {
         SummaryProviderKind.ClaudeCode => (
-            "Claude Code",
-            "Install it from https://claude.com/claude-code, then run \"claude\" once from a terminal to sign in."),
+            AppStrings.Get("Cli_ClaudeName"),
+            AppStrings.Get("Cli_ClaudeHint")),
         SummaryProviderKind.Codex => (
-            "Codex",
-            "Install it with \"npm install -g @openai/codex\" (see https://github.com/openai/codex), then run \"codex\" once from a terminal to sign in."),
+            AppStrings.Get("Cli_CodexName"),
+            AppStrings.Get("Cli_CodexHint")),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only ClaudeCode and Codex are CLI-backed providers."),
     };
 }

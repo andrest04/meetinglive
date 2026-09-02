@@ -18,7 +18,7 @@ public sealed partial class MainPage : Page
         // The app is English-only, so force the label explicitly.
         if (NavView.SettingsItem is NavigationViewItem settingsItem)
         {
-            settingsItem.Content = "Settings";
+            settingsItem.Content = AppStrings.Get("Nav_Settings");
             AutomationProperties.SetAutomationId(settingsItem, "NavItemSettings");
         }
 

@@ -30,10 +30,10 @@ public partial class RecordingPageViewModel : ObservableObject
     private bool _isProcessing;
 
     [ObservableProperty]
-    private string _statusText = "Ready to record.";
+    private string _statusText = AppStrings.Get("Status_ReadyToRecord");
 
     [ObservableProperty]
-    private string _meetingTitle = $"Meeting {DateTime.Now:d MMM, HH:mm}";
+    private string _meetingTitle = AppStrings.MeetingTitle(DateTime.Now);
 
     [ObservableProperty]
     private MeetingRecord? _lastMeeting;
@@ -91,7 +91,7 @@ public partial class RecordingPageViewModel : ObservableObject
     private async Task ToggleRecordingAsync()
     {
         if (IsRecording)
-            StopRecording();
+            await StopRecordingAsync();
         else
             await StartRecordingAsync();
     }
@@ -102,11 +102,11 @@ public partial class RecordingPageViewModel : ObservableObject
     {
         if (EnsureTranscriptionEngineAsync is not null)
         {
-            StatusText = "Preparing transcription engine...";
+            StatusText = AppStrings.Get("Status_PreparingEngine");
             var ready = await EnsureTranscriptionEngineAsync();
             if (!ready)
             {
-                StatusText = "Ready to record.";
+                StatusText = AppStrings.Get("Status_ReadyToRecord");
                 return;
             }
         }
@@ -127,14 +127,14 @@ public partial class RecordingPageViewModel : ObservableObject
 
             if (settings.LiveTranscriptionEnabled)
             {
-                StatusText = "Loading transcription model...";
+                StatusText = AppStrings.Get("Status_LoadingModel");
                 await Task.Run(() => _liveTranscription.Start(language));
                 _liveSessionActive = true;
             }
 
             _audioCapture.Start(_currentAudioPath, settings.SelectedMicrophoneDeviceId);
             IsRecording = true;
-            StatusText = "Recording... mic + system audio.";
+            StatusText = AppStrings.Get("Status_Recording");
         }
         catch (Exception ex)
         {
@@ -144,19 +144,19 @@ public partial class RecordingPageViewModel : ObservableObject
                 _liveSessionActive = false;
             }
 
-            StatusText = $"Error: could not start recording ({ex.Message}).";
+            StatusText = AppStrings.Format("Error_StartRecording", ex.Message);
         }
     }
 
-    private void StopRecording()
+    private async Task StopRecordingAsync()
     {
         try
         {
-            _audioCapture.Stop();
+            await _audioCapture.StopAsync();
         }
         catch (Exception ex)
         {
-            StatusText = $"Error stopping the recording: {ex.Message}";
+            StatusText = AppStrings.Format("Error_StopRecording", ex.Message);
         }
 
         if (_liveSessionActive)
@@ -186,13 +186,13 @@ public partial class RecordingPageViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(_streamingTranscript))
             {
                 transcript = _streamingTranscript;
-                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcript ready. Preparing summary...");
+                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
             }
             else
             {
-                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcribing audio...");
+                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
                 transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
-                App.DispatcherQueue.TryEnqueue(() => StatusText = "Transcript ready. Preparing summary...");
+                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
             }
 
             string? summary = null;
@@ -202,7 +202,7 @@ public partial class RecordingPageViewModel : ObservableObject
             var summaryProvider = await ResolveSummaryProviderAsync();
             if (summaryProvider is not null)
             {
-                App.DispatcherQueue.TryEnqueue(() => StatusText = "Generating summary...");
+                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_GeneratingSummary"));
                 var result = await Task.Run(() => summaryProvider.SummarizeAsync(transcript, MeetingTitle, _recordedAt));
                 summary = result.SummaryMarkdown;
                 actionItems = result.ActionItems;
@@ -227,9 +227,9 @@ public partial class RecordingPageViewModel : ObservableObject
             {
                 LastMeeting = record;
                 StatusText = summary is not null
-                    ? "Done. Transcript and summary available."
-                    : "Done. Transcript available (no summary).";
-                MeetingTitle = $"Meeting {DateTime.Now:d MMM, HH:mm}";
+                    ? AppStrings.Get("Status_DoneWithSummary")
+                    : AppStrings.Get("Status_DoneNoSummary");
+                MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
                 IsProcessing = false;
                 ToggleRecordingCommand.NotifyCanExecuteChanged();
             });
@@ -238,7 +238,7 @@ public partial class RecordingPageViewModel : ObservableObject
         {
             App.DispatcherQueue.TryEnqueue(() =>
             {
-                StatusText = $"Error processing the recording: {ex.Message}";
+                StatusText = AppStrings.Format("Error_ProcessRecording", ex.Message);
                 IsProcessing = false;
                 ToggleRecordingCommand.NotifyCanExecuteChanged();
             });

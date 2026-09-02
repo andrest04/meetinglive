@@ -17,12 +17,12 @@
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Padding="24" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
 
-            <TextBlock Text="Settings" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock x:Uid="SettingsPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
             <!-- Summary models (local GGUF, downloaded on demand) -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Summary models" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock Text="Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space."
+                <TextBlock x:Uid="Settings_SummaryModels" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="Settings_SummaryModelsHint"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
 
                 <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="20" Height="20" HorizontalAlignment="Left" />
@@ -39,27 +39,27 @@
 
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <Border CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,4" VerticalAlignment="Center"
-                                            Background="{x:Bind RatingBrush}">
+                                            Background="{x:Bind local:FitRatingPresentation.Brush(Rating), Mode=OneWay}">
                                         <TextBlock Text="{x:Bind RatingLabel}" Style="{StaticResource CaptionTextBlockStyle}"
                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                                     </Border>
 
                                     <ProgressRing IsActive="{x:Bind IsDownloading, Mode=OneWay}" Width="16" Height="16" />
 
-                                    <RadioButton Content="Active"
+                                    <RadioButton x:Uid="Settings_Active"
                                                  GroupName="SummaryModelSelection"
                                                  IsChecked="{x:Bind IsActive, Mode=OneWay}"
                                                  IsEnabled="{x:Bind IsDownloaded, Mode=OneWay}"
                                                  Checked="ModelRadioButton_Checked"
                                                  AutomationProperties.AutomationId="{x:Bind local:SettingsPage.ActiveRadioId(Info.FileName), Mode=OneWay}" />
 
-                                    <Button Content="Download"
+                                    <Button x:Uid="Settings_Download"
                                             Click="DownloadModelButton_Click"
                                             Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(IsDownloaded), Mode=OneWay}"
                                             IsEnabled="{x:Bind local:SettingsPage.Not(IsDownloading), Mode=OneWay}"
                                             AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DownloadButtonId(Info.FileName), Mode=OneWay}" />
 
-                                    <Button Content="Delete"
+                                    <Button x:Uid="Settings_Delete"
                                             Click="DeleteModelButton_Click"
                                             Visibility="{x:Bind local:SettingsPage.BoolToVisibility(IsDownloaded), Mode=OneWay}"
                                             AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DeleteButtonId(Info.FileName), Mode=OneWay}" />
@@ -72,9 +72,8 @@
 
             <!-- Summary provider -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Summary provider" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Choose where summaries are generated"
-                                        Description="Local runs entirely on this PC for free. Claude Code and Codex use an already-installed, already-authenticated CLI."
+                <TextBlock x:Uid="Settings_SummaryProvider" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_SummaryProviderCard"
                                         ContentAlignment="Left">
                     <StackPanel Spacing="8">
                         <RadioButtons AutomationProperties.AutomationId="RadioSummaryProvider">
@@ -83,7 +82,7 @@
                                          AutomationProperties.AutomationId="RadioProviderLocal">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Width="16" Height="16" FontSize="16" Glyph="&#xE950;" />
-                                    <TextBlock Text="Local (on this device)" />
+                                    <TextBlock x:Uid="Settings_ProviderLocal" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton IsChecked="{x:Bind ViewModel.IsClaudeCodeSelected, Mode=OneWay}"
@@ -91,7 +90,7 @@
                                          AutomationProperties.AutomationId="RadioProviderClaudeCode">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <icons:ClaudeCodeIcon Width="16" Height="16" />
-                                    <TextBlock Text="Claude Code CLI" />
+                                    <TextBlock x:Uid="Settings_ProviderClaude" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton IsChecked="{x:Bind ViewModel.IsCodexSelected, Mode=OneWay}"
@@ -99,7 +98,7 @@
                                          AutomationProperties.AutomationId="RadioProviderCodex">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <icons:CodexIcon Width="16" Height="16" />
-                                    <TextBlock Text="Codex CLI" />
+                                    <TextBlock x:Uid="Settings_ProviderCodex" />
                                 </StackPanel>
                             </RadioButton>
                         </RadioButtons>
@@ -113,11 +112,10 @@
 
             <!-- Microphone -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Microphone" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Recording device"
-                                        Description="Which physical microphone MeetingLive records your voice from. System default follows whatever Windows currently uses."
+                <TextBlock x:Uid="Settings_Microphone" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_RecordingDevice"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE720;}">
-                    <ComboBox ItemsSource="{x:Bind ViewModel.Microphones}"
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Microphones, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedMicrophone, Mode=OneWay}"
                               SelectionChanged="MicrophoneComboBox_SelectionChanged"
                               AutomationProperties.AutomationId="ComboMicrophoneDevice">
@@ -130,7 +128,7 @@
                 </controls:SettingsCard>
 
                 <StackPanel Spacing="4" Margin="0,4,0,0">
-                    <TextBlock Text="Microphone level" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
+                    <TextBlock x:Uid="Settings_MicLevel" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" />
                     <ProgressBar Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
                                  Minimum="0" Maximum="100"
                                  HorizontalAlignment="Stretch"
@@ -141,11 +139,10 @@
 
             <!-- Meeting language -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Meeting language" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Transcription language"
-                                        Description="Pin the meeting language so transcription does not have to guess. Auto-detect is fine when meetings mix languages or you are not sure."
+                <TextBlock x:Uid="Settings_MeetingLanguage" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_TranscriptionLanguage"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE775;}">
-                    <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                    <ComboBox ItemsSource="{x:Bind ViewModel.Languages, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=OneWay}"
                               SelectionChanged="LanguageComboBox_SelectionChanged"
                               AutomationProperties.AutomationId="ComboMeetingLanguage">
@@ -160,17 +157,16 @@
 
             <!-- Transcription engine -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Transcription" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Nemotron 3.5 ASR Streaming 0.6B"
-                                        Description="~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install."
+                <TextBlock x:Uid="Settings_Transcription" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_NemotronCard"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE8F1;}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Download"
+                        <Button x:Uid="Settings_DownloadEngine"
                                 Command="{x:Bind ViewModel.DownloadTranscriptionEngineCommand}"
                                 Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(ViewModel.IsTranscriptionEngineInstalled), Mode=OneWay}"
                                 IsEnabled="{x:Bind local:SettingsPage.Not(ViewModel.IsTranscriptionDownloading), Mode=OneWay}"
                                 AutomationProperties.AutomationId="BtnDownloadTranscriptionEngine" />
-                        <Button Content="Delete"
+                        <Button x:Uid="Settings_DeleteEngine"
                                 Command="{x:Bind ViewModel.DeleteTranscriptionEngineCommand}"
                                 Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsTranscriptionEngineInstalled), Mode=OneWay}"
                                 AutomationProperties.AutomationId="BtnDeleteTranscriptionEngine" />
@@ -195,9 +191,8 @@
 
             <!-- Live transcription -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Live transcription during recording"
-                                        Description="True streaming with Nemotron 3.5 ASR while you record. Turning this off only defers transcription until you stop — still Nemotron, not a preview."
+                <TextBlock x:Uid="Settings_Recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_LiveTranscription"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE90A;}">
                     <ToggleSwitch IsOn="{x:Bind ViewModel.IsLiveTranscriptionEnabled, Mode=OneWay}"
                                   Toggled="LiveTranscriptionToggleSwitch_Toggled"
@@ -207,11 +202,11 @@
 
             <!-- Data location -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Data" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard Header="Data location"
-                                        Description="{x:Bind ViewModel.DataDirectoryPath}"
+                <TextBlock x:Uid="Settings_Data" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_DataLocation"
+                                         Description="{x:Bind ViewModel.DataDirectoryPath, Mode=OneWay}"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE8B7;}">
-                    <Button Content="Open folder"
+                    <Button x:Uid="Settings_OpenFolder"
                             Command="{x:Bind ViewModel.OpenDataFolderCommand}"
                             AutomationProperties.AutomationId="BtnOpenDataFolder" />
                 </controls:SettingsCard>

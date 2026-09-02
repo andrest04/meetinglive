@@ -1,13 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive_App.ViewModels;
 
 /// <summary>
 /// Display wrapper around a <see cref="SummaryModelInfo"/> catalog entry —
-/// precomputes label/brush so the ListView templates (wizard + Settings model
+/// precomputes labels so the ListView templates (wizard + Settings model
 /// management list) stay simple, and tracks live download progress.
 /// </summary>
 public sealed partial class ModelOption : ObservableObject
@@ -36,23 +34,19 @@ public sealed partial class ModelOption : ObservableObject
         _isDownloaded = isDownloaded;
     }
 
-    public string DisplayName => IsDownloaded ? $"{Info.DisplayName} (downloaded)" : Info.DisplayName;
+    public string DisplayName => IsDownloaded
+        ? AppStrings.Format("Model_Downloaded", Info.DisplayName)
+        : Info.DisplayName;
 
-    public string SpeedQualityLabel => $"{Info.Speed} · Quality {Info.Quality} · {Info.FileSizeGb:0.#} GB download";
+    public string SpeedQualityLabel =>
+        AppStrings.Format("Model_SpeedQuality", Info.Speed, Info.Quality, Info.FileSizeGb);
 
     public string RatingLabel => Rating switch
     {
-        FitRating.Recommended => "Recommended",
-        FitRating.MayBeSlow => "May be slow",
-        FitRating.NotRecommended => "Not recommended",
+        FitRating.Recommended => AppStrings.Get("Fit_Recommended"),
+        FitRating.MayBeSlow => AppStrings.Get("Fit_MayBeSlow"),
+        FitRating.NotRecommended => AppStrings.Get("Fit_NotRecommended"),
         _ => string.Empty,
-    };
-
-    public Brush RatingBrush => Rating switch
-    {
-        FitRating.Recommended => (Brush)Application.Current.Resources["SystemFillColorSuccessBrush"],
-        FitRating.MayBeSlow => (Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
-        _ => (Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
     };
 
     partial void OnIsDownloadedChanged(bool value) => OnPropertyChanged(nameof(DisplayName));

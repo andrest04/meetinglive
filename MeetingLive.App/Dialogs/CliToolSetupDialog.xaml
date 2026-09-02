@@ -6,12 +6,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    PrimaryButtonText="Retry"
-    CloseButtonText="Cancel"
+    x:Uid="CliSetup"
     DefaultButton="Primary">
 
     <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
         <TextBlock x:Name="InstructionsText" TextWrapping="Wrap" AutomationProperties.AutomationId="TxtCliSetupInstructions" />
-        <InfoBar x:Name="StatusInfoBar" IsOpen="True" Severity="Warning" Title="Not found on PATH" />
+        <InfoBar x:Name="StatusInfoBar" x:Uid="CliSetup_NotFound" IsOpen="True" Severity="Warning" />
     </StackPanel>
 </ContentDialog>

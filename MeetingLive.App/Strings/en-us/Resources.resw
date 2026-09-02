@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitleBar.Title" xml:space="preserve"><value>MeetingLive</value></data>
+  <data name="Nav_Record.Content" xml:space="preserve"><value>Record</value></data>
+  <data name="Nav_Transcript.Content" xml:space="preserve"><value>Transcript</value></data>
+  <data name="Nav_Summary.Content" xml:space="preserve"><value>Summary</value></data>
+  <data name="Nav_History.Content" xml:space="preserve"><value>History</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>
+  <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Title</value></data>
+  <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Live transcript</value></data>
+  <data name="RecordPage_LiveTranscriptHint.Text" xml:space="preserve"><value>Streaming transcript of this recording. This is the transcript that will be saved when you stop.</value></data>
+  <data name="RecordPage_LastRecording.Text" xml:space="preserve"><value>Last processed recording</value></data>
+  <data name="RecordPage_ViewTranscript.Content" xml:space="preserve"><value>View transcript</value></data>
+  <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>View summary</value></data>
+  <data name="Record_Record" xml:space="preserve"><value>Record</value></data>
+  <data name="Record_Stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="TranscriptPage_Title.Text" xml:space="preserve"><value>Transcript</value></data>
+  <data name="TranscriptPage_Copy.Content" xml:space="preserve"><value>Copy</value></data>
+  <data name="TranscriptPage_OpenLocation.Content" xml:space="preserve"><value>Open file location</value></data>
+  <data name="TranscriptPage_Empty.Text" xml:space="preserve"><value>There's no transcript yet. Record a meeting first.</value></data>
+  <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Summary</value></data>
+  <data name="SummaryPage_Copy.Content" xml:space="preserve"><value>Copy</value></data>
+  <data name="SummaryPage_OpenLocation.Content" xml:space="preserve"><value>Open file location</value></data>
+  <data name="SummaryPage_Generate.Content" xml:space="preserve"><value>Generate summary</value></data>
+  <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>There's no summary yet. Record a meeting or generate one from its transcript.</value></data>
+  <data name="SummaryPage_ActionItems.Text" xml:space="preserve"><value>Action items</value></data>
+  <data name="HistoryPage_Title.Text" xml:space="preserve"><value>History</value></data>
+  <data name="HistoryPage_Empty.Text" xml:space="preserve"><value>No meetings recorded yet.</value></data>
+  <data name="HistoryPage_Transcript.Content" xml:space="preserve"><value>Transcript</value></data>
+  <data name="HistoryPage_Summary.Content" xml:space="preserve"><value>Summary</value></data>
+  <data name="History_NoContent" xml:space="preserve"><value>No content yet</value></data>
+  <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_SummaryModels.Text" xml:space="preserve"><value>Summary models</value></data>
+  <data name="Settings_SummaryModelsHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space.</value></data>
+  <data name="Settings_Active.Content" xml:space="preserve"><value>Active</value></data>
+  <data name="Settings_Download.Content" xml:space="preserve"><value>Download</value></data>
+  <data name="Settings_Delete.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Settings_SummaryProvider.Text" xml:space="preserve"><value>Summary provider</value></data>
+  <data name="Settings_SummaryProviderCard.Header" xml:space="preserve"><value>Choose where summaries are generated</value></data>
+  <data name="Settings_SummaryProviderCard.Description" xml:space="preserve"><value>Local runs entirely on this PC for free. Claude Code and Codex use an already-installed, already-authenticated CLI.</value></data>
+  <data name="Settings_ProviderLocal.Text" xml:space="preserve"><value>Local (on this device)</value></data>
+  <data name="Settings_ProviderClaude.Text" xml:space="preserve"><value>Claude Code CLI</value></data>
+  <data name="Settings_ProviderCodex.Text" xml:space="preserve"><value>Codex CLI</value></data>
+  <data name="Settings_Microphone.Text" xml:space="preserve"><value>Microphone</value></data>
+  <data name="Settings_RecordingDevice.Header" xml:space="preserve"><value>Recording device</value></data>
+  <data name="Settings_RecordingDevice.Description" xml:space="preserve"><value>Which physical microphone MeetingLive records your voice from. System default follows whatever Windows currently uses.</value></data>
+  <data name="Settings_MicLevel.Text" xml:space="preserve"><value>Microphone level</value></data>
+  <data name="Settings_MeetingLanguage.Text" xml:space="preserve"><value>Meeting language</value></data>
+  <data name="Settings_TranscriptionLanguage.Header" xml:space="preserve"><value>Transcription language</value></data>
+  <data name="Settings_TranscriptionLanguage.Description" xml:space="preserve"><value>Pin the meeting language so transcription does not have to guess. Auto-detect is fine when meetings mix languages or you are not sure.</value></data>
+  <data name="Settings_Transcription.Text" xml:space="preserve"><value>Transcription</value></data>
+  <data name="Settings_NemotronCard.Header" xml:space="preserve"><value>Nemotron 3.5 ASR Streaming 0.6B</value></data>
+  <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install.</value></data>
+  <data name="Settings_DownloadEngine.Content" xml:space="preserve"><value>Download</value></data>
+  <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Settings_Recording.Text" xml:space="preserve"><value>Recording</value></data>
+  <data name="Settings_LiveTranscription.Header" xml:space="preserve"><value>Live transcription during recording</value></data>
+  <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>True streaming with Nemotron 3.5 ASR while you record. Turning this off only defers transcription until you stop — still Nemotron, not a preview.</value></data>
+  <data name="Settings_Data.Text" xml:space="preserve"><value>Data</value></data>
+  <data name="Settings_DataLocation.Header" xml:space="preserve"><value>Data location</value></data>
+  <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Open folder</value></data>
+  <data name="Setup_Title.Title" xml:space="preserve"><value>Set up summary generation</value></data>
+  <data name="Setup_Title.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Setup_ChooseEngine.Text" xml:space="preserve"><value>Choose how to generate summaries</value></data>
+  <data name="Setup_ChooseEngineHint.Text" xml:space="preserve"><value>Pick the engine MeetingLive should use to turn a transcript into a summary and action items.</value></data>
+  <data name="Setup_ClaudeName.Text" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Setup_ClaudeHint.Text" xml:space="preserve"><value>Uses the Claude Code CLI already installed on this PC.</value></data>
+  <data name="Setup_CodexName.Text" xml:space="preserve"><value>Codex</value></data>
+  <data name="Setup_CodexHint.Text" xml:space="preserve"><value>Uses the Codex CLI already installed on this PC.</value></data>
+  <data name="Setup_LocalName.Text" xml:space="preserve"><value>Local models</value></data>
+  <data name="Setup_LocalHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost.</value></data>
+  <data name="Setup_CheckAgain.Content" xml:space="preserve"><value>Check again</value></data>
+  <data name="Setup_Back.Content" xml:space="preserve"><value>Back</value></data>
+  <data name="Setup_DetectingHardware.Text" xml:space="preserve"><value>Detecting hardware...</value></data>
+  <data name="Setup_ChooseModel.Text" xml:space="preserve"><value>Choose a model to generate summaries</value></data>
+  <data name="Setup_ChooseModelHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Larger models are slower but produce better summaries.</value></data>
+  <data name="Setup_DownloadModel.Content" xml:space="preserve"><value>Download and use this model</value></data>
+  <data name="Setup_Done.Title" xml:space="preserve"><value>Done</value></data>
+  <data name="Setup_Done.Message" xml:space="preserve"><value>The model is ready to use.</value></data>
+  <data name="EngineSetup.Title" xml:space="preserve"><value>Download transcription engine</value></data>
+  <data name="EngineSetup.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="EngineSetup_Hint.Text" xml:space="preserve"><value>MeetingLive needs NVIDIA Nemotron 3.5 ASR Streaming (about 0.74 GB) plus a small official NVIDIA runtime. Nothing else is installed — no Hugging Face CLI, no C++ build.</value></data>
+  <data name="EngineSetup_Failed.Title" xml:space="preserve"><value>Download failed</value></data>
+  <data name="CliSetup.PrimaryButtonText" xml:space="preserve"><value>Retry</value></data>
+  <data name="CliSetup.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="CliSetup_NotFound.Title" xml:space="preserve"><value>Not found on PATH</value></data>
+  <data name="ErrorPrefix" xml:space="preserve"><value>Error</value></data>
+  <data name="Status_ReadyToRecord" xml:space="preserve"><value>Ready to record.</value></data>
+  <data name="Status_PreparingEngine" xml:space="preserve"><value>Preparing transcription engine...</value></data>
+  <data name="Status_LoadingModel" xml:space="preserve"><value>Loading transcription model...</value></data>
+  <data name="Status_Recording" xml:space="preserve"><value>Recording... mic + system audio.</value></data>
+  <data name="Status_TranscriptReady" xml:space="preserve"><value>Transcript ready. Preparing summary...</value></data>
+  <data name="Status_Transcribing" xml:space="preserve"><value>Transcribing audio...</value></data>
+  <data name="Status_GeneratingSummary" xml:space="preserve"><value>Generating summary...</value></data>
+  <data name="Status_DoneWithSummary" xml:space="preserve"><value>Done. Transcript and summary available.</value></data>
+  <data name="Status_DoneNoSummary" xml:space="preserve"><value>Done. Transcript available (no summary).</value></data>
+  <data name="Status_SummaryGenerated" xml:space="preserve"><value>Summary generated.</value></data>
+  <data name="Status_SetupCancelled" xml:space="preserve"><value>Setup cancelled.</value></data>
+  <data name="Status_PreparingDownload" xml:space="preserve"><value>Preparing download...</value></data>
+  <data name="Status_DownloadFailed" xml:space="preserve"><value>Download failed.</value></data>
+  <data name="Status_StartingDownload" xml:space="preserve"><value>Starting download...</value></data>
+  <data name="Status_CliOnPath" xml:space="preserve"><value>Detected on PATH.</value></data>
+  <data name="Status_CliMissing" xml:space="preserve"><value>Not found on PATH — install it before recording.</value></data>
+  <data name="Error_StartRecording" xml:space="preserve"><value>Error: could not start recording ({0}).</value></data>
+  <data name="Error_StopRecording" xml:space="preserve"><value>Error stopping the recording: {0}</value></data>
+  <data name="Error_ProcessRecording" xml:space="preserve"><value>Error processing the recording: {0}</value></data>
+  <data name="Error_GenerateSummary" xml:space="preserve"><value>Error generating the summary: {0}</value></data>
+  <data name="Error_DownloadModel" xml:space="preserve"><value>Error downloading the model: {0}</value></data>
+  <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Download failed: {0}</value></data>
+  <data name="Error_EngineNotReady" xml:space="preserve"><value>Download finished but the transcription engine is still not ready.</value></data>
+  <data name="MeetingTitleFormat" xml:space="preserve"><value>Meeting {0}</value></data>
+  <data name="MeetingTitleDateFormat" xml:space="preserve"><value>d MMM, HH:mm</value></data>
+  <data name="NoSummariesYet" xml:space="preserve"><value>No summaries yet</value></data>
+  <data name="NoTranscriptsYet" xml:space="preserve"><value>No transcripts yet</value></data>
+  <data name="Microphone_SystemDefault" xml:space="preserve"><value>System default</value></data>
+  <data name="Fit_Recommended" xml:space="preserve"><value>Recommended</value></data>
+  <data name="Fit_MayBeSlow" xml:space="preserve"><value>May be slow</value></data>
+  <data name="Fit_NotRecommended" xml:space="preserve"><value>Not recommended</value></data>
+  <data name="Model_Downloaded" xml:space="preserve"><value>{0} (downloaded)</value></data>
+  <data name="Model_SpeedQuality" xml:space="preserve"><value>{0} · Quality {1} · {2:0.#} GB download</value></data>
+  <data name="Hardware_WithGpu" xml:space="preserve"><value>Detected: {0} GB RAM, GPU {1} ({2} GB VRAM)</value></data>
+  <data name="Hardware_NoGpu" xml:space="preserve"><value>Detected: {0} GB RAM, no dedicated GPU</value></data>
+  <data name="Download_ModelProgress" xml:space="preserve"><value>Downloading {0} ({1:0}%)...</value></data>
+  <data name="Cli_SetupTitle" xml:space="preserve"><value>Set up the {0} CLI</value></data>
+  <data name="Cli_NotFound" xml:space="preserve"><value>MeetingLive couldn't find "{0}" on your PATH. {1} Once it's installed and signed in, select Retry.</value></data>
+  <data name="Cli_NotFoundCheckAgain" xml:space="preserve"><value>MeetingLive couldn't find "{0}" on your PATH. {1} Once it's installed, select "Check again".</value></data>
+  <data name="Cli_StillMissing" xml:space="preserve"><value>Still not found on PATH as "{0}". Install it, then try again.</value></data>
+  <data name="Cli_ClaudeHint" xml:space="preserve"><value>Install it from https://claude.com/claude-code, then run "claude" once from a terminal to sign in.</value></data>
+  <data name="Cli_CodexHint" xml:space="preserve"><value>Install it with "npm install -g @openai/codex" (see https://github.com/openai/codex), then run "codex" once from a terminal to sign in.</value></data>
+  <data name="Cli_ClaudeName" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Cli_CodexName" xml:space="preserve"><value>Codex</value></data>
+  <data name="MigrationFailed_Title" xml:space="preserve"><value>Meeting history migration failed</value></data>
+  <data name="MigrationFailed_Content" xml:space="preserve"><value>MeetingLive could not migrate your existing meeting history to the new format. Your original data was left untouched.
+
+{0}</value></data>
+  <data name="Dialog_OK" xml:space="preserve"><value>OK</value></data>
+</root>

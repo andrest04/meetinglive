@@ -19,9 +19,9 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Record meeting" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBlock Grid.Row="0" x:Uid="RecordPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
-            <TextBox Grid.Row="1" Header="Title"
+            <TextBox Grid.Row="1" x:Uid="RecordPage_MeetingTitle"
                      Text="{x:Bind ViewModel.MeetingTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
                      MaxWidth="420" HorizontalAlignment="Stretch"
@@ -47,8 +47,8 @@
 
             <StackPanel Grid.Row="4" Spacing="4"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
-                <TextBlock Text="Live transcript" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock Text="Streaming transcript of this recording. This is the transcript that will be saved when you stop."
+                <TextBlock x:Uid="RecordPage_LiveTranscript" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -64,11 +64,11 @@
 
             <StackPanel Grid.Row="5" Spacing="12"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLastMeeting), Mode=OneWay}">
-                <TextBlock Text="Last processed recording" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="RecordPage_LastRecording" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Button Content="View transcript" Click="ViewTranscript_Click"
+                    <Button x:Uid="RecordPage_ViewTranscript" Click="ViewTranscript_Click"
                             AutomationProperties.AutomationId="BtnViewTranscript" />
-                    <Button Content="View summary" Click="ViewSummary_Click"
+                    <Button x:Uid="RecordPage_ViewSummary" Click="ViewSummary_Click"
                             IsEnabled="{x:Bind ViewModel.HasSummary, Mode=OneWay}"
                             AutomationProperties.AutomationId="BtnViewSummary" />
                 </StackPanel>

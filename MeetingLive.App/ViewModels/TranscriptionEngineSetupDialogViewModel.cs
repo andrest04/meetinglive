@@ -13,7 +13,7 @@ public partial class TranscriptionEngineSetupDialogViewModel : ObservableObject
     private double _downloadProgressPercent;
 
     [ObservableProperty]
-    private string _statusText = "Preparing download...";
+    private string _statusText = AppStrings.Get("Status_PreparingDownload");
 
     [ObservableProperty]
     private string _errorText = string.Empty;
@@ -56,7 +56,7 @@ public partial class TranscriptionEngineSetupDialogViewModel : ObservableObject
             else
             {
                 HasError = true;
-                ErrorText = "Download finished but the transcription engine is still not ready.";
+                ErrorText = AppStrings.Get("Error_EngineNotReady");
             }
         }
         catch (OperationCanceledException)
@@ -67,7 +67,7 @@ public partial class TranscriptionEngineSetupDialogViewModel : ObservableObject
         {
             HasError = true;
             ErrorText = ex.Message;
-            StatusText = "Download failed.";
+            StatusText = AppStrings.Get("Status_DownloadFailed");
         }
     }
 }

@@ -35,13 +35,14 @@ public sealed partial class HistoryPage : Page
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
-    public static string FormattedDate(DateTimeOffset recordedAt) => recordedAt.LocalDateTime.ToString("g");
+    public static string FormattedDate(DateTimeOffset recordedAt) =>
+        recordedAt.LocalDateTime.ToString("g", System.Globalization.CultureInfo.CurrentCulture);
 
     public static string Snippet(string? summary, string? transcript)
     {
         var text = !string.IsNullOrWhiteSpace(summary) ? summary : transcript;
         if (string.IsNullOrWhiteSpace(text))
-            return "No content yet";
+            return AppStrings.Get("History_NoContent");
 
         var singleLine = text.ReplaceLineEndings(" ").Trim();
         return singleLine.Length > 140 ? singleLine[..140] + "…" : singleLine;

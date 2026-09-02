@@ -6,12 +6,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="Download transcription engine"
-    CloseButtonText="Cancel"
+    x:Uid="EngineSetup"
     DefaultButton="Close">
 
     <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
-        <TextBlock Text="MeetingLive needs NVIDIA Nemotron 3.5 ASR Streaming (about 0.74 GB) plus a small official NVIDIA runtime. Nothing else is installed — no Hugging Face CLI, no C++ build."
+        <TextBlock x:Uid="EngineSetup_Hint"
                    TextWrapping="Wrap"
                    Style="{StaticResource CaptionTextBlockStyle}"
                    Opacity="0.7" />
@@ -24,7 +23,7 @@
                    AutomationProperties.AutomationId="TxtTranscriptionEngineStatus" />
         <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                  Severity="Error"
-                 Title="Download failed"
+                 x:Uid="EngineSetup_Failed"
                  Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
     </StackPanel>
 </ContentDialog>

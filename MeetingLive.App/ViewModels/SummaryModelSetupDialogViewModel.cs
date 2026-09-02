@@ -90,9 +90,10 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
         }
 
         var (name, installHint) = DescribeCli(kind);
-        CliCheckStatusText =
-            $"MeetingLive couldn't find \"{CliProviderResolver.ExecutableNameFor(kind)}\" on your PATH. {installHint} " +
-            "Once it's installed, select \"Check again\".";
+        CliCheckStatusText = AppStrings.Format(
+            "Cli_NotFoundCheckAgain",
+            CliProviderResolver.ExecutableNameFor(kind),
+            installHint);
     }
 
     [RelayCommand]
@@ -104,7 +105,9 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
             return;
         }
 
-        CliCheckStatusText = $"Still not found on PATH as \"{CliProviderResolver.ExecutableNameFor(_pendingCliKind)}\". Install it, then try again.";
+        CliCheckStatusText = AppStrings.Format(
+            "Cli_StillMissing",
+            CliProviderResolver.ExecutableNameFor(_pendingCliKind));
     }
 
     [RelayCommand]
@@ -130,8 +133,8 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
 
         var hardware = AppServices.HardwareDetection.DetectHardware();
         HardwareSummary = hardware.HasDedicatedGpu
-            ? $"Detected: {hardware.TotalRamGb} GB RAM, GPU {hardware.GpuName} ({hardware.GpuVramGb} GB VRAM)"
-            : $"Detected: {hardware.TotalRamGb} GB RAM, no dedicated GPU";
+            ? AppStrings.Format("Hardware_WithGpu", hardware.TotalRamGb, hardware.GpuName ?? string.Empty, hardware.GpuVramGb)
+            : AppStrings.Format("Hardware_NoGpu", hardware.TotalRamGb);
 
         Models.Clear();
         foreach (var model in ModelCatalog.SummaryModels)
@@ -159,14 +162,14 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
 
         State = SummaryModelWizardState.Downloading;
         SelectedModel.IsDownloading = true;
-        DownloadStatusText = $"Downloading {SelectedModel.Info.DisplayName} (0%)...";
+        DownloadStatusText = AppStrings.Format("Download_ModelProgress", SelectedModel.Info.DisplayName, 0);
 
         try
         {
             var progress = new Progress<double>(percent =>
             {
                 SelectedModel.DownloadProgressPercent = percent;
-                DownloadStatusText = $"Downloading {SelectedModel.Info.DisplayName} ({percent:0}%)...";
+                DownloadStatusText = AppStrings.Format("Download_ModelProgress", SelectedModel.Info.DisplayName, percent);
             });
             await AppServices.LocalLlmModels.DownloadModelAsync(SelectedModel.Info, progress);
             SelectedModel.IsDownloaded = true;
@@ -174,7 +177,7 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            DownloadStatusText = $"Error downloading the model: {ex.Message}";
+            DownloadStatusText = AppStrings.Format("Error_DownloadModel", ex.Message);
             State = SummaryModelWizardState.SelectingModel;
         }
         finally
@@ -211,11 +214,11 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
     private static (string Name, string InstallHint) DescribeCli(SummaryProviderKind kind) => kind switch
     {
         SummaryProviderKind.ClaudeCode => (
-            "Claude Code",
-            "Install it from https://claude.com/claude-code, then run \"claude\" once from a terminal to sign in."),
+            AppStrings.Get("Cli_ClaudeName"),
+            AppStrings.Get("Cli_ClaudeHint")),
         SummaryProviderKind.Codex => (
-            "Codex",
-            "Install it with \"npm install -g @openai/codex\" (see https://github.com/openai/codex), then run \"codex\" once from a terminal to sign in."),
+            AppStrings.Get("Cli_CodexName"),
+            AppStrings.Get("Cli_CodexHint")),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Only ClaudeCode and Codex are CLI-backed providers."),
     };
 
