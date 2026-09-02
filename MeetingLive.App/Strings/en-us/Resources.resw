@@ -28,6 +28,8 @@
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Elapsed recording time</value></data>
   <data name="RecordPage_MicLevel.Text" xml:space="preserve"><value>Microphone level</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Microphone level</value></data>
+  <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancel transcription or summary</value></data>
   <data name="Record_Record" xml:space="preserve"><value>Record</value></data>
   <data name="Record_Stop" xml:space="preserve"><value>Stop</value></data>
   <data name="TranscriptPage_Title.Text" xml:space="preserve"><value>Transcript</value></data>
@@ -131,6 +133,8 @@
   <data name="Status_DoneNoSummary" xml:space="preserve"><value>Done. Transcript available (no summary).</value></data>
   <data name="Status_SummaryGenerated" xml:space="preserve"><value>Summary generated.</value></data>
   <data name="Status_SetupCancelled" xml:space="preserve"><value>Setup cancelled.</value></data>
+  <data name="Status_ProcessingCancelled" xml:space="preserve"><value>Cancelled.</value></data>
+  <data name="Status_CancelledTranscriptSaved" xml:space="preserve"><value>Cancelled. Transcript saved (no summary).</value></data>
   <data name="Status_PreparingDownload" xml:space="preserve"><value>Preparing download...</value></data>
   <data name="Status_DownloadFailed" xml:space="preserve"><value>Download failed.</value></data>
   <data name="Status_StartingDownload" xml:space="preserve"><value>Starting download...</value></data>

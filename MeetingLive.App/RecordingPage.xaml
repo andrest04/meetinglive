@@ -47,6 +47,10 @@
                                VerticalAlignment="Center"
                                AutomationProperties.AutomationId="TxtRecordingElapsed" />
                     <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
+                    <Button x:Uid="RecordPage_CancelProcessing"
+                            Command="{x:Bind ViewModel.CancelProcessingCommand}"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnCancelProcessing" />
                 </StackPanel>
                 <StackPanel Spacing="4" MaxWidth="520" HorizontalAlignment="Stretch"
                             Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}">

@@ -10,7 +10,7 @@ namespace MeetingLive_App.ViewModels;
 
 /// <summary>
 /// Drives the record/stop flow: gates on the Nemotron engine, captures mic + system audio,
-/// streams live ASR as a preview when enabled, then offline-recognizes the WAV and summarizes.
+/// streams live ASR as a preview when enabled, then streams the WAV offline and summarizes.
 /// </summary>
 public partial class RecordingPageViewModel : ObservableObject
 {
@@ -28,6 +28,7 @@ public partial class RecordingPageViewModel : ObservableObject
     private bool _isPageVisible;
     private int _previewGeneration;
     private DispatcherQueueTimer? _elapsedTimer;
+    private CancellationTokenSource? _processingCts;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -204,29 +205,38 @@ public partial class RecordingPageViewModel : ObservableObject
             _liveSessionActive = false;
         }
 
+        _processingCts?.Dispose();
+        _processingCts = new CancellationTokenSource();
         IsProcessing = true;
         ToggleRecordingCommand.NotifyCanExecuteChanged();
         IsRecording = false;
-        _ = ProcessRecordingAsync();
+        _ = ProcessRecordingAsync(_processingCts.Token);
     }
 
-    private async Task ProcessRecordingAsync()
+    [RelayCommand(CanExecute = nameof(CanCancelProcessing))]
+    private void CancelProcessing() => _processingCts?.Cancel();
+
+    private bool CanCancelProcessing() => IsProcessing;
+
+    private async Task ProcessRecordingAsync(CancellationToken cancellationToken)
     {
         if (_currentAudioPath is null)
         {
-            IsProcessing = false;
-            ToggleRecordingCommand.NotifyCanExecuteChanged();
-            TryStartMicPreview();
+            FinishProcessing(StatusText);
             return;
         }
 
+        string? transcript = null;
         try
         {
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
 
             App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
-            var transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
+            transcript = await Task.Run(
+                () => _transcription.TranscribeAsync(_currentAudioPath, language, progress: null, cancellationToken),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
 
             string? summary = null;
@@ -234,54 +244,73 @@ public partial class RecordingPageViewModel : ObservableObject
             string? summaryProviderId = null;
 
             var summaryProvider = await ResolveSummaryProviderAsync();
+            cancellationToken.ThrowIfCancellationRequested();
             if (summaryProvider is not null)
             {
                 var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
                 App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_GeneratingSummary"));
-                var result = await Task.Run(() => summaryProvider.SummarizeAsync(
-                    transcript, MeetingTitle, _recordedAt, outputLanguage: summaryLanguage));
+                var result = await summaryProvider.SummarizeAsync(
+                    transcript, MeetingTitle, _recordedAt, cancellationToken, summaryLanguage);
                 summary = result.SummaryMarkdown;
                 actionItems = result.ActionItems;
                 summaryProviderId = result.ProviderId;
             }
 
-            var record = new MeetingRecord
-            {
-                Id = _currentMeetingId,
-                Title = MeetingTitle,
-                RecordedAt = _recordedAt,
-                AudioFilePath = _currentAudioPath,
-                Transcript = transcript,
-                Summary = summary,
-                ActionItems = actionItems,
-                SummaryProvider = summaryProviderId,
-            };
-
-            await _meetings.SaveAsync(record);
-            AppServices.Workspace.SetLastProcessed(record);
-
+            await SaveProcessedMeetingAsync(transcript, summary, actionItems, summaryProviderId);
             App.DispatcherQueue.TryEnqueue(() =>
             {
-                LastMeeting = record;
                 StatusText = summary is not null
                     ? AppStrings.Get("Status_DoneWithSummary")
                     : AppStrings.Get("Status_DoneNoSummary");
                 MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                IsProcessing = false;
-                ToggleRecordingCommand.NotifyCanExecuteChanged();
-                TryStartMicPreview();
+                FinishProcessing(StatusText);
             });
+        }
+        catch (OperationCanceledException)
+        {
+            if (transcript is not null)
+            {
+                await SaveProcessedMeetingAsync(transcript, summary: null, actionItems: [], summaryProviderId: null);
+                App.DispatcherQueue.TryEnqueue(() =>
+                {
+                    MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+                    FinishProcessing(AppStrings.Get("Status_CancelledTranscriptSaved"));
+                });
+            }
+            else
+            {
+                App.DispatcherQueue.TryEnqueue(() =>
+                    FinishProcessing(AppStrings.Get("Status_ProcessingCancelled")));
+            }
         }
         catch (Exception ex)
         {
             App.DispatcherQueue.TryEnqueue(() =>
-            {
-                StatusText = AppStrings.Format("Error_ProcessRecording", ex.Message);
-                IsProcessing = false;
-                ToggleRecordingCommand.NotifyCanExecuteChanged();
-                TryStartMicPreview();
-            });
+                FinishProcessing(AppStrings.Format("Error_ProcessRecording", ex.Message)));
         }
+    }
+
+    private async Task SaveProcessedMeetingAsync(
+        string transcript,
+        string? summary,
+        IReadOnlyList<ActionItem> actionItems,
+        string? summaryProviderId)
+    {
+        var record = new MeetingRecord
+        {
+            Id = _currentMeetingId,
+            Title = MeetingTitle,
+            RecordedAt = _recordedAt,
+            AudioFilePath = _currentAudioPath ?? string.Empty,
+            Transcript = transcript,
+            Summary = summary,
+            ActionItems = actionItems,
+            SummaryProvider = summaryProviderId,
+        };
+
+        await _meetings.SaveAsync(record);
+        AppServices.Workspace.SetLastProcessed(record);
+        LastMeeting = record;
     }
 
     /// <summary>Resolves (and, for a CLI provider, gates on availability) the provider to
@@ -332,7 +361,19 @@ public partial class RecordingPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowMicPreview));
     }
 
-    partial void OnIsProcessingChanged(bool value) => OnPropertyChanged(nameof(ShowMicPreview));
+    partial void OnIsProcessingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowMicPreview));
+        CancelProcessingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void FinishProcessing(string status)
+    {
+        StatusText = status;
+        IsProcessing = false;
+        ToggleRecordingCommand.NotifyCanExecuteChanged();
+        TryStartMicPreview();
+    }
 
     private void StartElapsedTimer()
     {
