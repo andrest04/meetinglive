@@ -57,6 +57,12 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     public void Stop()
     {
+        // IDisposable and other sync callers cannot await. UI code must use StopAsync.
+        StopAsync().GetAwaiter().GetResult();
+    }
+
+    public async Task StopAsync()
+    {
         if (!IsRecording)
             return;
 
@@ -64,7 +70,17 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         _systemCapture?.StopRecording();
 
         _pumpCts?.Cancel();
-        _pumpTask?.Wait();
+        if (_pumpTask is not null)
+        {
+            try
+            {
+                await _pumpTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Pump observes the token and exits; ignore if cancel surfaces.
+            }
+        }
 
         _writer?.Flush();
         _writer?.Dispose();

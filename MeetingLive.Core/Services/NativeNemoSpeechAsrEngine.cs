@@ -6,6 +6,7 @@ namespace MeetingLive.Core.Services;
 /// <summary>
 /// Real NeMo-Speech.cpp engine: loads <c>nemo_speech_asr_c.dll</c> from the extracted runtime
 /// <c>bin</c> folder and P/Invokes the C ABI. Never constructed by unit tests.
+/// Native recognizer/stream/result objects are <see cref="NemoOwnedHandle"/> — never raw IntPtr.
 /// </summary>
 public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
 {
@@ -27,10 +28,10 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
     private sealed class NativeNemoSpeechRecognizer : INemoSpeechRecognizer
     {
         private readonly NemoSpeechNativeLibrary _library;
-        private IntPtr _recognizer;
+        private readonly NemoOwnedHandle _recognizer;
         private bool _disposed;
 
-        public NativeNemoSpeechRecognizer(NemoSpeechNativeLibrary library, IntPtr recognizer)
+        public NativeNemoSpeechRecognizer(NemoSpeechNativeLibrary library, NemoOwnedHandle recognizer)
         {
             _library = library;
             _recognizer = recognizer;
@@ -55,8 +56,7 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
             if (_disposed)
                 return;
 
-            _library.DestroyRecognizer(_recognizer);
-            _recognizer = IntPtr.Zero;
+            _recognizer.Dispose();
             _library.Dispose();
             _disposed = true;
         }
@@ -65,10 +65,10 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
     private sealed class NativeNemoSpeechStream : INemoSpeechStream
     {
         private readonly NemoSpeechNativeLibrary _library;
-        private IntPtr _stream;
+        private readonly NemoOwnedHandle _stream;
         private bool _disposed;
 
-        public NativeNemoSpeechStream(NemoSpeechNativeLibrary library, IntPtr stream)
+        public NativeNemoSpeechStream(NemoSpeechNativeLibrary library, NemoOwnedHandle stream)
         {
             _library = library;
             _stream = stream;
@@ -98,18 +98,17 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
             if (_disposed)
                 return;
 
-            _library.StreamClose(_stream);
-            _stream = IntPtr.Zero;
+            _stream.Dispose();
             _disposed = true;
         }
 
-        private static List<NemoSpeechAsrResult> Drain(NemoSpeechNativeLibrary library, IntPtr stream)
+        private static List<NemoSpeechAsrResult> Drain(NemoSpeechNativeLibrary library, NemoOwnedHandle stream)
         {
             var results = new List<NemoSpeechAsrResult>();
             while (true)
             {
                 var handle = library.StreamNext(stream);
-                if (handle == IntPtr.Zero)
+                if (handle is null)
                     break;
                 results.Add(ReadResult(library, handle));
             }
@@ -118,9 +117,9 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
         }
     }
 
-    private static NemoSpeechAsrResult ReadResult(NemoSpeechNativeLibrary library, IntPtr result)
+    private static NemoSpeechAsrResult ReadResult(NemoSpeechNativeLibrary library, NemoOwnedHandle result)
     {
-        try
+        using (result)
         {
             var isFinal = library.ResultIsFinal(result);
             var transcript = library.ResultTranscript(result);
@@ -137,10 +136,6 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
             }
 
             return new NemoSpeechAsrResult(isFinal, transcript, audioProcessed, words);
-        }
-        finally
-        {
-            library.ResultDestroy(result);
         }
     }
 }

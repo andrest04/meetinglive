@@ -9,9 +9,10 @@ namespace MeetingLive.Core.Services;
 /// <see cref="ActionItem"/> instances. Shared by <see cref="MarkdownMeetingRepository"/>
 /// and the summary providers, which are asked to emit the same checkbox format.
 /// </summary>
-public static class ActionItemParser
+public static partial class ActionItemParser
 {
-    private static readonly Regex ItemLine = new(@"^\s*-\s\[( |x|X)\]\s+(.*)$", RegexOptions.Compiled);
+    [GeneratedRegex(@"^\s*-\s\[( |x|X)\]\s+(.*)$", RegexOptions.CultureInvariant)]
+    private static partial Regex ItemLine();
 
     /// <summary>Parses every <c>- [ ] text</c> / <c>- [x] text</c> line found in
     /// <paramref name="sectionBody"/>. Lines that don't match the checkbox pattern
@@ -24,7 +25,7 @@ public static class ActionItemParser
         var items = new List<ActionItem>();
         foreach (var rawLine in sectionBody.Replace("\r\n", "\n").Split('\n'))
         {
-            var match = ItemLine.Match(rawLine);
+            var match = ItemLine().Match(rawLine);
             if (!match.Success)
                 continue;
 

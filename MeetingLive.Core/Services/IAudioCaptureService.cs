@@ -16,6 +16,11 @@ public interface IAudioCaptureService
     /// the OS default input device.</summary>
     void Start(string outputWavPath, string? microphoneDeviceId = null);
 
-    /// <summary>Stops capture and flushes the WAV file to disk.</summary>
+    /// <summary>Stops capture and flushes the WAV file to disk. Prefer
+    /// <see cref="StopAsync"/> from UI code — this sync overload waits for the pump thread.</summary>
     void Stop();
+
+    /// <summary>Stops capture and flushes the WAV file without blocking the caller on
+    /// <see cref="Task.Wait"/> / <c>GetResult</c>.</summary>
+    Task StopAsync();
 }

@@ -10,11 +10,13 @@ namespace MeetingLive.Core.Services;
 /// if no "## Action Items" header is found, everything before the first "- [ ]" / "- [x]"
 /// checkbox line is treated as the summary instead.
 /// </summary>
-internal static class SummaryMarkdownSplitter
+internal static partial class SummaryMarkdownSplitter
 {
     private const string SummaryHeader = "## Summary";
     private const string ActionItemsHeader = "## Action Items";
-    private static readonly Regex ActionItemLine = new(@"^\s*-\s\[( |x|X)\]\s+", RegexOptions.Compiled);
+
+    [GeneratedRegex(@"^\s*-\s\[( |x|X)\]\s+", RegexOptions.CultureInvariant)]
+    private static partial Regex ActionItemLine();
 
     public static (string SummaryMarkdown, IReadOnlyList<ActionItem> ActionItems) Split(string rawResponse)
     {
@@ -22,7 +24,7 @@ internal static class SummaryMarkdownSplitter
 
         var splitIndex = Array.FindIndex(lines, line => line.Trim() == ActionItemsHeader);
         if (splitIndex < 0)
-            splitIndex = Array.FindIndex(lines, ActionItemLine.IsMatch);
+            splitIndex = Array.FindIndex(lines, static line => ActionItemLine().IsMatch(line));
 
         string summaryMarkdown;
         IReadOnlyList<ActionItem> actionItems;

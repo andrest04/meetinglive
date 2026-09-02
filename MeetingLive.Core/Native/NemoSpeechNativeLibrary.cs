@@ -5,12 +5,13 @@ namespace MeetingLive.Core.Native;
 /// <summary>
 /// Loads <c>nemo_speech_asr_c.dll</c> from an extracted NeMo-Speech.cpp <c>bin</c> folder
 /// and binds the stable C ABI. Isolated from the rest of Core so tests never touch it.
+/// Native objects are returned as <see cref="NemoOwnedHandle"/> — never raw <see cref="IntPtr"/>.
 /// </summary>
 internal sealed class NemoSpeechNativeLibrary : IDisposable
 {
     private const int NemoSpeechAsrOk = 0;
 
-    private readonly IntPtr _handle;
+    private readonly NativeLibraryHandle _libraryHandle;
     private readonly CreateDelegate _create;
     private readonly DestroyDelegate _destroy;
     private readonly RecognizeF32Delegate _recognizeF32;
@@ -28,9 +29,11 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
     private readonly ResultDestroyDelegate _resultDestroy;
     private readonly LastErrorDelegate _lastError;
 
-    private NemoSpeechNativeLibrary(IntPtr handle)
+    private NemoSpeechNativeLibrary(NativeLibraryHandle libraryHandle)
     {
-        _handle = handle;
+        _libraryHandle = libraryHandle;
+        using var scope = new DangerousHandleScope(libraryHandle);
+        var handle = scope.Pointer;
         _create = GetExport<CreateDelegate>(handle, "nemo_speech_asr_create");
         _destroy = GetExport<DestroyDelegate>(handle, "nemo_speech_asr_destroy");
         _recognizeF32 = GetExport<RecognizeF32Delegate>(handle, "nemo_speech_asr_recognize_f32");
@@ -62,11 +65,20 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
 
         var dllPath = Path.Combine(runtimeBinDirectory, "nemo_speech_asr_c.dll");
-        var handle = NativeLibrary.Load(dllPath);
-        return new NemoSpeechNativeLibrary(handle);
+        var loaded = NativeLibrary.Load(dllPath);
+        var libraryHandle = NativeLibraryHandle.Attach(loaded);
+        try
+        {
+            return new NemoSpeechNativeLibrary(libraryHandle);
+        }
+        catch
+        {
+            libraryHandle.Dispose();
+            throw;
+        }
     }
 
-    public IntPtr CreateRecognizer(string modelPath, int gpu)
+    public NemoOwnedHandle CreateRecognizer(string modelPath, int gpu)
     {
         var modelPathPtr = Marshal.StringToCoTaskMemUTF8(modelPath);
         var backendPtr = IntPtr.Zero;
@@ -113,7 +125,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
             if (status != NemoSpeechAsrOk || recognizer == IntPtr.Zero)
                 throw new InvalidOperationException($"nemo_speech_asr_create failed: {LastError()}");
 
-            return recognizer;
+            return Own(recognizer, ptr => _destroy(ptr));
         }
         finally
         {
@@ -125,22 +137,17 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public void DestroyRecognizer(IntPtr recognizer)
-    {
-        if (recognizer != IntPtr.Zero)
-            _destroy(recognizer);
-    }
-
-    public IntPtr RecognizeF32(IntPtr recognizer, float[] samples, int sampleRate, string languageCode)
+    public NemoOwnedHandle RecognizeF32(NemoOwnedHandle recognizer, float[] samples, int sampleRate, string languageCode)
     {
         var optionsPtr = IntPtr.Zero;
         var languagePtr = Marshal.StringToCoTaskMemUTF8(languageCode);
         var samplesHandle = GCHandle.Alloc(samples, GCHandleType.Pinned);
         try
         {
+            using var recognizerScope = new DangerousHandleScope(recognizer);
             optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: false);
             var status = _recognizeF32(
-                recognizer,
+                recognizerScope.Pointer,
                 optionsPtr,
                 samplesHandle.AddrOfPinnedObject(),
                 (nuint)samples.Length,
@@ -148,7 +155,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
                 out var result);
             if (status != NemoSpeechAsrOk || result == IntPtr.Zero)
                 throw new InvalidOperationException($"nemo_speech_asr_recognize_f32 failed: {LastError()}");
-            return result;
+            return Own(result, ptr => _resultDestroy(ptr));
         }
         finally
         {
@@ -158,17 +165,18 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public IntPtr StartStream(IntPtr recognizer, string languageCode)
+    public NemoOwnedHandle StartStream(NemoOwnedHandle recognizer, string languageCode)
     {
         var optionsPtr = IntPtr.Zero;
         var languagePtr = Marshal.StringToCoTaskMemUTF8(languageCode);
         try
         {
+            using var recognizerScope = new DangerousHandleScope(recognizer);
             optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: true);
-            var status = _streamingRecognize(recognizer, optionsPtr, out var stream);
+            var status = _streamingRecognize(recognizerScope.Pointer, optionsPtr, out var stream);
             if (status != NemoSpeechAsrOk || stream == IntPtr.Zero)
                 throw new InvalidOperationException($"nemo_speech_asr_streaming_recognize failed: {LastError()}");
-            return stream;
+            return Own(stream, ptr => _streamClose(ptr));
         }
         finally
         {
@@ -177,7 +185,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public void StreamPushF32(IntPtr stream, float[] samples, int sampleRate)
+    public void StreamPushF32(NemoOwnedHandle stream, float[] samples, int sampleRate)
     {
         if (samples.Length == 0)
             return;
@@ -185,7 +193,8 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         var handle = GCHandle.Alloc(samples, GCHandleType.Pinned);
         try
         {
-            var status = _streamPushF32(stream, handle.AddrOfPinnedObject(), (nuint)samples.Length, sampleRate);
+            using var streamScope = new DangerousHandleScope(stream);
+            var status = _streamPushF32(streamScope.Pointer, handle.AddrOfPinnedObject(), (nuint)samples.Length, sampleRate);
             if (status != NemoSpeechAsrOk)
                 throw new InvalidOperationException($"nemo_speech_asr_stream_push_f32 failed: {LastError()}");
         }
@@ -195,47 +204,58 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public void StreamFinish(IntPtr stream)
+    public void StreamFinish(NemoOwnedHandle stream)
     {
-        var status = _streamFinish(stream);
+        using var streamScope = new DangerousHandleScope(stream);
+        var status = _streamFinish(streamScope.Pointer);
         if (status != NemoSpeechAsrOk)
             throw new InvalidOperationException($"nemo_speech_asr_stream_finish failed: {LastError()}");
     }
 
-    public IntPtr StreamNext(IntPtr stream)
+    public NemoOwnedHandle? StreamNext(NemoOwnedHandle stream)
     {
-        var status = _streamNext(stream, out var result);
+        using var streamScope = new DangerousHandleScope(stream);
+        var status = _streamNext(streamScope.Pointer, out var result);
         if (status != NemoSpeechAsrOk)
             throw new InvalidOperationException($"nemo_speech_asr_stream_next failed: {LastError()}");
-        return result;
+        return result == IntPtr.Zero ? null : Own(result, ptr => _resultDestroy(ptr));
     }
 
-    public void StreamClose(IntPtr stream)
+    public bool ResultIsFinal(NemoOwnedHandle result)
     {
-        if (stream != IntPtr.Zero)
-            _streamClose(stream);
+        using var scope = new DangerousHandleScope(result);
+        return _resultIsFinal(scope.Pointer) != 0;
     }
 
-    public bool ResultIsFinal(IntPtr result) => _resultIsFinal(result) != 0;
-
-    public float ResultAudioProcessed(IntPtr result) => _resultAudioProcessed(result);
-
-    public string ResultTranscript(IntPtr result)
+    public float ResultAudioProcessed(NemoOwnedHandle result)
     {
-        var ptr = _resultTranscript(result, 0);
+        using var scope = new DangerousHandleScope(result);
+        return _resultAudioProcessed(scope.Pointer);
+    }
+
+    public string ResultTranscript(NemoOwnedHandle result)
+    {
+        using var scope = new DangerousHandleScope(result);
+        var ptr = _resultTranscript(scope.Pointer, 0);
         return ptr == IntPtr.Zero ? string.Empty : Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
     }
 
-    public nuint ResultWordCount(IntPtr result) => _resultWordCount(result, 0);
-
-    public int ResultWordStartTimeMs(IntPtr result, nuint index) => _resultWordStartTime(result, 0, index);
-
-    public int ResultWordEndTimeMs(IntPtr result, nuint index) => _resultWordEndTime(result, 0, index);
-
-    public void ResultDestroy(IntPtr result)
+    public nuint ResultWordCount(NemoOwnedHandle result)
     {
-        if (result != IntPtr.Zero)
-            _resultDestroy(result);
+        using var scope = new DangerousHandleScope(result);
+        return _resultWordCount(scope.Pointer, 0);
+    }
+
+    public int ResultWordStartTimeMs(NemoOwnedHandle result, nuint index)
+    {
+        using var scope = new DangerousHandleScope(result);
+        return _resultWordStartTime(scope.Pointer, 0, index);
+    }
+
+    public int ResultWordEndTimeMs(NemoOwnedHandle result, nuint index)
+    {
+        using var scope = new DangerousHandleScope(result);
+        return _resultWordEndTime(scope.Pointer, 0, index);
     }
 
     public string LastError()
@@ -244,11 +264,10 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         return ptr == IntPtr.Zero ? "unknown error" : Marshal.PtrToStringUTF8(ptr) ?? "unknown error";
     }
 
-    public void Dispose()
-    {
-        if (_handle != IntPtr.Zero)
-            NativeLibrary.Free(_handle);
-    }
+    public void Dispose() => _libraryHandle.Dispose();
+
+    private NemoOwnedHandle Own(IntPtr native, Action<IntPtr> release) =>
+        new(native, _libraryHandle, release);
 
     private IntPtr AllocRecognitionOptions(IntPtr languagePtr, bool interimResults)
     {
