@@ -44,6 +44,26 @@ public class CliProcessRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_RoundtripsSpanishUtf8ThroughStdinAndStdout()
+    {
+        var runner = new CliProcessRunner();
+        const string spanish = "niño cañón reunión";
+
+        var result = await runner.RunAsync(
+            "powershell.exe",
+            "-NoProfile -Command [Console]::InputEncoding = [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; [Console]::Out.Write([Console]::In.ReadToEnd())",
+            spanish,
+            TimeSpan.FromSeconds(15));
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("niño", result.StandardOutput);
+        Assert.Contains("cañón", result.StandardOutput);
+        Assert.Contains("reunión", result.StandardOutput);
+        Assert.DoesNotContain("niÃ±o", result.StandardOutput);
+        Assert.DoesNotContain("reuniÃ³n", result.StandardOutput);
+    }
+
+    [Fact]
     public async Task RunAsync_WhenProcessExceedsTimeout_ThrowsTimeoutException()
     {
         var runner = new CliProcessRunner();

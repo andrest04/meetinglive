@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace MeetingLive.Core.Services;
 
@@ -35,19 +36,22 @@ public sealed class CliProcessRunner : ICliProcessRunner
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        using var process = new Process
+        var startInfo = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = arguments,
-                RedirectStandardInput = stdin is not null,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            },
+            FileName = fileName,
+            Arguments = arguments,
+            RedirectStandardInput = stdin is not null,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            UseShellExecute = false,
+            CreateNoWindow = true,
         };
+        if (stdin is not null)
+            startInfo.StandardInputEncoding = Encoding.UTF8;
+
+        using var process = new Process { StartInfo = startInfo };
 
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
