@@ -25,3 +25,14 @@ public static class TranscriptionLanguageCatalog
         new TranscriptionLanguageOption("zh", "Chinese"),
     ];
 }
+
+/// <summary>Output language for the written summary and action items. Separate from
+/// transcription so a Spanish meeting can still be summarized in English if the user wants.</summary>
+public static class SummaryLanguageCatalog
+{
+    public static readonly IReadOnlyList<TranscriptionLanguageOption> Languages =
+    [
+        new TranscriptionLanguageOption("es", "Spanish"),
+        new TranscriptionLanguageOption("en", "English"),
+    ];
+}

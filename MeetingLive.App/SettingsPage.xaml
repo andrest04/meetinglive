@@ -153,6 +153,19 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                 </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_SummaryLanguage"
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE8D2;}">
+                    <ComboBox ItemsSource="{x:Bind ViewModel.SummaryLanguages, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedSummaryLanguage, Mode=OneWay}"
+                              SelectionChanged="SummaryLanguageComboBox_SelectionChanged"
+                              AutomationProperties.AutomationId="ComboSummaryLanguage">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:TranscriptionLanguageOption">
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </controls:SettingsCard>
             </StackPanel>
 
             <!-- Transcription engine -->

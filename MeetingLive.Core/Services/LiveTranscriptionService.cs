@@ -4,9 +4,8 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Streams mixed mic+loopback float32 frames into Nemotron 3.5 ASR (NeMo-Speech.cpp C ABI)
-/// and publishes committed+interim text as it arrives. On <see cref="Stop"/> the stream is
-/// finished and drained — that text is authoritative; the caller should not re-transcribe
-/// the WAV unless this returns empty.
+/// and publishes committed+interim text as it arrives for the Record-page preview.
+/// The caller should still offline-recognize the WAV for the saved transcript.
 /// </summary>
 public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDisposable
 {

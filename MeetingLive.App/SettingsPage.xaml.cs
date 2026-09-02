@@ -53,6 +53,12 @@ public sealed partial class SettingsPage : Page
             ViewModel.SelectLanguageCommand.Execute(option);
     }
 
+    private void SummaryLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })
+            ViewModel.SelectSummaryLanguageCommand.Execute(option);
+    }
+
     private void MicrophoneComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: MicrophoneDeviceOption option })

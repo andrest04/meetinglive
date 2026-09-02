@@ -102,13 +102,16 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
             };
             modelPtr = Alloc(model);
 
+            // NVIDIA Nemotron 3.5 ASR: rnnt_right_context is encoder frames at 80ms.
+            // 1 = 160ms, 3 = 320ms, 6 = 560ms, 13 = 1.12s. Larger = lower WER.
+            // Meetings use 320ms (not the 80/160ms voice-agent points).
             var streaming = new NemoSpeechAsrStreamingConfig
             {
                 Size = (nuint)Marshal.SizeOf<NemoSpeechAsrStreamingConfig>(),
                 ChunkSize = 0.16f,
                 CtcLeftPadding = 1.92f,
                 CtcRightPadding = 1.92f,
-                RnntRightContext = 1,
+                RnntRightContext = 3,
             };
             streamingPtr = Alloc(streaming);
 

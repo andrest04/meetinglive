@@ -19,9 +19,13 @@ public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : I
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
 
     public async Task<SummaryResult> SummarizeAsync(
-        string transcript, string title, DateTimeOffset recordedAt, CancellationToken cancellationToken = default)
+        string transcript,
+        string title,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null)
     {
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
 
         var result = await processRunner.RunAsync(ExecutableName, "exec -", prompt, Timeout, cancellationToken);
 

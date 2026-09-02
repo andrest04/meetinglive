@@ -61,6 +61,8 @@
   <data name="Settings_MeetingLanguage.Text" xml:space="preserve"><value>Meeting language</value></data>
   <data name="Settings_TranscriptionLanguage.Header" xml:space="preserve"><value>Transcription language</value></data>
   <data name="Settings_TranscriptionLanguage.Description" xml:space="preserve"><value>Pin the meeting language so transcription does not have to guess. Auto-detect is fine when meetings mix languages or you are not sure.</value></data>
+  <data name="Settings_SummaryLanguage.Header" xml:space="preserve"><value>Summary language</value></data>
+  <data name="Settings_SummaryLanguage.Description" xml:space="preserve"><value>Language of the written summary and action items. Defaults to Spanish. Markdown headings stay in English so the app can parse them.</value></data>
   <data name="Settings_Transcription.Text" xml:space="preserve"><value>Transcription</value></data>
   <data name="Settings_NemotronCard.Header" xml:space="preserve"><value>Nemotron 3.5 ASR Streaming 0.6B</value></data>
   <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install.</value></data>

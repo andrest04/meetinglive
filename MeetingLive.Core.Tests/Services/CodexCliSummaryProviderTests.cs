@@ -12,7 +12,7 @@ public class CodexCliSummaryProviderTests
         {
             Assert.Equal("codex", fileName);
             Assert.Equal("exec -", arguments);
-            Assert.Contains("Transcript:", stdin);
+            Assert.Contains("<transcript>", stdin);
             Assert.Contains("Hello everyone.", stdin);
 
             return new CliProcessResult(0, """

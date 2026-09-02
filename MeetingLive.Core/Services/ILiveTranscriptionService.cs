@@ -1,11 +1,10 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// True streaming transcription over the live mixed PCM tap. The text produced while recording
-/// is the real transcript (cache-aware RNNT), not a preview. <see cref="Stop"/> finishes the
-/// stream and returns the authoritative result. When live transcription is disabled, the
-/// caller instead uses <see cref="ITranscriptionService"/> to offline-recognize the WAV with
-/// the same Nemotron model.
+/// Streaming transcription over the live mixed PCM tap for on-screen preview.
+/// The saved meeting transcript is produced by <see cref="ITranscriptionService"/> over the
+/// finished WAV (NVIDIA's full-utterance Recognize path). <see cref="Stop"/> still finishes
+/// the stream so native handles are released.
 /// </summary>
 public interface ILiveTranscriptionService
 {
@@ -17,8 +16,8 @@ public interface ILiveTranscriptionService
     /// session is still running — it is stopped first. Does not take a WAV path.</summary>
     void Start(string language);
 
-    /// <summary>Finishes the stream, drains finals, releases native handles, and returns the
-    /// authoritative transcript (empty if nothing was recognized). Safe to call when no
-    /// session is running.</summary>
+    /// <summary>Finishes the stream, drains finals, and releases native handles. The returned
+    /// text is the last live preview, not the saved transcript. Safe to call when no session
+    /// is running.</summary>
     string Stop();
 }

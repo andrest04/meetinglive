@@ -17,30 +17,18 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
     /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
     public const string ProviderId = "local";
 
-    private const string SummaryPrompt = """
-        You are an assistant that summarizes meetings and lectures. From the transcript below,
-        respond with exactly two Markdown sections, in this order, and nothing else (no preamble,
-        no code fences):
 
-        ## Summary
-
-        A concise summary covering key points and decisions made.
-
-        ## Action Items
-
-        Every follow-up task as a Markdown checkbox line, e.g. "- [ ] Follow up with design on
-        mockups" (with owner if mentioned). If there are no action items, leave this section empty.
-
-        Transcript:
-        {0}
-        """;
 
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private LLamaWeights? _weights;
     private ModelParams? _modelParams;
 
     public async Task<SummaryResult> SummarizeAsync(
-        string transcript, string title, DateTimeOffset recordedAt, CancellationToken cancellationToken = default)
+        string transcript,
+        string title,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null)
     {
         if (!File.Exists(modelPath))
         {
@@ -62,7 +50,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
             SamplingPipeline = new DefaultSamplingPipeline { Temperature = 0.3f },
         };
 
-        var prompt = string.Format(SummaryPrompt, transcript);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
 
         var result = new StringBuilder();
         await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))

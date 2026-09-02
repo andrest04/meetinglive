@@ -17,5 +17,6 @@ public interface ISummaryProvider
         string transcript,
         string title,
         DateTimeOffset recordedAt,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null);
 }

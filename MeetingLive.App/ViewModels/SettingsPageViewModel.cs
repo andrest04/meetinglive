@@ -29,6 +29,9 @@ public partial class SettingsPageViewModel : ObservableObject
     private TranscriptionLanguageOption _selectedLanguage = TranscriptionLanguageCatalog.Languages[0];
 
     [ObservableProperty]
+    private TranscriptionLanguageOption _selectedSummaryLanguage = SummaryLanguageCatalog.Languages[0];
+
+    [ObservableProperty]
     private MicrophoneDeviceOption _selectedMicrophone = DefaultMicrophoneOption;
 
     [ObservableProperty]
@@ -70,6 +73,8 @@ public partial class SettingsPageViewModel : ObservableObject
 
     public IReadOnlyList<TranscriptionLanguageOption> Languages { get; } = TranscriptionLanguageCatalog.Languages;
 
+    public IReadOnlyList<TranscriptionLanguageOption> SummaryLanguages { get; } = SummaryLanguageCatalog.Languages;
+
     public ObservableCollection<MicrophoneDeviceOption> Microphones { get; } = [];
 
     public string DataDirectoryPath { get; } = AppPaths.RootDirectory;
@@ -95,6 +100,9 @@ public partial class SettingsPageViewModel : ObservableObject
             var languageCode = settings.ResolveTranscriptionLanguage();
             SelectedLanguage = TranscriptionLanguageCatalog.Languages.FirstOrDefault(l => l.Code == languageCode)
                 ?? TranscriptionLanguageCatalog.Languages[0];
+            var summaryLanguageCode = settings.ResolveSummaryLanguage();
+            SelectedSummaryLanguage = SummaryLanguageCatalog.Languages.FirstOrDefault(l => l.Code == summaryLanguageCode)
+                ?? SummaryLanguageCatalog.Languages[0];
             IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
             RefreshTranscriptionStatus(hardware);
 
@@ -197,6 +205,16 @@ public partial class SettingsPageViewModel : ObservableObject
 
         SelectedLanguage = option;
         await SaveSettingsAsync(settings => settings.TranscriptionLanguage = option.Code);
+    }
+
+    [RelayCommand]
+    private async Task SelectSummaryLanguageAsync(TranscriptionLanguageOption option)
+    {
+        if (option.Code == SelectedSummaryLanguage.Code)
+            return;
+
+        SelectedSummaryLanguage = option;
+        await SaveSettingsAsync(settings => settings.SummaryLanguage = option.Code);
     }
 
     [RelayCommand]

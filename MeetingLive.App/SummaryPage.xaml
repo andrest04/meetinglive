@@ -7,6 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:md="using:CommunityToolkit.WinUI.UI.Controls"
     mc:Ignorable="d">
 
     <Grid Padding="24" RowSpacing="12">
@@ -55,9 +56,10 @@
             <ScrollViewer Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}" TextWrapping="Wrap"
-                               IsTextSelectionEnabled="True"
-                               AutomationProperties.AutomationId="TxtSummaryContent" />
+                    <md:MarkdownTextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                                          TextWrapping="WrapWholeWords"
+                                          Background="Transparent"
+                                          AutomationProperties.AutomationId="TxtSummaryContent" />
 
                     <StackPanel Spacing="8"
                                 Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasActionItems), Mode=OneWay}">

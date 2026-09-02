@@ -12,8 +12,11 @@ public class ClaudeCodeCliSummaryProviderTests
         {
             Assert.Equal("claude", fileName);
             Assert.Equal("-p", arguments);
-            Assert.Contains("Transcript:", stdin);
+            Assert.Contains("<transcript>", stdin);
             Assert.Contains("Hello everyone.", stdin);
+            Assert.Contains("in Spanish", stdin);
+            Assert.Contains("Do not invent", stdin);
+            Assert.Contains("### Decisions", stdin);
 
             return new CliProcessResult(0, """
                 ## Summary
@@ -57,5 +60,21 @@ public class ClaudeCodeCliSummaryProviderTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => provider.SummarizeAsync("transcript", "title", DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_WhenOutputLanguageIsEnglish_AsksForEnglish()
+    {
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((_, _, stdin) =>
+        {
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## Summary\n\nHello.\n", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner);
+
+        await provider.SummarizeAsync("Hello everyone.", "Kickoff", DateTimeOffset.UtcNow, outputLanguage: "en");
+
+        Assert.Contains("in English", stdinCaptured);
     }
 }

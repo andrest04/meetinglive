@@ -3,8 +3,8 @@ using NAudio.Wave;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Offline Nemotron 3.5 ASR over a finished 16 kHz mono WAV. Used when live streaming was
-/// disabled or produced no text; never Whisper.
+/// Offline Nemotron 3.5 ASR over a finished 16 kHz mono WAV (NVIDIA Recognize / full utterance).
+/// Live streaming is preview-only; this is the saved transcript.
 /// </summary>
 public sealed class TranscriptionService(
     INemotronModelManager models,
@@ -23,6 +23,7 @@ public sealed class TranscriptionService(
         cancellationToken.ThrowIfCancellationRequested();
 
         var samples = ReadMonoFloat32(wavFilePath);
+        PcmLevelNormalizer.NormalizeFloat32(samples);
         var locale = NemotronLanguageMapper.ToNemotronLocale(language);
 
         using var recognizer = _factory.Create();

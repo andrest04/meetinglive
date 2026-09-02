@@ -8,7 +8,7 @@ namespace MeetingLive_App.ViewModels;
 
 /// <summary>
 /// Drives the record/stop flow: gates on the Nemotron engine, captures mic + system audio,
-/// streams live ASR when enabled, then (if needed) offline-recognizes the WAV and summarizes.
+/// streams live ASR as a preview when enabled, then offline-recognizes the WAV and summarizes.
 /// </summary>
 public partial class RecordingPageViewModel : ObservableObject
 {
@@ -20,7 +20,6 @@ public partial class RecordingPageViewModel : ObservableObject
     private Guid _currentMeetingId;
     private DateTimeOffset _recordedAt;
     private string? _currentAudioPath;
-    private string? _streamingTranscript;
     private bool _liveSessionActive;
 
     [ObservableProperty]
@@ -38,8 +37,8 @@ public partial class RecordingPageViewModel : ObservableObject
     [ObservableProperty]
     private MeetingRecord? _lastMeeting;
 
-    /// <summary>Live streaming transcript shown on the Record page. This is the real transcript,
-    /// not a preview — Stop finishes the stream and that text is saved unless it is empty.</summary>
+    /// <summary>Live streaming transcript shown on the Record page. Preview only — the saved
+    /// meeting text comes from offline recognition of the WAV.</summary>
     [ObservableProperty]
     private string _liveTranscriptText = string.Empty;
 
@@ -117,7 +116,6 @@ public partial class RecordingPageViewModel : ObservableObject
         _currentAudioPath = Path.Combine(AppPaths.RecordingsDirectory, $"{_currentMeetingId}.wav");
 
         LiveTranscriptText = string.Empty;
-        _streamingTranscript = null;
         _liveSessionActive = false;
 
         try
@@ -161,7 +159,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
         if (_liveSessionActive)
         {
-            _streamingTranscript = _liveTranscription.Stop();
+            _liveTranscription.Stop();
             _liveSessionActive = false;
         }
 
@@ -182,18 +180,9 @@ public partial class RecordingPageViewModel : ObservableObject
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
 
-            string transcript;
-            if (!string.IsNullOrWhiteSpace(_streamingTranscript))
-            {
-                transcript = _streamingTranscript;
-                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
-            }
-            else
-            {
-                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
-                transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
-                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
-            }
+            App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
+            var transcript = await Task.Run(() => _transcription.TranscribeAsync(_currentAudioPath, language));
+            App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_TranscriptReady"));
 
             string? summary = null;
             IReadOnlyList<ActionItem> actionItems = [];
@@ -202,8 +191,10 @@ public partial class RecordingPageViewModel : ObservableObject
             var summaryProvider = await ResolveSummaryProviderAsync();
             if (summaryProvider is not null)
             {
+                var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
                 App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_GeneratingSummary"));
-                var result = await Task.Run(() => summaryProvider.SummarizeAsync(transcript, MeetingTitle, _recordedAt));
+                var result = await Task.Run(() => summaryProvider.SummarizeAsync(
+                    transcript, MeetingTitle, _recordedAt, outputLanguage: summaryLanguage));
                 summary = result.SummaryMarkdown;
                 actionItems = result.ActionItems;
                 summaryProviderId = result.ProviderId;

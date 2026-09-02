@@ -16,13 +16,20 @@ public sealed class AppSettings
         Enum.TryParse<SummaryProviderKind>(SelectedSummaryProvider, out var kind) ? kind : SummaryProviderKind.Local;
 
     /// <summary>The meeting-language code (<see cref="TranscriptionLanguageOption.Code"/>) the user
-    /// pinned in Settings, e.g. "en". Null means the default (auto-detect).</summary>
+    /// pinned in Settings, e.g. "en". Null means the default (Spanish — NVIDIA LangID beats auto).</summary>
     public string? TranscriptionLanguage { get; set; }
 
-    /// <summary>Resolves <see cref="TranscriptionLanguage"/>, defaulting to "auto" when unset
-    /// (e.g. an older settings file from before this field existed).</summary>
+    /// <summary>Resolves <see cref="TranscriptionLanguage"/>, defaulting to "es" when unset.
+    /// Nemotron 3.5 ASR WER on Spanish is lower with an explicit locale than with <c>auto</c>.</summary>
     public string ResolveTranscriptionLanguage() =>
-        string.IsNullOrWhiteSpace(TranscriptionLanguage) ? "auto" : TranscriptionLanguage;
+        string.IsNullOrWhiteSpace(TranscriptionLanguage) ? "es" : TranscriptionLanguage;
+
+    /// <summary>Language of the written summary body and action items (<c>es</c>, <c>en</c>).
+    /// Null means Spanish.</summary>
+    public string? SummaryLanguage { get; set; }
+
+    public string ResolveSummaryLanguage() =>
+        string.IsNullOrWhiteSpace(SummaryLanguage) ? "es" : SummaryLanguage;
 
     /// <summary>The <see cref="NAudio.CoreAudioApi.MMDevice.ID"/> of the microphone the user picked
     /// in Settings to record from. Null/empty means "use the OS default input device" — also the
@@ -30,7 +37,7 @@ public sealed class AppSettings
     public string? SelectedMicrophoneDeviceId { get; set; }
 
     /// <summary>Whether live Nemotron streaming transcription runs during recording.
-    /// Defaults to <see langword="true"/>. Turning it off only defers transcription until Stop
-    /// (still Nemotron, over the WAV) — it does not switch engines.</summary>
+    /// Defaults to <see langword="true"/>. The saved transcript is always offline Nemotron
+    /// over the WAV; this only controls the on-screen preview.</summary>
     public bool LiveTranscriptionEnabled { get; set; } = true;
 }

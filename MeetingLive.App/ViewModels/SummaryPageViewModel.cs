@@ -103,7 +103,9 @@ public partial class SummaryPageViewModel : ObservableObject
                 return;
             }
 
-            var result = await Task.Run(() => provider.SummarizeAsync(transcript, _record.Title, _record.RecordedAt));
+            var summaryLanguage = settings.ResolveSummaryLanguage();
+            var result = await Task.Run(() => provider.SummarizeAsync(
+                transcript, _record.Title, _record.RecordedAt, outputLanguage: summaryLanguage));
 
             _record.Summary = result.SummaryMarkdown;
             _record.ActionItems = result.ActionItems;
