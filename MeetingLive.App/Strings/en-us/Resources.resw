@@ -64,8 +64,8 @@
   <data name="HistoryDelete_Primary" xml:space="preserve"><value>Delete</value></data>
   <data name="HistoryDelete_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Settings</value></data>
-  <data name="Settings_SummaryModels.Text" xml:space="preserve"><value>Summary models</value></data>
-  <data name="Settings_SummaryModelsHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space.</value></data>
+  <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Summary models</value></data>
+  <data name="Settings_SummaryModels.Description" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space.</value></data>
   <data name="Settings_Active.Content" xml:space="preserve"><value>Active</value></data>
   <data name="Settings_Download.Content" xml:space="preserve"><value>Download</value></data>
   <data name="Settings_Delete.Content" xml:space="preserve"><value>Delete</value></data>

@@ -19,59 +19,8 @@
 
             <TextBlock x:Uid="SettingsPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
-            <!-- Summary models (local GGUF, downloaded on demand). Hidden unless Local is selected. -->
-            <StackPanel Spacing="4"
-                        Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsLocalSelected), Mode=OneWay}">
-                <TextBlock x:Uid="Settings_SummaryModels" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock x:Uid="Settings_SummaryModelsHint"
-                           Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
-
-                <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="20" Height="20" HorizontalAlignment="Left" />
-
-                <ItemsControl ItemsSource="{x:Bind ViewModel.Models, Mode=OneWay}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ModelOption">
-                            <controls:SettingsCard Header="{x:Bind Info.DisplayName}"
-                                                    Description="{x:Bind SpeedQualityLabel}"
-                                                    Margin="0,0,0,4">
-                                <controls:SettingsCard.HeaderIcon>
-                                    <FontIcon Glyph="&#xE945;" />
-                                </controls:SettingsCard.HeaderIcon>
-
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Border CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,4" VerticalAlignment="Center"
-                                            Background="{x:Bind local:FitRatingPresentation.Brush(Rating), Mode=OneWay}">
-                                        <TextBlock Text="{x:Bind RatingLabel}" Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-                                    </Border>
-
-                                    <ProgressRing IsActive="{x:Bind IsDownloading, Mode=OneWay}" Width="16" Height="16" />
-
-                                    <RadioButton x:Uid="Settings_Active"
-                                                 GroupName="SummaryModelSelection"
-                                                 IsChecked="{x:Bind IsActive, Mode=OneWay}"
-                                                 IsEnabled="{x:Bind IsDownloaded, Mode=OneWay}"
-                                                 Checked="ModelRadioButton_Checked"
-                                                 AutomationProperties.AutomationId="{x:Bind local:SettingsPage.ActiveRadioId(Info.FileName), Mode=OneWay}" />
-
-                                    <Button x:Uid="Settings_Download"
-                                            Click="DownloadModelButton_Click"
-                                            Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(IsDownloaded), Mode=OneWay}"
-                                            IsEnabled="{x:Bind local:SettingsPage.Not(IsDownloading), Mode=OneWay}"
-                                            AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DownloadButtonId(Info.FileName), Mode=OneWay}" />
-
-                                    <Button x:Uid="Settings_Delete"
-                                            Click="DeleteModelButton_Click"
-                                            Visibility="{x:Bind local:SettingsPage.BoolToVisibility(IsDownloaded), Mode=OneWay}"
-                                            AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DeleteButtonId(Info.FileName), Mode=OneWay}" />
-                                </StackPanel>
-                            </controls:SettingsCard>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-
-            <!-- Summary provider -->
+            <!-- Summary provider. Local GGUF models accordion below the radios so the
+                 provider choice never jumps; it collapses away for Claude Code / Codex. -->
             <StackPanel Spacing="4">
                 <TextBlock x:Uid="Settings_SummaryProvider" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <controls:SettingsCard x:Uid="Settings_SummaryProviderCard"
@@ -109,6 +58,53 @@
                                    AutomationProperties.AutomationId="TxtCliProviderStatus" />
                     </StackPanel>
                 </controls:SettingsCard>
+
+                <controls:SettingsExpander x:Uid="Settings_SummaryModels"
+                                           HeaderIcon="{ui:FontIcon Glyph=&#xE945;}"
+                                           IsExpanded="{x:Bind ViewModel.IsLocalSelected, Mode=OneWay}"
+                                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsLocalSelected), Mode=OneWay}"
+                                           ItemsSource="{x:Bind ViewModel.Models, Mode=OneWay}"
+                                           AutomationProperties.AutomationId="ExpanderLocalSummaryModels">
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="20" Height="20" />
+                    <controls:SettingsExpander.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModelOption">
+                            <controls:SettingsCard Header="{x:Bind Info.DisplayName}"
+                                                    Description="{x:Bind SpeedQualityLabel}">
+                                <controls:SettingsCard.HeaderIcon>
+                                    <FontIcon Glyph="&#xE945;" />
+                                </controls:SettingsCard.HeaderIcon>
+
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Border CornerRadius="{ThemeResource ControlCornerRadius}" Padding="8,4" VerticalAlignment="Center"
+                                            Background="{x:Bind local:FitRatingPresentation.Brush(Rating), Mode=OneWay}">
+                                        <TextBlock Text="{x:Bind RatingLabel}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    </Border>
+
+                                    <ProgressRing IsActive="{x:Bind IsDownloading, Mode=OneWay}" Width="16" Height="16" />
+
+                                    <RadioButton x:Uid="Settings_Active"
+                                                 GroupName="SummaryModelSelection"
+                                                 IsChecked="{x:Bind IsActive, Mode=OneWay}"
+                                                 IsEnabled="{x:Bind IsDownloaded, Mode=OneWay}"
+                                                 Checked="ModelRadioButton_Checked"
+                                                 AutomationProperties.AutomationId="{x:Bind local:SettingsPage.ActiveRadioId(Info.FileName), Mode=OneWay}" />
+
+                                    <Button x:Uid="Settings_Download"
+                                            Click="DownloadModelButton_Click"
+                                            Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(IsDownloaded), Mode=OneWay}"
+                                            IsEnabled="{x:Bind local:SettingsPage.Not(IsDownloading), Mode=OneWay}"
+                                            AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DownloadButtonId(Info.FileName), Mode=OneWay}" />
+
+                                    <Button x:Uid="Settings_Delete"
+                                            Click="DeleteModelButton_Click"
+                                            Visibility="{x:Bind local:SettingsPage.BoolToVisibility(IsDownloaded), Mode=OneWay}"
+                                            AutomationProperties.AutomationId="{x:Bind local:SettingsPage.DeleteButtonId(Info.FileName), Mode=OneWay}" />
+                                </StackPanel>
+                            </controls:SettingsCard>
+                        </DataTemplate>
+                    </controls:SettingsExpander.ItemTemplate>
+                </controls:SettingsExpander>
             </StackPanel>
 
             <!-- Microphone -->

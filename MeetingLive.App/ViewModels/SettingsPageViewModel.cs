@@ -87,7 +87,7 @@ public partial class SettingsPageViewModel : ObservableObject
     public bool IsCodexSelected => SelectedProviderKind == SummaryProviderKind.Codex;
 
     /// <summary>Only CLI-backed providers have a PATH-detection status to show; Local always
-    /// works (it just may need a model download, handled by the model list above).</summary>
+    /// works (it just may need a model download, handled by the model accordion).</summary>
     public bool ShowCliProviderStatus => SelectedProviderKind != SummaryProviderKind.Local;
 
     private static string ResolveAppVersion()
