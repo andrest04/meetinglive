@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Microsoft.UI.Dispatching;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -16,11 +18,16 @@ public partial class RecordingPageViewModel : ObservableObject
     private readonly ITranscriptionService _transcription = AppServices.Transcription;
     private readonly ILiveTranscriptionService _liveTranscription = AppServices.LiveTranscription;
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
+    private readonly IMicrophoneLevelMeterService _levelMeter = AppServices.MicrophoneLevelMeter;
+    private readonly Stopwatch _elapsed = new();
 
     private Guid _currentMeetingId;
     private DateTimeOffset _recordedAt;
     private string? _currentAudioPath;
     private bool _liveSessionActive;
+    private bool _isPageVisible;
+    private int _previewGeneration;
+    private DispatcherQueueTimer? _elapsedTimer;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -41,6 +48,12 @@ public partial class RecordingPageViewModel : ObservableObject
     /// meeting text comes from offline recognition of the WAV.</summary>
     [ObservableProperty]
     private string _liveTranscriptText = string.Empty;
+
+    [ObservableProperty]
+    private string _elapsedText = "00:00";
+
+    [ObservableProperty]
+    private double _micLevel;
 
     /// <summary>
     /// Supplied by the page (needs a XamlRoot for the setup dialog): resolves,
@@ -76,9 +89,28 @@ public partial class RecordingPageViewModel : ObservableObject
 
     public bool HasSummary => LastMeeting?.Summary is not null;
 
+    public bool ShowMicPreview => !IsRecording && !IsProcessing;
+
     public RecordingPageViewModel()
     {
         _liveTranscription.TranscriptUpdated += OnLiveTranscriptUpdated;
+        _levelMeter.LevelChanged += OnMicLevelChanged;
+    }
+
+    /// <summary>Record is cached; start the idle mic preview only while this page is showing.</summary>
+    public void OnNavigatedTo()
+    {
+        _isPageVisible = true;
+        TryStartMicPreview();
+    }
+
+    /// <summary>Release the preview capture when leaving Record, but never stop an in-flight
+    /// recording, live ASR, processing, or the elapsed timer.</summary>
+    public void OnNavigatedFrom()
+    {
+        _isPageVisible = false;
+        if (!IsRecording)
+            StopMicPreview();
     }
 
     private void OnLiveTranscriptUpdated(object? sender, string transcript)
@@ -130,6 +162,7 @@ public partial class RecordingPageViewModel : ObservableObject
                 _liveSessionActive = true;
             }
 
+            StopMicPreview();
             _audioCapture.Start(_currentAudioPath, settings.SelectedMicrophoneDeviceId);
             IsRecording = true;
             StatusText = AppStrings.Get("Status_Recording");
@@ -143,6 +176,7 @@ public partial class RecordingPageViewModel : ObservableObject
             }
 
             StatusText = AppStrings.Format("Error_StartRecording", ex.Message);
+            TryStartMicPreview();
         }
     }
 
@@ -163,6 +197,8 @@ public partial class RecordingPageViewModel : ObservableObject
             _liveSessionActive = false;
         }
 
+        IsProcessing = true;
+        ToggleRecordingCommand.NotifyCanExecuteChanged();
         IsRecording = false;
         _ = ProcessRecordingAsync();
     }
@@ -170,10 +206,12 @@ public partial class RecordingPageViewModel : ObservableObject
     private async Task ProcessRecordingAsync()
     {
         if (_currentAudioPath is null)
+        {
+            IsProcessing = false;
+            ToggleRecordingCommand.NotifyCanExecuteChanged();
+            TryStartMicPreview();
             return;
-
-        IsProcessing = true;
-        ToggleRecordingCommand.NotifyCanExecuteChanged();
+        }
 
         try
         {
@@ -213,6 +251,7 @@ public partial class RecordingPageViewModel : ObservableObject
             };
 
             await _meetings.SaveAsync(record);
+            AppServices.Workspace.SetLastProcessed(record);
 
             App.DispatcherQueue.TryEnqueue(() =>
             {
@@ -223,6 +262,7 @@ public partial class RecordingPageViewModel : ObservableObject
                 MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
                 IsProcessing = false;
                 ToggleRecordingCommand.NotifyCanExecuteChanged();
+                TryStartMicPreview();
             });
         }
         catch (Exception ex)
@@ -232,6 +272,7 @@ public partial class RecordingPageViewModel : ObservableObject
                 StatusText = AppStrings.Format("Error_ProcessRecording", ex.Message);
                 IsProcessing = false;
                 ToggleRecordingCommand.NotifyCanExecuteChanged();
+                TryStartMicPreview();
             });
         }
     }
@@ -272,5 +313,70 @@ public partial class RecordingPageViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasLastMeeting));
         OnPropertyChanged(nameof(HasSummary));
+    }
+
+    partial void OnIsRecordingChanged(bool value)
+    {
+        if (value)
+            StartElapsedTimer();
+        else
+            StopElapsedTimer();
+
+        OnPropertyChanged(nameof(ShowMicPreview));
+    }
+
+    partial void OnIsProcessingChanged(bool value) => OnPropertyChanged(nameof(ShowMicPreview));
+
+    private void StartElapsedTimer()
+    {
+        ElapsedText = "00:00";
+        _elapsed.Restart();
+        _elapsedTimer ??= CreateElapsedTimer();
+        _elapsedTimer.Start();
+    }
+
+    private void StopElapsedTimer()
+    {
+        _elapsedTimer?.Stop();
+        _elapsed.Reset();
+        ElapsedText = "00:00";
+    }
+
+    private DispatcherQueueTimer CreateElapsedTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(1);
+        timer.IsRepeating = true;
+        timer.Tick += (_, _) => ElapsedText = FormatElapsed(_elapsed.Elapsed);
+        return timer;
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed) =>
+        $"{(int)elapsed.TotalMinutes:00}:{elapsed.Seconds:00}";
+
+    private void OnMicLevelChanged(object? sender, float level)
+    {
+        App.DispatcherQueue.TryEnqueue(() => MicLevel = Math.Clamp(level * 100.0, 0, 100));
+    }
+
+    private void StopMicPreview()
+    {
+        _previewGeneration++;
+        _levelMeter.Stop();
+        MicLevel = 0;
+    }
+
+    private async void TryStartMicPreview()
+    {
+        if (!_isPageVisible || IsRecording || IsProcessing)
+            return;
+
+        var generation = ++_previewGeneration;
+        var settings = await AppServices.Settings.LoadAsync();
+        if (generation != _previewGeneration || !_isPageVisible || IsRecording || IsProcessing)
+            return;
+
+        var deviceId = settings.SelectedMicrophoneDeviceId;
+        _levelMeter.Start(string.IsNullOrEmpty(deviceId) ? null : deviceId);
     }
 }

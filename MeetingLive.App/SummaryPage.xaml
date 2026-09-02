@@ -15,6 +15,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -36,22 +37,43 @@
             </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12"
-                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanGenerateSummary), Mode=OneWay}">
-            <Button x:Uid="SummaryPage_Generate" Command="{x:Bind ViewModel.GenerateSummaryCommand}"
+        <InfoBar Grid.Row="2"
+                 x:Uid="SummaryPage_CopyConfirmation"
+                 Severity="Success"
+                 IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
+                 AutomationProperties.AutomationId="InfoCopySummary" />
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12"
+                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
+            <Button x:Uid="SummaryPage_Generate"
+                    Command="{x:Bind ViewModel.GenerateSummaryCommand}"
                     Style="{StaticResource AccentButtonStyle}"
+                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanGenerateSummary), Mode=OneWay}"
                     AutomationProperties.AutomationId="BtnGenerateSummary" />
+            <Button x:Uid="SummaryPage_Regenerate"
+                    Command="{x:Bind ViewModel.RegenerateSummaryCommand}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRegenerateSummary), Mode=OneWay}"
+                    AutomationProperties.AutomationId="BtnRegenerateSummary" />
             <ProgressRing IsActive="{x:Bind ViewModel.IsGenerating, Mode=OneWay}" Width="20" Height="20" />
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.7" />
         </StackPanel>
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-            <TextBlock x:Uid="SummaryPage_Empty"
-                       Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}"
-                       Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center" />
+            <StackPanel Spacing="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
+                <TextBlock x:Uid="SummaryPage_Empty"
+                           Opacity="0.7" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center" />
+                <Button x:Uid="SummaryPage_EmptyCta"
+                        Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Center"
+                        Click="EmptyCta_Click"
+                        AutomationProperties.AutomationId="BtnSummaryEmptyRecord" />
+            </StackPanel>
 
             <ScrollViewer Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
                           HorizontalScrollBarVisibility="Disabled">

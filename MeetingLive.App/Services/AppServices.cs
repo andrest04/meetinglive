@@ -41,6 +41,8 @@ public static class AppServices
 
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
 
+    public static WorkspaceService Workspace { get; } = new();
+
     /// <summary>
     /// Creates a summary provider for the given <paramref name="kind"/>. A factory (rather
     /// than a singleton) because the selection can change between recordings, and the Local

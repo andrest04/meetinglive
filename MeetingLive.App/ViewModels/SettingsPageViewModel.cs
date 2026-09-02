@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
@@ -79,6 +80,8 @@ public partial class SettingsPageViewModel : ObservableObject
 
     public string DataDirectoryPath { get; } = AppPaths.RootDirectory;
 
+    public string AppVersion { get; } = ResolveAppVersion();
+
     public bool IsLocalSelected => SelectedProviderKind == SummaryProviderKind.Local;
     public bool IsClaudeCodeSelected => SelectedProviderKind == SummaryProviderKind.ClaudeCode;
     public bool IsCodexSelected => SelectedProviderKind == SummaryProviderKind.Codex;
@@ -86,6 +89,22 @@ public partial class SettingsPageViewModel : ObservableObject
     /// <summary>Only CLI-backed providers have a PATH-detection status to show; Local always
     /// works (it just may need a model download, handled by the model list above).</summary>
     public bool ShowCliProviderStatus => SelectedProviderKind != SummaryProviderKind.Local;
+
+    private static string ResolveAppVersion()
+    {
+        try
+        {
+            var version = Windows.ApplicationModel.Package.Current.Id.Version;
+            return $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+        }
+        catch (Exception)
+        {
+            var informational = typeof(SettingsPageViewModel).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion;
+            return string.IsNullOrWhiteSpace(informational) ? "1.0.0.0" : informational;
+        }
+    }
 
     [RelayCommand]
     private async Task LoadAsync()

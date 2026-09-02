@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Microsoft.UI.Dispatching;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
@@ -12,6 +13,7 @@ public partial class TranscriptPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private Guid? _recordId;
+    private DispatcherQueueTimer? _copyConfirmationTimer;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -24,6 +26,9 @@ public partial class TranscriptPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasContent;
+
+    [ObservableProperty]
+    private bool _isCopyConfirmationOpen;
 
     /// <summary>True once loading has finished and there's nothing to show — precomputed so the
     /// XAML empty-state Visibility binding doesn't need a nested multi-argument x:Bind call.</summary>
@@ -39,6 +44,9 @@ public partial class TranscriptPageViewModel : ObservableObject
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
             _recordId = record?.Id;
+            if (record is not null)
+                AppServices.Workspace.SelectMeeting(record.Id);
+
             Title = record?.Title ?? AppStrings.Get("NoTranscriptsYet");
             Transcript = record?.Transcript ?? string.Empty;
             HasContent = !string.IsNullOrWhiteSpace(Transcript);
@@ -58,6 +66,24 @@ public partial class TranscriptPageViewModel : ObservableObject
         var package = new DataPackage();
         package.SetText(Transcript);
         Clipboard.SetContent(package);
+        ShowCopyConfirmation();
+    }
+
+    private void ShowCopyConfirmation()
+    {
+        IsCopyConfirmationOpen = true;
+        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
+        _copyConfirmationTimer.Stop();
+        _copyConfirmationTimer.Start();
+    }
+
+    private DispatcherQueueTimer CreateCopyConfirmationTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2.5);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
+        return timer;
     }
 
     [RelayCommand]

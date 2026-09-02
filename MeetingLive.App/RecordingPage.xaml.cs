@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
@@ -23,16 +24,34 @@ public sealed partial class RecordingPage : Page
         };
     }
 
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        ViewModel.OnNavigatedTo();
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        ViewModel.OnNavigatedFrom();
+    }
+
     private void ViewTranscript_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.LastMeeting is { } meeting)
-            Frame.Navigate(typeof(TranscriptPage), meeting.Id);
+        if (ViewModel.LastMeeting is not { } meeting)
+            return;
+
+        AppServices.Workspace.SelectMeeting(meeting.Id);
+        AppServices.Workspace.NavigateTo(WorkspaceService.Transcript);
     }
 
     private void ViewSummary_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.LastMeeting is { } meeting)
-            Frame.Navigate(typeof(SummaryPage), meeting.Id);
+        if (ViewModel.LastMeeting is not { } meeting)
+            return;
+
+        AppServices.Workspace.SelectMeeting(meeting.Id);
+        AppServices.Workspace.NavigateTo(WorkspaceService.Summary);
     }
 
     public static bool Not(bool value) => !value;

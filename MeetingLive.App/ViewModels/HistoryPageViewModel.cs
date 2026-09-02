@@ -41,6 +41,13 @@ public partial class HistoryPageViewModel : ObservableObject
         }
     }
 
+    public async Task DeleteAsync(Guid id)
+    {
+        await _meetings.DeleteAsync(id);
+        AppServices.Workspace.NotifyDeleted(id);
+        await LoadAsync();
+    }
+
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
     partial void OnHasMeetingsChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));

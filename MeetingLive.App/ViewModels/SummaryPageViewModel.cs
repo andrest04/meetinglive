@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Microsoft.UI.Dispatching;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
@@ -19,6 +20,7 @@ public partial class SummaryPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private MeetingRecord? _record;
+    private DispatcherQueueTimer? _copyConfirmationTimer;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -36,7 +38,13 @@ public partial class SummaryPageViewModel : ObservableObject
     private bool _canGenerateSummary;
 
     [ObservableProperty]
+    private bool _canRegenerateSummary;
+
+    [ObservableProperty]
     private bool _isGenerating;
+
+    [ObservableProperty]
+    private bool _isCopyConfirmationOpen;
 
     [ObservableProperty]
     private string _statusText = string.Empty;
@@ -50,6 +58,9 @@ public partial class SummaryPageViewModel : ObservableObject
     /// Used only when the selected provider is ClaudeCode or Codex.</summary>
     public Func<SummaryProviderKind, Task<bool>>? EnsureCliProviderAsync { get; set; }
 
+    /// <summary>Supplied by the page (needs a XamlRoot). Confirms overwrite before regenerating.</summary>
+    public Func<Task<bool>>? ConfirmRegenerateAsync { get; set; }
+
     /// <summary>The checklist for the loaded meeting's action items — bound two-way in the UI;
     /// toggling <see cref="ActionItemViewModel.IsDone"/> re-persists the record (see
     /// <see cref="OnActionItemChanged"/>).</summary>
@@ -61,6 +72,9 @@ public partial class SummaryPageViewModel : ObservableObject
     /// the XAML empty-state Visibility binding doesn't need a nested multi-argument x:Bind call.</summary>
     public bool IsEmpty => !IsLoading && !HasSummary && !CanGenerateSummary;
 
+    /// <summary>Generate or regenerate chrome — precomputed so XAML doesn't nest x:Bind arguments.</summary>
+    public bool ShowSummaryActionBar => CanGenerateSummary || CanRegenerateSummary;
+
     public async Task LoadAsync(Guid? meetingId)
     {
         IsLoading = true;
@@ -70,10 +84,15 @@ public partial class SummaryPageViewModel : ObservableObject
                 ? await _meetings.GetByIdAsync(id)
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
+            if (_record is not null)
+                AppServices.Workspace.SelectMeeting(_record.Id);
+
             Title = _record?.Title ?? AppStrings.Get("NoSummariesYet");
             Summary = _record?.Summary ?? string.Empty;
             HasSummary = !string.IsNullOrWhiteSpace(Summary);
-            CanGenerateSummary = _record is not null && !string.IsNullOrWhiteSpace(_record.Transcript) && !HasSummary;
+            var hasTranscript = _record is not null && !string.IsNullOrWhiteSpace(_record.Transcript);
+            CanGenerateSummary = hasTranscript && !HasSummary;
+            CanRegenerateSummary = hasTranscript && HasSummary;
             StatusText = string.Empty;
             LoadActionItems();
         }
@@ -81,13 +100,18 @@ public partial class SummaryPageViewModel : ObservableObject
         {
             IsLoading = false;
             GenerateSummaryCommand.NotifyCanExecuteChanged();
+            RegenerateSummaryCommand.NotifyCanExecuteChanged();
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanGenerateSummary))]
+    private bool CanExecuteGenerateSummary() => CanGenerateSummary && !IsGenerating;
+
+    private bool CanExecuteRegenerateSummary() => CanRegenerateSummary && !IsGenerating;
+
+    [RelayCommand(CanExecute = nameof(CanExecuteGenerateSummary))]
     private async Task GenerateSummaryAsync()
     {
-        if (_record?.Transcript is not { Length: > 0 } transcript)
+        if (IsGenerating || _record?.Transcript is not { Length: > 0 } transcript)
             return;
 
         IsGenerating = true;
@@ -116,6 +140,7 @@ public partial class SummaryPageViewModel : ObservableObject
             LoadActionItems();
             HasSummary = true;
             CanGenerateSummary = false;
+            CanRegenerateSummary = true;
             StatusText = AppStrings.Get("Status_SummaryGenerated");
         }
         catch (Exception ex)
@@ -126,7 +151,17 @@ public partial class SummaryPageViewModel : ObservableObject
         {
             IsGenerating = false;
             GenerateSummaryCommand.NotifyCanExecuteChanged();
+            RegenerateSummaryCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExecuteRegenerateSummary))]
+    private async Task RegenerateSummaryAsync()
+    {
+        if (ConfirmRegenerateAsync is null || !await ConfirmRegenerateAsync())
+            return;
+
+        await GenerateSummaryAsync();
     }
 
     /// <summary>Resolves (and, for a CLI provider, gates on availability) the provider to
@@ -153,6 +188,24 @@ public partial class SummaryPageViewModel : ObservableObject
         var package = new DataPackage();
         package.SetText(Summary);
         Clipboard.SetContent(package);
+        ShowCopyConfirmation();
+    }
+
+    private void ShowCopyConfirmation()
+    {
+        IsCopyConfirmationOpen = true;
+        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
+        _copyConfirmationTimer.Stop();
+        _copyConfirmationTimer.Start();
+    }
+
+    private DispatcherQueueTimer CreateCopyConfirmationTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2.5);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
+        return timer;
     }
 
     [RelayCommand]
@@ -201,5 +254,22 @@ public partial class SummaryPageViewModel : ObservableObject
 
     partial void OnHasSummaryChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
-    partial void OnCanGenerateSummaryChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
+    partial void OnCanGenerateSummaryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        GenerateSummaryCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnCanRegenerateSummaryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        RegenerateSummaryCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsGeneratingChanged(bool value)
+    {
+        GenerateSummaryCommand.NotifyCanExecuteChanged();
+        RegenerateSummaryCommand.NotifyCanExecuteChanged();
+    }
 }

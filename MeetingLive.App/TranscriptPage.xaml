@@ -12,6 +12,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -33,13 +34,27 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="2">
+        <InfoBar Grid.Row="2"
+                 x:Uid="TranscriptPage_CopyConfirmation"
+                 Severity="Success"
+                 IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
+                 AutomationProperties.AutomationId="InfoCopyTranscript" />
+
+        <Grid Grid.Row="3">
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-            <TextBlock x:Uid="TranscriptPage_Empty"
-                       Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}"
-                       Opacity="0.7" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <StackPanel Spacing="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
+                <TextBlock x:Uid="TranscriptPage_Empty"
+                           Opacity="0.7" HorizontalAlignment="Center" TextAlignment="Center" />
+                <Button x:Uid="TranscriptPage_EmptyCta"
+                        Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Center"
+                        Click="EmptyCta_Click"
+                        AutomationProperties.AutomationId="BtnTranscriptEmptyRecord" />
+            </StackPanel>
 
             <ScrollViewer Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.HasContent), Mode=OneWay}"
                           HorizontalScrollBarVisibility="Disabled">

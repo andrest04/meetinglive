@@ -19,8 +19,9 @@
 
             <TextBlock x:Uid="SettingsPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
-            <!-- Summary models (local GGUF, downloaded on demand) -->
-            <StackPanel Spacing="4">
+            <!-- Summary models (local GGUF, downloaded on demand). Hidden unless Local is selected. -->
+            <StackPanel Spacing="4"
+                        Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsLocalSelected), Mode=OneWay}">
                 <TextBlock x:Uid="Settings_SummaryModels" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <TextBlock x:Uid="Settings_SummaryModelsHint"
                            Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
@@ -224,6 +225,13 @@
                             AutomationProperties.AutomationId="BtnOpenDataFolder" />
                 </controls:SettingsCard>
             </StackPanel>
+
+            <!-- About (informational only; not a navigation target) -->
+            <controls:SettingsCard x:Uid="Settings_About"
+                                   Description="{x:Bind ViewModel.AppVersion, Mode=OneWay}"
+                                   HeaderIcon="{ui:FontIcon Glyph=&#xE946;}"
+                                   IsActionIconVisible="False"
+                                   AutomationProperties.AutomationId="CardAbout" />
 
         </StackPanel>
     </ScrollViewer>

@@ -21,27 +21,46 @@
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>
   <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Title</value></data>
   <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Live transcript</value></data>
-  <data name="RecordPage_LiveTranscriptHint.Text" xml:space="preserve"><value>Streaming transcript of this recording. This is the transcript that will be saved when you stop.</value></data>
+  <data name="RecordPage_LiveTranscriptHint.Text" xml:space="preserve"><value>Live preview only. The transcript that is saved is generated from the recording after you stop.</value></data>
   <data name="RecordPage_LastRecording.Text" xml:space="preserve"><value>Last processed recording</value></data>
   <data name="RecordPage_ViewTranscript.Content" xml:space="preserve"><value>View transcript</value></data>
   <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>View summary</value></data>
+  <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Elapsed recording time</value></data>
+  <data name="RecordPage_MicLevel.Text" xml:space="preserve"><value>Microphone level</value></data>
+  <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Microphone level</value></data>
   <data name="Record_Record" xml:space="preserve"><value>Record</value></data>
   <data name="Record_Stop" xml:space="preserve"><value>Stop</value></data>
   <data name="TranscriptPage_Title.Text" xml:space="preserve"><value>Transcript</value></data>
   <data name="TranscriptPage_Copy.Content" xml:space="preserve"><value>Copy</value></data>
   <data name="TranscriptPage_OpenLocation.Content" xml:space="preserve"><value>Open file location</value></data>
   <data name="TranscriptPage_Empty.Text" xml:space="preserve"><value>There's no transcript yet. Record a meeting first.</value></data>
+  <data name="TranscriptPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
+  <data name="TranscriptPage_CopyConfirmation.Title" xml:space="preserve"><value>Copied</value></data>
+  <data name="TranscriptPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcript copied to the clipboard.</value></data>
   <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Summary</value></data>
   <data name="SummaryPage_Copy.Content" xml:space="preserve"><value>Copy</value></data>
   <data name="SummaryPage_OpenLocation.Content" xml:space="preserve"><value>Open file location</value></data>
   <data name="SummaryPage_Generate.Content" xml:space="preserve"><value>Generate summary</value></data>
+  <data name="SummaryPage_Regenerate.Content" xml:space="preserve"><value>Regenerate summary</value></data>
   <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>There's no summary yet. Record a meeting or generate one from its transcript.</value></data>
+  <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
+  <data name="SummaryPage_CopyConfirmation.Title" xml:space="preserve"><value>Copied</value></data>
+  <data name="SummaryPage_CopyConfirmation.Message" xml:space="preserve"><value>Summary copied to the clipboard.</value></data>
+  <data name="SummaryRegenerate_Title" xml:space="preserve"><value>Replace this summary?</value></data>
+  <data name="SummaryRegenerate_Content" xml:space="preserve"><value>Regenerating will overwrite the summary and action items for "{0}".</value></data>
+  <data name="SummaryRegenerate_Primary" xml:space="preserve"><value>Regenerate</value></data>
+  <data name="SummaryRegenerate_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="SummaryPage_ActionItems.Text" xml:space="preserve"><value>Action items</value></data>
   <data name="HistoryPage_Title.Text" xml:space="preserve"><value>History</value></data>
   <data name="HistoryPage_Empty.Text" xml:space="preserve"><value>No meetings recorded yet.</value></data>
-  <data name="HistoryPage_Transcript.Content" xml:space="preserve"><value>Transcript</value></data>
+  <data name="HistoryPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="HistoryPage_Summary.Content" xml:space="preserve"><value>Summary</value></data>
+  <data name="HistoryPage_Delete.Content" xml:space="preserve"><value>Delete</value></data>
   <data name="History_NoContent" xml:space="preserve"><value>No content yet</value></data>
+  <data name="HistoryDelete_Title" xml:space="preserve"><value>Delete this meeting?</value></data>
+  <data name="HistoryDelete_Content" xml:space="preserve"><value>This permanently deletes "{0}" and its recording.</value></data>
+  <data name="HistoryDelete_Primary" xml:space="preserve"><value>Delete</value></data>
+  <data name="HistoryDelete_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Settings</value></data>
   <data name="Settings_SummaryModels.Text" xml:space="preserve"><value>Summary models</value></data>
   <data name="Settings_SummaryModelsHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space.</value></data>
@@ -74,6 +93,7 @@
   <data name="Settings_Data.Text" xml:space="preserve"><value>Data</value></data>
   <data name="Settings_DataLocation.Header" xml:space="preserve"><value>Data location</value></data>
   <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Open folder</value></data>
+  <data name="Settings_About.Header" xml:space="preserve"><value>MeetingLive</value></data>
   <data name="Setup_Title.Title" xml:space="preserve"><value>Set up summary generation</value></data>
   <data name="Setup_Title.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
   <data name="Setup_ChooseEngine.Text" xml:space="preserve"><value>Choose how to generate summaries</value></data>
