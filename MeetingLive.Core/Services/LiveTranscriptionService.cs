@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
@@ -6,16 +7,22 @@ namespace MeetingLive.Core.Services;
 /// Streams mixed mic+loopback float32 frames into Nemotron 3.5 ASR (NeMo-Speech.cpp C ABI)
 /// and publishes committed+interim text as it arrives for the Record-page preview.
 /// The caller should still offline-recognize the WAV for the saved transcript.
+/// PCM frames are queued with drop-oldest backpressure so native Push/Pull never blocks
+/// the capture pump that writes the WAV.
 /// </summary>
 public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDisposable
 {
+    private const int MaxQueuedFrames = 8;
+
     private readonly IAudioCaptureService _audioCapture;
     private readonly NemoSpeechRecognizerFactory _factory;
     private readonly object _gate = new();
 
+    private ChannelWriter<(float[] Samples, int SampleRate)>? _frameWriter;
     private INemoSpeechRecognizer? _recognizer;
     private INemoSpeechStream? _stream;
     private StreamingTranscriptAccumulator? _accumulator;
+    private Task? _worker;
     private bool _running;
 
     public LiveTranscriptionService(
@@ -48,6 +55,13 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
             throw;
         }
 
+        var channel = Channel.CreateBounded<(float[] Samples, int SampleRate)>(new BoundedChannelOptions(MaxQueuedFrames)
+        {
+            FullMode = BoundedChannelFullMode.DropOldest,
+            SingleReader = true,
+            SingleWriter = true,
+        });
+
         lock (_gate)
         {
             _recognizer = recognizer;
@@ -56,12 +70,30 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
             _running = true;
         }
 
+        _frameWriter = channel.Writer;
+        _worker = Task.Run(() => ProcessFramesAsync(channel.Reader));
         _audioCapture.PcmFrameAvailable += OnPcmFrame;
     }
 
     public string Stop()
     {
         _audioCapture.PcmFrameAvailable -= OnPcmFrame;
+
+        var writer = Interlocked.Exchange(ref _frameWriter, null);
+        writer?.TryComplete();
+
+        var worker = Interlocked.Exchange(ref _worker, null);
+        if (worker is not null)
+        {
+            try
+            {
+                worker.GetAwaiter().GetResult();
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or ChannelClosedException)
+            {
+                // Worker observed shutdown; still finish the native stream below.
+            }
+        }
 
         INemoSpeechStream? stream;
         INemoSpeechRecognizer? recognizer;
@@ -106,27 +138,43 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
 
     private void OnPcmFrame(object? sender, PcmFrameEventArgs e)
     {
-        string? display = null;
-        lock (_gate)
-        {
-            if (!_running || _stream is null || _accumulator is null)
-                return;
+        // Must not wait for native ASR — the capture pump writes the WAV on this thread.
+        _frameWriter?.TryWrite((e.Samples, e.SampleRate));
+    }
 
-            try
+    private async Task ProcessFramesAsync(ChannelReader<(float[] Samples, int SampleRate)> reader)
+    {
+        try
+        {
+            await foreach (var frame in reader.ReadAllAsync().ConfigureAwait(false))
             {
-                _stream.Push(e.Samples, e.SampleRate);
-                foreach (var result in _stream.PullAvailable())
-                    _accumulator.Apply(result);
-                display = _accumulator.DisplayText;
-            }
-            catch
-            {
-                // Keep the recording alive; a later frame or Stop may still produce text.
-                return;
+                string? display = null;
+                lock (_gate)
+                {
+                    if (!_running || _stream is null || _accumulator is null)
+                        continue;
+
+                    try
+                    {
+                        _stream.Push(frame.Samples, frame.SampleRate);
+                        foreach (var result in _stream.PullAvailable())
+                            _accumulator.Apply(result);
+                        display = _accumulator.DisplayText;
+                    }
+                    catch
+                    {
+                        // Keep the recording alive; a later frame or Stop may still produce text.
+                        continue;
+                    }
+                }
+
+                if (display is not null)
+                    TranscriptUpdated?.Invoke(this, display);
             }
         }
-
-        if (display is not null)
-            TranscriptUpdated?.Invoke(this, display);
+        catch (ChannelClosedException)
+        {
+            // Writer completed while we were reading.
+        }
     }
 }

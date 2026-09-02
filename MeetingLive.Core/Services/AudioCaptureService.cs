@@ -31,28 +31,48 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         if (IsRecording)
             throw new InvalidOperationException("A recording is already in progress.");
 
-        _micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(microphoneDeviceId));
-        _systemCapture = new WasapiLoopbackCapture();
+        WasapiCapture? micCapture = null;
+        WasapiLoopbackCapture? systemCapture = null;
+        WaveFileWriter? writer = null;
+        CancellationTokenSource? pumpCts = null;
+        Task? pumpTask = null;
 
-        var micBuffer = CreateBuffer(_micCapture.WaveFormat);
-        var systemBuffer = CreateBuffer(_systemCapture.WaveFormat);
+        try
+        {
+            micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(microphoneDeviceId));
+            systemCapture = new WasapiLoopbackCapture();
 
-        _micCapture.DataAvailable += (_, e) => micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
-        _systemCapture.DataAvailable += (_, e) => systemBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            var micBuffer = CreateBuffer(micCapture.WaveFormat);
+            var systemBuffer = CreateBuffer(systemCapture.WaveFormat);
 
-        var mixer = new MixingSampleProvider(MixFormat);
-        mixer.AddMixerInput(ResampleToMixFormat(micBuffer.ToSampleProvider(), _micCapture.WaveFormat));
-        mixer.AddMixerInput(ResampleToMixFormat(systemBuffer.ToSampleProvider(), _systemCapture.WaveFormat));
+            micCapture.DataAvailable += (_, e) => micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            systemCapture.DataAvailable += (_, e) => systemBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
 
-        var pcm16 = mixer.ToWaveProvider16();
-        _writer = new WaveFileWriter(outputWavPath, pcm16.WaveFormat);
+            var mixer = new MixingSampleProvider(MixFormat);
+            mixer.AddMixerInput(ResampleToMixFormat(micBuffer.ToSampleProvider(), micCapture.WaveFormat));
+            mixer.AddMixerInput(ResampleToMixFormat(systemBuffer.ToSampleProvider(), systemCapture.WaveFormat));
 
-        _pumpCts = new CancellationTokenSource();
-        _pumpTask = Task.Run(() => PumpLoop(pcm16, _writer, _pumpCts.Token));
+            var pcm16 = mixer.ToWaveProvider16();
+            writer = new WaveFileWriter(outputWavPath, pcm16.WaveFormat);
 
-        _micCapture.StartRecording();
-        _systemCapture.StartRecording();
-        IsRecording = true;
+            pumpCts = new CancellationTokenSource();
+            pumpTask = Task.Run(() => PumpLoop(pcm16, writer, pumpCts.Token));
+
+            micCapture.StartRecording();
+            systemCapture.StartRecording();
+
+            _micCapture = micCapture;
+            _systemCapture = systemCapture;
+            _writer = writer;
+            _pumpCts = pumpCts;
+            _pumpTask = pumpTask;
+            IsRecording = true;
+        }
+        catch
+        {
+            AbortFailedStart(micCapture, systemCapture, writer, pumpCts, pumpTask);
+            throw;
+        }
     }
 
     public void Stop()
@@ -91,7 +111,54 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         _micCapture = null;
         _systemCapture = null;
 
+        _pumpCts?.Dispose();
+        _pumpCts = null;
+        _pumpTask = null;
+
         IsRecording = false;
+    }
+
+    private static void AbortFailedStart(
+        WasapiCapture? micCapture,
+        WasapiLoopbackCapture? systemCapture,
+        WaveFileWriter? writer,
+        CancellationTokenSource? pumpCts,
+        Task? pumpTask)
+    {
+        pumpCts?.Cancel();
+        if (pumpTask is not null)
+        {
+            try
+            {
+                pumpTask.GetAwaiter().GetResult();
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        writer?.Dispose();
+
+        try
+        {
+            micCapture?.StopRecording();
+        }
+        catch (Exception)
+        {
+        }
+
+        micCapture?.Dispose();
+
+        try
+        {
+            systemCapture?.StopRecording();
+        }
+        catch (Exception)
+        {
+        }
+
+        systemCapture?.Dispose();
+        pumpCts?.Dispose();
     }
 
     private static BufferedWaveProvider CreateBuffer(WaveFormat format) => new(format)
