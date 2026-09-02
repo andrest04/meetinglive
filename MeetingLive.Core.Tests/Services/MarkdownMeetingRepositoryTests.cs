@@ -81,6 +81,102 @@ public class MarkdownMeetingRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAsync_WhenFolderIdIsNull_OmitsFolderIdFromFrontmatter()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+
+        await repo.SaveAsync(CreateRecord(id, AudioPath(id)));
+
+        var markdown = await File.ReadAllTextAsync(Path.Combine(_tempDirectory, $"{id}.md"));
+        Assert.DoesNotContain("folderId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Personal Notes", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenFolderIdIsSet_RoundtripsFolderId()
+    {
+        var id = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var record = CreateRecord(id, AudioPath(id));
+        record.FolderId = folderId;
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(folderId, loaded.FolderId);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenNotesSet_RoundtripsPersonalNotesSection()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var record = CreateRecord(id, AudioPath(id));
+        record.Notes = "Remember the exam date.";
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+        var markdown = await File.ReadAllTextAsync(Path.Combine(_tempDirectory, $"{id}.md"));
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Remember the exam date.", loaded.Notes);
+        Assert.Contains("## Personal Notes", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Parse_LegacyFileWithoutFolderIdOrNotes_LeavesThemNull()
+    {
+        var id = Guid.NewGuid();
+        Directory.CreateDirectory(_tempDirectory);
+        var path = Path.Combine(_tempDirectory, $"{id}.md");
+        var markdown =
+            "---\n" +
+            $"id: {id}\n" +
+            "title: Standup\n" +
+            "recordedAt: 2026-09-01T12:00:00.0000000+00:00\n" +
+            $"audioFilePath: {AudioPath(id)}\n" +
+            "---\n\n" +
+            "## Transcript\n\n" +
+            "hello\n";
+        await File.WriteAllTextAsync(path, markdown);
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Null(loaded.FolderId);
+        Assert.Null(loaded.Notes);
+        Assert.Equal("hello", loaded.Transcript);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenSummaryContainsDecisionsAndPersonalNotes_RoundtripsBoth()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var summary = "Hello\n\n## Decisions\nShip it";
+        var record = CreateRecord(id, AudioPath(id));
+        record.Summary = summary;
+        record.Notes = "Human note";
+        record.ActionItems =
+        [
+            new ActionItem { Text = "Follow up", IsDone = false },
+        ];
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(summary, loaded.Summary);
+        Assert.Equal("Human note", loaded.Notes);
+        Assert.Single(loaded.ActionItems);
+        Assert.Equal("Follow up", loaded.ActionItems[0].Text);
+    }
+
+    [Fact]
     public async Task GetAllAsync_WhenOneFileIsCorrupt_ReturnsTheReadableMeetings()
     {
         var goodId = Guid.NewGuid();

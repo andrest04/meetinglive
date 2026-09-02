@@ -17,6 +17,7 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
     private const string TranscriptHeader = "## Transcript";
     private const string SummaryHeader = "## Summary";
     private const string ActionItemsHeader = "## Action Items";
+    private const string PersonalNotesHeader = "## Personal Notes";
 
     private readonly string _meetingsDirectory = meetingsDirectory ?? AppPaths.MeetingsDirectory;
 
@@ -88,6 +89,8 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         sb.Append("title: ").Append(record.Title).Append('\n');
         sb.Append("recordedAt: ").Append(record.RecordedAt.ToString("O", CultureInfo.InvariantCulture)).Append('\n');
         sb.Append("audioFilePath: ").Append(record.AudioFilePath).Append('\n');
+        if (record.FolderId is { } folderId)
+            sb.Append("folderId: ").Append(folderId).Append('\n');
         if (!string.IsNullOrEmpty(record.SummaryProvider))
             sb.Append("summaryProvider: ").Append(record.SummaryProvider).Append('\n');
         sb.Append("---\n");
@@ -108,6 +111,12 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         {
             sb.Append('\n').Append(ActionItemsHeader).Append('\n').Append('\n');
             sb.Append(ActionItemParser.Render(record.ActionItems));
+        }
+
+        if (!string.IsNullOrEmpty(record.Notes))
+        {
+            sb.Append('\n').Append(PersonalNotesHeader).Append('\n').Append('\n');
+            sb.Append(record.Notes.Trim()).Append('\n');
         }
 
         return sb.ToString();
@@ -152,11 +161,19 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
         var title = frontmatter.GetValueOrDefault("title", string.Empty);
         var audioFilePath = frontmatter.GetValueOrDefault("audioFilePath", string.Empty);
         var summaryProvider = frontmatter.GetValueOrDefault("summaryProvider");
+        Guid? folderId = null;
+        if (frontmatter.TryGetValue("folderId", out var folderIdText) &&
+            !string.IsNullOrWhiteSpace(folderIdText) &&
+            Guid.TryParse(folderIdText, out var parsedFolderId))
+        {
+            folderId = parsedFolderId;
+        }
 
         var transcript = ExtractSection(lines, bodyStart, TranscriptHeader);
         var summary = ExtractSection(lines, bodyStart, SummaryHeader);
         var actionItemsBody = ExtractSection(lines, bodyStart, ActionItemsHeader);
         var actionItems = actionItemsBody is null ? [] : ActionItemParser.Parse(actionItemsBody);
+        var notes = ExtractSection(lines, bodyStart, PersonalNotesHeader);
 
         return new MeetingRecord
         {
@@ -167,14 +184,16 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
             Transcript = transcript,
             Summary = summary,
             SummaryProvider = summaryProvider,
+            FolderId = folderId,
+            Notes = notes,
             ActionItems = actionItems,
         };
     }
 
     /// <summary>Finds the exact, case-sensitive <paramref name="header"/> line and
     /// returns everything up to (but not including) the next meeting section header
-    /// (<c>## Transcript</c> / <c>## Summary</c> / <c>## Action Items</c>), or null
-    /// if the header isn't present at all.</summary>
+    /// (<c>## Transcript</c> / <c>## Summary</c> / <c>## Action Items</c> /
+    /// <c>## Personal Notes</c>), or null if the header isn't present at all.</summary>
     private static string? ExtractSection(string[] lines, int bodyStart, string header)
     {
         var start = -1;
@@ -207,5 +226,5 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
     }
 
     private static bool IsMeetingSectionHeader(string line) =>
-        line is TranscriptHeader or SummaryHeader or ActionItemsHeader;
+        line is TranscriptHeader or SummaryHeader or ActionItemsHeader or PersonalNotesHeader;
 }

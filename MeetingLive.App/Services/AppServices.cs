@@ -39,6 +39,8 @@ public static class AppServices
 
     public static IMeetingRepository Meetings { get; } = new MarkdownMeetingRepository();
 
+    public static IFolderRepository Folders { get; } = new JsonFolderRepository();
+
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
 
     public static WorkspaceService Workspace { get; } = new();

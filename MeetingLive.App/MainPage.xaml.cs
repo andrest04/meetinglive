@@ -5,9 +5,10 @@ using MeetingLive_App.Services;
 namespace MeetingLive_App;
 
 /// <summary>
-/// App shell: a NavigationView hosting Record / Transcript / Summary / History
-/// (plus Settings) in <c>ContentFrame</c>. This page is the only navigator of
-/// that frame — child pages request moves through <see cref="WorkspaceService"/>.
+/// App shell: a NavigationView hosting Record / Library / Settings in
+/// <c>ContentFrame</c>. This page is the only navigator of that frame — child
+/// pages request moves through <see cref="WorkspaceService"/>. An opened meeting
+/// is <see cref="SessionPage"/>; the pane stays on Library while it is showing.
 /// </summary>
 public sealed partial class MainPage : Page
 {
@@ -45,6 +46,30 @@ public sealed partial class MainPage : Page
         {
             SyncPane(tag);
             NavigateContent(tag);
+        }
+        finally
+        {
+            _isNavigating = false;
+        }
+    }
+
+    private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (_isNavigating || args.IsSettingsInvoked)
+            return;
+
+        if (args.InvokedItemContainer is not NavigationViewItem { Tag: string tag })
+            return;
+
+        // Pane stays on Library while a session is open; re-clicking Library must
+        // still show the folder list even though the item is already selected.
+        if (tag != WorkspaceService.History || ContentFrame.CurrentSourcePageType != typeof(SessionPage))
+            return;
+
+        _isNavigating = true;
+        try
+        {
+            NavigateContent(WorkspaceService.History);
         }
         finally
         {
@@ -90,9 +115,11 @@ public sealed partial class MainPage : Page
             return;
         }
 
+        var paneTag = tag == WorkspaceService.Session ? WorkspaceService.History : tag;
+
         foreach (var item in NavView.MenuItems)
         {
-            if (item is NavigationViewItem { Tag: string itemTag } navItem && itemTag == tag)
+            if (item is NavigationViewItem { Tag: string itemTag } navItem && itemTag == paneTag)
             {
                 NavView.SelectedItem = navItem;
                 return;
@@ -105,21 +132,20 @@ public sealed partial class MainPage : Page
         var pageType = tag switch
         {
             WorkspaceService.Recording => typeof(RecordingPage),
-            WorkspaceService.Transcript => typeof(TranscriptPage),
-            WorkspaceService.Summary => typeof(SummaryPage),
             WorkspaceService.History => typeof(HistoryPage),
             WorkspaceService.Settings => typeof(SettingsPage),
+            WorkspaceService.Session => typeof(SessionPage),
             _ => null,
         };
 
         if (pageType is null)
             return;
 
-        var reloadMeeting = pageType == typeof(TranscriptPage) || pageType == typeof(SummaryPage);
-        if (!reloadMeeting && ContentFrame.CurrentSourcePageType == pageType)
+        var openSession = pageType == typeof(SessionPage);
+        if (!openSession && ContentFrame.CurrentSourcePageType == pageType)
             return;
 
-        object? parameter = reloadMeeting ? AppServices.Workspace.SelectedMeetingId : null;
+        object? parameter = openSession ? AppServices.Workspace.SelectedMeetingId : null;
         ContentFrame.Navigate(pageType, parameter);
     }
 }

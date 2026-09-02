@@ -16,8 +16,16 @@
   <data name="Nav_Record.Content" xml:space="preserve"><value>Record</value></data>
   <data name="Nav_Transcript.Content" xml:space="preserve"><value>Transcript</value></data>
   <data name="Nav_Summary.Content" xml:space="preserve"><value>Summary</value></data>
-  <data name="Nav_History.Content" xml:space="preserve"><value>History</value></data>
+  <data name="Nav_History.Content" xml:space="preserve"><value>Library</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="SessionPage_Back.AutomationProperties.Name" xml:space="preserve"><value>Back</value></data>
+  <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
+  <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Summary</value></data>
+  <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notes</value></data>
+  <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Open a meeting from Library, or record one.</value></data>
+  <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
+  <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
+  <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>
   <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Title</value></data>
   <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Live transcript</value></data>
@@ -53,7 +61,7 @@
   <data name="SummaryRegenerate_Primary" xml:space="preserve"><value>Regenerate</value></data>
   <data name="SummaryRegenerate_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="SummaryPage_ActionItems.Text" xml:space="preserve"><value>Action items</value></data>
-  <data name="HistoryPage_Title.Text" xml:space="preserve"><value>History</value></data>
+  <data name="HistoryPage_Title.Text" xml:space="preserve"><value>Library</value></data>
   <data name="HistoryPage_Empty.Text" xml:space="preserve"><value>No meetings recorded yet.</value></data>
   <data name="HistoryPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="HistoryPage_Summary.Content" xml:space="preserve"><value>Summary</value></data>
@@ -174,4 +182,32 @@
 
 {0}</value></data>
   <data name="Dialog_OK" xml:space="preserve"><value>OK</value></data>
+  <data name="Library_Inbox" xml:space="preserve"><value>Inbox</value></data>
+  <data name="Library_NewFolder.Content" xml:space="preserve"><value>New folder</value></data>
+  <data name="Library_RenameFolder.Content" xml:space="preserve"><value>Rename</value></data>
+  <data name="Library_DeleteFolder.Content" xml:space="preserve"><value>Delete folder</value></data>
+  <data name="Library_Move.Content" xml:space="preserve"><value>Move</value></data>
+  <data name="Library_Search.PlaceholderText" xml:space="preserve"><value>Search meetings</value></data>
+  <data name="Library_FolderNote.Header" xml:space="preserve"><value>Folder notes</value></data>
+  <data name="Library_FolderNote.PlaceholderText" xml:space="preserve"><value>Notes for this folder</value></data>
+  <data name="Library_FolderEmpty.Text" xml:space="preserve"><value>This folder is empty.</value></data>
+  <data name="Library_InboxEmpty.Text" xml:space="preserve"><value>Inbox is empty. New recordings land here.</value></data>
+  <data name="LibraryFolderName.Header" xml:space="preserve"><value>Name</value></data>
+  <data name="LibraryFolderName.PlaceholderText" xml:space="preserve"><value>Folder name</value></data>
+  <data name="LibraryNewFolder_Title" xml:space="preserve"><value>New folder</value></data>
+  <data name="LibraryNewFolder_Primary" xml:space="preserve"><value>Create</value></data>
+  <data name="LibraryNewFolder_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LibraryRenameFolder_Title" xml:space="preserve"><value>Rename folder</value></data>
+  <data name="LibraryRenameFolder_Primary" xml:space="preserve"><value>Rename</value></data>
+  <data name="LibraryRenameFolder_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LibraryDeleteFolder_Title" xml:space="preserve"><value>Delete this folder?</value></data>
+  <data name="LibraryDeleteFolder_Content" xml:space="preserve"><value>This deletes the folder "{0}". Meetings inside it are not deleted.</value></data>
+  <data name="LibraryDeleteFolder_Primary" xml:space="preserve"><value>Delete</value></data>
+  <data name="LibraryDeleteFolder_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LibraryDeleteFolder_NotEmpty" xml:space="preserve"><value>This folder still has subfolders or meetings. Empty it before deleting.</value></data>
+  <data name="LibraryMove_Title" xml:space="preserve"><value>Move meeting</value></data>
+  <data name="LibraryMove_Primary" xml:space="preserve"><value>Move</value></data>
+  <data name="LibraryMove_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="TranscriptPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
+  <data name="TranscriptPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
 </root>

@@ -6,14 +6,15 @@ using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App;
 
-/// <summary>Shows the full transcript of a meeting (navigated with a Guid id).</summary>
-public sealed partial class TranscriptPage : Page
+/// <summary>Human notes for the opened meeting. Saves on LostFocus and Unloaded.</summary>
+public sealed partial class NotesPage : Page
 {
-    public TranscriptPageViewModel ViewModel { get; } = new();
+    public NotesPageViewModel ViewModel { get; } = new();
 
-    public TranscriptPage()
+    public NotesPage()
     {
         InitializeComponent();
+        Unloaded += (_, _) => _ = ViewModel.SaveNotesAsync();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -23,9 +24,9 @@ public sealed partial class TranscriptPage : Page
         _ = ViewModel.LoadAsync(meetingId);
     }
 
-    private void EmptyCta_Click(object sender, RoutedEventArgs e)
+    private void Notes_LostFocus(object sender, RoutedEventArgs e)
     {
-        AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
+        _ = ViewModel.SaveNotesAsync();
     }
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;

@@ -42,7 +42,7 @@ public sealed partial class RecordingPage : Page
             return;
 
         AppServices.Workspace.SelectMeeting(meeting.Id);
-        AppServices.Workspace.NavigateTo(WorkspaceService.Transcript);
+        AppServices.Workspace.OpenSession(WorkspaceService.TabTranscript);
     }
 
     private void ViewSummary_Click(object sender, RoutedEventArgs e)
@@ -51,7 +51,7 @@ public sealed partial class RecordingPage : Page
             return;
 
         AppServices.Workspace.SelectMeeting(meeting.Id);
-        AppServices.Workspace.NavigateTo(WorkspaceService.Summary);
+        AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
     }
 
     public static bool Not(bool value) => !value;

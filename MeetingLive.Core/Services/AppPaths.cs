@@ -33,6 +33,9 @@ public static class AppPaths
 
     public static string SettingsFilePath { get; } = Path.Combine(RootDirectory, "settings.json");
 
+    /// <summary>Nested Library folders. Lives next to settings, not as directories on disk.</summary>
+    public static string FoldersFilePath { get; } = Path.Combine(RootDirectory, "folders.json");
+
     public static void EnsureDirectoriesExist()
     {
         Directory.CreateDirectory(RecordingsDirectory);

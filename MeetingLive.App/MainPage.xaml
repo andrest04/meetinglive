@@ -12,20 +12,13 @@
                      PaneDisplayMode="Auto"
                      IsBackButtonVisible="Collapsed"
                      IsSettingsVisible="True"
+                     ItemInvoked="NavView_ItemInvoked"
                      SelectionChanged="NavView_SelectionChanged">
         <NavigationView.MenuItems>
             <NavigationViewItem x:Uid="Nav_Record" Icon="Microphone" Tag="Recording"
                                  AutomationProperties.AutomationId="NavItemRecording" />
-            <NavigationViewItem x:Uid="Nav_Transcript" Icon="Document" Tag="Transcript"
-                                 AutomationProperties.AutomationId="NavItemTranscript" />
-            <NavigationViewItem x:Uid="Nav_Summary" Icon="List" Tag="Summary"
-                                 AutomationProperties.AutomationId="NavItemSummary" />
-            <NavigationViewItem x:Uid="Nav_History" Tag="History"
-                                 AutomationProperties.AutomationId="NavItemHistory">
-                <NavigationViewItem.Icon>
-                    <FontIcon Glyph="&#xE81C;" />
-                </NavigationViewItem.Icon>
-            </NavigationViewItem>
+            <NavigationViewItem x:Uid="Nav_History" Icon="Folder" Tag="History"
+                                 AutomationProperties.AutomationId="NavItemHistory" />
         </NavigationView.MenuItems>
 
         <Frame x:Name="ContentFrame" />

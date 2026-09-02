@@ -7,65 +7,154 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App"
     xmlns:models="using:MeetingLive.Core.Models"
+    xmlns:vm="using:MeetingLive_App.ViewModels"
     mc:Ignorable="d">
 
     <Grid Padding="24" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
+        <Grid Grid.Row="0" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Uid="HistoryPage_Title" Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button x:Uid="Library_NewFolder" Click="NewFolder_Click"
+                        AutomationProperties.AutomationId="BtnLibraryNewFolder" />
+                <Button x:Uid="Library_RenameFolder" Click="RenameFolder_Click"
+                        IsEnabled="{x:Bind ViewModel.IsRealFolderSelected, Mode=OneWay}"
+                        AutomationProperties.AutomationId="BtnLibraryRenameFolder" />
+                <Button x:Uid="Library_DeleteFolder" Click="DeleteFolder_Click"
+                        IsEnabled="{x:Bind ViewModel.IsRealFolderSelected, Mode=OneWay}"
+                        AutomationProperties.AutomationId="BtnLibraryDeleteFolder" />
+            </StackPanel>
+        </Grid>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="280" />
+            </Grid.ColumnDefinitions>
+            <BreadcrumbBar ItemsSource="{x:Bind ViewModel.Breadcrumbs, Mode=OneWay}"
+                           ItemClicked="BreadcrumbBar_ItemClicked"
+                           AutomationProperties.AutomationId="BreadcrumbLibrary" />
+            <AutoSuggestBox Grid.Column="1"
+                            x:Uid="Library_Search"
+                            QueryIcon="Find"
+                            Text="{x:Bind ViewModel.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            AutomationProperties.AutomationId="TxtLibrarySearch" />
+        </Grid>
+
+        <Grid Grid.Row="2">
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-            <StackPanel Spacing="12"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
-                <TextBlock x:Uid="HistoryPage_Empty"
-                           Opacity="0.7" HorizontalAlignment="Center" TextAlignment="Center" />
-                <Button x:Uid="HistoryPage_EmptyCta"
-                        Style="{StaticResource AccentButtonStyle}"
-                        HorizontalAlignment="Center"
-                        Click="EmptyCta_Click"
-                        AutomationProperties.AutomationId="BtnHistoryEmptyRecord" />
-            </StackPanel>
+            <Grid ColumnSpacing="16"
+                  Visibility="{x:Bind local:HistoryPage.InvertBoolToVisibility(ViewModel.IsLoading), Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-            <ListView ItemsSource="{x:Bind ViewModel.Meetings, Mode=OneWay}"
-                      Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.HasMeetings), Mode=OneWay}"
-                      SelectionMode="None"
-                      IsItemClickEnabled="True"
-                      ItemClick="Meetings_ItemClick"
-                      AutomationProperties.AutomationId="ListMeetingHistory">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="models:MeetingRecord">
-                        <Grid ColumnSpacing="12" Margin="0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                <TreeView ItemsSource="{x:Bind ViewModel.FolderNodes}"
+                          ItemInvoked="FolderTree_ItemInvoked"
+                          SelectionMode="Single"
+                          AutomationProperties.AutomationId="TreeLibraryFolders">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FolderNode">
+                            <TreeViewItem ItemsSource="{x:Bind Children}" Content="{x:Bind Name}" />
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
 
-                            <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                    <TextBlock Text="{x:Bind local:HistoryPage.FormattedDate(RecordedAt)}" Opacity="0.7" />
-                                </StackPanel>
-                                <TextBlock Text="{x:Bind local:HistoryPage.Snippet(Summary, Transcript)}"
-                                           Opacity="0.7" TextTrimming="CharacterEllipsis" MaxLines="1" />
-                            </StackPanel>
+                <Grid Grid.Column="1" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button x:Uid="HistoryPage_Summary" Click="ViewSummary_Click" Tag="{x:Bind Id}"
-                                        AutomationProperties.AutomationId="BtnHistorySummary" />
-                                <Button x:Uid="HistoryPage_Delete" Click="Delete_Click" Tag="{x:Bind Id}"
-                                        AutomationProperties.AutomationId="BtnHistoryDelete" />
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                    <TextBox x:Uid="Library_FolderNote"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MaxHeight="120"
+                             Text="{x:Bind ViewModel.FolderNote, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.IsRealFolderSelected), Mode=OneWay}"
+                             AutomationProperties.AutomationId="TxtLibraryFolderNote" />
+
+                    <InfoBar Grid.Row="1"
+                             Severity="Warning"
+                             IsClosable="True"
+                             IsOpen="{x:Bind ViewModel.IsStatusOpen, Mode=TwoWay}"
+                             Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                             AutomationProperties.AutomationId="InfoLibraryStatus" />
+
+                    <Grid Grid.Row="2">
+                        <StackPanel Spacing="12"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.ShowLibraryEmpty), Mode=OneWay}">
+                            <TextBlock x:Uid="HistoryPage_Empty"
+                                       Opacity="0.7" HorizontalAlignment="Center" TextAlignment="Center" />
+                            <Button x:Uid="HistoryPage_EmptyCta"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    HorizontalAlignment="Center"
+                                    Click="EmptyCta_Click"
+                                    AutomationProperties.AutomationId="BtnHistoryEmptyRecord" />
+                        </StackPanel>
+
+                        <TextBlock x:Uid="Library_InboxEmpty"
+                                   Opacity="0.7"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                   Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.ShowInboxEmpty), Mode=OneWay}" />
+
+                        <TextBlock x:Uid="Library_FolderEmpty"
+                                   Opacity="0.7"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                                   Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.ShowFolderEmpty), Mode=OneWay}" />
+
+                        <ListView ItemsSource="{x:Bind ViewModel.Meetings, Mode=OneWay}"
+                                  Visibility="{x:Bind local:HistoryPage.BoolToVisibility(ViewModel.HasMeetings), Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsItemClickEnabled="True"
+                                  ItemClick="Meetings_ItemClick"
+                                  AutomationProperties.AutomationId="ListMeetingHistory">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="models:MeetingRecord">
+                                    <Grid ColumnSpacing="12" Margin="0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
+                                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                                <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                                <TextBlock Text="{x:Bind local:HistoryPage.FormattedDate(RecordedAt)}" Opacity="0.7" />
+                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind local:HistoryPage.Snippet(Summary, Transcript)}"
+                                                       Opacity="0.7" TextTrimming="CharacterEllipsis" MaxLines="1" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <Button x:Uid="Library_Move" Click="Move_Click" Tag="{x:Bind Id}"
+                                                    AutomationProperties.AutomationId="BtnLibraryMove" />
+                                            <Button x:Uid="HistoryPage_Summary" Click="ViewSummary_Click" Tag="{x:Bind Id}"
+                                                    AutomationProperties.AutomationId="BtnHistorySummary" />
+                                            <Button x:Uid="HistoryPage_Delete" Click="Delete_Click" Tag="{x:Bind Id}"
+                                                    AutomationProperties.AutomationId="BtnHistoryDelete" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Grid>
+            </Grid>
         </Grid>
     </Grid>
 </Page>
