@@ -2,5 +2,7 @@
   <PropertyGroup>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- SDK 10 defaults to C#14. MeetingLive stays on C#12 for classic [ObservableProperty] fields. -->
+    <LangVersion>12.0</LangVersion>
   </PropertyGroup>
 </Project>
