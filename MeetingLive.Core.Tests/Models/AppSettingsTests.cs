@@ -32,6 +32,26 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void ResolveNavigationPaneLength_WhenUnset_ReturnsDefault()
+    {
+        var settings = new AppSettings();
+
+        Assert.Equal(AppSettings.DefaultNavigationPaneLength, settings.ResolveNavigationPaneLength());
+    }
+
+    [Theory]
+    [InlineData(150, AppSettings.MinNavigationPaneLength)]
+    [InlineData(200, 200)]
+    [InlineData(320, 320)]
+    [InlineData(600, AppSettings.MaxNavigationPaneLength)]
+    public void ResolveNavigationPaneLength_ClampsToAllowedRange(double stored, double expected)
+    {
+        var settings = new AppSettings { NavigationPaneLength = stored };
+
+        Assert.Equal(expected, settings.ResolveNavigationPaneLength());
+    }
+
+    [Fact]
     public void ResolveSummaryLanguage_WhenEnglish_ReturnsEnglish()
     {
         var settings = new AppSettings { SummaryLanguage = "en" };

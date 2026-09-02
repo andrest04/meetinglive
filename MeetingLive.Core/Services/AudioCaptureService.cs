@@ -21,8 +21,11 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     private WaveFileWriter? _writer;
     private CancellationTokenSource? _pumpCts;
     private Task? _pumpTask;
+    private int _paused;
 
     public bool IsRecording { get; private set; }
+
+    public bool IsPaused => Volatile.Read(ref _paused) != 0;
 
     public event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
 
@@ -36,6 +39,8 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         WaveFileWriter? writer = null;
         CancellationTokenSource? pumpCts = null;
         Task? pumpTask = null;
+
+        Volatile.Write(ref _paused, 0);
 
         try
         {
@@ -116,6 +121,19 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         _pumpTask = null;
 
         IsRecording = false;
+        Volatile.Write(ref _paused, 0);
+    }
+
+    public void Pause()
+    {
+        if (IsRecording)
+            Volatile.Write(ref _paused, 1);
+    }
+
+    public void Resume()
+    {
+        if (IsRecording)
+            Volatile.Write(ref _paused, 0);
     }
 
     private static void AbortFailedStart(
@@ -184,10 +202,28 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         // with silence far beyond the meeting's actual duration.
         var buffer = new byte[source.WaveFormat.AverageBytesPerSecond / 5];
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var pauseSlice = new System.Diagnostics.Stopwatch();
         long bytesWritten = 0;
+        var pauseAccumulatedMs = 0.0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            if (Volatile.Read(ref _paused) != 0)
+            {
+                if (!pauseSlice.IsRunning)
+                    pauseSlice.Restart();
+
+                _ = source.Read(buffer, 0, buffer.Length);
+                Thread.Sleep(50);
+                continue;
+            }
+
+            if (pauseSlice.IsRunning)
+            {
+                pauseAccumulatedMs += pauseSlice.Elapsed.TotalMilliseconds;
+                pauseSlice.Reset();
+            }
+
             var bytesRead = source.Read(buffer, 0, buffer.Length);
             if (bytesRead > 0)
             {
@@ -197,7 +233,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             }
 
             var expectedElapsedMs = bytesWritten * 1000.0 / source.WaveFormat.AverageBytesPerSecond;
-            var sleepMs = expectedElapsedMs - stopwatch.Elapsed.TotalMilliseconds;
+            var sleepMs = expectedElapsedMs - (stopwatch.Elapsed.TotalMilliseconds - pauseAccumulatedMs);
             if (sleepMs > 0)
                 Thread.Sleep((int)sleepMs);
         }

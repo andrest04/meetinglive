@@ -38,7 +38,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
 
     public event EventHandler<string>? TranscriptUpdated;
 
-    public void Start(string language)
+    public void Start(string language, DateTimeOffset recordedAt)
     {
         Stop();
 
@@ -66,13 +66,22 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         {
             _recognizer = recognizer;
             _stream = stream;
-            _accumulator = new StreamingTranscriptAccumulator();
+            _accumulator = new StreamingTranscriptAccumulator(recordedAt);
             _running = true;
         }
 
         _frameWriter = channel.Writer;
         _worker = Task.Run(() => ProcessFramesAsync(channel.Reader));
         _audioCapture.PcmFrameAvailable += OnPcmFrame;
+    }
+
+    public void SetClockSkew(TimeSpan skew)
+    {
+        lock (_gate)
+        {
+            if (_accumulator is not null)
+                _accumulator.ClockSkew = skew;
+        }
     }
 
     public string Stop()
@@ -112,24 +121,13 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
             _running = false;
         }
 
-        try
-        {
-            if (stream is not null && accumulator is not null)
-            {
-                foreach (var result in stream.FinishAndDrain())
-                    accumulator.Apply(result);
-                accumulator.CommitRemainingInterim();
-            }
-        }
-        catch
-        {
-            // Best-effort finish — still return whatever was committed.
-        }
-        finally
-        {
-            stream?.Dispose();
-            recognizer?.Dispose();
-        }
+        // Do not call FinishAndDrain: nemo_speech_asr_stream_finish on a long CUDA
+        // session aborts the process (ucrtbase 0xC0000409). Offline TranscribeAsync
+        // re-reads the WAV. Close the stream so the recognizer can be destroyed
+        // before the offline pass loads the model again.
+        accumulator?.CommitRemainingInterim();
+        stream?.Dispose();
+        recognizer?.Dispose();
 
         return accumulator?.CommittedText ?? string.Empty;
     }

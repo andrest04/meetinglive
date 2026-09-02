@@ -26,17 +26,21 @@ public sealed class TranscriptionService(
         string wavFilePath,
         string language = "auto",
         IProgress<int>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        DateTimeOffset? recordedAt = null,
+        TimeSpan clockSkew = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Transcribe(wavFilePath, language, progress, cancellationToken));
+        return Task.FromResult(Transcribe(wavFilePath, language, progress, cancellationToken, recordedAt ?? default, clockSkew));
     }
 
     private string Transcribe(
         string wavFilePath,
         string language,
         IProgress<int>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset recordedAt,
+        TimeSpan clockSkew)
     {
         var locale = NemotronLanguageMapper.ToNemotronLocale(language);
         var peak = ScanPeak(wavFilePath, cancellationToken);
@@ -44,7 +48,7 @@ public sealed class TranscriptionService(
 
         using var recognizer = _factory.Create();
         using var stream = recognizer.StartStream(locale);
-        var accumulator = new StreamingTranscriptAccumulator();
+        var accumulator = new StreamingTranscriptAccumulator(recordedAt) { ClockSkew = clockSkew };
         var buffer = new float[ChunkSampleCount];
 
         using (var reader = new AudioFileReader(wavFilePath))

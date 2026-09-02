@@ -60,6 +60,7 @@ internal static class CliSummaryPromptBuilder
             - Ground every sentence in the transcript. Do not invent attendees, dates, companies, or tasks.
             - If the recording is an informal ASR test or rambling, say so in "{headings.WhatThisWas}". Do not dress it up as a formal meeting.
             - If a name or number is unclear because of ASR noise, paraphrase without guessing the spelling.
+            - Transcript lines are stamped [elapsed | clock] (elapsed from recording start as hh:mm:ss, clock as local HH:mm). When placing a key point, decision, or quote in time, mention that clock time.
             - Write the Summary body and action-item text in {languageName}.
             - Use the ### subheadings above verbatim — do not translate them.
             - Keep the Markdown headings exactly "## Summary" and "## Action Items" in English.

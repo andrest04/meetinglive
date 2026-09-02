@@ -6,6 +6,8 @@ public interface IAudioCaptureService
 {
     bool IsRecording { get; }
 
+    bool IsPaused { get; }
+
     /// <summary>Raised from the capture pump with the same mixed 16 kHz mono stream that is
     /// written to the WAV, converted to float32 in [-1, 1]. Only fired when there are subscribers.</summary>
     event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
@@ -23,4 +25,11 @@ public interface IAudioCaptureService
     /// <summary>Stops capture and flushes the WAV file without blocking the caller on
     /// <see cref="Task.Wait"/> / <c>GetResult</c>.</summary>
     Task StopAsync();
+
+    /// <summary>Keeps the WAV open but drops incoming audio so a break is not recorded.
+    /// No-op when not recording. Resume with <see cref="Resume"/>.</summary>
+    void Pause();
+
+    /// <summary>Continues appending to the same WAV after <see cref="Pause"/>.</summary>
+    void Resume();
 }

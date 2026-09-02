@@ -57,7 +57,7 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
                 return;
 
             _recognizer.Dispose();
-            _library.Dispose();
+            // Do not unload the native library — CUDA runtimes abort on FreeLibrary.
             _disposed = true;
         }
     }

@@ -16,5 +16,11 @@ public sealed class FolderRecord
     /// <summary>Optional cover note for this folder, distinct from per-session notes.</summary>
     public string? Note { get; set; }
 
+    /// <summary>
+    /// Palette key from <c>FolderAccent.Keys</c> (blue, teal, green, …).
+    /// Null means the UI derives a stable color from <see cref="Id"/>.
+    /// </summary>
+    public string? ColorKey { get; set; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 }

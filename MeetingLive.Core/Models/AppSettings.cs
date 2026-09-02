@@ -40,4 +40,19 @@ public sealed class AppSettings
     /// Defaults to <see langword="true"/>. The saved transcript is always offline Nemotron
     /// over the WAV; this only controls the on-screen preview.</summary>
     public bool LiveTranscriptionEnabled { get; set; } = true;
+
+    /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
+    public double? NavigationPaneLength { get; set; }
+
+    public const double DefaultNavigationPaneLength = 280;
+    public const double MinNavigationPaneLength = 200;
+    public const double MaxNavigationPaneLength = 480;
+
+    public double ResolveNavigationPaneLength()
+    {
+        if (NavigationPaneLength is not { } length)
+            return DefaultNavigationPaneLength;
+
+        return Math.Clamp(length, MinNavigationPaneLength, MaxNavigationPaneLength);
+    }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 
 namespace MeetingLive.Core.Native;
@@ -10,6 +11,13 @@ namespace MeetingLive.Core.Native;
 internal sealed class NemoSpeechNativeLibrary : IDisposable
 {
     private const int NemoSpeechAsrOk = 0;
+
+    /// <summary>
+    /// CUDA/ONNX worker threads abort the process if <c>nemo_speech_asr_c.dll</c> is
+    /// unloaded while they are still running. Keep one load per runtime bin for the
+    /// process lifetime — never <see cref="NativeLibrary.Free"/>.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, Lazy<NemoSpeechNativeLibrary>> Loaded = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly NativeLibraryHandle _libraryHandle;
     private readonly CreateDelegate _create;
@@ -53,6 +61,16 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
     }
 
     public static NemoSpeechNativeLibrary Load(string runtimeBinDirectory)
+    {
+        var key = Path.GetFullPath(runtimeBinDirectory);
+        return Loaded.GetOrAdd(
+            key,
+            dir => new Lazy<NemoSpeechNativeLibrary>(
+                () => LoadNew(dir),
+                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+    }
+
+    private static NemoSpeechNativeLibrary LoadNew(string runtimeBinDirectory)
     {
         SetDllDirectory(runtimeBinDirectory);
         try
@@ -267,7 +285,12 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         return ptr == IntPtr.Zero ? "unknown error" : Marshal.PtrToStringUTF8(ptr) ?? "unknown error";
     }
 
-    public void Dispose() => _libraryHandle.Dispose();
+    public void Dispose()
+    {
+        // Intentionally a no-op. Unloading the CUDA ASR DLL is a process-killing abort
+        // (ucrtbase 0xC0000409 / FAST_FAIL_FATAL_APP_EXIT) when ONNX worker threads
+        // outlive FreeLibrary. The process-lifetime cache in Load() owns the handle.
+    }
 
     private NemoOwnedHandle Own(IntPtr native, Action<IntPtr> release) =>
         new(native, _libraryHandle, release);
