@@ -9,4 +9,10 @@ public interface IMeetingRepository
     Task<MeetingRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task SaveAsync(MeetingRecord record, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes the meeting markdown file and its WAV when present. Already-gone
+    /// meetings are a no-op — this method does not throw if the record is missing.
+    /// </summary>
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

@@ -9,20 +9,24 @@ namespace MeetingLive.Core.Services;
 /// file under <see cref="AppPaths.MeetingsDirectory"/> (<c>{id}.md</c>) instead of
 /// one shared JSON blob. One file per meeting means saves never rewrite the whole
 /// history and lookups by id are direct file reads instead of an O(n) scan.
+/// The optional constructor argument overrides the meetings directory so tests
+/// never write into the user's real %LOCALAPPDATA%\MeetingLive data.
 /// </summary>
-public sealed class MarkdownMeetingRepository : IMeetingRepository
+public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) : IMeetingRepository
 {
     private const string TranscriptHeader = "## Transcript";
     private const string SummaryHeader = "## Summary";
     private const string ActionItemsHeader = "## Action Items";
 
+    private readonly string _meetingsDirectory = meetingsDirectory ?? AppPaths.MeetingsDirectory;
+
     public async Task<IReadOnlyList<MeetingRecord>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        if (!Directory.Exists(AppPaths.MeetingsDirectory))
+        if (!Directory.Exists(_meetingsDirectory))
             return [];
 
         var records = new List<MeetingRecord>();
-        foreach (var path in Directory.EnumerateFiles(AppPaths.MeetingsDirectory, "*.md"))
+        foreach (var path in Directory.EnumerateFiles(_meetingsDirectory, "*.md"))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var markdown = await File.ReadAllTextAsync(path, cancellationToken);
@@ -44,12 +48,27 @@ public sealed class MarkdownMeetingRepository : IMeetingRepository
 
     public async Task SaveAsync(MeetingRecord record, CancellationToken cancellationToken = default)
     {
-        AppPaths.EnsureDirectoriesExist();
+        Directory.CreateDirectory(_meetingsDirectory);
         var markdown = Render(record);
         await File.WriteAllTextAsync(PathFor(record.Id), markdown, cancellationToken);
     }
 
-    private static string PathFor(Guid id) => Path.Combine(AppPaths.MeetingsDirectory, $"{id}.md");
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var path = PathFor(id);
+        string? audioFilePath = null;
+        if (File.Exists(path))
+        {
+            var markdown = await File.ReadAllTextAsync(path, cancellationToken);
+            audioFilePath = Parse(path, markdown).AudioFilePath;
+            File.Delete(path);
+        }
+
+        if (!string.IsNullOrWhiteSpace(audioFilePath) && File.Exists(audioFilePath))
+            File.Delete(audioFilePath);
+    }
+
+    private string PathFor(Guid id) => Path.Combine(_meetingsDirectory, $"{id}.md");
 
     /// <summary>Renders a <see cref="MeetingRecord"/> as the frontmatter + sections
     /// Markdown format described in the plan. A section is omitted entirely when its
