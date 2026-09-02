@@ -1,5 +1,8 @@
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using MeetingLive.Core.Models;
 using MeetingLive_App.Services;
 
 namespace MeetingLive_App;
@@ -13,6 +16,9 @@ namespace MeetingLive_App;
 public sealed partial class MainPage : Page
 {
     private bool _isNavigating;
+    private bool _paneDragging;
+    private double _paneDragStartX;
+    private double _paneDragStartLength;
 
     public MainPage()
     {
@@ -28,12 +34,89 @@ public sealed partial class MainPage : Page
         }
 
         AppServices.Workspace.NavigationRequested += OnWorkspaceNavigationRequested;
+        AppServices.Workspace.CallPromptOffered += (_, _) => CallPromptBar.IsOpen = true;
 
-        Loaded += (_, _) =>
+        ToolTipService.SetToolTip(PaneGrip, AppStrings.Get("Nav_ResizePane"));
+        AutomationProperties.SetName(PaneGrip, AppStrings.Get("Nav_ResizePane"));
+
+        Loaded += async (_, _) =>
         {
             if (NavView.SelectedItem is null)
                 NavView.SelectedItem = NavView.MenuItems[0];
+
+            var settings = await AppServices.Settings.LoadAsync();
+            NavView.OpenPaneLength = settings.ResolveNavigationPaneLength();
+            PositionPaneGrip();
+            UpdatePaneGripVisibility();
         };
+    }
+
+    public static string CallPromptTitle() => AppStrings.Get("CallPrompt_Title");
+
+    public static string CallPromptBody() => AppStrings.Get("CallPrompt_Body");
+
+    public static string CallPromptTakeNotes() => AppStrings.Get("CallPrompt_TakeNotes");
+
+    private void CallPromptTakeNotes_Click(object sender, RoutedEventArgs e)
+    {
+        CallPromptBar.IsOpen = false;
+        AppServices.Workspace.RequestTakeNotes();
+    }
+
+    private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args) =>
+        UpdatePaneGripVisibility();
+
+    private void NavView_PaneOpened(NavigationView sender, object args) => UpdatePaneGripVisibility();
+
+    private void NavView_PaneClosed(NavigationView sender, object args) => UpdatePaneGripVisibility();
+
+    private void PaneGrip_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _paneDragging = true;
+        _paneDragStartX = e.GetCurrentPoint(this).Position.X;
+        _paneDragStartLength = NavView.OpenPaneLength;
+        PaneGrip.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void PaneGrip_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_paneDragging)
+            return;
+
+        var delta = e.GetCurrentPoint(this).Position.X - _paneDragStartX;
+        NavView.OpenPaneLength = Math.Clamp(
+            _paneDragStartLength + delta,
+            AppSettings.MinNavigationPaneLength,
+            AppSettings.MaxNavigationPaneLength);
+        PositionPaneGrip();
+        e.Handled = true;
+    }
+
+    private async void PaneGrip_PointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_paneDragging)
+            return;
+
+        _paneDragging = false;
+        PaneGrip.ReleasePointerCapture(e.Pointer);
+        PositionPaneGrip();
+        e.Handled = true;
+
+        var settings = await AppServices.Settings.LoadAsync();
+        settings.NavigationPaneLength = NavView.OpenPaneLength;
+        await AppServices.Settings.SaveAsync(settings);
+    }
+
+    private void PositionPaneGrip() =>
+        PaneGrip.Margin = new Thickness(NavView.OpenPaneLength - 4, 0, 0, 0);
+
+    private void UpdatePaneGripVisibility()
+    {
+        var show = NavView.DisplayMode == NavigationViewDisplayMode.Expanded && NavView.IsPaneOpen;
+        PaneGrip.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        if (show)
+            PositionPaneGrip();
     }
 
     private void OnWorkspaceNavigationRequested(object? sender, string tag)

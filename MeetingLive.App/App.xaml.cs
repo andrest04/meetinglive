@@ -38,6 +38,8 @@ public partial class App : Application
     public static nint WindowHandle =>
         WinRT.Interop.WindowNative.GetWindowHandle(Window);
 
+    private MeetingCallWatcher? _callWatcher;
+
     /// <summary>
     /// Initializes the singleton application object.
     /// </summary>
@@ -68,6 +70,14 @@ public partial class App : Application
         }
 
         Window.Activate();
+        Window.Closed += (_, _) =>
+        {
+            _callWatcher?.Dispose();
+            _callWatcher = null;
+        };
+
+        _callWatcher = new MeetingCallWatcher();
+        _callWatcher.Start();
 
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);

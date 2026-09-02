@@ -29,6 +29,13 @@ public sealed class WorkspaceService
 
     public event EventHandler<Guid>? MeetingDeleted;
 
+    public event EventHandler? TakeNotesRequested;
+
+    public event EventHandler? CallPromptOffered;
+
+    /// <summary>True while Record is capturing or processing, so the call prompt stays quiet.</summary>
+    public bool IsCaptureActive { get; set; }
+
     public void SelectMeeting(Guid id) => SelectedMeetingId = id;
 
     public void ClearSelection()
@@ -85,5 +92,25 @@ public sealed class WorkspaceService
             throw new ArgumentOutOfRangeException(nameof(tag), tag, "Unknown workspace navigation tag.");
 
         NavigationRequested?.Invoke(this, tag);
+    }
+
+    private bool _takeNotesPending;
+
+    public void OfferCallPrompt() => CallPromptOffered?.Invoke(this, EventArgs.Empty);
+
+    public void RequestTakeNotes()
+    {
+        _takeNotesPending = true;
+        TakeNotesRequested?.Invoke(this, EventArgs.Empty);
+        NavigateTo(Recording);
+    }
+
+    public bool ConsumeTakeNotes()
+    {
+        if (!_takeNotesPending)
+            return false;
+
+        _takeNotesPending = false;
+        return true;
     }
 }

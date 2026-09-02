@@ -11,6 +11,8 @@ public sealed class FolderNode
 
     public required string Name { get; init; }
 
+    public string? ColorKey { get; init; }
+
     public ObservableCollection<FolderNode> Children { get; } = [];
 }
 

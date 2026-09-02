@@ -129,6 +129,7 @@ public partial class HistoryPageViewModel : ObservableObject
             Id = Guid.NewGuid(),
             Name = trimmed,
             ParentId = _selectedFolderId,
+            ColorKey = FolderAccent.NextKey(_allFolders.Select(folder => folder.ColorKey)),
             CreatedAt = DateTimeOffset.Now,
         };
         await _folders.SaveAsync(folder);
@@ -208,28 +209,10 @@ public partial class HistoryPageViewModel : ObservableObject
         _restoreFolderId = null;
     }
 
-    public IReadOnlyList<FolderDestination> GetMoveDestinations()
-    {
-        var result = new List<FolderDestination>
-        {
-            new() { FolderId = null, Path = AppStrings.Get("Library_Inbox") },
-        };
-
-        void Walk(Guid? parentId, string prefix)
-        {
-            foreach (var folder in _allFolders
-                .Where(item => item.ParentId == parentId)
-                .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
-            {
-                var path = string.IsNullOrEmpty(prefix) ? folder.Name : prefix + " / " + folder.Name;
-                result.Add(new FolderDestination { FolderId = folder.Id, Path = path });
-                Walk(folder.Id, path);
-            }
-        }
-
-        Walk(null, string.Empty);
-        return result;
-    }
+    public IReadOnlyList<FolderDestination> GetMoveDestinations() =>
+        FolderPathList.Flatten(_allFolders, AppStrings.Get("Library_Inbox"))
+            .Select(item => new FolderDestination { FolderId = item.FolderId, Path = item.Path })
+            .ToList();
 
     public void ShowStatus(string message)
     {
@@ -273,7 +256,12 @@ public partial class HistoryPageViewModel : ObservableObject
 
         FolderNode Build(FolderRecord folder)
         {
-            var node = new FolderNode { FolderId = folder.Id, Name = folder.Name };
+            var node = new FolderNode
+            {
+                FolderId = folder.Id,
+                Name = folder.Name,
+                ColorKey = folder.ColorKey,
+            };
             foreach (var child in byParent[folder.Id].OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
                 node.Children.Add(Build(child));
             return node;

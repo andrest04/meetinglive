@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
@@ -201,6 +202,23 @@ public sealed partial class HistoryPage : Page
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
+
+    public static Visibility FolderAccentVisibility(Guid? folderId) =>
+        folderId is null ? Visibility.Collapsed : Visibility.Visible;
+
+    public static string FolderGlyph(Guid? folderId) => folderId is null ? "\uE716" : "\uE8B7";
+
+    public static Brush FolderAccentBrush(string? colorKey, Guid? folderId)
+    {
+        var resource = folderId is null
+            ? FolderAccent.BrushResourceName("neutral")
+            : FolderAccent.BrushResourceName(FolderAccent.ResolveKey(colorKey, folderId.Value));
+
+        if (Application.Current.Resources.TryGetValue(resource, out var value) && value is Brush brush)
+            return brush;
+
+        return (Brush)Application.Current.Resources["FolderAccentNeutralBrush"];
+    }
 
     public static string FormattedDate(DateTimeOffset recordedAt) =>
         recordedAt.LocalDateTime.ToString("g", System.Globalization.CultureInfo.CurrentCulture);

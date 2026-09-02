@@ -8,19 +8,56 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <NavigationView x:Name="NavView"
-                     PaneDisplayMode="Auto"
-                     IsBackButtonVisible="Collapsed"
-                     IsSettingsVisible="True"
-                     ItemInvoked="NavView_ItemInvoked"
-                     SelectionChanged="NavView_SelectionChanged">
-        <NavigationView.MenuItems>
-            <NavigationViewItem x:Uid="Nav_Record" Icon="Microphone" Tag="Recording"
-                                 AutomationProperties.AutomationId="NavItemRecording" />
-            <NavigationViewItem x:Uid="Nav_History" Icon="Folder" Tag="History"
-                                 AutomationProperties.AutomationId="NavItemHistory" />
-        </NavigationView.MenuItems>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <Frame x:Name="ContentFrame" />
-    </NavigationView>
+        <InfoBar x:Name="CallPromptBar"
+                 Grid.Row="0"
+                 IsClosable="True"
+                 Severity="Informational"
+                 Title="{x:Bind local:MainPage.CallPromptTitle()}"
+                 Message="{x:Bind local:MainPage.CallPromptBody()}"
+                 AutomationProperties.AutomationId="InfoCallPrompt">
+            <InfoBar.ActionButton>
+                <Button Click="CallPromptTakeNotes_Click"
+                        Content="{x:Bind local:MainPage.CallPromptTakeNotes()}"
+                        AutomationProperties.AutomationId="BtnCallPromptTakeNotes" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <NavigationView x:Name="NavView"
+                         Grid.Row="1"
+                         PaneDisplayMode="Auto"
+                         IsBackButtonVisible="Collapsed"
+                         IsSettingsVisible="True"
+                         DisplayModeChanged="NavView_DisplayModeChanged"
+                         PaneOpened="NavView_PaneOpened"
+                         PaneClosed="NavView_PaneClosed"
+                         ItemInvoked="NavView_ItemInvoked"
+                         SelectionChanged="NavView_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Uid="Nav_Record" Icon="Microphone" Tag="Recording"
+                                     AutomationProperties.AutomationId="NavItemRecording" />
+                <NavigationViewItem x:Uid="Nav_History" Icon="Folder" Tag="History"
+                                     AutomationProperties.AutomationId="NavItemHistory" />
+            </NavigationView.MenuItems>
+
+            <Frame x:Name="ContentFrame" />
+        </NavigationView>
+
+        <local:PaneResizeGrip x:Name="PaneGrip"
+                              Grid.Row="1"
+                              Width="8"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Stretch"
+                              Background="Transparent"
+                              AutomationProperties.AutomationId="SizerNavigationPane"
+                              PointerPressed="PaneGrip_PointerPressed"
+                              PointerMoved="PaneGrip_PointerMoved"
+                              PointerReleased="PaneGrip_PointerReleased"
+                              PointerCaptureLost="PaneGrip_PointerReleased" />
+    </Grid>
 </Page>
