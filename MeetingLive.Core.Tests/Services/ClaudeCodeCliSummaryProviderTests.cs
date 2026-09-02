@@ -16,7 +16,11 @@ public class ClaudeCodeCliSummaryProviderTests
             Assert.Contains("Hello everyone.", stdin);
             Assert.Contains("in Spanish", stdin);
             Assert.Contains("Do not invent", stdin);
-            Assert.Contains("### Decisions", stdin);
+            Assert.Contains("### Qué fue esto", stdin);
+            Assert.Contains("### Puntos clave", stdin);
+            Assert.Contains("### Decisiones", stdin);
+            Assert.Contains("### Preguntas abiertas", stdin);
+            Assert.DoesNotContain("### What this was", stdin);
 
             return new CliProcessResult(0, """
                 ## Summary
@@ -76,5 +80,27 @@ public class ClaudeCodeCliSummaryProviderTests
         await provider.SummarizeAsync("Hello everyone.", "Kickoff", DateTimeOffset.UtcNow, outputLanguage: "en");
 
         Assert.Contains("in English", stdinCaptured);
+        Assert.Contains("### What this was", stdinCaptured);
+        Assert.Contains("### Decisions", stdinCaptured);
+        Assert.DoesNotContain("### Qué fue esto", stdinCaptured);
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_WhenOutputLanguageIsSpanish_UsesSpanishSubheadings()
+    {
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((_, _, stdin) =>
+        {
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## Summary\n\nHola.\n", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner);
+
+        await provider.SummarizeAsync("Hola a todos.", "Kickoff", DateTimeOffset.UtcNow, outputLanguage: "es");
+
+        Assert.Contains("in Spanish", stdinCaptured);
+        Assert.Contains("### Qué fue esto", stdinCaptured);
+        Assert.Contains("### Decisiones", stdinCaptured);
+        Assert.DoesNotContain("### What this was", stdinCaptured);
     }
 }
