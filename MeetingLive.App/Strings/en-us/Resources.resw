@@ -140,6 +140,7 @@
   <data name="Error_StopRecording" xml:space="preserve"><value>Error stopping the recording: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error processing the recording: {0}</value></data>
   <data name="Error_GenerateSummary" xml:space="preserve"><value>Error generating the summary: {0}</value></data>
+  <data name="Error_SaveActionItem" xml:space="preserve"><value>Error saving the action item: {0}</value></data>
   <data name="Error_DownloadModel" xml:space="preserve"><value>Error downloading the model: {0}</value></data>
   <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Download failed: {0}</value></data>
   <data name="Error_EngineNotReady" xml:space="preserve"><value>Download finished but the transcription engine is still not ready.</value></data>

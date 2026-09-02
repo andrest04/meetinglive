@@ -95,6 +95,7 @@ public partial class RecordingPageViewModel : ObservableObject
     {
         _liveTranscription.TranscriptUpdated += OnLiveTranscriptUpdated;
         _levelMeter.LevelChanged += OnMicLevelChanged;
+        AppServices.Workspace.MeetingDeleted += OnMeetingDeleted;
     }
 
     /// <summary>Record is cached; start the idle mic preview only while this page is showing.</summary>
@@ -116,6 +117,12 @@ public partial class RecordingPageViewModel : ObservableObject
     private void OnLiveTranscriptUpdated(object? sender, string transcript)
     {
         App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = transcript);
+    }
+
+    private void OnMeetingDeleted(object? sender, Guid id)
+    {
+        if (LastMeeting?.Id == id)
+            LastMeeting = null;
     }
 
     [RelayCommand(CanExecute = nameof(CanToggleRecording))]

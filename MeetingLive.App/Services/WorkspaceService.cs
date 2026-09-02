@@ -21,6 +21,8 @@ public sealed class WorkspaceService
 
     public event EventHandler<string>? NavigationRequested;
 
+    public event EventHandler<Guid>? MeetingDeleted;
+
     public void SelectMeeting(Guid id) => SelectedMeetingId = id;
 
     public void ClearSelection()
@@ -40,6 +42,8 @@ public sealed class WorkspaceService
 
         if (SelectedMeetingId == id)
             SelectedMeetingId = null;
+
+        MeetingDeleted?.Invoke(this, id);
     }
 
     public void SetLastProcessed(MeetingRecord record)

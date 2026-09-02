@@ -247,7 +247,14 @@ public partial class SummaryPageViewModel : ObservableObject
         if (e.PropertyName != nameof(ActionItemViewModel.IsDone) || _record is null)
             return;
 
-        await _meetings.SaveAsync(_record);
+        try
+        {
+            await _meetings.SaveAsync(_record);
+        }
+        catch (Exception ex)
+        {
+            StatusText = AppStrings.Format("Error_SaveActionItem", ex.Message);
+        }
     }
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));

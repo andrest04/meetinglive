@@ -11,6 +11,7 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, IDisposable
 {
+    private readonly object _gate = new();
     private WasapiCapture? _capture;
 
     public event EventHandler<float>? LevelChanged;
@@ -37,8 +38,13 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
 
     public void Stop()
     {
-        var capture = _capture;
-        _capture = null;
+        WasapiCapture? capture;
+        lock (_gate)
+        {
+            capture = _capture;
+            _capture = null;
+        }
+
         if (capture is null)
             return;
 
@@ -70,15 +76,25 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
     {
         // A capture that stops itself (device removed mid-preview) must still report silence
         // and get disposed rather than leaving Settings holding a dead capture instance.
-        if (sender is WasapiCapture capture)
+        // Stop() may already own this instance — dispose only if we still hold it.
+        if (sender is not WasapiCapture capture)
+            return;
+
+        capture.DataAvailable -= OnDataAvailable;
+        capture.RecordingStopped -= OnRecordingStopped;
+
+        var shouldDispose = false;
+        lock (_gate)
         {
-            capture.DataAvailable -= OnDataAvailable;
-            capture.RecordingStopped -= OnRecordingStopped;
-            capture.Dispose();
+            if (ReferenceEquals(_capture, capture))
+            {
+                _capture = null;
+                shouldDispose = true;
+            }
         }
 
-        if (ReferenceEquals(sender, _capture))
-            _capture = null;
+        if (shouldDispose)
+            capture.Dispose();
 
         LevelChanged?.Invoke(this, 0f);
     }
