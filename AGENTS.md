@@ -1,21 +1,59 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, or any agent following the [agents.md](https://agents.md) convention) working in this repository.
+This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, OpenCode, or any agent following the [agents.md](https://agents.md) convention) working in this repository.
 
-## Mandatory: use the `winui` plugin skills for any WinUI3/Windows App SDK work
+## Hard gate: every change MUST go through skills
 
-This repo has the `winui@win-dev-skills` plugin installed (from `microsoft/win-dev-skills`), plus the general-purpose `dotnet@dotnet-agent-skills`, `dotnet-msbuild@dotnet-agent-skills`, `dotnet-nuget@dotnet-agent-skills`, `dotnet-test@dotnet-agent-skills`, and `dotnet-diag@dotnet-agent-skills` plugins. **Any implementation work in this codebase — new features, XAML/UI, bug fixes, refactors, packaging, migrations, tests — must go through the `winui-dev` agent and its skills, not ad-hoc edits.** Specifically:
+This is not optional. **Do not write, edit, test, review, package, or ship MeetingLive code without first loading the matching `SKILL.md` files.** Ad-hoc implementation is a quality failure.
 
-- Scaffolding, building, running, or debugging the app → `winui-dev-workflow` (uses `winapp new`, `winapp run`, crash diagnostics).
-- Any XAML/UI work (layout, theming, Fluent Design, accessibility, data binding, `x:Bind`) → `winui-design` (uses `winapp find-ui` for sample discovery).
-- Before committing any change → `winui-code-review` (MVVM compliance, `x:Bind` syntax, accessibility, theming consistency, security, performance).
-- Automated UI tests → `winui-ui-testing` (generates batch test scripts; this is the project's UI-testing tool — do not reach for Playwright, which only automates WebView2 content and does not apply to native WinUI3 controls).
-- Release builds, signing, MSIX, CI/CD, Store submission → `winui-packaging`.
-- Anything touching general .NET build/test/package plumbing outside WinUI-specific concerns → the `dotnet`/`dotnet-msbuild`/`dotnet-nuget`/`dotnet-test`/`dotnet-diag` skills.
+A new feature, a bug fix, a unit test, a UI test, a refactor, a review, or a packaging step that skipped its skills did not happen correctly. Redo it through the skills.
 
-Prerequisite: the `winapp` CLI (v0.6+) must be installed (`winget install Microsoft.winappcli`), and Windows Developer Mode must be enabled — `winui-setup` verifies both.
+Before any implementation, test, or feature work:
 
-To run the app: use the `winui-dev-workflow` skill (`winapp run <csproj> -c Debug --arch x64 --debug-output`), never the packaged `.exe` directly and never a bare `dotnet run`.
+1. Read the skill index at `.atl/skill-registry.md` (Engram topic `skill-registry` if the file is missing).
+2. Load every matching skill in the routing table below — read the exact `SKILL.md` path. Do not summarize the skill.
+3. Follow that skill's procedure. If the skill cannot be loaded, **STOP** and tell the user.
+4. When delegating, inject those exact `SKILL.md` paths into the sub-agent prompt under `## Skills to load before work`. The sub-agent must read them **before** task-specific work.
+
+Project skills live in `.agents/skills/` (see `skills-lock.json`). Claude Code also has `winui@win-dev-skills` plus `dotnet` / `dotnet-msbuild` / `dotnet-nuget` / `dotnet-test` / `dotnet-diag` `@dotnet-agent-skills` enabled in `.claude/settings.json`.
+
+### Mandatory skill routing
+
+| Work | Skills that MUST be loaded | Why |
+| --- | --- | --- |
+| New feature, XAML, layout, Fluent, accessibility, `x:Bind` | `winui-design` then `winui-dev-workflow` | Grounded WinUI samples before writing UI; build/run through `winapp` |
+| Build, run, debug, crash diagnosis | `winui-dev-workflow` | `winapp run`; never the packaged `.exe`; never bare `dotnet run` |
+| Write or change xUnit tests (`MeetingLive.Core.Tests`) | `csharp-xunit` | xUnit facts/theories, AAA, naming |
+| Run tests | `run-tests` | Exact `dotnet test` command for this repo (per-csproj, not the solution) |
+| Audit existing tests | `test-anti-patterns`, `assertion-quality`, `test-gap-analysis` | Catch empty/tautological tests and untested behavior |
+| Coverage / "are we testing the right things?" | `coverage-analysis` | Cobertura line/branch evidence |
+| Automated UI tests | `winui-ui-testing` | Native UIA via `winapp ui`. Playwright does **not** apply |
+| Native interop (NeMo-Speech C ABI, P/Invoke, marshalling) | `dotnet-pinvoke` | Signatures, lifetime, crash-at-the-boundary |
+| Performance of hot paths (audio pump, LLM, allocations) | `analyzing-dotnet-performance` | Known .NET anti-patterns |
+| App crash dumps | `dump-collect` | Collect dumps; do not pretend to analyze them with this skill |
+| Unclear MSBuild / `MSB4126` / project-file review | `binlog-failure-analysis`, `msbuild-antipatterns` | Diagnose the build, don't guess |
+| Before any commit | `winui-code-review` | MVVM, `x:Bind`, a11y, theming, security, performance |
+| MSIX, signing, Store, release CI | `winui-packaging` | Packaging is its own pipeline |
+| Machine toolchain missing (WinApp CLI, Developer Mode) | `winui-setup` | **Only** when the user explicitly asks to set up or repair the toolchain |
+
+Exact paths are in `.atl/skill-registry.md`. Example: `C:\Users\andres\Code\meetinglive\.agents\skills\winui-design\SKILL.md`.
+
+### Project override the skills must not fight
+
+MeetingLive is **C#12**. Keep classic `[ObservableProperty]` **private-field** syntax. Do **not** migrate to C#13 partial properties even if `winui-code-review` / analyzer `WUI3xxx` suggests the newer pattern.
+
+### Do not
+
+- Skip skills because the change "looks small".
+- Invent WinUI/XAML patterns without `winui-design`.
+- Write xUnit tests without `csharp-xunit`.
+- Touch native C ABI without `dotnet-pinvoke`.
+- Use Playwright for native WinUI3 controls.
+- Run `dotnet build` / `dotnet test` against `MeetingLive.sln` (AnyCPU vs `x86;x64;ARM64` → `MSB4126`).
+
+Prerequisite: WinApp CLI v0.6+ (`winget install Microsoft.winappcli`) and Windows Developer Mode. `winui-setup` verifies both when the user asks.
+
+To run the app: `winui-dev-workflow` (`winapp run <csproj> -c Debug --arch x64 --debug-output`).
 
 ## Commands
 
@@ -35,8 +73,8 @@ All commands assume the .NET 8 SDK is on PATH (`dotnet --version` should print `
 
 Three projects, no remote backend — the entire pipeline (record → transcribe → summarize) runs locally on the user's machine, for zero cost:
 
-- **`MeetingLive.App`** — WinUI3 (.NET 8, `net8.0-windows10.0.26100.0`) desktop app, MVVM via `CommunityToolkit.Mvvm` (classic `[ObservableProperty]` private-field syntax — the project is C#12, NOT the C#13 "partial property" syntax some WinUI templates default to). `App.xaml.cs` exposes `App.Window`, `App.DispatcherQueue`, and `App.WindowHandle` as statics for use from anywhere (dialogs, WinRT interop, marshaling background-thread results back to the UI thread). All user-facing text is in English (hardcoded literals, no `.resw`/localization system — do not add one unless asked).
-  - `MainPage.xaml` — `NavigationView` shell (`PaneDisplayMode="Auto"` — do not hardcode `"Left"`, it disables WinUI3's native adaptive collapse-to-compact-pane behavior on narrow windows) hosting Record / Transcript / Summary, plus a native `IsSettingsVisible` Settings item at the pane footer with its `Content` set explicitly to `"Settings"` in code-behind (the OS-localized default label would otherwise follow system language).
+- **`MeetingLive.App`** — WinUI3 (.NET 8, `net8.0-windows10.0.26100.0`) desktop app, MVVM via `CommunityToolkit.Mvvm` (classic `[ObservableProperty]` private-field syntax — the project is C#12, NOT the C#13 "partial property" syntax some WinUI templates default to; the installed SDK 8.0.x cannot compile `LangVersion` 13). `App.xaml.cs` exposes `App.Window`, `App.DispatcherQueue`, and `App.WindowHandle` as statics for use from anywhere (dialogs, WinRT interop, marshaling background-thread results back to the UI thread). User-facing text lives in `Strings/en-us/Resources.resw`: XAML uses `x:Uid`, C# uses `AppStrings.Get` / `AppStrings.Format` with `CultureInfo.CurrentCulture`. Default copy is English. Do not hardcode new UI strings.
+  - `MainPage.xaml` — `NavigationView` shell (`PaneDisplayMode="Auto"` — do not hardcode `"Left"`, it disables WinUI3's native adaptive collapse-to-compact-pane behavior on narrow windows) hosting Record / Transcript / Summary, plus a native `IsSettingsVisible` Settings item at the pane footer with its `Content` set from `AppStrings` (`Nav_Settings`) so it does not follow the OS UI language.
   - `RecordingPage` — toggles `AudioCaptureService`, then runs transcription and summarization via `Task.Run` + `App.DispatcherQueue.TryEnqueue` to stay off/return to the UI thread.
   - `TranscriptPage` / `SummaryPage` — load a `MeetingRecord` by id or fall back to the most recent one.
   - `SettingsPage` — the single place for all app configuration: current/selected local LLM model with download & delete per model (`SettingsCard`/`SettingsExpander` from `CommunityToolkit.WinUI.Controls.SettingsControls`), data location (`AppPaths.RootDirectory`) with an "Open folder" action, and a summary-provider selector ("Local" active today, "Cloud (API key) — coming soon" as a disabled placeholder for the future — see `ISummaryProvider` below).

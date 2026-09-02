@@ -32,3 +32,6 @@ Thumbs.db
 ## Local app data produced by MeetingLive at runtime (models, recordings, JSON store)
 *.ggml
 *.gguf
+
+## Agent skill index (regenerated locally; SKILL.md files under .agents/skills are the source of truth)
+.atl/
