@@ -56,9 +56,23 @@ public partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty]
     private string _transcriptionAccelerationCaption = "CPU";
 
+    [ObservableProperty]
+    private bool _isWhisperModelInstalled;
+
+    [ObservableProperty]
+    private bool _isWhisperDownloading;
+
+    [ObservableProperty]
+    private double _whisperDownloadProgressPercent;
+
     private readonly IMicrophoneLevelMeterService _levelMeter = AppServices.MicrophoneLevelMeter;
 
     private string? _selectedSummaryModelId;
+
+    /// <summary>True while rebuilding the mic list. ComboBox SelectionChanged after
+    /// <see cref="ObservableCollection{T}.Clear"/> would otherwise save System default
+    /// and wipe the user's device.</summary>
+    private bool _suppressMicrophoneCommit;
 
     /// <summary>Sentinel entry meaning "use the OS default input device" — its empty
     /// <see cref="MicrophoneDeviceOption.Id"/> is never a real WASAPI device id.</summary>
@@ -110,6 +124,7 @@ public partial class SettingsPageViewModel : ObservableObject
     private async Task LoadAsync()
     {
         IsLoading = true;
+        _suppressMicrophoneCommit = true;
         try
         {
             var hardware = AppServices.HardwareDetection.DetectHardware();
@@ -124,6 +139,7 @@ public partial class SettingsPageViewModel : ObservableObject
                 ?? SummaryLanguageCatalog.Languages[0];
             IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
             RefreshTranscriptionStatus(hardware);
+            RefreshWhisperStatus();
 
             Models.Clear();
             foreach (var model in ModelCatalog.SummaryModels)
@@ -135,20 +151,26 @@ public partial class SettingsPageViewModel : ObservableObject
             }
 
             Microphones.Clear();
-            Microphones.Add(DefaultMicrophoneOption);
+            var systemDefault = DefaultMicrophoneOption;
+            Microphones.Add(systemDefault);
             foreach (var microphone in AppServices.Microphones.GetAvailableMicrophones())
                 Microphones.Add(microphone);
 
-            // Falls back to "System default" if the previously selected device was unplugged
-            // or no longer exists — mirrors the fallback AudioCaptureService applies at record time.
-            SelectedMicrophone = Microphones.FirstOrDefault(m => m.Id == settings.SelectedMicrophoneDeviceId)
-                ?? DefaultMicrophoneOption;
+            // ComboBox only displays SelectedItem when it is the same instance as an
+            // ItemsSource row. Null saved id means system default (empty Id).
+            var savedId = settings.SelectedMicrophoneDeviceId ?? string.Empty;
+            var chosen = Microphones.FirstOrDefault(m => m.Id == savedId) ?? systemDefault;
+            // Record equality would skip the generated setter (field already looks like
+            // System default), so the ComboBox never gets SelectedItem and stays blank.
+            _selectedMicrophone = chosen;
+            OnPropertyChanged(nameof(SelectedMicrophone));
 
             RestartLevelMeter();
         }
         finally
         {
             IsLoading = false;
+            App.DispatcherQueue.TryEnqueue(() => _suppressMicrophoneCommit = false);
         }
     }
 
@@ -239,6 +261,9 @@ public partial class SettingsPageViewModel : ObservableObject
     [RelayCommand]
     private async Task SelectMicrophoneAsync(MicrophoneDeviceOption option)
     {
+        if (IsLoading || _suppressMicrophoneCommit)
+            return;
+
         if (option.Id == SelectedMicrophone.Id)
             return;
 
@@ -303,6 +328,36 @@ public partial class SettingsPageViewModel : ObservableObject
         RefreshTranscriptionStatus(hardware);
     }
 
+    [RelayCommand]
+    private async Task DownloadWhisperModelAsync()
+    {
+        IsWhisperDownloading = true;
+        WhisperDownloadProgressPercent = 0;
+        try
+        {
+            var progress = new Progress<double>(percent =>
+                App.DispatcherQueue.TryEnqueue(() => WhisperDownloadProgressPercent = percent));
+            await AppServices.WhisperModels.DownloadModelAsync(progress);
+            RefreshWhisperStatus();
+        }
+        catch (Exception)
+        {
+            RefreshWhisperStatus();
+        }
+        finally
+        {
+            IsWhisperDownloading = false;
+            WhisperDownloadProgressPercent = 0;
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteWhisperModel()
+    {
+        AppServices.WhisperModels.DeleteModel();
+        RefreshWhisperStatus();
+    }
+
     private void RefreshTranscriptionStatus(HardwareProfile hardware)
     {
         IsTranscriptionEngineInstalled = TranscriptionEngineInstaller.IsReady(
@@ -310,6 +365,9 @@ public partial class SettingsPageViewModel : ObservableObject
         TranscriptionAccelerationCaption = TranscriptionEngineInstaller.AccelerationCaption(
             hardware, AppServices.NemoSpeechRuntime);
     }
+
+    private void RefreshWhisperStatus() =>
+        IsWhisperModelInstalled = AppServices.WhisperModels.IsModelDownloaded();
 
     [RelayCommand]
     private async Task ToggleLiveTranscriptionAsync(bool isEnabled)

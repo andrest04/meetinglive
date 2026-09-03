@@ -29,8 +29,10 @@ public static class AppServices
 
     public static IHardwareDetectionService HardwareDetection { get; } = new HardwareDetectionService();
 
+    public static IWhisperModelManager WhisperModels { get; } = new WhisperModelManager(LazyModelDownloadHttpClient.Value);
+
     public static ITranscriptionService Transcription { get; } = new TranscriptionService(
-        NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
+        WhisperModels, HardwareDetection);
 
     public static ILiveTranscriptionService LiveTranscription { get; } = new LiveTranscriptionService(
         AudioCapture, NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
@@ -57,6 +59,19 @@ public static class AppServices
             localModelPath ?? throw new ArgumentNullException(nameof(localModelPath), "A local model path is required for the Local summary provider.")),
         SummaryProviderKind.ClaudeCode => new ClaudeCodeCliSummaryProvider(new CliProcessRunner()),
         SummaryProviderKind.Codex => new CodexCliSummaryProvider(new CliProcessRunner()),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
+    };
+
+    /// <summary>
+    /// Creates a transcript polisher matching <paramref name="kind"/> so polish and summary
+    /// use the same engine. <paramref name="localModelPath"/> is required for Local.
+    /// </summary>
+    public static ITranscriptPolisher CreateTranscriptPolisher(SummaryProviderKind kind, string? localModelPath) => kind switch
+    {
+        SummaryProviderKind.Local => new LocalLlmTranscriptPolisher(
+            localModelPath ?? throw new ArgumentNullException(nameof(localModelPath), "A local model path is required for the Local transcript polisher.")),
+        SummaryProviderKind.ClaudeCode => new ClaudeCodeCliTranscriptPolisher(new CliProcessRunner()),
+        SummaryProviderKind.Codex => new CodexCliTranscriptPolisher(new CliProcessRunner()),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
     };
 }

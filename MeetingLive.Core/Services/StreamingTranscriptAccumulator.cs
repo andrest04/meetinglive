@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.RegularExpressions;
 using MeetingLive.Core.Models;
 
@@ -81,8 +80,7 @@ public sealed class StreamingTranscriptAccumulator
         if (_wroteHeader || _recordedAt == default)
             return;
 
-        var stamp = _recordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-        _committedLines.Add($"Recorded {stamp}");
+        _committedLines.Add(TranscriptStampFormatter.FormatHeader(_recordedAt));
         _wroteHeader = true;
     }
 
@@ -159,20 +157,6 @@ public sealed class StreamingTranscriptAccumulator
         }
     }
 
-    private string FormatLine(TimeSpan start, string text)
-    {
-        var elapsed = FormatElapsed(start);
-        if (_recordedAt == default)
-            return $"[{elapsed}] {text}";
-
-        var clock = (_recordedAt.ToLocalTime() + start + ClockSkew).ToString("HH:mm", CultureInfo.InvariantCulture);
-        return $"[{elapsed} | {clock}] {text}";
-    }
-
-    private static string FormatElapsed(TimeSpan time)
-    {
-        if (time < TimeSpan.Zero)
-            time = TimeSpan.Zero;
-        return time.ToString(@"hh\:mm\:ss");
-    }
+    private string FormatLine(TimeSpan start, string text) =>
+        TranscriptStampFormatter.FormatLine(start, text, _recordedAt, ClockSkew);
 }

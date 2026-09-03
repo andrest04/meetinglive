@@ -24,18 +24,14 @@ public sealed class ClaudeCodeCliSummaryProvider(ICliProcessRunner processRunner
         string? outputLanguage = null)
     {
         var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
-
-        var result = await processRunner.RunAsync(ExecutableName, "-p", prompt, Timeout, cancellationToken);
-
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"The Claude Code CLI exited with code {result.ExitCode}: {result.StandardError.Trim()}");
-        }
-
-        var raw = result.StandardOutput.Trim();
-        if (raw.Length == 0)
-            throw new InvalidOperationException("The Claude Code CLI did not return any content.");
+        var raw = await CliFailureMapper.RunRequiredStdoutAsync(
+            processRunner,
+            ExecutableName,
+            "-p",
+            prompt,
+            Timeout,
+            CliFailureMapper.ClaudeCodeDisplayName,
+            cancellationToken);
 
         var (summaryMarkdown, actionItems) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId);

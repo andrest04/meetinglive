@@ -2,7 +2,6 @@ using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
@@ -23,8 +22,7 @@ public sealed partial class RecordingPage : Page
         {
             ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
-            ViewModel.EnsureSummaryEngineAsync = () => SummaryModelSetupDialog.ShowAsync(XamlRoot);
-            ViewModel.EnsureTranscriptionEngineAsync = () => TranscriptionEngineResolver.EnsureReadyAsync(XamlRoot);
+            ViewModel.EnsureRecordingReadyAsync = () => RecordingSetupResolver.EnsureReadyAsync(XamlRoot);
         };
     }
 

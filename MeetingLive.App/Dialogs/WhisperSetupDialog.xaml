@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="MeetingLive_App.Dialogs.WhisperSetupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    x:Uid="WhisperSetup"
+    DefaultButton="Close">
+
+    <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
+        <TextBlock x:Uid="WhisperSetup_Hint"
+                   TextWrapping="Wrap"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Opacity="0.7" />
+        <ProgressBar IsIndeterminate="False"
+                     Value="{x:Bind ViewModel.DownloadProgressPercent, Mode=OneWay}"
+                     Maximum="100"
+                     AutomationProperties.AutomationId="ProgressWhisperSetupDownload" />
+        <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   AutomationProperties.AutomationId="TxtWhisperSetupStatus" />
+        <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                 Severity="Error"
+                 x:Uid="WhisperSetup_Failed"
+                 Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
+    </StackPanel>
+</ContentDialog>

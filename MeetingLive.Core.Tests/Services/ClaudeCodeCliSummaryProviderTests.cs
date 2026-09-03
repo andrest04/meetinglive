@@ -43,27 +43,39 @@ public class ClaudeCodeCliSummaryProviderTests
         Assert.Equal(ClaudeCodeCliSummaryProvider.ProviderId, result.ProviderId);
     }
 
-    [Fact]
-    public async Task SummarizeAsync_WhenExitCodeIsNonZero_ThrowsWithStderr()
+    [Theory]
+    [InlineData("not logged in", CliFailureKind.NotSignedIn, "session expired")]
+    [InlineData("subscription expired", CliFailureKind.SubscriptionInactive, "subscription")]
+    [InlineData("command not found", CliFailureKind.NotInstalled, "not installed")]
+    [InlineData("request timed out", CliFailureKind.TimedOut, "took too long")]
+    [InlineData("model crashed mysteriously", CliFailureKind.Unknown, "could not finish")]
+    public async Task SummarizeAsync_WhenCliFails_ThrowsClassifiedCliToolException(
+        string stderr, CliFailureKind expectedKind, string expectedPhrase)
     {
         var runner = new FakeCliProcessRunner((_, _, _) =>
-            new CliProcessResult(1, string.Empty, "not logged in"));
+            new CliProcessResult(1, string.Empty, stderr));
         var provider = new ClaudeCodeCliSummaryProvider(runner);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+        var exception = await Assert.ThrowsAsync<CliToolException>(
             () => provider.SummarizeAsync("transcript", "title", DateTimeOffset.UtcNow));
 
-        Assert.Contains("not logged in", exception.Message);
+        Assert.Equal(expectedKind, exception.Kind);
+        Assert.Equal(CliFailureMapper.ClaudeCodeDisplayName, exception.ProviderDisplayName);
+        Assert.Contains(expectedPhrase, exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("exited with code", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task SummarizeAsync_WhenStandardOutputIsEmpty_Throws()
+    public async Task SummarizeAsync_WhenStandardOutputIsEmpty_ThrowsCliToolExceptionEmptyOutput()
     {
         var runner = new FakeCliProcessRunner((_, _, _) => new CliProcessResult(0, "   ", string.Empty));
         var provider = new ClaudeCodeCliSummaryProvider(runner);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        var exception = await Assert.ThrowsAsync<CliToolException>(
             () => provider.SummarizeAsync("transcript", "title", DateTimeOffset.UtcNow));
+
+        Assert.Equal(CliFailureKind.EmptyOutput, exception.Kind);
+        Assert.Equal(CliFailureMapper.ClaudeCodeDisplayName, exception.ProviderDisplayName);
     }
 
     [Fact]

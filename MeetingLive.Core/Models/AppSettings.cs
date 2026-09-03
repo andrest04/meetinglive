@@ -37,8 +37,8 @@ public sealed class AppSettings
     public string? SelectedMicrophoneDeviceId { get; set; }
 
     /// <summary>Whether live Nemotron streaming transcription runs during recording.
-    /// Defaults to <see langword="true"/>. The saved transcript is always offline Nemotron
-    /// over the WAV; this only controls the on-screen preview.</summary>
+    /// Defaults to <see langword="true"/>. The saved transcript is always Whisper over the WAV
+    /// (then LLM-polished); this only controls the on-screen preview.</summary>
     public bool LiveTranscriptionEnabled { get; set; } = true;
 
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>

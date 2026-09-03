@@ -26,18 +26,14 @@ public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : I
         string? outputLanguage = null)
     {
         var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
-
-        var result = await processRunner.RunAsync(ExecutableName, "exec -", prompt, Timeout, cancellationToken);
-
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"The Codex CLI exited with code {result.ExitCode}: {result.StandardError.Trim()}");
-        }
-
-        var raw = result.StandardOutput.Trim();
-        if (raw.Length == 0)
-            throw new InvalidOperationException("The Codex CLI did not return any content.");
+        var raw = await CliFailureMapper.RunRequiredStdoutAsync(
+            processRunner,
+            ExecutableName,
+            "exec -",
+            prompt,
+            Timeout,
+            CliFailureMapper.CodexDisplayName,
+            cancellationToken);
 
         var (summaryMarkdown, actionItems) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId);

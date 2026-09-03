@@ -64,6 +64,19 @@ public class CliProcessRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WhenExecutableIsMissing_ThrowsFileNotFoundException()
+    {
+        var runner = new CliProcessRunner();
+
+        await Assert.ThrowsAsync<FileNotFoundException>(
+            () => runner.RunAsync(
+                "this-executable-definitely-does-not-exist-anywhere",
+                arguments: "",
+                stdin: null,
+                timeout: TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public async Task RunAsync_WhenProcessExceedsTimeout_ThrowsTimeoutException()
     {
         var runner = new CliProcessRunner();

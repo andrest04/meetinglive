@@ -2,6 +2,7 @@ namespace MeetingLive.Core.Services;
 
 public interface ITranscriptionService
 {
+    /// <param name="progress">0–100 percent of WAV duration transcribed so far.</param>
     Task<string> TranscribeAsync(
         string wavFilePath,
         string language = "auto",

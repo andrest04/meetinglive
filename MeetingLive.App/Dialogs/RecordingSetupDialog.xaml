@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="MeetingLive_App.Dialogs.RecordingSetupDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    x:Uid="RecordingSetup"
+    DefaultButton="Primary">
+
+    <StackPanel Spacing="12" MinWidth="440" MaxWidth="440">
+        <TextBlock x:Uid="RecordingSetup_Headline"
+                   TextWrapping="Wrap"
+                   Style="{StaticResource CaptionTextBlockStyle}"
+                   Opacity="0.7" />
+
+        <controls:SettingsCard x:Uid="RecordingSetup_Live"
+                               Description="{x:Bind ViewModel.LiveDetailText, Mode=OneWay}"
+                               IsClickEnabled="False">
+            <TextBlock Text="{x:Bind ViewModel.LiveStatusText, Mode=OneWay}"
+                       AutomationProperties.AutomationId="TxtRecordingSetupLiveStatus" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard x:Uid="RecordingSetup_Whisper"
+                               Description="{x:Bind ViewModel.WhisperDetailText, Mode=OneWay}"
+                               IsClickEnabled="False">
+            <TextBlock Text="{x:Bind ViewModel.WhisperStatusText, Mode=OneWay}"
+                       AutomationProperties.AutomationId="TxtRecordingSetupWhisperStatus" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard x:Uid="RecordingSetup_Summary"
+                               Description="{x:Bind ViewModel.SummaryDetailText, Mode=OneWay}"
+                               IsClickEnabled="False">
+            <TextBlock Text="{x:Bind ViewModel.SummaryStatusText, Mode=OneWay}"
+                       AutomationProperties.AutomationId="TxtRecordingSetupSummaryStatus" />
+        </controls:SettingsCard>
+    </StackPanel>
+</ContentDialog>

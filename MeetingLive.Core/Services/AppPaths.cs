@@ -12,10 +12,13 @@ public static class AppPaths
 
     public static string RecordingsDirectory { get; } = Path.Combine(RootDirectory, "Recordings");
 
-    /// <summary>Legacy Whisper GGML cache. Kept so leftover files from older builds are still findable.</summary>
+    /// <summary>Legacy Whisper GGML cache (ggml-base.bin). Kept so leftover files from older builds are still findable. Do not reuse for new downloads.</summary>
     public static string ModelsDirectory { get; } = Path.Combine(RootDirectory, "Models");
 
-    /// <summary>Where the Nemotron 3.5 ASR GGUF is cached.</summary>
+    /// <summary>Where the Whisper large-v3-turbo GGML is cached for offline transcription.</summary>
+    public static string WhisperModelsDirectory { get; } = Path.Combine(RootDirectory, "WhisperModels");
+
+    /// <summary>Where the Nemotron 3.5 ASR GGUF is cached (live preview only).</summary>
     public static string TranscriptionModelsDirectory { get; } = Path.Combine(RootDirectory, "TranscriptionModels");
 
     /// <summary>Where extracted NeMo-Speech.cpp CPU/CUDA runtimes live (<c>cpu\</c> and <c>cuda\</c>).</summary>
@@ -40,6 +43,7 @@ public static class AppPaths
     {
         Directory.CreateDirectory(RecordingsDirectory);
         Directory.CreateDirectory(ModelsDirectory);
+        Directory.CreateDirectory(WhisperModelsDirectory);
         Directory.CreateDirectory(TranscriptionModelsDirectory);
         Directory.CreateDirectory(NemoSpeechRuntimeDirectory);
         Directory.CreateDirectory(SummaryModelsDirectory);

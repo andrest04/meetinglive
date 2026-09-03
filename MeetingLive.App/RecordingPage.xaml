@@ -7,6 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
@@ -56,7 +57,47 @@
             </ComboBox>
         </Grid>
 
-        <StackPanel Grid.Row="2" Spacing="10" HorizontalAlignment="Center" Margin="0,8,0,4">
+        <Grid Grid.Row="2" Margin="0,8,0,4">
+            <Border MaxWidth="480"
+                    HorizontalAlignment="Center"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{ThemeResource ControlCornerRadius}"
+                    Padding="16"
+                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSetupPanel), Mode=OneWay}">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Uid="RecordingSetup_Headline"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <controls:SettingsCard x:Uid="RecordingSetup_Live"
+                                           Description="{x:Bind ViewModel.LiveSetupDetailText, Mode=OneWay}"
+                                           IsClickEnabled="False">
+                        <TextBlock Text="{x:Bind ViewModel.LiveSetupStatusText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="TxtRecordLiveSetupStatus" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard x:Uid="RecordingSetup_Whisper"
+                                           Description="{x:Bind ViewModel.WhisperSetupDetailText, Mode=OneWay}"
+                                           IsClickEnabled="False">
+                        <TextBlock Text="{x:Bind ViewModel.WhisperSetupStatusText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="TxtRecordWhisperSetupStatus" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard x:Uid="RecordingSetup_Summary"
+                                           Description="{x:Bind ViewModel.SummarySetupDetailText, Mode=OneWay}"
+                                           IsClickEnabled="False">
+                        <TextBlock Text="{x:Bind ViewModel.SummarySetupStatusText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="TxtRecordSummarySetupStatus" />
+                    </controls:SettingsCard>
+                    <Button x:Uid="RecordingSetup_SetUpToRecord"
+                            Command="{x:Bind ViewModel.SetUpToRecordCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.AutomationId="BtnSetUpToRecord" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Spacing="10" HorizontalAlignment="Center"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowRecordHero), Mode=OneWay}">
             <Grid HorizontalAlignment="Center" MinWidth="160" MinHeight="96">
                 <Ellipse x:Name="RecordingPulse"
                          Width="88" Height="88"
@@ -129,8 +170,9 @@
                        TextAlignment="Center"
                        HorizontalAlignment="Center"
                        MaxWidth="420"
-                       Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}" />
-        </StackPanel>
+                        Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}" />
+            </StackPanel>
+        </Grid>
 
         <InfoBar Grid.Row="3"
                  IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"

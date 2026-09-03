@@ -145,7 +145,7 @@ public partial class SummaryPageViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusText = AppStrings.Format("Error_GenerateSummary", ex.Message);
+            StatusText = AppStrings.Format("Error_GenerateSummary", CliFailureUserMessage.Format(ex));
         }
         finally
         {

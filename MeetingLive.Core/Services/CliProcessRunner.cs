@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
@@ -56,7 +57,14 @@ public sealed class CliProcessRunner : ICliProcessRunner
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode is 2 or 3)
+        {
+            throw new FileNotFoundException($"The executable '{fileName}' was not found.", fileName, ex);
+        }
 
         if (stdin is not null)
         {
