@@ -3,7 +3,7 @@ using System.Globalization;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Shared transcript stamp format used by live Nemo preview and offline Whisper.
+/// Shared transcript stamp format used by live Nemo preview and offline Nemotron.
 /// Optional header <c>Recorded yyyy-MM-dd HH:mm</c>; lines
 /// <c>[hh:mm:ss | HH:mm] text</c> or <c>[hh:mm:ss] text</c> when <paramref name="recordedAt"/> is default.
 /// </summary>

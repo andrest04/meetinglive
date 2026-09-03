@@ -2,8 +2,8 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Streaming transcription over the live mixed PCM tap for on-screen preview.
-/// The saved meeting transcript is produced by <see cref="ITranscriptionService"/> over the
-/// finished WAV. <see cref="Stop"/> closes the live stream without native
+/// The saved meeting transcript is produced by <see cref="ITranscriptionService"/> (Nemotron
+/// over the finished WAV). <see cref="Stop"/> closes the live stream without native
 /// <c>stream_finish</c> — that flush aborts the CUDA runtime after a long session.
 /// </summary>
 public interface ILiveTranscriptionService

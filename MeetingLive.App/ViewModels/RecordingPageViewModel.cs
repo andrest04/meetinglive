@@ -10,10 +10,9 @@ using Microsoft.UI.Dispatching;
 namespace MeetingLive_App.ViewModels;
 
 /// <summary>
-/// Drives the record/stop flow: gates on Nemo (when live preview is on), Whisper, and a
-/// chosen summary engine BEFORE capture starts. Then captures mic + system audio, streams
-/// live ASR as a preview when enabled, and after Stop runs Whisper on the WAV, LLM-polishes
-/// the text, and summarizes.
+/// Drives the record/stop flow: gates on Nemotron and a chosen summary engine BEFORE
+/// capture starts. Then captures mic + system audio, streams live ASR as a preview when
+/// enabled, and after Stop transcribes the WAV with Nemotron and summarizes in the background.
 /// </summary>
 public partial class RecordingPageViewModel : ObservableObject
 {
@@ -35,6 +34,7 @@ public partial class RecordingPageViewModel : ObservableObject
     private CancellationTokenSource? _processingCts;
     private TimeSpan _pausedDuration;
     private readonly Stopwatch _pauseClock = new();
+    private string? _liveDraft;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -55,7 +55,7 @@ public partial class RecordingPageViewModel : ObservableObject
     private MeetingRecord? _lastMeeting;
 
     /// <summary>Live streaming transcript shown on the Record page. Preview only — the saved
-    /// meeting text comes from Whisper over the WAV, then LLM polish.</summary>
+    /// meeting text comes from Nemotron over the WAV.</summary>
     [ObservableProperty]
     private string _liveTranscriptText = string.Empty;
 
@@ -88,7 +88,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
     /// <summary>
     /// Supplied by the page (needs a XamlRoot): the pre-record checklist. Returns true only
-    /// when Nemo (if live is on), Whisper, and a summary engine are ready. Cancel means
+    /// when Nemotron and a summary engine are ready. Cancel means
     /// Record must not start. No-ops (true) when everything is already installed.
     /// </summary>
     public Func<Task<bool>>? EnsureRecordingReadyAsync { get; set; }
@@ -103,10 +103,10 @@ public partial class RecordingPageViewModel : ObservableObject
     private string _liveSetupDetailText = string.Empty;
 
     [ObservableProperty]
-    private string _whisperSetupStatusText = string.Empty;
+    private string _engineSetupStatusText = string.Empty;
 
     [ObservableProperty]
-    private string _whisperSetupDetailText = string.Empty;
+    private string _engineSetupDetailText = string.Empty;
 
     [ObservableProperty]
     private string _summarySetupStatusText = string.Empty;
@@ -251,6 +251,7 @@ public partial class RecordingPageViewModel : ObservableObject
         _currentAudioPath = Path.Combine(AppPaths.RecordingsDirectory, $"{_currentMeetingId}.wav");
 
         LiveTranscriptText = string.Empty;
+        _liveDraft = null;
         _liveSessionActive = false;
         _pausedDuration = TimeSpan.Zero;
         _pauseClock.Reset();
@@ -301,8 +302,12 @@ public partial class RecordingPageViewModel : ObservableObject
 
         if (_liveSessionActive)
         {
-            await Task.Run(() => _liveTranscription.Stop());
+            _liveDraft = await Task.Run(() => _liveTranscription.Stop());
             _liveSessionActive = false;
+        }
+        else
+        {
+            _liveDraft = null;
         }
 
         _processingCts?.Dispose();
@@ -386,6 +391,7 @@ public partial class RecordingPageViewModel : ObservableObject
         IsPaused = false;
         IsRecording = false;
         LiveTranscriptText = string.Empty;
+        _liveDraft = null;
         StopElapsedTimer();
         StatusText = AppStrings.Get("Status_RecordingDiscarded");
         TryStartMicPreview();
@@ -406,83 +412,102 @@ public partial class RecordingPageViewModel : ObservableObject
             return;
         }
 
+        var meetingId = _currentMeetingId;
+        var audioPath = _currentAudioPath;
+        var recordedAt = _recordedAt;
+        var title = MeetingTitle;
+        var liveDraft = _liveDraft;
+        var pausedDuration = _pausedDuration;
+        var folderId = await ResolveSelectedFolderIdAsync();
+
         string? transcript = null;
         try
         {
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
 
-            if (!AppServices.WhisperModels.IsModelDownloaded())
+            if (!TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime))
             {
                 App.DispatcherQueue.TryEnqueue(() =>
-                    FinishProcessing(AppStrings.Get("Error_WhisperNotInstalled")));
+                    FinishProcessing(AppStrings.Get("Error_EngineNotReady")));
                 return;
             }
 
-            App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_LoadingWhisper"));
+            App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
             var progress = new Progress<int>(percent =>
             {
                 App.DispatcherQueue.TryEnqueue(() =>
                     StatusText = AppStrings.Format("Status_TranscribingPercent", percent));
             });
-            transcript = await Task.Run(
-                () => _transcription.TranscribeAsync(
-                    _currentAudioPath, language, progress, cancellationToken, _recordedAt, _pausedDuration),
-                cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
 
-            string? summary = null;
-            IReadOnlyList<ActionItem> actionItems = [];
-            string? summaryProviderId = null;
-
-            var pipeline = await ResolveSummaryProviderAsync();
-            cancellationToken.ThrowIfCancellationRequested();
-            if (pipeline is not null)
+            try
             {
-                var polisher = AppServices.CreateTranscriptPolisher(pipeline.Kind, pipeline.LocalModelPath);
-                try
-                {
-                    App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_PolishingTranscript"));
-                    transcript = await polisher.PolishAsync(transcript, language, cancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    // Polish is non-fatal: keep the raw Whisper transcript and continue to summary.
-                }
-                finally
-                {
-                    (polisher as IDisposable)?.Dispose();
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-                var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
-                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_GeneratingSummary"));
-                var result = await pipeline.Provider.SummarizeAsync(
-                    transcript, MeetingTitle, _recordedAt, cancellationToken, summaryLanguage);
-                summary = result.SummaryMarkdown;
-                actionItems = result.ActionItems;
-                summaryProviderId = result.ProviderId;
+                transcript = await _transcription.TranscribeAsync(
+                    audioPath, language, progress, cancellationToken, recordedAt, pausedDuration);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                transcript = null;
             }
 
-            await SaveProcessedMeetingAsync(transcript, summary, actionItems, summaryProviderId);
+            if (string.IsNullOrWhiteSpace(transcript))
+                transcript = liveDraft;
+
+            if (string.IsNullOrWhiteSpace(transcript))
+            {
+                App.DispatcherQueue.TryEnqueue(() =>
+                    FinishProcessing(AppStrings.Get("Error_NoTranscript")));
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await SaveProcessedMeetingAsync(
+                meetingId, title, recordedAt, audioPath, folderId, transcript,
+                summary: null, actionItems: [], summaryProviderId: null);
+
+            var pipeline = await ResolveSummaryProviderAsync();
+            if (pipeline is null)
+            {
+                App.DispatcherQueue.TryEnqueue(() =>
+                {
+                    MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+                    FinishProcessing(AppStrings.Get("Status_DoneNoSummary"));
+                });
+                return;
+            }
+
             App.DispatcherQueue.TryEnqueue(() =>
             {
-                StatusText = summary is not null
-                    ? AppStrings.Get("Status_DoneWithSummary")
-                    : AppStrings.Get("Status_DoneNoSummary");
                 MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                FinishProcessing(StatusText);
+                FinishProcessing(AppStrings.Get("Status_GeneratingSummary"));
+            });
+
+            var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
+            var result = await pipeline.Provider.SummarizeAsync(
+                transcript, title, recordedAt, cancellationToken, summaryLanguage);
+
+            await SaveProcessedMeetingAsync(
+                meetingId, title, recordedAt, audioPath, folderId, transcript,
+                result.SummaryMarkdown, result.ActionItems, result.ProviderId);
+
+            App.DispatcherQueue.TryEnqueue(() =>
+            {
+                if (LastMeeting?.Id == meetingId)
+                    StatusText = AppStrings.Get("Status_DoneWithSummary");
             });
         }
         catch (OperationCanceledException)
         {
+            transcript = string.IsNullOrWhiteSpace(transcript) ? liveDraft : transcript;
             if (transcript is not null)
             {
-                await SaveProcessedMeetingAsync(transcript, summary: null, actionItems: [], summaryProviderId: null);
+                await SaveProcessedMeetingAsync(
+                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    summary: null, actionItems: [], summaryProviderId: null);
                 App.DispatcherQueue.TryEnqueue(() =>
                 {
                     MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
@@ -500,11 +525,17 @@ public partial class RecordingPageViewModel : ObservableObject
             var friendly = CliFailureUserMessage.Format(ex);
             if (transcript is not null)
             {
-                await SaveProcessedMeetingAsync(transcript, summary: null, actionItems: [], summaryProviderId: null);
+                await SaveProcessedMeetingAsync(
+                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    summary: null, actionItems: [], summaryProviderId: null);
                 App.DispatcherQueue.TryEnqueue(() =>
                 {
                     MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                    FinishProcessing(AppStrings.Format("Status_TranscriptSavedSummaryFailed", friendly));
+                    var message = AppStrings.Format("Status_TranscriptSavedSummaryFailed", friendly);
+                    if (IsProcessing)
+                        FinishProcessing(message);
+                    else if (LastMeeting?.Id == meetingId)
+                        StatusText = message;
                 });
             }
             else
@@ -516,6 +547,11 @@ public partial class RecordingPageViewModel : ObservableObject
     }
 
     private async Task SaveProcessedMeetingAsync(
+        Guid meetingId,
+        string title,
+        DateTimeOffset recordedAt,
+        string audioPath,
+        Guid? folderId,
         string transcript,
         string? summary,
         IReadOnlyList<ActionItem> actionItems,
@@ -523,20 +559,26 @@ public partial class RecordingPageViewModel : ObservableObject
     {
         var record = new MeetingRecord
         {
-            Id = _currentMeetingId,
-            Title = MeetingTitle,
-            RecordedAt = _recordedAt,
-            AudioFilePath = _currentAudioPath ?? string.Empty,
+            Id = meetingId,
+            Title = title,
+            RecordedAt = recordedAt,
+            AudioFilePath = audioPath,
             Transcript = transcript,
             Summary = summary,
             ActionItems = actionItems,
             SummaryProvider = summaryProviderId,
-            FolderId = await ResolveSelectedFolderIdAsync(),
+            FolderId = folderId,
         };
 
         await _meetings.SaveAsync(record);
-        AppServices.Workspace.SetLastProcessed(record);
-        LastMeeting = record;
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (LastMeeting is not null && LastMeeting.Id != meetingId)
+                return;
+
+            AppServices.Workspace.SetLastProcessed(record);
+            LastMeeting = record;
+        });
     }
 
     /// <summary>Resolves an already-chosen engine (and, for a CLI provider, gates on PATH as a
@@ -635,8 +677,8 @@ public partial class RecordingPageViewModel : ObservableObject
         IsReadyToRecord = snapshot.Readiness.CanRecord;
         LiveSetupStatusText = snapshot.LiveStatusText;
         LiveSetupDetailText = snapshot.LiveDetailText;
-        WhisperSetupStatusText = snapshot.WhisperStatusText;
-        WhisperSetupDetailText = snapshot.WhisperDetailText;
+        EngineSetupStatusText = snapshot.EngineStatusText;
+        EngineSetupDetailText = snapshot.EngineDetailText;
         SummarySetupStatusText = snapshot.SummaryStatusText;
         SummarySetupDetailText = snapshot.SummaryDetailText;
 

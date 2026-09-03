@@ -6,7 +6,7 @@ using LLama.Sampling;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// In-process LLamaSharp polish of a Whisper transcript. Uses a short-lived executor and
+/// In-process LLamaSharp polish of a transcript. Uses a short-lived executor and
 /// does not share weights with summarization. Long transcripts are polished in chunks of
 /// timestamped lines so they fit ContextSize 4096, then stitched in order.
 /// </summary>

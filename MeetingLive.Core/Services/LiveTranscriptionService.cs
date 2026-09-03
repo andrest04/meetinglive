@@ -123,8 +123,8 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
 
         // Do not call FinishAndDrain: nemo_speech_asr_stream_finish on a long CUDA
         // session aborts the process (ucrtbase 0xC0000409). Offline TranscribeAsync
-        // re-reads the WAV. Close the stream so the recognizer can be destroyed
-        // before the offline pass loads the model again.
+        // re-reads the WAV with a new stream. Close this stream so the recognizer
+        // can be destroyed before the offline pass creates another.
         accumulator?.CommitRemainingInterim();
         stream?.Dispose();
         recognizer?.Dispose();

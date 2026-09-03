@@ -1,7 +1,7 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Polishes a Whisper transcript via the Codex CLI (<c>codex exec -</c>), same 5-minute
+/// Polishes a transcript via the Codex CLI (<c>codex exec -</c>), same 5-minute
 /// timeout pattern as <see cref="CodexCliSummaryProvider"/>.
 /// </summary>
 public sealed class CodexCliTranscriptPolisher(ICliProcessRunner processRunner) : ITranscriptPolisher

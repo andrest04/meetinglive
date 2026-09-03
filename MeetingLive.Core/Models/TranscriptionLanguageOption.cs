@@ -2,8 +2,8 @@ namespace MeetingLive.Core.Models;
 
 /// <summary>One entry in the curated meeting-language catalog. <see cref="Code"/> doubles as the
 /// stable identifier persisted in <see cref="AppSettings.TranscriptionLanguage"/> and is mapped
-/// to a Nemotron locale by <c>NemotronLanguageMapper</c> for live preview and to a Whisper
-/// language by <c>WhisperLanguageMapper</c> for the saved transcript.</summary>
+/// to a Nemotron locale by <c>NemotronLanguageMapper</c> for live preview and the
+/// saved transcript.</summary>
 public sealed record TranscriptionLanguageOption(string Code, string DisplayName);
 
 /// <summary>

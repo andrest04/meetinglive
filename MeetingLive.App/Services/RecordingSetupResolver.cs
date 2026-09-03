@@ -11,15 +11,14 @@ public sealed record RecordingSetupSnapshot(
     RecordingReadiness Readiness,
     string LiveStatusText,
     string LiveDetailText,
-    string WhisperStatusText,
-    string WhisperDetailText,
+    string EngineStatusText,
+    string EngineDetailText,
     string SummaryStatusText,
     string SummaryDetailText);
 
 /// <summary>
-/// Gates Record on Nemo (when live preview is on), Whisper, and a chosen summary engine.
-/// If anything is missing, shows <see cref="RecordingSetupDialog"/> and walks missing
-/// installs in order. Cancel means do not record. Already-ready machines skip the dialog.
+/// Gates Record on Nemotron (always, for the saved transcript) and a chosen summary engine.
+/// Live preview uses the same Nemotron install when enabled.
 /// </summary>
 public static class RecordingSetupResolver
 {
@@ -31,12 +30,12 @@ public static class RecordingSetupResolver
         var localDownloaded = localSelected && IsLocalModelDownloaded(settings);
         var cliOnPath = provider is SummaryProviderKind.ClaudeCode or SummaryProviderKind.Codex
             && CliProviderResolver.IsOnPath(provider.Value);
+        var engineReady = TranscriptionEngineInstaller.IsReady(
+            AppServices.NemotronModels, AppServices.NemoSpeechRuntime);
 
         var readiness = RecordingReadinessEvaluator.Evaluate(
             liveTranscriptionEnabled: settings.LiveTranscriptionEnabled,
-            liveEngineReady: TranscriptionEngineInstaller.IsReady(
-                AppServices.NemotronModels, AppServices.NemoSpeechRuntime),
-            whisperReady: AppServices.WhisperModels.IsModelDownloaded(),
+            engineReady: engineReady,
             summaryProviderChosen: provider is not null,
             localSummarySelected: localSelected,
             localModelDownloaded: localDownloaded,
@@ -48,10 +47,10 @@ public static class RecordingSetupResolver
             LiveDetailText: readiness.LiveRequired
                 ? AppStrings.Get("RecordingSetup_LiveDetail")
                 : AppStrings.Get("RecordingSetup_LiveNotNeededDetail"),
-            WhisperStatusText: readiness.WhisperReady
+            EngineStatusText: readiness.EngineReady
                 ? AppStrings.Get("RecordingSetup_Ready")
                 : AppStrings.Get("RecordingSetup_NeedsSetup"),
-            WhisperDetailText: AppStrings.Get("RecordingSetup_WhisperDetail"),
+            EngineDetailText: AppStrings.Get("RecordingSetup_EngineDetail"),
             SummaryStatusText: readiness.SummaryReady
                 ? AppStrings.Get("RecordingSetup_Ready")
                 : AppStrings.Get("RecordingSetup_NeedsSetup"),
@@ -88,19 +87,10 @@ public static class RecordingSetupResolver
         var snapshot = await EvaluateAsync();
         var readiness = snapshot.Readiness;
 
-        if (readiness.LiveRequired && !readiness.LiveReady)
+        if (!readiness.EngineReady)
         {
-            var liveReady = await TranscriptionEngineSetupDialog.ShowAsync(xamlRoot);
-            if (!liveReady)
-                return;
-            snapshot = await EvaluateAsync();
-            readiness = snapshot.Readiness;
-        }
-
-        if (!readiness.WhisperReady)
-        {
-            var whisperReady = await WhisperSetupDialog.ShowAsync(xamlRoot);
-            if (!whisperReady)
+            var engineReady = await TranscriptionEngineSetupDialog.ShowAsync(xamlRoot);
+            if (!engineReady)
                 return;
             snapshot = await EvaluateAsync();
             readiness = snapshot.Readiness;

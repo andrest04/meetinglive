@@ -1,7 +1,7 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Polishes a Whisper transcript via the Claude Code CLI (<c>claude -p</c>), same 5-minute
+/// Polishes a transcript via the Claude Code CLI (<c>claude -p</c>), same 5-minute
 /// timeout pattern as <see cref="ClaudeCodeCliSummaryProvider"/>.
 /// </summary>
 public sealed class ClaudeCodeCliTranscriptPolisher(ICliProcessRunner processRunner) : ITranscriptPolisher

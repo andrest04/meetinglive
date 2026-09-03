@@ -1,7 +1,7 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Maps a Whisper segment timestamp onto a 0–100 percent of WAV duration.
+    /// Maps a playback position onto a 0–100 percent of WAV duration.
 /// </summary>
 public static class TranscriptionProgress
 {

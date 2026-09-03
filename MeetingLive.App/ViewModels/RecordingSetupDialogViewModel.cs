@@ -13,10 +13,10 @@ public partial class RecordingSetupDialogViewModel : ObservableObject
     private string _liveDetailText = string.Empty;
 
     [ObservableProperty]
-    private string _whisperStatusText = string.Empty;
+    private string _engineStatusText = string.Empty;
 
     [ObservableProperty]
-    private string _whisperDetailText = string.Empty;
+    private string _engineDetailText = string.Empty;
 
     [ObservableProperty]
     private string _summaryStatusText = string.Empty;
@@ -32,8 +32,8 @@ public partial class RecordingSetupDialogViewModel : ObservableObject
         CanRecord = snapshot.Readiness.CanRecord;
         LiveStatusText = snapshot.LiveStatusText;
         LiveDetailText = snapshot.LiveDetailText;
-        WhisperStatusText = snapshot.WhisperStatusText;
-        WhisperDetailText = snapshot.WhisperDetailText;
+        EngineStatusText = snapshot.EngineStatusText;
+        EngineDetailText = snapshot.EngineDetailText;
         SummaryStatusText = snapshot.SummaryStatusText;
         SummaryDetailText = snapshot.SummaryDetailText;
     }

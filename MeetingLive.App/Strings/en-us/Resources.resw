@@ -121,11 +121,8 @@
   <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Delete</value></data>
   <data name="Settings_Recording.Text" xml:space="preserve"><value>Recording</value></data>
   <data name="Settings_LiveTranscription.Header" xml:space="preserve"><value>Live transcription during recording</value></data>
-  <data name="Settings_WhisperCard.Header" xml:space="preserve"><value>Whisper (offline transcript)</value></data>
-  <data name="Settings_WhisperCard.Description" xml:space="preserve"><value>Used after recording stops. Higher quality than the live preview. ~1.6 GB.</value></data>
-  <data name="Settings_DownloadWhisper.Content" xml:space="preserve"><value>Download</value></data>
-  <data name="Settings_DeleteWhisper.Content" xml:space="preserve"><value>Delete</value></data>
-  <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>True streaming with Nemotron 3.5 ASR while you record. The saved transcript always comes from Whisper after you stop. Turning this off skips the live preview.</value></data>
+
+  <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>On-screen captions with Nemotron while you record. The saved transcript always uses Nemotron after you stop. Turning this off skips only the live preview.</value></data>
   <data name="Settings_Data.Text" xml:space="preserve"><value>Data</value></data>
   <data name="Settings_DataLocation.Header" xml:space="preserve"><value>Data location</value></data>
   <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Open folder</value></data>
@@ -161,11 +158,11 @@
   <data name="Status_LoadingModel" xml:space="preserve"><value>Loading transcription model...</value></data>
   <data name="Status_Recording" xml:space="preserve"><value>Recording... mic + system audio.</value></data>
   <data name="Status_TranscriptReady" xml:space="preserve"><value>Transcript ready. Preparing summary...</value></data>
-  <data name="Status_DownloadingWhisper" xml:space="preserve"><value>Downloading Whisper model...</value></data>
+
   <data name="Status_PolishingTranscript" xml:space="preserve"><value>Polishing transcript...</value></data>
   <data name="Status_Transcribing" xml:space="preserve"><value>Transcribing audio...</value></data>
   <data name="Status_TranscribingPercent" xml:space="preserve"><value>Transcribing audio... {0}%</value></data>
-  <data name="Status_LoadingWhisper" xml:space="preserve"><value>Loading Whisper...</value></data>
+
   <data name="Status_GeneratingSummary" xml:space="preserve"><value>Generating summary...</value></data>
   <data name="Status_DoneWithSummary" xml:space="preserve"><value>Done. Transcript and summary available.</value></data>
   <data name="Status_DoneNoSummary" xml:space="preserve"><value>Done. Transcript available (no summary).</value></data>
@@ -256,23 +253,20 @@
   <data name="LibraryPersonality_IconHeader.Text" xml:space="preserve"><value>Icon</value></data>
   <data name="TranscriptPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
   <data name="TranscriptPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
-  <data name="WhisperSetup.Title" xml:space="preserve"><value>Download Whisper</value></data>
-  <data name="WhisperSetup.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
-  <data name="WhisperSetup_Hint.Text" xml:space="preserve"><value>MeetingLive needs Whisper large-v3-turbo (about 1.6 GB) to transcribe the recording after you stop. Download it before you record — it will not start during processing.</value></data>
-  <data name="WhisperSetup_Failed.Title" xml:space="preserve"><value>Download failed</value></data>
+
   <data name="RecordingSetup.Title" xml:space="preserve"><value>Set up recording</value></data>
   <data name="RecordingSetup.PrimaryButtonText" xml:space="preserve"><value>Set up</value></data>
   <data name="RecordingSetup.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
   <data name="RecordingSetup_Headline.Text" xml:space="preserve"><value>Install required pieces before you record. Nothing downloads after you hit Record or Stop.</value></data>
   <data name="RecordingSetup_Live.Header" xml:space="preserve"><value>Live preview (Nemo)</value></data>
-  <data name="RecordingSetup_Whisper.Header" xml:space="preserve"><value>Offline transcript (Whisper)</value></data>
+  <data name="RecordingSetup_Engine.Header" xml:space="preserve"><value>Transcript (Nemotron)</value></data>
   <data name="RecordingSetup_Summary.Header" xml:space="preserve"><value>Summary</value></data>
   <data name="RecordingSetup_Ready" xml:space="preserve"><value>Ready</value></data>
   <data name="RecordingSetup_NeedsSetup" xml:space="preserve"><value>Needs setup</value></data>
   <data name="RecordingSetup_NotNeeded" xml:space="preserve"><value>Not needed</value></data>
   <data name="RecordingSetup_LiveDetail" xml:space="preserve"><value>On-screen captions while you record.</value></data>
-  <data name="RecordingSetup_LiveNotNeededDetail" xml:space="preserve"><value>Live preview is off — Nemo is not required.</value></data>
-  <data name="RecordingSetup_WhisperDetail" xml:space="preserve"><value>Required. Transcribes the recording after you stop.</value></data>
+  <data name="RecordingSetup_LiveNotNeededDetail" xml:space="preserve"><value>Live preview is off. The saved transcript still uses Nemotron after you stop.</value></data>
+  <data name="RecordingSetup_EngineDetail" xml:space="preserve"><value>Required. Transcribes the recording after you stop.</value></data>
   <data name="RecordingSetup_SummaryNotChosen" xml:space="preserve"><value>Not chosen</value></data>
   <data name="RecordingSetup_SummaryLocal" xml:space="preserve"><value>Local</value></data>
   <data name="RecordingSetup_SummaryLocalModel" xml:space="preserve"><value>Local — {0}</value></data>
@@ -280,5 +274,6 @@
   <data name="RecordingSetup_Done" xml:space="preserve"><value>Done</value></data>
   <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Set up to record</value></data>
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Set up recording before you start.</value></data>
-  <data name="Error_WhisperNotInstalled" xml:space="preserve"><value>Error: Whisper is not installed. Set it up before recording.</value></data>
+
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced.</value></data>
 </root>

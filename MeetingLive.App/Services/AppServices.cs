@@ -29,10 +29,8 @@ public static class AppServices
 
     public static IHardwareDetectionService HardwareDetection { get; } = new HardwareDetectionService();
 
-    public static IWhisperModelManager WhisperModels { get; } = new WhisperModelManager(LazyModelDownloadHttpClient.Value);
-
     public static ITranscriptionService Transcription { get; } = new TranscriptionService(
-        WhisperModels, HardwareDetection);
+        NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
 
     public static ILiveTranscriptionService LiveTranscription { get; } = new LiveTranscriptionService(
         AudioCapture, NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);

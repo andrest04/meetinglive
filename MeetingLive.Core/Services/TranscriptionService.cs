@@ -1,19 +1,23 @@
 using NAudio.Wave;
-using Whisper.net;
 
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Offline Whisper.net ASR over a finished 16 kHz mono WAV. Live preview stays on Nemotron;
-/// this is the authoritative transcript after Stop. GPU is used when HardwareDetection
-/// reports an NVIDIA adapter, with a CPU fallback only if GPU factory create fails.
-/// A failed ProcessAsync is not retried on CPU.
+/// Offline Nemotron ASR over a finished 16 kHz mono WAV. Re-reads the file through a
+/// streaming session so dropped live frames are recovered. Never calls
+/// <c>FinishAndDrain</c> (that flush aborts CUDA after a long session). Live preview
+/// stays on <see cref="ILiveTranscriptionService"/>.
 /// </summary>
 public sealed class TranscriptionService(
-    IWhisperModelManager models,
+    INemotronModelManager models,
+    INemoSpeechRuntimeManager runtime,
+    INemoSpeechAsrEngine engine,
     IHardwareDetectionService hardware) : ITranscriptionService
 {
-    public async Task<string> TranscribeAsync(
+    /// <summary>100 ms of 16 kHz mono float32.</summary>
+    private const int FrameFloats = 1600;
+
+    public Task<string> TranscribeAsync(
         string wavFilePath,
         string language = "auto",
         IProgress<int>? progress = null,
@@ -22,100 +26,81 @@ public sealed class TranscriptionService(
         TimeSpan clockSkew = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-
-        if (!models.IsModelDownloaded())
-            throw new InvalidOperationException("The Whisper model is not installed.");
-
-        var modelPath = models.GetModelPath();
-        var whisperLanguage = WhisperLanguageMapper.ToWhisperLanguage(language);
-        var recorded = recordedAt ?? default;
-        var preferGpu = hardware.DetectHardware().HasNvidiaGpu();
-        var duration = ReadWavDuration(wavFilePath);
-
-        WhisperFactory factory;
-        WhisperProcessor processor;
-        try
-        {
-            (factory, processor) = CreateFactoryAndProcessor(modelPath, whisperLanguage, useGpu: preferGpu);
-        }
-        catch (Exception ex) when (preferGpu && ex is not OperationCanceledException)
-        {
-            (factory, processor) = CreateFactoryAndProcessor(modelPath, whisperLanguage, useGpu: false);
-        }
-
-        using (factory)
-        using (processor)
-        {
-            return await ProcessWavAsync(
-                processor, wavFilePath, duration, progress, cancellationToken, recorded, clockSkew);
-        }
+        return Task.Run(
+            () => TranscribeWav(
+                wavFilePath, language, progress, cancellationToken, recordedAt ?? default, clockSkew),
+            cancellationToken);
     }
 
-    private static (WhisperFactory Factory, WhisperProcessor Processor) CreateFactoryAndProcessor(
-        string modelPath,
-        string language,
-        bool useGpu)
-    {
-        var factory = WhisperFactory.FromPath(modelPath, new WhisperFactoryOptions
-        {
-            UseGpu = useGpu,
-            UseFlashAttention = useGpu,
-        });
-
-        try
-        {
-            var processor = factory.CreateBuilder()
-                .WithLanguage(language)
-                .WithThreads(Environment.ProcessorCount)
-                .Build();
-            return (factory, processor);
-        }
-        catch
-        {
-            factory.Dispose();
-            throw;
-        }
-    }
-
-    private static TimeSpan ReadWavDuration(string wavFilePath)
-    {
-        using var reader = new AudioFileReader(wavFilePath);
-        return reader.TotalTime;
-    }
-
-    private static async Task<string> ProcessWavAsync(
-        WhisperProcessor processor,
+    private string TranscribeWav(
         string wavFilePath,
-        TimeSpan duration,
+        string language,
         IProgress<int>? progress,
         CancellationToken cancellationToken,
         DateTimeOffset recordedAt,
         TimeSpan clockSkew)
     {
-        await using var wavStream = File.OpenRead(wavFilePath);
-
-        var lines = new List<string>();
-        var wroteHeader = false;
-
-        await foreach (var result in processor.ProcessAsync(wavStream, cancellationToken))
+        var factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware);
+        var recognizer = factory.Create();
+        INemoSpeechStream? stream = null;
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            progress?.Report(TranscriptionProgress.ToPercent(result.End, duration));
-
-            var text = result.Text?.Trim();
-            if (string.IsNullOrEmpty(text))
-                continue;
-
-            if (!wroteHeader && recordedAt != default)
+            stream = recognizer.StartStream(NemotronLanguageMapper.ToNemotronLocale(language));
+            var accumulator = new StreamingTranscriptAccumulator(recordedAt)
             {
-                lines.Add(TranscriptStampFormatter.FormatHeader(recordedAt));
-                wroteHeader = true;
+                ClockSkew = clockSkew,
+            };
+
+            using var reader = new AudioFileReader(wavFilePath);
+            var duration = reader.TotalTime;
+            var channels = Math.Max(1, reader.WaveFormat.Channels);
+            var buffer = new float[FrameFloats * channels];
+            int read;
+            while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var samples = ToMono(buffer, read, channels);
+                if (samples.Length == 0)
+                    continue;
+
+                stream.Push(samples, reader.WaveFormat.SampleRate);
+                foreach (var result in stream.PullAvailable())
+                    accumulator.Apply(result);
+
+                progress?.Report(TranscriptionProgress.ToPercent(reader.CurrentTime, duration));
             }
 
-            lines.Add(TranscriptStampFormatter.FormatLine(result.Start, text, recordedAt, clockSkew));
+            accumulator.CommitRemainingInterim();
+            progress?.Report(100);
+            return accumulator.CommittedText;
+        }
+        finally
+        {
+            stream?.Dispose();
+            recognizer.Dispose();
+        }
+    }
+
+    private static float[] ToMono(float[] buffer, int floatsRead, int channels)
+    {
+        if (channels <= 1)
+        {
+            var copy = new float[floatsRead];
+            Array.Copy(buffer, copy, floatsRead);
+            return copy;
         }
 
-        progress?.Report(100);
-        return string.Join(Environment.NewLine, lines);
+        var frames = floatsRead / channels;
+        var mono = new float[frames];
+        for (var i = 0; i < frames; i++)
+        {
+            float sum = 0;
+            var offset = i * channels;
+            for (var c = 0; c < channels; c++)
+                sum += buffer[offset + c];
+            mono[i] = sum / channels;
+        }
+
+        return mono;
     }
 }

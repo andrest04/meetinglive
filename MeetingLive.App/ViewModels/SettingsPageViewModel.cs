@@ -56,14 +56,8 @@ public partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty]
     private string _transcriptionAccelerationCaption = "CPU";
 
-    [ObservableProperty]
-    private bool _isWhisperModelInstalled;
 
-    [ObservableProperty]
-    private bool _isWhisperDownloading;
 
-    [ObservableProperty]
-    private double _whisperDownloadProgressPercent;
 
     private readonly IMicrophoneLevelMeterService _levelMeter = AppServices.MicrophoneLevelMeter;
 
@@ -139,7 +133,6 @@ public partial class SettingsPageViewModel : ObservableObject
                 ?? SummaryLanguageCatalog.Languages[0];
             IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
             RefreshTranscriptionStatus(hardware);
-            RefreshWhisperStatus();
 
             Models.Clear();
             foreach (var model in ModelCatalog.SummaryModels)
@@ -328,36 +321,6 @@ public partial class SettingsPageViewModel : ObservableObject
         RefreshTranscriptionStatus(hardware);
     }
 
-    [RelayCommand]
-    private async Task DownloadWhisperModelAsync()
-    {
-        IsWhisperDownloading = true;
-        WhisperDownloadProgressPercent = 0;
-        try
-        {
-            var progress = new Progress<double>(percent =>
-                App.DispatcherQueue.TryEnqueue(() => WhisperDownloadProgressPercent = percent));
-            await AppServices.WhisperModels.DownloadModelAsync(progress);
-            RefreshWhisperStatus();
-        }
-        catch (Exception)
-        {
-            RefreshWhisperStatus();
-        }
-        finally
-        {
-            IsWhisperDownloading = false;
-            WhisperDownloadProgressPercent = 0;
-        }
-    }
-
-    [RelayCommand]
-    private void DeleteWhisperModel()
-    {
-        AppServices.WhisperModels.DeleteModel();
-        RefreshWhisperStatus();
-    }
-
     private void RefreshTranscriptionStatus(HardwareProfile hardware)
     {
         IsTranscriptionEngineInstalled = TranscriptionEngineInstaller.IsReady(
@@ -365,9 +328,6 @@ public partial class SettingsPageViewModel : ObservableObject
         TranscriptionAccelerationCaption = TranscriptionEngineInstaller.AccelerationCaption(
             hardware, AppServices.NemoSpeechRuntime);
     }
-
-    private void RefreshWhisperStatus() =>
-        IsWhisperModelInstalled = AppServices.WhisperModels.IsModelDownloaded();
 
     [RelayCommand]
     private async Task ToggleLiveTranscriptionAsync(bool isEnabled)

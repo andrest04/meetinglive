@@ -76,11 +76,11 @@
                         <TextBlock Text="{x:Bind ViewModel.LiveSetupStatusText, Mode=OneWay}"
                                    AutomationProperties.AutomationId="TxtRecordLiveSetupStatus" />
                     </controls:SettingsCard>
-                    <controls:SettingsCard x:Uid="RecordingSetup_Whisper"
-                                           Description="{x:Bind ViewModel.WhisperSetupDetailText, Mode=OneWay}"
+                    <controls:SettingsCard x:Uid="RecordingSetup_Engine"
+                                           Description="{x:Bind ViewModel.EngineSetupDetailText, Mode=OneWay}"
                                            IsClickEnabled="False">
-                        <TextBlock Text="{x:Bind ViewModel.WhisperSetupStatusText, Mode=OneWay}"
-                                   AutomationProperties.AutomationId="TxtRecordWhisperSetupStatus" />
+                        <TextBlock Text="{x:Bind ViewModel.EngineSetupStatusText, Mode=OneWay}"
+                                   AutomationProperties.AutomationId="TxtRecordEngineSetupStatus" />
                     </controls:SettingsCard>
                     <controls:SettingsCard x:Uid="RecordingSetup_Summary"
                                            Description="{x:Bind ViewModel.SummarySetupDetailText, Mode=OneWay}"
