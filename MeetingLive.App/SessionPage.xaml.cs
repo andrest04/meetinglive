@@ -44,6 +44,28 @@ public sealed partial class SessionPage : Page
         AppServices.Workspace.NavigateTo(WorkspaceService.History);
     }
 
+    private async void Rename_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.HasMeeting)
+            return;
+
+        var nameBox = CreateNameBox(ViewModel.Title);
+        var dialog = CreateDialog(
+            AppStrings.Get("SessionRename_Title"),
+            nameBox,
+            AppStrings.Get("SessionRename_Primary"),
+            AppStrings.Get("SessionRename_Cancel"),
+            ContentDialogButton.Primary);
+        RejectEmptyName(dialog, nameBox);
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+            return;
+
+        if (await ViewModel.RenameAsync(nameBox.Text))
+            NavigateInner(AppServices.Workspace.SessionTab, AppServices.Workspace.SelectedMeetingId);
+    }
+
     private void EmptyCta_Click(object sender, RoutedEventArgs e)
     {
         AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
@@ -111,4 +133,36 @@ public sealed partial class SessionPage : Page
     };
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+
+    private ContentDialog CreateDialog(
+        string title,
+        object content,
+        string primary,
+        string close,
+        ContentDialogButton defaultButton) => new()
+    {
+        XamlRoot = XamlRoot,
+        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+        Title = title,
+        Content = content,
+        PrimaryButtonText = primary,
+        CloseButtonText = close,
+        DefaultButton = defaultButton,
+    };
+
+    private static TextBox CreateNameBox(string text) => new()
+    {
+        Header = AppStrings.Get("SessionRename_Name.Header"),
+        PlaceholderText = AppStrings.Get("SessionRename_Name.PlaceholderText"),
+        Text = text,
+    };
+
+    private static void RejectEmptyName(ContentDialog dialog, TextBox nameBox)
+    {
+        dialog.Closing += (_, args) =>
+        {
+            if (args.Result == ContentDialogResult.Primary && string.IsNullOrWhiteSpace(nameBox.Text))
+                args.Cancel = true;
+        };
+    }
 }

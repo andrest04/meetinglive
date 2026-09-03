@@ -8,6 +8,7 @@ namespace MeetingLive_App.ViewModels;
 public partial class SessionPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
+    private Guid? _meetingId;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -27,6 +28,7 @@ public partial class SessionPageViewModel : ObservableObject
         IsLoading = true;
         try
         {
+            _meetingId = meetingId;
             if (meetingId is not { } id)
             {
                 Title = string.Empty;
@@ -42,6 +44,35 @@ public partial class SessionPageViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    /// <summary>
+    /// Updates the meeting title in frontmatter. The markdown filename stays <c>{id}.md</c>.
+    /// </summary>
+    public async Task<bool> RenameAsync(string name)
+    {
+        var trimmed = name.Trim();
+        if (trimmed.Length == 0)
+            return false;
+
+        if (_meetingId is not { } id)
+            return false;
+
+        if (trimmed == Title)
+            return true;
+
+        var record = await _meetings.GetByIdAsync(id);
+        if (record is null)
+            return false;
+
+        record.Title = trimmed;
+        await _meetings.SaveAsync(record);
+        Title = trimmed;
+
+        if (AppServices.Workspace.LastProcessedMeeting?.Id == id)
+            AppServices.Workspace.LastProcessedMeeting.Title = trimmed;
+
+        return true;
     }
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
