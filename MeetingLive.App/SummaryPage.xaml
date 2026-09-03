@@ -42,11 +42,17 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
-            <Button x:Uid="SummaryPage_Generate"
-                    Command="{x:Bind ViewModel.GenerateSummaryCommand}"
+            <Button Command="{x:Bind ViewModel.GenerateSummaryCommand}"
                     Style="{StaticResource AccentButtonStyle}"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanGenerateSummary), Mode=OneWay}"
-                    AutomationProperties.AutomationId="BtnGenerateSummary" />
+                    AutomationProperties.AutomationId="BtnGenerateSummary">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xEB78;"
+                              FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                              FontSize="16" />
+                    <TextBlock x:Uid="SummaryPage_Generate" />
+                </StackPanel>
+            </Button>
             <Button x:Uid="SummaryPage_Regenerate"
                     Command="{x:Bind ViewModel.RegenerateSummaryCommand}"
                     Style="{StaticResource AccentButtonStyle}"

@@ -56,14 +56,21 @@
             <SelectorBarItem x:Name="TabTranscriptItem"
                              x:Uid="SessionPage_TabTranscript"
                              Tag="Transcript"
+                             Icon="Document"
                              AutomationProperties.AutomationId="SelectorSessionTranscript" />
             <SelectorBarItem x:Name="TabSummaryItem"
                              x:Uid="SessionPage_TabSummary"
                              Tag="Summary"
-                             AutomationProperties.AutomationId="SelectorSessionSummary" />
+                             AutomationProperties.AutomationId="SelectorSessionSummary">
+                <SelectorBarItem.Icon>
+                    <FontIcon Glyph="&#xEB78;"
+                              FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
             <SelectorBarItem x:Name="TabNotesItem"
                              x:Uid="SessionPage_TabNotes"
                              Tag="Notes"
+                             Icon="Comment"
                              AutomationProperties.AutomationId="SelectorSessionNotes" />
         </SelectorBar>
 
