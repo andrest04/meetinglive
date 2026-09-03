@@ -1,9 +1,13 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
+using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
@@ -91,8 +95,11 @@ public sealed partial class HistoryPage : Page
     private async void NewFolder_Click(object sender, RoutedEventArgs e)
     {
         var nameBox = CreateNameBox(string.Empty);
+        var title = ViewModel.IsRealFolderSelected
+            ? AppStrings.Format("LibraryNewFolder_TitleIn", ViewModel.SelectedFolderName)
+            : AppStrings.Get("LibraryNewFolder_Title");
         var dialog = CreateDialog(
-            AppStrings.Get("LibraryNewFolder_Title"),
+            title,
             nameBox,
             AppStrings.Get("LibraryNewFolder_Primary"),
             AppStrings.Get("LibraryNewFolder_Cancel"),
@@ -106,25 +113,49 @@ public sealed partial class HistoryPage : Page
         await ViewModel.CreateFolderAsync(nameBox.Text);
     }
 
-    private async void RenameFolder_Click(object sender, RoutedEventArgs e)
+    private async void RenameFolder_Click(object sender, RoutedEventArgs e) =>
+        await ShowRenameFolderDialogAsync();
+
+    private async void FolderTree_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        if (!ViewModel.IsRealFolderSelected)
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is not FolderNode node
+            || node.FolderId is null)
             return;
 
-        var nameBox = CreateNameBox(ViewModel.SelectedFolderName);
-        var dialog = CreateDialog(
-            AppStrings.Get("LibraryRenameFolder_Title"),
-            nameBox,
-            AppStrings.Get("LibraryRenameFolder_Primary"),
-            AppStrings.Get("LibraryRenameFolder_Cancel"),
-            ContentDialogButton.Primary);
-        RejectEmptyName(dialog, nameBox);
+        e.Handled = true;
+        await ViewModel.SelectFolderAsync(node);
 
-        var result = await dialog.ShowAsync();
-        if (result != ContentDialogResult.Primary)
+        var target = (FrameworkElement)e.OriginalSource;
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(CreateFolderMenuItem(
+            "LibraryContext_Rename",
+            "\uE8AC",
+            "MenuLibraryRenameFolder",
+            FolderContextRename_Click));
+        flyout.Items.Add(CreateFolderMenuItem(
+            "LibraryContext_Personality",
+            "\uE790",
+            "MenuLibraryPersonality",
+            FolderContextPersonality_Click));
+        flyout.ShowAt(target, new FlyoutShowOptions { Position = e.GetPosition(target) });
+    }
+
+    private async void FolderContextRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await TrySelectContextFolderAsync(sender))
             return;
 
-        await ViewModel.RenameSelectedFolderAsync(nameBox.Text);
+        await ShowRenameFolderDialogAsync();
+    }
+
+    private async void FolderContextPersonality_Click(object sender, RoutedEventArgs e)
+    {
+        var node = ResolveFolderNode(sender);
+        if (node?.FolderId is null)
+            return;
+
+        await ViewModel.SelectFolderAsync(node);
+        await ShowPersonalityDialogAsync(node);
     }
 
     private async void DeleteFolder_Click(object sender, RoutedEventArgs e)
@@ -206,7 +237,8 @@ public sealed partial class HistoryPage : Page
     public static Visibility FolderAccentVisibility(Guid? folderId) =>
         folderId is null ? Visibility.Collapsed : Visibility.Visible;
 
-    public static string FolderGlyph(Guid? folderId) => folderId is null ? "\uE716" : "\uE8B7";
+    public static string FolderGlyph(Guid? folderId, string? iconKey) =>
+        folderId is null ? "\uE716" : FolderIcon.ResolveGlyph(iconKey);
 
     public static Brush FolderAccentBrush(string? colorKey, Guid? folderId)
     {
@@ -227,6 +259,87 @@ public sealed partial class HistoryPage : Page
     {
         var snippet = MeetingSnippet.From(summary, transcript);
         return string.IsNullOrEmpty(snippet) ? AppStrings.Get("History_NoContent") : snippet;
+    }
+
+    private async Task ShowRenameFolderDialogAsync()
+    {
+        if (!ViewModel.IsRealFolderSelected)
+            return;
+
+        var nameBox = CreateNameBox(ViewModel.SelectedFolderName);
+        var dialog = CreateDialog(
+            AppStrings.Get("LibraryRenameFolder_Title"),
+            nameBox,
+            AppStrings.Get("LibraryRenameFolder_Primary"),
+            AppStrings.Get("LibraryRenameFolder_Cancel"),
+            ContentDialogButton.Primary);
+        RejectEmptyName(dialog, nameBox);
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+            return;
+
+        await ViewModel.RenameSelectedFolderAsync(nameBox.Text);
+    }
+
+    private async Task ShowPersonalityDialogAsync(FolderNode node)
+    {
+        if (node.FolderId is not { } folderId)
+            return;
+
+        var picker = new FolderPersonalityPicker(node.Name, node.ColorKey, node.IconKey, folderId);
+        var dialog = CreateDialog(
+            AppStrings.Get("LibraryPersonality_Title"),
+            picker,
+            AppStrings.Get("LibraryPersonality_Primary"),
+            AppStrings.Get("LibraryPersonality_Cancel"),
+            ContentDialogButton.Primary);
+        AutomationProperties.SetAutomationId(dialog, "DlgLibraryPersonality");
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+            return;
+
+        await ViewModel.UpdateSelectedFolderPersonalityAsync(picker.SelectedColorKey, picker.SelectedIconKey);
+    }
+
+    private async Task<bool> TrySelectContextFolderAsync(object sender)
+    {
+        var node = ResolveFolderNode(sender);
+        if (node?.FolderId is null)
+            return false;
+
+        await ViewModel.SelectFolderAsync(node);
+        return ViewModel.IsRealFolderSelected;
+    }
+
+    private static FolderNode? ResolveFolderNode(object sender)
+    {
+        var target = sender switch
+        {
+            MenuFlyoutItem { Parent: MenuFlyout fromItem } => fromItem.Target,
+            MenuFlyout flyout => flyout.Target,
+            FrameworkElement element => element,
+            _ => null,
+        };
+
+        return (target as FrameworkElement)?.DataContext as FolderNode;
+    }
+
+    private static MenuFlyoutItem CreateFolderMenuItem(
+        string textKey,
+        string glyph,
+        string automationId,
+        RoutedEventHandler click)
+    {
+        var item = new MenuFlyoutItem
+        {
+            Text = AppStrings.Get(textKey),
+            Icon = new FontIcon { Glyph = glyph },
+        };
+        AutomationProperties.SetAutomationId(item, automationId);
+        item.Click += click;
+        return item;
     }
 
     private ContentDialog CreateDialog(

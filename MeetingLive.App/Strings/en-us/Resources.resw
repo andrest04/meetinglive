@@ -28,6 +28,13 @@
   <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notes</value></data>
   <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Open a meeting from Library, or record one.</value></data>
   <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
+  <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Rename</value></data>
+  <data name="SessionPage_Rename.ToolTipService.ToolTip" xml:space="preserve"><value>Rename title</value></data>
+  <data name="SessionRename_Title" xml:space="preserve"><value>Rename meeting</value></data>
+  <data name="SessionRename_Primary" xml:space="preserve"><value>Rename</value></data>
+  <data name="SessionRename_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SessionRename_Name.Header" xml:space="preserve"><value>Title</value></data>
+  <data name="SessionRename_Name.PlaceholderText" xml:space="preserve"><value>Meeting title</value></data>
   <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
   <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>
@@ -200,6 +207,8 @@
   <data name="Library_Inbox" xml:space="preserve"><value>Inbox</value></data>
   <data name="Library_NewFolder.Content" xml:space="preserve"><value>New folder</value></data>
   <data name="Library_RenameFolder.Content" xml:space="preserve"><value>Rename</value></data>
+  <data name="LibraryContext_Rename" xml:space="preserve"><value>Rename</value></data>
+  <data name="LibraryContext_Personality" xml:space="preserve"><value>Personality</value></data>
   <data name="Library_DeleteFolder.Content" xml:space="preserve"><value>Delete folder</value></data>
   <data name="Library_Move.Content" xml:space="preserve"><value>Move</value></data>
   <data name="Library_Search.PlaceholderText" xml:space="preserve"><value>Search meetings</value></data>
@@ -210,6 +219,7 @@
   <data name="LibraryFolderName.Header" xml:space="preserve"><value>Name</value></data>
   <data name="LibraryFolderName.PlaceholderText" xml:space="preserve"><value>Folder name</value></data>
   <data name="LibraryNewFolder_Title" xml:space="preserve"><value>New folder</value></data>
+  <data name="LibraryNewFolder_TitleIn" xml:space="preserve"><value>New folder in {0}</value></data>
   <data name="LibraryNewFolder_Primary" xml:space="preserve"><value>Create</value></data>
   <data name="LibraryNewFolder_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="LibraryRenameFolder_Title" xml:space="preserve"><value>Rename folder</value></data>
@@ -223,6 +233,11 @@
   <data name="LibraryMove_Title" xml:space="preserve"><value>Move meeting</value></data>
   <data name="LibraryMove_Primary" xml:space="preserve"><value>Move</value></data>
   <data name="LibraryMove_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LibraryPersonality_Title" xml:space="preserve"><value>Folder personality</value></data>
+  <data name="LibraryPersonality_Primary" xml:space="preserve"><value>Save</value></data>
+  <data name="LibraryPersonality_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LibraryPersonality_ColorHeader.Text" xml:space="preserve"><value>Color</value></data>
+  <data name="LibraryPersonality_IconHeader.Text" xml:space="preserve"><value>Icon</value></data>
   <data name="TranscriptPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
   <data name="TranscriptPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
 </root>

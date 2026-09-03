@@ -30,7 +30,7 @@ public class JsonFolderRepositoryTests : IDisposable
         var id = Guid.NewGuid();
         var parentId = Guid.NewGuid();
         var repo = new JsonFolderRepository(TempFilePath);
-        var folder = CreateFolder(id, "Semana 1", parentId, "Cover note", "teal");
+        var folder = CreateFolder(id, "Semana 1", parentId, "Cover note", "teal", "briefcase");
 
         await repo.SaveAsync(folder);
         var loaded = await repo.GetByIdAsync(id);
@@ -41,6 +41,7 @@ public class JsonFolderRepositoryTests : IDisposable
         Assert.Equal(parentId, loaded.ParentId);
         Assert.Equal("Cover note", loaded.Note);
         Assert.Equal("teal", loaded.ColorKey);
+        Assert.Equal("briefcase", loaded.IconKey);
         Assert.Equal(folder.CreatedAt, loaded.CreatedAt);
     }
 
@@ -109,13 +110,15 @@ public class JsonFolderRepositoryTests : IDisposable
         string name,
         Guid? parentId = null,
         string? note = null,
-        string? colorKey = null) => new()
+        string? colorKey = null,
+        string? iconKey = null) => new()
     {
         Id = id,
         Name = name,
         ParentId = parentId,
         Note = note,
         ColorKey = colorKey,
+        IconKey = iconKey,
         CreatedAt = DateTimeOffset.Parse("2026-09-01T12:00:00Z"),
     };
 }

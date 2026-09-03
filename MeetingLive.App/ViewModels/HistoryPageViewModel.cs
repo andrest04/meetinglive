@@ -161,6 +161,25 @@ public partial class HistoryPageViewModel : ObservableObject
         return true;
     }
 
+    public async Task<bool> UpdateSelectedFolderPersonalityAsync(string colorKey, string iconKey)
+    {
+        if (_selectedFolderId is not { } id)
+            return false;
+
+        var folder = _allFolders.FirstOrDefault(item => item.Id == id);
+        if (folder is null)
+            return false;
+
+        await PersistSelectedFolderNoteAsync();
+        folder.ColorKey = FolderAccent.ResolveKey(colorKey, id);
+        folder.IconKey = FolderIcon.ResolveKey(iconKey);
+        await _folders.SaveAsync(folder);
+        _restoreFolderId = id;
+        await LoadAsync();
+        _restoreFolderId = null;
+        return true;
+    }
+
     public bool CanDeleteSelectedFolder(out string reason)
     {
         reason = string.Empty;
@@ -253,6 +272,16 @@ public partial class HistoryPageViewModel : ObservableObject
         });
 
         var byParent = _allFolders.ToLookup(folder => folder.ParentId);
+        var expandIds = new HashSet<Guid>();
+        var current = (_restoreFolderId ?? _selectedFolderId) is { } targetId
+            ? _allFolders.FirstOrDefault(folder => folder.Id == targetId)
+            : null;
+        var seen = new HashSet<Guid>();
+        while (current?.ParentId is { } parentId && seen.Add(parentId))
+        {
+            expandIds.Add(parentId);
+            current = _allFolders.FirstOrDefault(folder => folder.Id == parentId);
+        }
 
         FolderNode Build(FolderRecord folder)
         {
@@ -261,6 +290,8 @@ public partial class HistoryPageViewModel : ObservableObject
                 FolderId = folder.Id,
                 Name = folder.Name,
                 ColorKey = folder.ColorKey,
+                IconKey = folder.IconKey,
+                IsExpanded = expandIds.Contains(folder.Id),
             };
             foreach (var child in byParent[folder.Id].OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
                 node.Children.Add(Build(child));

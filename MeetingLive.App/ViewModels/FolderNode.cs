@@ -13,6 +13,10 @@ public sealed class FolderNode
 
     public string? ColorKey { get; init; }
 
+    public string? IconKey { get; init; }
+
+    public bool IsExpanded { get; set; }
+
     public ObservableCollection<FolderNode> Children { get; } = [];
 }
 

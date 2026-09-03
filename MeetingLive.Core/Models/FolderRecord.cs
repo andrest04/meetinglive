@@ -22,5 +22,11 @@ public sealed class FolderRecord
     /// </summary>
     public string? ColorKey { get; set; }
 
+    /// <summary>
+    /// Catalog key from <c>FolderIcon.Keys</c> (folder, briefcase, people, …).
+    /// Null means the UI uses the default folder glyph.
+    /// </summary>
+    public string? IconKey { get; set; }
+
     public required DateTimeOffset CreatedAt { get; init; }
 }

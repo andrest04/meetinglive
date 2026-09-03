@@ -68,18 +68,20 @@
                         Padding="4,8">
                     <TreeView ItemsSource="{x:Bind ViewModel.FolderNodes}"
                               ItemInvoked="FolderTree_ItemInvoked"
+                              RightTapped="FolderTree_RightTapped"
                               SelectionMode="Single"
                               AutomationProperties.AutomationId="TreeLibraryFolders">
                         <TreeView.ItemTemplate>
                             <DataTemplate x:DataType="vm:FolderNode">
-                                <TreeViewItem ItemsSource="{x:Bind Children}">
+                                <TreeViewItem ItemsSource="{x:Bind Children}"
+                                              IsExpanded="{x:Bind IsExpanded, Mode=OneWay}">
                                     <TreeViewItem.Content>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <Border Width="8" Height="8" CornerRadius="4"
                                                     VerticalAlignment="Center"
                                                     Background="{x:Bind local:HistoryPage.FolderAccentBrush(ColorKey, FolderId)}"
                                                     Visibility="{x:Bind local:HistoryPage.FolderAccentVisibility(FolderId)}" />
-                                            <FontIcon Glyph="{x:Bind local:HistoryPage.FolderGlyph(FolderId)}"
+                                            <FontIcon Glyph="{x:Bind local:HistoryPage.FolderGlyph(FolderId, IconKey)}"
                                                       FontSize="16"
                                                       Foreground="{x:Bind local:HistoryPage.FolderAccentBrush(ColorKey, FolderId)}"
                                                       VerticalAlignment="Center" />
