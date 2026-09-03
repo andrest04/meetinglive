@@ -5,7 +5,13 @@ namespace MeetingLive.Core.Services;
 
 public sealed class HardwareDetectionService : IHardwareDetectionService
 {
-    public HardwareProfile DetectHardware()
+    // RAM/GPU do not change during a process. WMI here is 200ms–2s and was
+    // freezing Settings because DetectHardware ran on the UI thread every visit.
+    private readonly Lazy<HardwareProfile> _cached = new(QueryHardware, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public HardwareProfile DetectHardware() => _cached.Value;
+
+    private static HardwareProfile QueryHardware()
     {
         var totalRamGb = GetTotalRamGb();
         var (gpuName, gpuVramGb) = GetPrimaryGpu();

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
@@ -68,15 +69,14 @@ public partial class SettingsPageViewModel : ObservableObject
     /// and wipe the user's device.</summary>
     private bool _suppressMicrophoneCommit;
 
+    /// <summary>False after <see cref="StopLevelMeter"/> so a load that finishes after
+    /// the user left Settings does not reopen WASAPI on another page.</summary>
+    private bool _isPageVisible;
+
     /// <summary>Sentinel entry meaning "use the OS default input device" — its empty
     /// <see cref="MicrophoneDeviceOption.Id"/> is never a real WASAPI device id.</summary>
     private static MicrophoneDeviceOption DefaultMicrophoneOption =>
         new(string.Empty, AppStrings.Get("Microphone_SystemDefault"));
-
-    public SettingsPageViewModel()
-    {
-        _levelMeter.LevelChanged += OnMicLevelChanged;
-    }
 
     public ObservableCollection<ModelOption> Models { get; } = [];
 
@@ -117,12 +117,20 @@ public partial class SettingsPageViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync()
     {
+        _isPageVisible = true;
         IsLoading = true;
         _suppressMicrophoneCommit = true;
         try
         {
-            var hardware = AppServices.HardwareDetection.DetectHardware();
-            var settings = await AppServices.Settings.LoadAsync();
+            // Paint the page (and the loading ring) before WMI / disk / WASAPI.
+            await Task.Yield();
+
+            var settingsTask = AppServices.Settings.LoadAsync();
+            var snapshot = await Task.Run(CollectLoadSnapshot);
+            var settings = await settingsTask;
+            if (!_isPageVisible)
+                return;
+
             _selectedSummaryModelId = settings.SelectedSummaryModelId;
             SelectedProviderKind = settings.ResolveSummaryProviderKind();
             var languageCode = settings.ResolveTranscriptionLanguage();
@@ -132,21 +140,22 @@ public partial class SettingsPageViewModel : ObservableObject
             SelectedSummaryLanguage = SummaryLanguageCatalog.Languages.FirstOrDefault(l => l.Code == summaryLanguageCode)
                 ?? SummaryLanguageCatalog.Languages[0];
             IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
-            RefreshTranscriptionStatus(hardware);
+            IsTranscriptionEngineInstalled = snapshot.TranscriptionInstalled;
+            TranscriptionAccelerationCaption = snapshot.TranscriptionCaption;
 
             Models.Clear();
-            foreach (var model in ModelCatalog.SummaryModels)
+            foreach (var (info, rating, downloaded) in snapshot.Models)
             {
-                Models.Add(new ModelOption(model, model.RateFor(hardware), AppServices.LocalLlmModels.IsModelDownloaded(model))
+                Models.Add(new ModelOption(info, rating, downloaded)
                 {
-                    IsActive = model.FileName == _selectedSummaryModelId,
+                    IsActive = info.FileName == _selectedSummaryModelId,
                 });
             }
 
             Microphones.Clear();
             var systemDefault = DefaultMicrophoneOption;
             Microphones.Add(systemDefault);
-            foreach (var microphone in AppServices.Microphones.GetAvailableMicrophones())
+            foreach (var microphone in snapshot.Microphones)
                 Microphones.Add(microphone);
 
             // ComboBox only displays SelectedItem when it is the same instance as an
@@ -158,7 +167,8 @@ public partial class SettingsPageViewModel : ObservableObject
             _selectedMicrophone = chosen;
             OnPropertyChanged(nameof(SelectedMicrophone));
 
-            RestartLevelMeter();
+            // Opening WASAPI is another hitch — start after this frame paints.
+            App.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, RestartLevelMeter);
         }
         finally
         {
@@ -167,21 +177,46 @@ public partial class SettingsPageViewModel : ObservableObject
         }
     }
 
-    /// <summary>Called by the page when it unloads, so the preview microphone isn't held open
-    /// indefinitely while the user is elsewhere in the app, and so this (per-navigation)
-    /// view model instance doesn't leak a subscription on the app-lifetime <see cref="_levelMeter"/>
-    /// singleton.</summary>
+    private static SettingsLoadSnapshot CollectLoadSnapshot()
+    {
+        var hardware = AppServices.HardwareDetection.DetectHardware();
+        var models = new List<(SummaryModelInfo Info, FitRating Rating, bool Downloaded)>(ModelCatalog.SummaryModels.Count);
+        foreach (var model in ModelCatalog.SummaryModels)
+            models.Add((model, model.RateFor(hardware), AppServices.LocalLlmModels.IsModelDownloaded(model)));
+
+        return new SettingsLoadSnapshot(
+            models,
+            TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime),
+            TranscriptionEngineInstaller.AccelerationCaption(hardware, AppServices.NemoSpeechRuntime),
+            AppServices.Microphones.GetAvailableMicrophones());
+    }
+
+    /// <summary>Called when navigating away so the preview microphone isn't held open
+    /// on another page, and so this view model doesn't leak a subscription on the
+    /// app-lifetime <see cref="_levelMeter"/> singleton.</summary>
     public void StopLevelMeter()
     {
+        _isPageVisible = false;
         _levelMeter.Stop();
         _levelMeter.LevelChanged -= OnMicLevelChanged;
     }
 
     private void RestartLevelMeter()
     {
+        if (!_isPageVisible)
+            return;
+
+        _levelMeter.LevelChanged -= OnMicLevelChanged;
+        _levelMeter.LevelChanged += OnMicLevelChanged;
         var deviceId = string.IsNullOrEmpty(SelectedMicrophone.Id) ? null : SelectedMicrophone.Id;
         _levelMeter.Start(deviceId);
     }
+
+    private sealed record SettingsLoadSnapshot(
+        IReadOnlyList<(SummaryModelInfo Info, FitRating Rating, bool Downloaded)> Models,
+        bool TranscriptionInstalled,
+        string TranscriptionCaption,
+        IReadOnlyList<MicrophoneDeviceOption> Microphones);
 
     private void OnMicLevelChanged(object? sender, float level)
     {

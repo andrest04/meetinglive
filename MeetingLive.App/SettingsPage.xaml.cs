@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.ViewModels;
@@ -19,8 +20,18 @@ public sealed partial class SettingsPage : Page
     public SettingsPage()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await ViewModel.LoadCommand.ExecuteAsync(null);
-        Unloaded += (_, _) => ViewModel.StopLevelMeter();
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        _ = ViewModel.LoadCommand.ExecuteAsync(null);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        ViewModel.StopLevelMeter();
     }
 
     private void ModelRadioButton_Checked(object sender, RoutedEventArgs e)
