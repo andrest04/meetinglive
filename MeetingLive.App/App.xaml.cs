@@ -53,7 +53,23 @@ public partial class App : Application
     /// </summary>
     public App()
     {
+        UnhandledException += OnUnhandledException;
         InitializeComponent();
+    }
+
+    private static void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.RootDirectory);
+            File.AppendAllText(
+                Path.Combine(AppPaths.RootDirectory, "crash.log"),
+                $"{DateTimeOffset.Now:o}{Environment.NewLine}{e.Exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Never throw from the crash logger.
+        }
     }
 
     /// <summary>
