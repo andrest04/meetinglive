@@ -395,6 +395,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
         SelectedClaudeModelId = modelId;
         await SaveSettingsAsync(settings => settings.SelectedClaudeModelId = modelId);
+        ShowXaiFeedback(AppStrings.Format("Xai_FeedbackModel", $"{SelectedClaudeModelId} · {SelectedClaudeEffort}"));
     }
 
     [RelayCommand]
@@ -407,6 +408,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
         SelectedClaudeEffort = effort;
         await SaveSettingsAsync(settings => settings.SelectedClaudeEffort = effort);
+        ShowXaiFeedback(AppStrings.Format("Xai_FeedbackModel", $"{SelectedClaudeModelId} · {SelectedClaudeEffort}"));
     }
 
     [RelayCommand]
@@ -419,6 +421,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
         SelectedCodexModelId = modelId;
         await SaveSettingsAsync(settings => settings.SelectedCodexModelId = modelId);
+        ShowXaiFeedback(AppStrings.Format("Xai_FeedbackModel", $"{SelectedCodexModelId} · {SelectedCodexEffort}"));
     }
 
     [RelayCommand]
@@ -431,6 +434,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
         SelectedCodexEffort = effort;
         await SaveSettingsAsync(settings => settings.SelectedCodexEffort = effort);
+        ShowXaiFeedback(AppStrings.Format("Xai_FeedbackModel", $"{SelectedCodexModelId} · {SelectedCodexEffort}"));
     }
 
     [RelayCommand]

@@ -225,7 +225,6 @@
                 <InfoBar IsOpen="{x:Bind ViewModel.IsXaiFeedbackOpen, Mode=TwoWay}"
                          Severity="Success"
                          Message="{x:Bind ViewModel.XaiFeedbackMessage, Mode=OneWay}"
-                         Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiSelected), Mode=OneWay}"
                          AutomationProperties.AutomationId="InfoXaiFeedback" />
             </StackPanel>
 
