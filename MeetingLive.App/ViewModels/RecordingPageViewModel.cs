@@ -11,8 +11,9 @@ namespace MeetingLive_App.ViewModels;
 
 /// <summary>
 /// Drives the record/stop flow: gates on Nemotron and a chosen summary engine BEFORE
-/// capture starts. Then captures mic + system audio, streams live ASR as a preview when
-/// enabled, and after Stop transcribes the WAV with Nemotron and summarizes in the background.
+/// capture starts. Then captures mic + system audio and streams live ASR when enabled.
+/// After Stop, the live draft is saved immediately; Nemotron re-reads the WAV in the
+/// background and replaces that transcript. Summary waits for the WAV pass.
 /// </summary>
 public partial class RecordingPageViewModel : ObservableObject
 {
@@ -420,42 +421,55 @@ public partial class RecordingPageViewModel : ObservableObject
         var pausedDuration = _pausedDuration;
         var folderId = await ResolveSelectedFolderIdAsync();
 
-        string? transcript = null;
+        string? transcript = liveDraft;
         try
         {
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
 
-            if (!TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime))
+            if (!string.IsNullOrWhiteSpace(transcript))
+            {
+                await SaveProcessedMeetingAsync(
+                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    summary: null, actionItems: [], summaryProviderId: null);
+            }
+
+            if (TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime))
+            {
+                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
+                var progress = new Progress<int>(percent =>
+                {
+                    App.DispatcherQueue.TryEnqueue(() =>
+                        StatusText = AppStrings.Format("Status_TranscribingPercent", percent));
+                });
+
+                string? wavTranscript = null;
+                try
+                {
+                    wavTranscript = await _transcription.TranscribeAsync(
+                        audioPath, language, progress, cancellationToken, recordedAt, pausedDuration);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    wavTranscript = null;
+                }
+
+                if (!string.IsNullOrWhiteSpace(wavTranscript))
+                {
+                    transcript = wavTranscript;
+                    App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = wavTranscript);
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(transcript))
             {
                 App.DispatcherQueue.TryEnqueue(() =>
                     FinishProcessing(AppStrings.Get("Error_EngineNotReady")));
                 return;
             }
-
-            App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
-            var progress = new Progress<int>(percent =>
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                    StatusText = AppStrings.Format("Status_TranscribingPercent", percent));
-            });
-
-            try
-            {
-                transcript = await _transcription.TranscribeAsync(
-                    audioPath, language, progress, cancellationToken, recordedAt, pausedDuration);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                transcript = null;
-            }
-
-            if (string.IsNullOrWhiteSpace(transcript))
-                transcript = liveDraft;
 
             if (string.IsNullOrWhiteSpace(transcript))
             {

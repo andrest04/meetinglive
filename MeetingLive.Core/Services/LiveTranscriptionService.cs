@@ -5,8 +5,8 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Streams mixed mic+loopback float32 frames into Nemotron 3.5 ASR (NeMo-Speech.cpp C ABI)
-/// and publishes committed+interim text as it arrives for the Record-page preview.
-/// The caller should still offline-recognize the WAV for the saved transcript.
+/// and publishes committed+interim text as it arrives. Non-empty <see cref="Stop"/>
+/// text is the draft saved at Stop; the WAV is re-read afterwards and replaces it.
 /// PCM frames are queued with drop-oldest backpressure so native Push/Pull never blocks
 /// the capture pump that writes the WAV.
 /// </summary>
@@ -122,9 +122,8 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         }
 
         // Do not call FinishAndDrain: nemo_speech_asr_stream_finish on a long CUDA
-        // session aborts the process (ucrtbase 0xC0000409). Offline TranscribeAsync
-        // re-reads the WAV with a new stream. Close this stream so the recognizer
-        // can be destroyed before the offline pass creates another.
+        // session aborts the process (ucrtbase 0xC0000409). Close this stream so the
+        // offline WAV pass can create another recognizer.
         accumulator?.CommitRemainingInterim();
         stream?.Dispose();
         recognizer?.Dispose();

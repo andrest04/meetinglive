@@ -1,6 +1,7 @@
 namespace MeetingLive.Core.Services;
 
-/// <summary>Authoritative transcript of a finished WAV via Nemotron offline stream.</summary>
+/// <summary>Nemotron over a finished WAV. Replaces the live draft when it produces text;
+/// also the only transcript when live was off or empty.</summary>
 public interface ITranscriptionService
 {
     /// <param name="progress">0–100 percent of WAV duration transcribed so far.</param>

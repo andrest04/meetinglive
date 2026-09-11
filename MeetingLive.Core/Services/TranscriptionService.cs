@@ -3,10 +3,9 @@ using NAudio.Wave;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Offline Nemotron ASR over a finished 16 kHz mono WAV. Re-reads the file through a
-/// streaming session so dropped live frames are recovered. Never calls
-/// <c>FinishAndDrain</c> (that flush aborts CUDA after a long session). Live preview
-/// stays on <see cref="ILiveTranscriptionService"/>.
+/// Offline Nemotron ASR over a finished 16 kHz mono WAV. Recovers frames the live
+/// stream dropped under realtime pressure. Never calls <c>FinishAndDrain</c>
+/// (that flush aborts CUDA after a long session).
 /// </summary>
 public sealed class TranscriptionService(
     INemotronModelManager models,

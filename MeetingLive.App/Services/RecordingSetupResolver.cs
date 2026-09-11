@@ -17,8 +17,7 @@ public sealed record RecordingSetupSnapshot(
     string SummaryDetailText);
 
 /// <summary>
-/// Gates Record on Nemotron (always, for the saved transcript) and a chosen summary engine.
-/// Live preview uses the same Nemotron install when enabled.
+/// Gates Record on Nemotron (live draft and/or WAV fallback) and a chosen summary engine.
 /// </summary>
 public static class RecordingSetupResolver
 {

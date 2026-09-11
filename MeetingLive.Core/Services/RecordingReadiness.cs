@@ -1,8 +1,8 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Snapshot of whether Record may start. Nemotron is always required for the saved
-/// transcript. Live preview uses the same engine when enabled.
+/// Snapshot of whether Record may start. Nemotron is always required (live draft
+/// and/or WAV fallback). Live streaming uses the same engine when enabled.
 /// <see cref="CanRecord"/> is <c>EngineReady &amp;&amp; SummaryReady</c>.
 /// </summary>
 public sealed record RecordingReadiness(
