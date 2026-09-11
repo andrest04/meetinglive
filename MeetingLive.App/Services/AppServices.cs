@@ -17,6 +17,8 @@ public static class AppServices
 
     public static IAudioCaptureService AudioCapture { get; } = new AudioCaptureService();
 
+    public static IAudioImportService AudioImport { get; } = new AudioImportService();
+
     public static IMicrophoneDeviceService Microphones { get; } = new MicrophoneDeviceService();
 
     public static IMicrophoneLevelMeterService MicrophoneLevelMeter { get; } = new MicrophoneLevelMeterService();

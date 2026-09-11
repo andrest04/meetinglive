@@ -38,6 +38,14 @@ public partial class App : Application
     public static nint WindowHandle =>
         WinRT.Interop.WindowNative.GetWindowHandle(Window);
 
+    /// <summary>
+    /// Window id for Windows App SDK storage pickers
+    /// (<c>Microsoft.Windows.Storage.Pickers</c>). Do not use the legacy
+    /// <c>Windows.Storage.Pickers</c> + <c>InitializeWithWindow</c> path.
+    /// </summary>
+    public static Microsoft.UI.WindowId WindowId =>
+        Microsoft.UI.Win32Interop.GetWindowIdFromWindow(WindowHandle);
+
     private MeetingCallWatcher? _callWatcher;
 
     /// <summary>

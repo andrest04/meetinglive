@@ -112,13 +112,23 @@
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         AutomationProperties.AutomationId="BtnToggleRecording"
-                        AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
+                         AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
                         <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
                     </StackPanel>
                 </Button>
             </Grid>
+            <Button Command="{x:Bind ViewModel.ImportAudioCommand}"
+                    HorizontalAlignment="Center"
+                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowImportAudio), Mode=OneWay}"
+                    AutomationProperties.AutomationId="BtnImportAudio"
+                    AutomationProperties.Name="{x:Bind local:RecordingPage.ImportLabel()}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE8E5;" FontSize="16" />
+                    <TextBlock Text="{x:Bind local:RecordingPage.ImportLabel()}" />
+                </StackPanel>
+            </Button>
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
                 <Button Command="{x:Bind ViewModel.TogglePauseCommand}"

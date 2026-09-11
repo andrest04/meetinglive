@@ -6,6 +6,7 @@ using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 using Microsoft.UI.Dispatching;
+using Microsoft.Windows.Storage.Pickers;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -18,7 +19,10 @@ namespace MeetingLive_App.ViewModels;
 public partial class RecordingPageViewModel : ObservableObject
 {
     private readonly IAudioCaptureService _audioCapture = AppServices.AudioCapture;
+    private readonly IAudioImportService _audioImport = AppServices.AudioImport;
     private readonly ITranscriptionService _transcription = AppServices.Transcription;
+    private static readonly string[] ImportFileExtensions =
+        [".wav", ".mp3", ".m4a", ".aac", ".flac", ".wma", ".3gp", ".mp4"];
     private readonly ILiveTranscriptionService _liveTranscription = AppServices.LiveTranscription;
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private readonly IFolderRepository _folders = AppServices.Folders;
@@ -147,6 +151,9 @@ public partial class RecordingPageViewModel : ObservableObject
 
     /// <summary>Normal Record hero: recording, processing, or already set up.</summary>
     public bool ShowRecordHero => !ShowSetupPanel;
+
+    /// <summary>Secondary Import on the Record hero while idle (not recording or processing).</summary>
+    public bool ShowImportAudio => ShowRecordHero && !IsRecording && !IsProcessing;
 
     public RecordingPageViewModel()
     {
@@ -318,6 +325,104 @@ public partial class RecordingPageViewModel : ObservableObject
         IsPaused = false;
         IsRecording = false;
         _ = ProcessRecordingAsync(_processingCts.Token);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanImportAudio))]
+    private async Task ImportAudioAsync()
+    {
+        if (EnsureRecordingReadyAsync is not null && !await EnsureRecordingReadyAsync())
+        {
+            await RefreshReadinessAsync();
+            return;
+        }
+
+        await RefreshReadinessAsync();
+        if (!IsReadyToRecord)
+            return;
+
+        var picker = new FileOpenPicker(App.WindowId)
+        {
+            SuggestedStartLocation = ResolveImportStartLocation(),
+        };
+        foreach (var extension in ImportFileExtensions)
+            picker.FileTypeFilter.Add(extension);
+
+        var picked = await picker.PickSingleFileAsync();
+        if (picked is null)
+            return;
+
+        var meetingId = Guid.NewGuid();
+        AppPaths.EnsureDirectoriesExist();
+        var destinationPath = Path.Combine(AppPaths.RecordingsDirectory, $"{meetingId}.wav");
+        var sourcePath = picked.Path;
+
+        StatusText = AppStrings.Get("Status_Importing");
+        StopMicPreview();
+
+        try
+        {
+            await Task.Run(() => _audioImport.ConvertToNemotronWav(sourcePath, destinationPath));
+        }
+        catch (Exception ex)
+        {
+            TryDeleteImportedWav(destinationPath);
+            StatusText = AppStrings.Format("Error_ImportAudio", ex.Message);
+            TryStartMicPreview();
+            return;
+        }
+
+        _currentMeetingId = meetingId;
+        _currentAudioPath = destinationPath;
+        _recordedAt = ReadSourceTimestamp(sourcePath);
+        _liveDraft = null;
+        _pausedDuration = TimeSpan.Zero;
+        LiveTranscriptText = string.Empty;
+        IsPaused = false;
+
+        _processingCts?.Dispose();
+        _processingCts = new CancellationTokenSource();
+        IsProcessing = true;
+        ToggleRecordingCommand.NotifyCanExecuteChanged();
+        _ = ProcessRecordingAsync(_processingCts.Token);
+    }
+
+    private bool CanImportAudio() => !IsRecording && !IsProcessing;
+
+    private static PickerLocationId ResolveImportStartLocation()
+    {
+        if (Enum.TryParse("Downloads", ignoreCase: true, out PickerLocationId downloads)
+            || Enum.TryParse("DownloadsLibrary", ignoreCase: true, out downloads))
+        {
+            return downloads;
+        }
+
+        return PickerLocationId.DocumentsLibrary;
+    }
+
+    private static DateTimeOffset ReadSourceTimestamp(string sourcePath)
+    {
+        try
+        {
+            var written = File.GetLastWriteTime(sourcePath);
+            return written == DateTime.MinValue ? DateTimeOffset.Now : new DateTimeOffset(written);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return DateTimeOffset.Now;
+        }
+    }
+
+    private static void TryDeleteImportedWav(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception)
+        {
+            // Best-effort delete of a partial import.
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanTogglePause))]
@@ -654,6 +759,7 @@ public partial class RecordingPageViewModel : ObservableObject
         NotifyCanvasState();
         TogglePauseCommand.NotifyCanExecuteChanged();
         DiscardRecordingCommand.NotifyCanExecuteChanged();
+        ImportAudioCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsPausedChanged(bool value) => NotifyCanvasState();
@@ -672,6 +778,7 @@ public partial class RecordingPageViewModel : ObservableObject
         AppServices.Workspace.IsCaptureActive = value || IsRecording;
         NotifyCanvasState();
         CancelProcessingCommand.NotifyCanExecuteChanged();
+        ImportAudioCommand.NotifyCanExecuteChanged();
     }
 
     private void NotifyCanvasState()
@@ -680,6 +787,7 @@ public partial class RecordingPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowMicPreview));
         OnPropertyChanged(nameof(ShowSetupPanel));
         OnPropertyChanged(nameof(ShowRecordHero));
+        OnPropertyChanged(nameof(ShowImportAudio));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
         OnPropertyChanged(nameof(CanvasHeading));
@@ -711,6 +819,7 @@ public partial class RecordingPageViewModel : ObservableObject
         StatusText = status;
         IsProcessing = false;
         ToggleRecordingCommand.NotifyCanExecuteChanged();
+        ImportAudioCommand.NotifyCanExecuteChanged();
         if (HasLastMeeting)
             StopMicPreview();
         else

@@ -158,6 +158,8 @@ public sealed partial class RecordingPage : Page
 
     public static string DiscardLabel() => AppStrings.Get("Record_Discard");
 
+    public static string ImportLabel() => AppStrings.Get("Record_Import");
+
     public static InfoBarSeverity StatusSeverity(string statusText) =>
         statusText.StartsWith(AppStrings.Get("ErrorPrefix"), StringComparison.OrdinalIgnoreCase)
             ? InfoBarSeverity.Error
