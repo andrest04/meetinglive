@@ -58,6 +58,79 @@ public sealed partial class SettingsPage : Page
             ViewModel.SelectProviderCommand.Execute(kind);
     }
 
+    private async void XaiSignIn_Click(object sender, RoutedEventArgs e)
+    {
+        var signedIn = await Dialogs.XaiAuthDialog.ShowAsync(XamlRoot);
+        if (signedIn)
+        {
+            await ViewModel.RefreshXaiAccountCommand.ExecuteAsync(null);
+            ViewModel.ShowXaiFeedback(AppStrings.Get("Xai_FeedbackSignedIn"));
+        }
+    }
+
+    private PasswordBox? _xaiApiKeyBox;
+
+    private void XaiApiKey_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not PasswordBox box)
+            return;
+
+        _xaiApiKeyBox = box;
+        ViewModel.XaiApiKeyDraft = box.Password ?? string.Empty;
+    }
+
+    private async void XaiSaveApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanSaveXaiApiKey)
+            return;
+
+        await ViewModel.SaveXaiApiKeyCommand.ExecuteAsync(null);
+        if (_xaiApiKeyBox is not null)
+            _xaiApiKeyBox.Password = string.Empty;
+        ViewModel.XaiApiKeyDraft = string.Empty;
+    }
+
+    private async void XaiSignOut_Click(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.SignOutXaiCommand.ExecuteAsync(null);
+    }
+
+    private void XaiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string modelId })
+            ViewModel.SelectXaiModelCommand.Execute(modelId);
+    }
+
+    private void XaiEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string effort })
+            ViewModel.SelectXaiEffortCommand.Execute(effort);
+    }
+
+    private void ClaudeModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string modelId })
+            ViewModel.SelectClaudeModelCommand.Execute(modelId);
+    }
+
+    private void ClaudeEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string effort })
+            ViewModel.SelectClaudeEffortCommand.Execute(effort);
+    }
+
+    private void CodexModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string modelId })
+            ViewModel.SelectCodexModelCommand.Execute(modelId);
+    }
+
+    private void CodexEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: string effort })
+            ViewModel.SelectCodexEffortCommand.Execute(effort);
+    }
+
     private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })

@@ -4,10 +4,14 @@ namespace MeetingLive.Core.Services;
 /// Polishes a transcript via the Claude Code CLI (<c>claude -p</c>), same 5-minute
 /// timeout pattern as <see cref="ClaudeCodeCliSummaryProvider"/>.
 /// </summary>
-public sealed class ClaudeCodeCliTranscriptPolisher(ICliProcessRunner processRunner) : ITranscriptPolisher
-{
-    private const string ExecutableName = "claude";
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+    public sealed class ClaudeCodeCliTranscriptPolisher(
+        ICliProcessRunner processRunner,
+        string? modelId = null,
+        string? effort = null) : ITranscriptPolisher
+    {
+        private const string ExecutableName = "claude";
+        private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+        private readonly string _arguments = CliInvocation.ClaudePrint(modelId, effort);
 
     public async Task<string> PolishAsync(
         string transcript,
@@ -18,7 +22,7 @@ public sealed class ClaudeCodeCliTranscriptPolisher(ICliProcessRunner processRun
         return await CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,
-            "-p",
+            _arguments,
             prompt,
             Timeout,
             CliFailureMapper.ClaudeCodeDisplayName,

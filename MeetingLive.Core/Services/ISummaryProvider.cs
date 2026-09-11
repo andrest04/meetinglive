@@ -3,10 +3,11 @@ using MeetingLive.Core.Models;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Abstraction over whatever generates the meeting summary from a transcript. Three
+/// Abstraction over whatever generates the meeting summary from a transcript. Four
 /// implementations today: <see cref="LocalLlmSummaryProvider"/> (local, free, in-process via
-/// LLamaSharp), <see cref="ClaudeCodeCliSummaryProvider"/>, and <see cref="CodexCliSummaryProvider"/>
-/// (both shell out to an already-installed, already-authenticated CLI). All three are asked to
+/// LLamaSharp), <see cref="ClaudeCodeCliSummaryProvider"/>, <see cref="CodexCliSummaryProvider"/>
+/// (both shell out to an already-installed, already-authenticated CLI), and
+/// <see cref="XaiSummaryProvider"/> (in-app HTTP to api.x.ai). All four are asked to
 /// produce the same "## Title" / "## Summary" / "## Action Items" Markdown shape, split via
 /// <see cref="SummaryMarkdownSplitter"/>, so the rest of the pipeline never branches on which
 /// provider ran.

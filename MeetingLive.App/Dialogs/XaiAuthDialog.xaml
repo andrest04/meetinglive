@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="MeetingLive_App.Dialogs.XaiAuthDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    x:Uid="XaiAuth"
+    DefaultButton="Close">
+
+    <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" MinWidth="440" MaxWidth="440">
+            <TextBlock x:Uid="XaiAuth_Headline" TextWrapping="Wrap" />
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="XaiAuth_SuperGrokHeader" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="XaiAuth_SuperGrokHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                <Button x:Name="SuperGrokButton" x:Uid="XaiAuth_SuperGrok"
+                        Click="SuperGrok_Click"
+                        Style="{StaticResource AccentButtonStyle}"
+                        AutomationProperties.AutomationId="BtnXaiSuperGrok" />
+                <StackPanel x:Name="DeviceCodePanel" Spacing="8" Visibility="Collapsed">
+                    <TextBlock x:Uid="XaiAuth_UserCodeLabel" Style="{StaticResource CaptionTextBlockStyle}" />
+                    <TextBlock x:Name="UserCodeText"
+                               Style="{StaticResource TitleTextBlockStyle}"
+                               IsTextSelectionEnabled="True"
+                               AutomationProperties.AutomationId="TxtXaiUserCode" />
+                    <TextBlock x:Uid="XaiAuth_Waiting"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Opacity="0.7"
+                               TextWrapping="Wrap" />
+                    <ProgressRing IsActive="True" Width="20" Height="20" HorizontalAlignment="Left" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock x:Uid="XaiAuth_ApiKeyHeader" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="XaiAuth_ApiKeyHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                <PasswordBox x:Name="ApiKeyBox"
+                             x:Uid="XaiAuth_ApiKey"
+                             PasswordRevealMode="Peek"
+                             AutomationProperties.AutomationId="BoxXaiApiKey" />
+                <Button x:Name="SaveApiKeyButton" x:Uid="XaiAuth_SaveApiKey"
+                        Click="SaveApiKey_Click"
+                        AutomationProperties.AutomationId="BtnXaiSaveApiKey" />
+            </StackPanel>
+
+            <InfoBar x:Name="ErrorInfoBar" IsOpen="False" Severity="Error" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

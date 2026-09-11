@@ -11,7 +11,7 @@ public class ClaudeCodeCliSummaryProviderTests
         var runner = new FakeCliProcessRunner((fileName, arguments, stdin) =>
         {
             Assert.Equal("claude", fileName);
-            Assert.Equal("-p", arguments);
+            Assert.Equal("-p --model sonnet --effort low", arguments);
             Assert.Contains("<transcript>", stdin);
             Assert.Contains("Hello everyone.", stdin);
             Assert.Contains("in Spanish", stdin);
@@ -35,7 +35,7 @@ public class ClaudeCodeCliSummaryProviderTests
                 """, string.Empty);
         });
 
-        var provider = new ClaudeCodeCliSummaryProvider(runner);
+        var provider = new ClaudeCodeCliSummaryProvider(runner, "sonnet", "low");
 
         var result = await provider.SummarizeAsync("Hello everyone.", "Kickoff", DateTimeOffset.UtcNow);
 

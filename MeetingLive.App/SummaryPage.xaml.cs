@@ -18,6 +18,7 @@ public sealed partial class SummaryPage : Page
         {
             ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
+            ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
             ViewModel.ConfirmRegenerateAsync = ConfirmRegenerateAsync;
         };
     }

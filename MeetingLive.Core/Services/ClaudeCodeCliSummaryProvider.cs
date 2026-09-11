@@ -8,13 +8,17 @@ namespace MeetingLive.Core.Services;
 /// <c>CliProviderResolver</c> (App layer) checks availability and walks the user through
 /// setup before this provider is ever constructed.
 /// </summary>
-public sealed class ClaudeCodeCliSummaryProvider(ICliProcessRunner processRunner) : ISummaryProvider
-{
-    /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
-    public const string ProviderId = "claude-code";
+public sealed class ClaudeCodeCliSummaryProvider(
+        ICliProcessRunner processRunner,
+        string? modelId = null,
+        string? effort = null) : ISummaryProvider
+    {
+        /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
+        public const string ProviderId = "claude-code";
 
-    private const string ExecutableName = "claude";
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+        private const string ExecutableName = "claude";
+        private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+        private readonly string _arguments = CliInvocation.ClaudePrint(modelId, effort);
 
     public async Task<SummaryResult> SummarizeAsync(
         string transcript,
@@ -27,7 +31,7 @@ public sealed class ClaudeCodeCliSummaryProvider(ICliProcessRunner processRunner
         var raw = await CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,
-            "-p",
+            _arguments,
             prompt,
             Timeout,
             CliFailureMapper.ClaudeCodeDisplayName,
@@ -47,7 +51,7 @@ public sealed class ClaudeCodeCliSummaryProvider(ICliProcessRunner processRunner
         return CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,
-            "-p",
+            _arguments,
             prompt,
             Timeout,
             CliFailureMapper.ClaudeCodeDisplayName,

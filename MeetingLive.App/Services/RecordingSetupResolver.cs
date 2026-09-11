@@ -27,8 +27,13 @@ public static class RecordingSetupResolver
         var provider = ParseChosenProvider(settings);
         var localSelected = provider == SummaryProviderKind.Local;
         var localDownloaded = localSelected && IsLocalModelDownloaded(settings);
-        var cliOnPath = provider is SummaryProviderKind.ClaudeCode or SummaryProviderKind.Codex
-            && CliProviderResolver.IsOnPath(provider.Value);
+        var cliOnPath = provider switch
+        {
+            SummaryProviderKind.ClaudeCode or SummaryProviderKind.Codex =>
+                CliProviderResolver.IsOnPath(provider.Value),
+            SummaryProviderKind.Xai => XaiProviderResolver.HasCredentials,
+            _ => false,
+        };
         var engineReady = TranscriptionEngineInstaller.IsReady(
             AppServices.NemotronModels, AppServices.NemoSpeechRuntime);
 
@@ -104,6 +109,8 @@ public static class RecordingSetupResolver
             var (kind, _) = chosen.Value;
             if (kind is SummaryProviderKind.ClaudeCode or SummaryProviderKind.Codex)
                 await CliProviderResolver.EnsureAvailableAsync(kind, xamlRoot);
+            else if (kind == SummaryProviderKind.Xai)
+                await XaiProviderResolver.EnsureAvailableAsync(xamlRoot);
         }
     }
 
@@ -146,6 +153,7 @@ public static class RecordingSetupResolver
             SummaryProviderKind.Local => LocalSummaryCaption(modelId),
             SummaryProviderKind.ClaudeCode => AppStrings.Get("Cli_ClaudeName"),
             SummaryProviderKind.Codex => AppStrings.Get("Cli_CodexName"),
+            SummaryProviderKind.Xai => AppStrings.Get("Xai_ProviderName"),
             _ => AppStrings.Get("RecordingSetup_SummaryNotChosen"),
         };
     }

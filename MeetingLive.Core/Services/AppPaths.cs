@@ -33,6 +33,10 @@ public static class AppPaths
 
     public static string SettingsFilePath { get; } = Path.Combine(RootDirectory, "settings.json");
 
+    /// <summary>DPAPI-protected SuperGrok OAuth / xAI API-key blob. JWTs can exceed PasswordVault's
+    /// 512-character limit, so this is a CurrentUser-encrypted file rather than Credential Locker.</summary>
+    public static string XaiCredentialsFilePath { get; } = Path.Combine(RootDirectory, "xai-credentials.bin");
+
     /// <summary>Nested Library folders. Lives next to settings, not as directories on disk.</summary>
     public static string FoldersFilePath { get; } = Path.Combine(RootDirectory, "folders.json");
 

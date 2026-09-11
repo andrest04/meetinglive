@@ -13,4 +13,7 @@ public enum SummaryProviderKind
 
     /// <summary>Shells out to the already-installed, already-authenticated Codex CLI.</summary>
     Codex,
+
+    /// <summary>In-app HTTP to api.x.ai with SuperGrok OAuth or a pasted API key — not a CLI.</summary>
+    Xai,
 }

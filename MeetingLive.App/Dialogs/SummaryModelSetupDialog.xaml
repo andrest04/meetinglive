@@ -54,6 +54,21 @@
                     </Grid>
                 </Button>
                 <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        Command="{x:Bind ViewModel.ChooseEngineCommand}" CommandParameter="Xai"
+                        AutomationProperties.AutomationId="BtnEngineXai">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <controls:GrokIcon Grid.Column="0" Width="24" Height="24" />
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock x:Uid="Setup_XaiName" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock x:Uid="Setup_XaiHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                         Command="{x:Bind ViewModel.ChooseEngineCommand}" CommandParameter="Local"
                         AutomationProperties.AutomationId="BtnEngineLocal">
                     <Grid ColumnSpacing="12">

@@ -92,6 +92,13 @@ public partial class RecordingPageViewModel : ObservableObject
     public Func<SummaryProviderKind, Task<bool>>? EnsureCliProviderAsync { get; set; }
 
     /// <summary>
+    /// Supplied by the page (needs a XamlRoot): confirms SuperGrok OAuth or an API key,
+    /// walking the user through <c>XaiAuthDialog</c> if not. Used only when the selected
+    /// provider is <see cref="SummaryProviderKind.Xai"/>.
+    /// </summary>
+    public Func<Task<bool>>? EnsureXaiProviderAsync { get; set; }
+
+    /// <summary>
     /// Supplied by the page (needs a XamlRoot): the pre-record checklist. Returns true only
     /// when Nemotron and a summary engine are ready. Cancel means
     /// Record must not start. No-ops (true) when everything is already installed.
@@ -725,6 +732,17 @@ public partial class RecordingPageViewModel : ObservableObject
                     AppServices.CreateSummaryProvider(SummaryProviderKind.Local, modelPath),
                     SummaryProviderKind.Local,
                     modelPath);
+        }
+
+        if (providerKind == SummaryProviderKind.Xai)
+        {
+            var xaiAvailable = EnsureXaiProviderAsync is not null && await EnsureXaiProviderAsync();
+            return xaiAvailable
+                ? new ResolvedSummaryPipeline(
+                    AppServices.CreateSummaryProvider(SummaryProviderKind.Xai, localModelPath: null),
+                    SummaryProviderKind.Xai,
+                    LocalModelPath: null)
+                : null;
         }
 
         var available = EnsureCliProviderAsync is not null && await EnsureCliProviderAsync(providerKind);

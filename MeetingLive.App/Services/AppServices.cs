@@ -15,6 +15,15 @@ public static class AppServices
         Timeout = Timeout.InfiniteTimeSpan,
     });
 
+    private static readonly Lazy<HttpClient> LazyXaiHttpClient = new(CreateXaiHttpClient);
+
+    private static HttpClient CreateXaiHttpClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("MeetingLive");
+        return client;
+    }
+
     public static IAudioCaptureService AudioCapture { get; } = new AudioCaptureService();
 
     public static IAudioImportService AudioImport { get; } = new AudioImportService();
@@ -45,6 +54,14 @@ public static class AppServices
 
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
 
+    public static IXaiCredentialStore XaiCredentials { get; } = new FileDpapiXaiCredentialStore();
+
+    public static XaiOAuthClient XaiOAuth { get; } = new(LazyXaiHttpClient.Value);
+
+    public static XaiApiClient XaiApi { get; } = new(LazyXaiHttpClient.Value);
+
+    public static XaiAuthSession XaiAuth { get; } = new(XaiCredentials, XaiOAuth);
+
     public static WorkspaceService Workspace { get; } = new();
 
     /// <summary>
@@ -57,8 +74,9 @@ public static class AppServices
     {
         SummaryProviderKind.Local => new LocalLlmSummaryProvider(
             localModelPath ?? throw new ArgumentNullException(nameof(localModelPath), "A local model path is required for the Local summary provider.")),
-        SummaryProviderKind.ClaudeCode => new ClaudeCodeCliSummaryProvider(new CliProcessRunner()),
-        SummaryProviderKind.Codex => new CodexCliSummaryProvider(new CliProcessRunner()),
+        SummaryProviderKind.ClaudeCode => CreateClaudeSummary(),
+        SummaryProviderKind.Codex => CreateCodexSummary(),
+        SummaryProviderKind.Xai => new XaiSummaryProvider(XaiAuth, XaiApi, ResolveXaiModelId(), ResolveXaiEffort()),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
     };
 
@@ -70,8 +88,68 @@ public static class AppServices
     {
         SummaryProviderKind.Local => new LocalLlmTranscriptPolisher(
             localModelPath ?? throw new ArgumentNullException(nameof(localModelPath), "A local model path is required for the Local transcript polisher.")),
-        SummaryProviderKind.ClaudeCode => new ClaudeCodeCliTranscriptPolisher(new CliProcessRunner()),
-        SummaryProviderKind.Codex => new CodexCliTranscriptPolisher(new CliProcessRunner()),
+        SummaryProviderKind.ClaudeCode => CreateClaudePolisher(),
+        SummaryProviderKind.Codex => CreateCodexPolisher(),
+        SummaryProviderKind.Xai => new XaiTranscriptPolisher(XaiAuth, XaiApi, ResolveXaiModelId(), ResolveXaiEffort()),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
     };
+
+    private static ClaudeCodeCliSummaryProvider CreateClaudeSummary()
+    {
+        var settings = LoadSettingsSnapshot();
+        return new ClaudeCodeCliSummaryProvider(
+            new CliProcessRunner(),
+            settings.ResolveClaudeModelId(),
+            settings.ResolveClaudeEffort());
+    }
+
+    private static CodexCliSummaryProvider CreateCodexSummary()
+    {
+        var settings = LoadSettingsSnapshot();
+        return new CodexCliSummaryProvider(
+            new CliProcessRunner(),
+            settings.ResolveCodexModelId(),
+            settings.ResolveCodexEffort());
+    }
+
+    private static ClaudeCodeCliTranscriptPolisher CreateClaudePolisher()
+    {
+        var settings = LoadSettingsSnapshot();
+        return new ClaudeCodeCliTranscriptPolisher(
+            new CliProcessRunner(),
+            settings.ResolveClaudeModelId(),
+            settings.ResolveClaudeEffort());
+    }
+
+    private static CodexCliTranscriptPolisher CreateCodexPolisher()
+    {
+        var settings = LoadSettingsSnapshot();
+        return new CodexCliTranscriptPolisher(
+            new CliProcessRunner(),
+            settings.ResolveCodexModelId(),
+            settings.ResolveCodexEffort());
+    }
+
+    private static string ResolveXaiModelId() =>
+        XaiApiClient.ResolveModelId(LoadSettingsSnapshot().SelectedXaiModelId, []);
+
+    private static string ResolveXaiEffort() => LoadSettingsSnapshot().ResolveXaiEffort();
+
+    private static AppSettings LoadSettingsSnapshot()
+    {
+        try
+        {
+            // Sync file read — LoadAsync().GetResult() can deadlock on the UI thread.
+            var path = AppPaths.SettingsFilePath;
+            if (!File.Exists(path))
+                return new AppSettings();
+
+            var json = File.ReadAllText(path);
+            return System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+        }
+        catch (Exception)
+        {
+            return new AppSettings();
+        }
+    }
 }

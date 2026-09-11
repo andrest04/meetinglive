@@ -11,7 +11,7 @@ public class CodexCliSummaryProviderTests
         var runner = new FakeCliProcessRunner((fileName, arguments, stdin) =>
         {
             Assert.Equal("codex", fileName);
-            Assert.Equal("exec -", arguments);
+            Assert.Equal("exec - -m gpt-5.6 -c model_reasoning_effort=\"low\"", arguments);
             Assert.Contains("<transcript>", stdin);
             Assert.Contains("Hello everyone.", stdin);
             Assert.Contains("## Title", stdin);
@@ -27,7 +27,7 @@ public class CodexCliSummaryProviderTests
                 """, string.Empty);
         });
 
-        var provider = new CodexCliSummaryProvider(runner);
+        var provider = new CodexCliSummaryProvider(runner, "gpt-5.6", "low");
 
         var result = await provider.SummarizeAsync("Hello everyone.", "Kickoff", DateTimeOffset.UtcNow);
 

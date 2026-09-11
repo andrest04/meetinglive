@@ -21,6 +21,7 @@ public sealed partial class SummaryModelSetupDialog : ContentDialog
         InitializeComponent();
         _skipToLocalModelSelection = skipToLocalModelSelection;
         ViewModel.Completed += (_, _) => Hide();
+        ViewModel.XaiAuthRequested += (_, _) => Hide();
 
         if (_skipToLocalModelSelection)
             Loaded += async (_, _) => await ViewModel.InitializeForLocalOnlyAsync();
@@ -30,11 +31,23 @@ public sealed partial class SummaryModelSetupDialog : ContentDialog
     /// file path, or null if the user cancelled without resolving one.</summary>
     public static async Task<(SummaryProviderKind Kind, string? ModelPath)?> ShowAsync(XamlRoot xamlRoot)
     {
-        var dialog = new SummaryModelSetupDialog { XamlRoot = xamlRoot };
-        await dialog.ShowAsync();
-        return dialog.ViewModel.IsResolved
-            ? (dialog.ViewModel.ResultProviderKind, dialog.ViewModel.ResultModelPath)
-            : null;
+        while (true)
+        {
+            var dialog = new SummaryModelSetupDialog { XamlRoot = xamlRoot };
+            await dialog.ShowAsync();
+            if (dialog.ViewModel.IsResolved)
+                return (dialog.ViewModel.ResultProviderKind, dialog.ViewModel.ResultModelPath);
+
+            if (!dialog.ViewModel.PendingXaiAuth)
+                return null;
+
+            var signedIn = await XaiAuthDialog.ShowAsync(xamlRoot);
+            if (signedIn)
+            {
+                await dialog.ViewModel.FinishWithXaiAsync();
+                return (SummaryProviderKind.Xai, null);
+            }
+        }
     }
 
     /// <summary>Shows the wizard modally, skipping straight to local model selection (no engine

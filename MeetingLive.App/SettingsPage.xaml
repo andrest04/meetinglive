@@ -52,6 +52,14 @@
                                     <TextBlock x:Uid="Settings_ProviderCodex" />
                                 </StackPanel>
                             </RadioButton>
+                            <RadioButton IsChecked="{x:Bind ViewModel.IsXaiSelected, Mode=OneWay}"
+                                         Checked="ProviderRadioButton_Checked" Tag="Xai"
+                                         AutomationProperties.AutomationId="RadioProviderXai">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:GrokIcon Width="16" Height="16" />
+                                    <TextBlock x:Uid="Settings_ProviderXai" />
+                                </StackPanel>
+                            </RadioButton>
                         </RadioButtons>
                         <TextBlock Text="{x:Bind ViewModel.CliProviderStatusText, Mode=OneWay}"
                                    Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.ShowCliProviderStatus), Mode=OneWay}"
@@ -59,6 +67,52 @@
                                    AutomationProperties.AutomationId="TxtCliProviderStatus" />
                     </StackPanel>
                 </controls:SettingsCard>
+
+                <controls:SettingsExpander x:Uid="Settings_ClaudeOptions"
+                                           HeaderIcon="{ui:FontIcon Glyph=&#xE9F9;}"
+                                           IsExpanded="True"
+                                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsClaudeCodeSelected), Mode=OneWay}"
+                                           AutomationProperties.AutomationId="ExpanderClaudeOptions">
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard x:Uid="Settings_ClaudeModel">
+                            <ComboBox MinWidth="200"
+                                      ItemsSource="{x:Bind ViewModel.ClaudeModels, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedClaudeModelId, Mode=OneWay}"
+                                      SelectionChanged="ClaudeModelComboBox_SelectionChanged"
+                                      AutomationProperties.AutomationId="ComboClaudeModel" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard x:Uid="Settings_ClaudeEffort">
+                            <ComboBox MinWidth="160"
+                                      ItemsSource="{x:Bind ViewModel.ClaudeEfforts, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedClaudeEffort, Mode=OneWay}"
+                                      SelectionChanged="ClaudeEffortComboBox_SelectionChanged"
+                                      AutomationProperties.AutomationId="ComboClaudeEffort" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
+                <controls:SettingsExpander x:Uid="Settings_CodexOptions"
+                                           HeaderIcon="{ui:FontIcon Glyph=&#xE9F9;}"
+                                           IsExpanded="True"
+                                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsCodexSelected), Mode=OneWay}"
+                                           AutomationProperties.AutomationId="ExpanderCodexOptions">
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard x:Uid="Settings_CodexModel">
+                            <ComboBox MinWidth="200"
+                                      ItemsSource="{x:Bind ViewModel.CodexModels, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedCodexModelId, Mode=OneWay}"
+                                      SelectionChanged="CodexModelComboBox_SelectionChanged"
+                                      AutomationProperties.AutomationId="ComboCodexModel" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard x:Uid="Settings_CodexEffort">
+                            <ComboBox MinWidth="160"
+                                      ItemsSource="{x:Bind ViewModel.CodexEfforts, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedCodexEffort, Mode=OneWay}"
+                                      SelectionChanged="CodexEffortComboBox_SelectionChanged"
+                                      AutomationProperties.AutomationId="ComboCodexEffort" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
 
                 <controls:SettingsExpander x:Uid="Settings_SummaryModels"
                                            HeaderIcon="{ui:FontIcon Glyph=&#xE945;}"
@@ -106,6 +160,73 @@
                         </DataTemplate>
                     </controls:SettingsExpander.ItemTemplate>
                 </controls:SettingsExpander>
+
+                <controls:SettingsExpander x:Uid="Settings_XaiAccount"
+                                           IsExpanded="True"
+                                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiSelected), Mode=OneWay}"
+                                           AutomationProperties.AutomationId="ExpanderXaiAccount">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <PathIcon Data="F0 M9.27 15.29l7.978-5.897c.391-.29.95-.177 1.137.272.98 2.369.542 5.215-1.41 7.169-1.951 1.954-4.667 2.382-7.149 1.406l-2.711 1.257c3.889 2.661 8.611 2.003 11.562-.953 2.341-2.344 3.066-5.539 2.388-8.42l.006.007c-.983-4.232.242-5.924 2.75-9.383.06-.082.12-.164.179-.248l-3.301 3.305v-.01L9.267 15.292M7.623 16.723c-2.792-2.67-2.31-6.801.071-9.184 1.761-1.763 4.647-2.483 7.166-1.425l2.705-1.25a7.808 7.808 0 00-1.829-1A8.975 8.975 0 005.984 5.83c-2.533 2.536-3.33 6.436-1.962 9.764 1.022 2.487-.653 4.246-2.34 6.022-.599.63-1.199 1.259-1.682 1.925l7.62-6.815" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard Header="{x:Bind ViewModel.XaiStatusText, Mode=OneWay}"
+                                               Description="{x:Bind ViewModel.XaiStatusDetail, Mode=OneWay}"
+                                               AutomationProperties.AutomationId="CardXaiStatus">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE73E;"
+                                          Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiSignedIn), Mode=OneWay}" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing IsActive="{x:Bind ViewModel.IsXaiBusy, Mode=OneWay}"
+                                              Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiBusy), Mode=OneWay}"
+                                              Width="16" Height="16" />
+                                <Button x:Uid="Settings_XaiSignIn"
+                                        Click="XaiSignIn_Click"
+                                        Visibility="{x:Bind local:SettingsPage.InverseBoolToVisibility(ViewModel.IsXaiSignedIn), Mode=OneWay}"
+                                        AutomationProperties.AutomationId="BtnXaiSignIn" />
+                                <Button x:Uid="Settings_XaiSignOut"
+                                        Click="XaiSignOut_Click"
+                                        Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiSignedIn), Mode=OneWay}"
+                                        AutomationProperties.AutomationId="BtnXaiSignOut" />
+                            </StackPanel>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard x:Uid="Settings_XaiApiKey" ContentAlignment="Vertical">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PasswordBox x:Uid="Settings_XaiApiKeyBox"
+                                             Width="240"
+                                             PasswordRevealMode="Peek"
+                                             PasswordChanged="XaiApiKey_PasswordChanged"
+                                             AutomationProperties.AutomationId="BoxSettingsXaiApiKey" />
+                                <Button x:Uid="Settings_XaiSaveApiKey"
+                                        Click="XaiSaveApiKey_Click"
+                                        IsEnabled="{x:Bind ViewModel.CanSaveXaiApiKey, Mode=OneWay}"
+                                        AutomationProperties.AutomationId="BtnXaiSaveApiKeySettings" />
+                            </StackPanel>
+                        </controls:SettingsCard>
+                        <controls:SettingsCard x:Uid="Settings_XaiModel">
+                            <ComboBox x:Uid="ComboXaiModel"
+                                      MinWidth="200"
+                                      ItemsSource="{x:Bind ViewModel.XaiModels, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedXaiModelId, Mode=OneWay}"
+                                      SelectionChanged="XaiModelComboBox_SelectionChanged"
+                                      IsEnabled="{x:Bind ViewModel.IsXaiSignedIn, Mode=OneWay}"
+                                      AutomationProperties.AutomationId="ComboXaiModel" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard x:Uid="Settings_XaiEffort">
+                            <ComboBox MinWidth="160"
+                                      ItemsSource="{x:Bind ViewModel.XaiEfforts, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedXaiEffort, Mode=OneWay}"
+                                      SelectionChanged="XaiEffortComboBox_SelectionChanged"
+                                      IsEnabled="{x:Bind ViewModel.IsXaiSignedIn, Mode=OneWay}"
+                                      AutomationProperties.AutomationId="ComboXaiEffort" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+                <InfoBar IsOpen="{x:Bind ViewModel.IsXaiFeedbackOpen, Mode=TwoWay}"
+                         Severity="Success"
+                         Message="{x:Bind ViewModel.XaiFeedbackMessage, Mode=OneWay}"
+                         Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsXaiSelected), Mode=OneWay}"
+                         AutomationProperties.AutomationId="InfoXaiFeedback" />
             </StackPanel>
 
             <!-- Microphone -->

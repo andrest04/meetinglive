@@ -10,13 +10,17 @@ namespace MeetingLive.Core.Services;
 /// <c>CliProviderResolver</c> (App layer) checks availability and walks the user through
 /// setup before this provider is ever constructed.
 /// </summary>
-public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : ISummaryProvider
-{
-    /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
-    public const string ProviderId = "codex";
+    public sealed class CodexCliSummaryProvider(
+        ICliProcessRunner processRunner,
+        string? modelId = null,
+        string? effort = null) : ISummaryProvider
+    {
+        /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
+        public const string ProviderId = "codex";
 
-    private const string ExecutableName = "codex";
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+        private const string ExecutableName = "codex";
+        private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
+        private readonly string _arguments = CliInvocation.CodexExec(modelId, effort);
 
     public async Task<SummaryResult> SummarizeAsync(
         string transcript,
@@ -29,7 +33,7 @@ public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : I
         var raw = await CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,
-            "exec -",
+            _arguments,
             prompt,
             Timeout,
             CliFailureMapper.CodexDisplayName,
@@ -49,7 +53,7 @@ public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : I
         return CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,
-            "exec -",
+            _arguments,
             prompt,
             Timeout,
             CliFailureMapper.CodexDisplayName,

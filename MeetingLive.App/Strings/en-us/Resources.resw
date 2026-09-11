@@ -106,10 +106,11 @@
   <data name="Settings_Delete.Content" xml:space="preserve"><value>Delete</value></data>
   <data name="Settings_SummaryProvider.Text" xml:space="preserve"><value>Summary provider</value></data>
   <data name="Settings_SummaryProviderCard.Header" xml:space="preserve"><value>Choose where summaries are generated</value></data>
-  <data name="Settings_SummaryProviderCard.Description" xml:space="preserve"><value>Local runs entirely on this PC for free. Claude Code and Codex use an already-installed, already-authenticated CLI.</value></data>
+  <data name="Settings_SummaryProviderCard.Description" xml:space="preserve"><value>Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI. Grok (xAI) signs in with SuperGrok or an API key.</value></data>
   <data name="Settings_ProviderLocal.Text" xml:space="preserve"><value>Local (on this device)</value></data>
   <data name="Settings_ProviderClaude.Text" xml:space="preserve"><value>Claude Code CLI</value></data>
   <data name="Settings_ProviderCodex.Text" xml:space="preserve"><value>Codex CLI</value></data>
+  <data name="Settings_ProviderXai.Text" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Settings_Microphone.Text" xml:space="preserve"><value>Microphone</value></data>
   <data name="Settings_RecordingDevice.Header" xml:space="preserve"><value>Recording device</value></data>
   <data name="Settings_RecordingDevice.Description" xml:space="preserve"><value>Which physical microphone MeetingLive records your voice from. System default follows whatever Windows currently uses.</value></data>
@@ -142,6 +143,8 @@
   <data name="Setup_CodexHint.Text" xml:space="preserve"><value>Uses the Codex CLI already installed on this PC.</value></data>
   <data name="Setup_LocalName.Text" xml:space="preserve"><value>Local models</value></data>
   <data name="Setup_LocalHint.Text" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost.</value></data>
+  <data name="Setup_XaiName.Text" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Setup_XaiHint.Text" xml:space="preserve"><value>Sign in with SuperGrok or paste an xAI API key.</value></data>
   <data name="Setup_CheckAgain.Content" xml:space="preserve"><value>Check again</value></data>
   <data name="Setup_Back.Content" xml:space="preserve"><value>Back</value></data>
   <data name="Setup_DetectingHardware.Text" xml:space="preserve"><value>Detecting hardware...</value></data>
@@ -283,4 +286,54 @@
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Set up recording before you start.</value></data>
 
   <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced.</value></data>
+
+  <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Signed in with SuperGrok</value></data>
+  <data name="Xai_StatusApiKey" xml:space="preserve"><value>API key saved</value></data>
+  <data name="Xai_StatusSignedOut" xml:space="preserve"><value>Not signed in</value></data>
+  <data name="Xai_StatusError" xml:space="preserve"><value>{0}</value></data>
+  <data name="Xai_StatusErrorTitle" xml:space="preserve"><value>Could not reach Grok</value></data>
+  <data name="Xai_StatusSignedOutDetail" xml:space="preserve"><value>Sign in with SuperGrok, or paste an API key below.</value></data>
+  <data name="Xai_StatusLoadingModels" xml:space="preserve"><value>Loading your Grok models…</value></data>
+  <data name="Xai_StatusReady" xml:space="preserve"><value>Ready. Using {0}.</value></data>
+  <data name="Xai_FeedbackSignedIn" xml:space="preserve"><value>Signed in with SuperGrok.</value></data>
+  <data name="Xai_FeedbackModel" xml:space="preserve"><value>Saved. Using {0}.</value></data>
+  <data name="Xai_FeedbackApiKey" xml:space="preserve"><value>API key saved.</value></data>
+  <data name="Xai_FeedbackSignedOut" xml:space="preserve"><value>Signed out of Grok (xAI).</value></data>
+  <data name="Settings_XaiAccount.Header" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Settings_XaiAccount.Description" xml:space="preserve"><value>Sign in with SuperGrok (device code) or paste an API key from console.x.ai. Saving one replaces the other.</value></data>
+  <data name="Settings_XaiStatus.Header" xml:space="preserve"><value>Account</value></data>
+  <data name="Settings_XaiSignIn.Content" xml:space="preserve"><value>Sign in with SuperGrok</value></data>
+  <data name="Settings_XaiSignOut.Content" xml:space="preserve"><value>Sign out</value></data>
+  <data name="Settings_XaiApiKey.Header" xml:space="preserve"><value>API key</value></data>
+  <data name="Settings_XaiApiKey.Description" xml:space="preserve"><value>Optional. For people who prefer a key from console.x.ai.</value></data>
+  <data name="Settings_XaiApiKeyBox.PlaceholderText" xml:space="preserve"><value>xAI API key</value></data>
+  <data name="Settings_XaiSaveApiKey.Content" xml:space="preserve"><value>Save</value></data>
+  <data name="Settings_XaiModel.Header" xml:space="preserve"><value>Model</value></data>
+  <data name="Settings_XaiEffort.Header" xml:space="preserve"><value>Effort</value></data>
+  <data name="Settings_XaiEffort.Description" xml:space="preserve"><value>How hard Grok thinks. Low is faster; high is slower and more thorough.</value></data>
+  <data name="Settings_ClaudeOptions.Header" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Settings_ClaudeOptions.Description" xml:space="preserve"><value>Model alias and effort passed to the Claude CLI.</value></data>
+  <data name="Settings_ClaudeModel.Header" xml:space="preserve"><value>Model</value></data>
+  <data name="Settings_ClaudeEffort.Header" xml:space="preserve"><value>Effort</value></data>
+  <data name="Settings_ClaudeEffort.Description" xml:space="preserve"><value>low, medium, high, xhigh, or max.</value></data>
+  <data name="Settings_CodexOptions.Header" xml:space="preserve"><value>Codex</value></data>
+  <data name="Settings_CodexOptions.Description" xml:space="preserve"><value>Model and reasoning effort passed to the Codex CLI.</value></data>
+  <data name="Settings_CodexModel.Header" xml:space="preserve"><value>Model</value></data>
+  <data name="Settings_CodexEffort.Header" xml:space="preserve"><value>Effort</value></data>
+  <data name="Settings_CodexEffort.Description" xml:space="preserve"><value>low, medium, high, or xhigh.</value></data>
+  <data name="ComboXaiModel.PlaceholderText" xml:space="preserve"><value>Choose a Grok model</value></data>
+  <data name="XaiAuth.Title" xml:space="preserve"><value>Sign in to Grok (xAI)</value></data>
+  <data name="XaiAuth.CloseButtonText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="XaiAuth_Headline.Text" xml:space="preserve"><value>Use SuperGrok (opens a browser) or paste an API key from console.x.ai. Saving one replaces the other.</value></data>
+  <data name="XaiAuth_SuperGrokHeader.Text" xml:space="preserve"><value>SuperGrok</value></data>
+  <data name="XaiAuth_SuperGrokHint.Text" xml:space="preserve"><value>MeetingLive shows a short code and opens xAI. Approve it in the browser, then this window finishes on its own.</value></data>
+  <data name="XaiAuth_SuperGrok.Content" xml:space="preserve"><value>Sign in with SuperGrok</value></data>
+  <data name="XaiAuth_UserCodeLabel.Text" xml:space="preserve"><value>Enter this code if the browser does not fill it in:</value></data>
+  <data name="XaiAuth_Waiting.Text" xml:space="preserve"><value>Waiting for you to finish sign-in in the browser…</value></data>
+  <data name="XaiAuth_ApiKeyHeader.Text" xml:space="preserve"><value>API key</value></data>
+  <data name="XaiAuth_ApiKeyHint.Text" xml:space="preserve"><value>Create a key at console.x.ai. This is billed separately from SuperGrok.</value></data>
+  <data name="XaiAuth_ApiKey.PlaceholderText" xml:space="preserve"><value>xAI API key</value></data>
+  <data name="XaiAuth_SaveApiKey.Content" xml:space="preserve"><value>Save API key</value></data>
+  <data name="XaiAuth_ApiKeyRequired" xml:space="preserve"><value>Paste an API key first.</value></data>
 </root>

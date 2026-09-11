@@ -43,8 +43,15 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
     /// <summary>True only once the wizard actually produced a result (as opposed to being cancelled).</summary>
     public bool IsResolved { get; private set; }
 
+    /// <summary>True when the user picked Grok and the host should hide so <c>XaiAuthDialog</c> can run.</summary>
+    public bool PendingXaiAuth { get; private set; }
+
     /// <summary>Raised once the wizard has a result and the host dialog should close.</summary>
     public event EventHandler? Completed;
+
+    /// <summary>Raised when Grok needs SuperGrok / API-key auth. The host hides this dialog first
+    /// (WinUI allows only one ContentDialog at a time).</summary>
+    public event EventHandler? XaiAuthRequested;
 
     public bool IsChoosingEngine => State == SummaryModelWizardState.ChoosingEngine;
     public bool IsDetectingHardware => State == SummaryModelWizardState.DetectingHardware;
@@ -74,7 +81,36 @@ public partial class SummaryModelSetupDialogViewModel : ObservableObject
             return;
         }
 
+        if (kind == SummaryProviderKind.Xai)
+        {
+            await ChooseXaiAsync();
+            return;
+        }
+
         await CheckCliAsync(kind);
+    }
+
+    private async Task ChooseXaiAsync()
+    {
+        if (AppServices.XaiAuth.HasCredentials)
+        {
+            await FinishWithXaiAsync();
+            Completed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        PendingXaiAuth = true;
+        XaiAuthRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task FinishWithXaiAsync()
+    {
+        PendingXaiAuth = false;
+        await SaveSettingsAsync(settings => settings.SelectedSummaryProvider = SummaryProviderKind.Xai.ToString());
+        ResultProviderKind = SummaryProviderKind.Xai;
+        ResultModelPath = null;
+        IsResolved = true;
+        State = SummaryModelWizardState.Completed;
     }
 
     private async Task CheckCliAsync(SummaryProviderKind kind)

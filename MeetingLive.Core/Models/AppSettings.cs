@@ -7,8 +7,42 @@ public sealed class AppSettings
     public string? SelectedSummaryModelId { get; set; }
 
     /// <summary>The <see cref="SummaryProviderKind"/> the user picked in Settings, stored as its
-    /// enum name (e.g. "Local", "ClaudeCode", "Codex"). Null means the default (Local).</summary>
+    /// enum name (e.g. "Local", "ClaudeCode", "Codex", "Xai"). Null means the default (Local).</summary>
     public string? SelectedSummaryProvider { get; set; }
+
+    /// <summary>The xAI chat model id to use when <see cref="SelectedSummaryProvider"/> is Xai
+    /// (e.g. "grok-4.6"). Not a secret. Null/empty means the default.</summary>
+    public string? SelectedXaiModelId { get; set; }
+
+    /// <summary>xAI <c>reasoning_effort</c> (none/low/medium/high/xhigh). Null means low.</summary>
+    public string? SelectedXaiEffort { get; set; }
+
+    /// <summary>Claude Code <c>--model</c> alias (sonnet/opus/haiku/fable). Null means sonnet.</summary>
+    public string? SelectedClaudeModelId { get; set; }
+
+    /// <summary>Claude Code <c>--effort</c> (low/medium/high/xhigh/max). Null means low.</summary>
+    public string? SelectedClaudeEffort { get; set; }
+
+    /// <summary>Codex <c>-m</c> model id. Null means gpt-5.6.</summary>
+    public string? SelectedCodexModelId { get; set; }
+
+    /// <summary>Codex <c>model_reasoning_effort</c> (low/medium/high/xhigh). Null means low.</summary>
+    public string? SelectedCodexEffort { get; set; }
+
+    public string ResolveClaudeModelId() =>
+        string.IsNullOrWhiteSpace(SelectedClaudeModelId) ? InferenceCatalog.DefaultClaudeModel : SelectedClaudeModelId;
+
+    public string ResolveClaudeEffort() =>
+        string.IsNullOrWhiteSpace(SelectedClaudeEffort) ? InferenceCatalog.DefaultEffort : SelectedClaudeEffort;
+
+    public string ResolveCodexModelId() =>
+        string.IsNullOrWhiteSpace(SelectedCodexModelId) ? InferenceCatalog.DefaultCodexModel : SelectedCodexModelId;
+
+    public string ResolveCodexEffort() =>
+        string.IsNullOrWhiteSpace(SelectedCodexEffort) ? InferenceCatalog.DefaultEffort : SelectedCodexEffort;
+
+    public string ResolveXaiEffort() =>
+        string.IsNullOrWhiteSpace(SelectedXaiEffort) ? InferenceCatalog.DefaultEffort : SelectedXaiEffort;
 
     /// <summary>Parses <see cref="SelectedSummaryProvider"/>, defaulting to <see cref="SummaryProviderKind.Local"/>
     /// when unset or unrecognized (e.g. an older settings file from before this field existed).</summary>

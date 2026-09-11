@@ -40,6 +40,9 @@ public partial class SessionPageViewModel : ObservableObject
     /// Used only when the selected provider is ClaudeCode or Codex.</summary>
     public Func<SummaryProviderKind, Task<bool>>? EnsureCliProviderAsync { get; set; }
 
+    /// <summary>Supplied by the page (needs a XamlRoot): SuperGrok / API key gate for Xai.</summary>
+    public Func<Task<bool>>? EnsureXaiProviderAsync { get; set; }
+
     /// <summary>True once loading has finished and no meeting is selected — precomputed so the
     /// XAML empty-state Visibility binding doesn't need a nested multi-argument x:Bind call.</summary>
     public bool IsEmpty => !IsLoading && !HasMeeting;
@@ -166,6 +169,12 @@ public partial class SessionPageViewModel : ObservableObject
         {
             var modelPath = EnsureSummaryModelAsync is null ? null : await EnsureSummaryModelAsync();
             return modelPath is null ? null : AppServices.CreateSummaryProvider(SummaryProviderKind.Local, modelPath);
+        }
+
+        if (providerKind == SummaryProviderKind.Xai)
+        {
+            var xaiAvailable = EnsureXaiProviderAsync is not null && await EnsureXaiProviderAsync();
+            return xaiAvailable ? AppServices.CreateSummaryProvider(SummaryProviderKind.Xai, localModelPath: null) : null;
         }
 
         var available = EnsureCliProviderAsync is not null && await EnsureCliProviderAsync(providerKind);
