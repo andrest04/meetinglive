@@ -41,9 +41,23 @@
                 <Button x:Uid="SessionPage_Rename"
                         Click="Rename_Click"
                         VerticalAlignment="Center"
+                        IsEnabled="{x:Bind ViewModel.CanRename, Mode=OneWay}"
                         AutomationProperties.AutomationId="BtnSessionRename">
                     <SymbolIcon Symbol="Edit" />
                 </Button>
+                <Button x:Uid="SessionPage_SuggestTitle"
+                        Click="SuggestTitle_Click"
+                        VerticalAlignment="Center"
+                        IsEnabled="{x:Bind ViewModel.CanSuggestTitle, Mode=OneWay}"
+                        AutomationProperties.AutomationId="BtnSessionSuggestTitle">
+                    <FontIcon Glyph="&#xEB78;"
+                              FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                </Button>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsSuggestingTitle, Mode=OneWay}"
+                              Width="20"
+                              Height="20"
+                              VerticalAlignment="Center"
+                              Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.IsSuggestingTitle), Mode=OneWay}" />
             </StackPanel>
         </Grid>
 

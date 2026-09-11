@@ -14,6 +14,7 @@ public class CodexCliSummaryProviderTests
             Assert.Equal("exec -", arguments);
             Assert.Contains("<transcript>", stdin);
             Assert.Contains("Hello everyone.", stdin);
+            Assert.Contains("## Title", stdin);
 
             return new CliProcessResult(0, """
                 ## Summary
@@ -34,6 +35,7 @@ public class CodexCliSummaryProviderTests
         Assert.Single(result.ActionItems);
         Assert.Equal("Send the invite", result.ActionItems[0].Text);
         Assert.Equal(CodexCliSummaryProvider.ProviderId, result.ProviderId);
+        Assert.Null(result.SuggestedTitle);
     }
 
     [Theory]

@@ -7,7 +7,7 @@ namespace MeetingLive.Core.Services;
 /// implementations today: <see cref="LocalLlmSummaryProvider"/> (local, free, in-process via
 /// LLamaSharp), <see cref="ClaudeCodeCliSummaryProvider"/>, and <see cref="CodexCliSummaryProvider"/>
 /// (both shell out to an already-installed, already-authenticated CLI). All three are asked to
-/// produce the same "## Summary" / "## Action Items" Markdown shape, split via
+/// produce the same "## Title" / "## Summary" / "## Action Items" Markdown shape, split via
 /// <see cref="SummaryMarkdownSplitter"/>, so the rest of the pipeline never branches on which
 /// provider ran.
 /// </summary>
@@ -16,6 +16,17 @@ public interface ISummaryProvider
     Task<SummaryResult> SummarizeAsync(
         string transcript,
         string title,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null);
+
+    /// <summary>
+    /// Title-only inference. Returns the model stdout; callers persist with
+    /// <see cref="SuggestedMeetingTitle.FromModelResponse"/> (always apply), not
+    /// <see cref="SuggestedMeetingTitle.Resolve"/>.
+    /// </summary>
+    Task<string> SuggestTitleAsync(
+        string transcript,
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
         string? outputLanguage = null);

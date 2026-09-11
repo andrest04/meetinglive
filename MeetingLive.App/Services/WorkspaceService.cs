@@ -29,6 +29,8 @@ public sealed class WorkspaceService
 
     public event EventHandler<Guid>? MeetingDeleted;
 
+    public event EventHandler<Guid>? MeetingChanged;
+
     public event EventHandler? TakeNotesRequested;
 
     public event EventHandler? CallPromptOffered;
@@ -58,6 +60,8 @@ public sealed class WorkspaceService
 
         MeetingDeleted?.Invoke(this, id);
     }
+
+    public void NotifyMeetingChanged(Guid id) => MeetingChanged?.Invoke(this, id);
 
     public void SetLastProcessed(MeetingRecord record)
     {

@@ -60,8 +60,47 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         if (raw.Length == 0)
             throw new InvalidOperationException("The local model did not return any content.");
 
-        var (summaryMarkdown, actionItems) = SummaryMarkdownSplitter.Split(raw);
-        return new SummaryResult(summaryMarkdown, actionItems, ProviderId);
+        var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
+        return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
+    }
+
+    public async Task<string> SuggestTitleAsync(
+        string transcript,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null)
+    {
+        if (!File.Exists(modelPath))
+        {
+            throw new FileNotFoundException(
+                "The selected local summary model has not been downloaded yet. Download it from Settings first.",
+                modelPath);
+        }
+
+        var (weights, modelParams) = await EnsureLoadedAsync(cancellationToken);
+
+        var executor = new StatelessExecutor(weights, modelParams)
+        {
+            ApplyTemplate = true,
+        };
+
+        var inferenceParams = new InferenceParams
+        {
+            MaxTokens = 80,
+            SamplingPipeline = new DefaultSamplingPipeline { Temperature = 0.3f },
+        };
+
+        var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
+
+        var result = new StringBuilder();
+        await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))
+            result.Append(token);
+
+        var raw = result.ToString().Trim();
+        if (raw.Length == 0)
+            throw new InvalidOperationException("The local model did not return any content.");
+
+        return raw;
     }
 
     private async Task<(LLamaWeights Weights, ModelParams Params)> EnsureLoadedAsync(CancellationToken cancellationToken)

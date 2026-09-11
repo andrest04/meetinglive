@@ -4,7 +4,7 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Builds the non-interactive prompt for every summary provider (Claude Code, Codex, local LLM).
-/// Output contract stays "## Summary" / "## Action Items" so
+/// Output contract stays "## Title" / "## Summary" / "## Action Items" so
 /// <see cref="SummaryMarkdownSplitter"/> can parse all three the same way.
 /// </summary>
 internal static class CliSummaryPromptBuilder
@@ -28,8 +28,15 @@ internal static class CliSummaryPromptBuilder
 
             # Instructions
 
-            Respond with exactly two Markdown sections, in this order, and nothing else
+            Respond with exactly three Markdown sections, in this order, and nothing else
             (no preamble, no code fences, no closing commentary):
+
+            ## Title
+
+            One short title, about 3–8 words. No quotes, no trailing period, no markdown.
+            Write the title in {languageName}. If the recording is an informal ASR test, say so
+            plainly (e.g. "Microphone test"). Do not copy <meeting_title> unless it already
+            describes the content. Ground it in the transcript; do not invent.
 
             ## Summary
 
@@ -61,9 +68,9 @@ internal static class CliSummaryPromptBuilder
             - If the recording is an informal ASR test or rambling, say so in "{headings.WhatThisWas}". Do not dress it up as a formal meeting.
             - If a name or number is unclear because of ASR noise, paraphrase without guessing the spelling.
             - Transcript lines are stamped [elapsed | clock] (elapsed from recording start as hh:mm:ss, clock as local HH:mm). When placing a key point, decision, or quote in time, mention that clock time.
-            - Write the Summary body and action-item text in {languageName}.
+            - Write the Title, the Summary body, and action-item text in {languageName}.
             - Use the ### subheadings above verbatim — do not translate them.
-            - Keep the Markdown headings exactly "## Summary" and "## Action Items" in English.
+            - Keep the Markdown headings exactly "## Title", "## Summary", and "## Action Items" in English.
 
             # Context
 

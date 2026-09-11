@@ -33,7 +33,24 @@ public sealed class ClaudeCodeCliSummaryProvider(ICliProcessRunner processRunner
             CliFailureMapper.ClaudeCodeDisplayName,
             cancellationToken);
 
-        var (summaryMarkdown, actionItems) = SummaryMarkdownSplitter.Split(raw);
-        return new SummaryResult(summaryMarkdown, actionItems, ProviderId);
+        var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
+        return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
+    }
+
+    public Task<string> SuggestTitleAsync(
+        string transcript,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null)
+    {
+        var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
+        return CliFailureMapper.RunRequiredStdoutAsync(
+            processRunner,
+            ExecutableName,
+            "-p",
+            prompt,
+            Timeout,
+            CliFailureMapper.ClaudeCodeDisplayName,
+            cancellationToken);
     }
 }

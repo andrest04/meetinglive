@@ -35,7 +35,24 @@ public sealed class CodexCliSummaryProvider(ICliProcessRunner processRunner) : I
             CliFailureMapper.CodexDisplayName,
             cancellationToken);
 
-        var (summaryMarkdown, actionItems) = SummaryMarkdownSplitter.Split(raw);
-        return new SummaryResult(summaryMarkdown, actionItems, ProviderId);
+        var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
+        return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
+    }
+
+    public Task<string> SuggestTitleAsync(
+        string transcript,
+        DateTimeOffset recordedAt,
+        CancellationToken cancellationToken = default,
+        string? outputLanguage = null)
+    {
+        var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
+        return CliFailureMapper.RunRequiredStdoutAsync(
+            processRunner,
+            ExecutableName,
+            "exec -",
+            prompt,
+            Timeout,
+            CliFailureMapper.CodexDisplayName,
+            cancellationToken);
     }
 }

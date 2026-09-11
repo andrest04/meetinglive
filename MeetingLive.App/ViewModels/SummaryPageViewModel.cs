@@ -131,10 +131,25 @@ public partial class SummaryPageViewModel : ObservableObject
             var result = await Task.Run(() => provider.SummarizeAsync(
                 transcript, _record.Title, _record.RecordedAt, outputLanguage: summaryLanguage));
 
+            var resolvedTitle = SuggestedMeetingTitle.Resolve(_record.Title, result.SuggestedTitle);
+            var titleChanged = !string.Equals(resolvedTitle, _record.Title, StringComparison.Ordinal);
+
             _record.Summary = result.SummaryMarkdown;
             _record.ActionItems = result.ActionItems;
             _record.SummaryProvider = result.ProviderId;
+            if (titleChanged)
+                _record.Title = resolvedTitle;
+
             await _meetings.SaveAsync(_record);
+
+            if (titleChanged)
+            {
+                Title = resolvedTitle;
+                if (AppServices.Workspace.LastProcessedMeeting?.Id == _record.Id)
+                    AppServices.Workspace.LastProcessedMeeting.Title = resolvedTitle;
+
+                AppServices.Workspace.NotifyMeetingChanged(_record.Id);
+            }
 
             Summary = result.SummaryMarkdown;
             LoadActionItems();

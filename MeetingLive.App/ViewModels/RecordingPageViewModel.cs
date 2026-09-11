@@ -609,9 +609,13 @@ public partial class RecordingPageViewModel : ObservableObject
             var result = await pipeline.Provider.SummarizeAsync(
                 transcript, title, recordedAt, cancellationToken, summaryLanguage);
 
+            var saveTitle = SuggestedMeetingTitle.Resolve(title, result.SuggestedTitle);
             await SaveProcessedMeetingAsync(
-                meetingId, title, recordedAt, audioPath, folderId, transcript,
+                meetingId, saveTitle, recordedAt, audioPath, folderId, transcript,
                 result.SummaryMarkdown, result.ActionItems, result.ProviderId);
+
+            if (!string.Equals(saveTitle, title, StringComparison.Ordinal))
+                AppServices.Workspace.NotifyMeetingChanged(meetingId);
 
             App.DispatcherQueue.TryEnqueue(() =>
             {

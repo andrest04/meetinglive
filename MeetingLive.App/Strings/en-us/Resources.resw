@@ -30,11 +30,15 @@
   <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Rename</value></data>
   <data name="SessionPage_Rename.ToolTipService.ToolTip" xml:space="preserve"><value>Rename title</value></data>
+  <data name="SessionPage_SuggestTitle.AutomationProperties.Name" xml:space="preserve"><value>Suggest title</value></data>
+  <data name="SessionPage_SuggestTitle.ToolTipService.ToolTip" xml:space="preserve"><value>Generate title with AI</value></data>
   <data name="SessionRename_Title" xml:space="preserve"><value>Rename meeting</value></data>
   <data name="SessionRename_Primary" xml:space="preserve"><value>Rename</value></data>
   <data name="SessionRename_Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="SessionRename_Name.Header" xml:space="preserve"><value>Title</value></data>
   <data name="SessionRename_Name.PlaceholderText" xml:space="preserve"><value>Meeting title</value></data>
+  <data name="SessionSuggestTitle_ErrorTitle" xml:space="preserve"><value>Could not suggest a title</value></data>
+  <data name="SessionSuggestTitle_Empty" xml:space="preserve"><value>The model did not return a usable title.</value></data>
   <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
   <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>

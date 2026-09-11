@@ -21,6 +21,11 @@ public sealed partial class SessionPage : Page
     public SessionPage()
     {
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+            ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
+        };
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -63,6 +68,28 @@ public sealed partial class SessionPage : Page
             return;
 
         if (await ViewModel.RenameAsync(nameBox.Text))
+            NavigateInner(AppServices.Workspace.SessionTab, AppServices.Workspace.SelectedMeetingId);
+    }
+
+    private async void SuggestTitle_Click(object sender, RoutedEventArgs e)
+    {
+        var (applied, error) = await ViewModel.SuggestTitleAsync();
+        if (error is not null)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+                Title = AppStrings.Get("SessionSuggestTitle_ErrorTitle"),
+                Content = error,
+                CloseButtonText = AppStrings.Get("Dialog_OK"),
+                DefaultButton = ContentDialogButton.Close,
+            };
+            await dialog.ShowAsync();
+            return;
+        }
+
+        if (applied)
             NavigateInner(AppServices.Workspace.SessionTab, AppServices.Workspace.SelectedMeetingId);
     }
 
