@@ -15,8 +15,8 @@ public class MarkdownMeetingRepositoryTests : IDisposable
 
         await repo.SaveAsync(CreateRecord(id, AudioPath(id)));
 
-        Assert.True(File.Exists(Path.Combine(_tempDirectory, $"{id}.md")));
-        Assert.False(File.Exists(Path.Combine(AppPaths.MeetingsDirectory, $"{id}.md")));
+        Assert.True(File.Exists(InboxMarkdownPath("Standup")));
+        Assert.False(File.Exists(Path.Combine(AppPaths.UserDataDirectory, $"{id}.md")));
     }
 
     [Fact]
@@ -31,7 +31,8 @@ public class MarkdownMeetingRepositoryTests : IDisposable
 
         await repo.DeleteAsync(id);
 
-        Assert.False(File.Exists(Path.Combine(_tempDirectory, $"{id}.md")));
+        Assert.False(File.Exists(InboxMarkdownPath("Standup")));
+        Assert.False(File.Exists(InboxAudioPath("Standup")));
         Assert.False(File.Exists(wavPath));
         Assert.Null(await repo.GetByIdAsync(id));
     }
@@ -55,7 +56,7 @@ public class MarkdownMeetingRepositoryTests : IDisposable
 
         await repo.DeleteAsync(id);
 
-        Assert.False(File.Exists(Path.Combine(_tempDirectory, $"{id}.md")));
+        Assert.False(File.Exists(InboxMarkdownPath("Standup")));
     }
 
     [Fact]
@@ -88,7 +89,7 @@ public class MarkdownMeetingRepositoryTests : IDisposable
 
         await repo.SaveAsync(CreateRecord(id, AudioPath(id)));
 
-        var markdown = await File.ReadAllTextAsync(Path.Combine(_tempDirectory, $"{id}.md"));
+        var markdown = await File.ReadAllTextAsync(InboxMarkdownPath("Standup"));
         Assert.DoesNotContain("folderId:", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Personal Notes", markdown, StringComparison.Ordinal);
     }
@@ -119,7 +120,7 @@ public class MarkdownMeetingRepositoryTests : IDisposable
 
         await repo.SaveAsync(record);
         var loaded = await repo.GetByIdAsync(id);
-        var markdown = await File.ReadAllTextAsync(Path.Combine(_tempDirectory, $"{id}.md"));
+        var markdown = await File.ReadAllTextAsync(InboxMarkdownPath("Standup"));
 
         Assert.NotNull(loaded);
         Assert.Equal("Remember the exam date.", loaded.Notes);
@@ -199,7 +200,7 @@ public class MarkdownMeetingRepositoryTests : IDisposable
         var repo = new MarkdownMeetingRepository(_tempDirectory);
         await repo.SaveAsync(CreateRecord(keptId, AudioPath(keptId), "Keep me"));
         await repo.SaveAsync(CreateRecord(deletedId, AudioPath(deletedId), "Delete me"));
-        var keptPath = Path.Combine(_tempDirectory, $"{keptId}.md");
+        var keptPath = InboxMarkdownPath("Keep me");
         var original = await File.ReadAllTextAsync(keptPath);
         var originalWriteTime = File.GetLastWriteTimeUtc(keptPath);
 
@@ -212,6 +213,40 @@ public class MarkdownMeetingRepositoryTests : IDisposable
         Assert.Equal(keptId, remaining[0].Id);
     }
 
+    [Fact]
+    public async Task SaveAsync_WhenFolderIdChanges_MovesMarkdownAndWavTogether()
+    {
+        var id = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var folders = new JsonFolderRepository(Path.Combine(_tempDirectory, "folders.json"));
+        await folders.SaveAsync(new FolderRecord
+        {
+            Id = folderId,
+            Name = "Universidad",
+            CreatedAt = DateTimeOffset.Parse("2026-09-01T12:00:00Z"),
+        });
+        var wavPath = AudioPath(id);
+        Directory.CreateDirectory(_tempDirectory);
+        await File.WriteAllTextAsync(wavPath, "wav");
+        var repo = new MarkdownMeetingRepository(_tempDirectory, folders);
+        var record = CreateRecord(id, wavPath, "Clase");
+        await repo.SaveAsync(record);
+
+        record.FolderId = folderId;
+        await repo.SaveAsync(record);
+
+        Assert.False(File.Exists(InboxMarkdownPath("Clase")));
+        Assert.False(File.Exists(InboxAudioPath("Clase")));
+        var movedMd = Path.Combine(_tempDirectory, "Universidad", MeetingLibraryLayout.FileStem(record.RecordedAt, "Clase") + ".md");
+        var movedWav = Path.ChangeExtension(movedMd, ".wav");
+        Assert.True(File.Exists(movedMd));
+        Assert.True(File.Exists(movedWav));
+        Assert.Equal("wav", await File.ReadAllTextAsync(movedWav));
+        var loaded = await repo.GetByIdAsync(id);
+        Assert.Equal(folderId, loaded?.FolderId);
+        Assert.Equal(movedWav, loaded?.AudioFilePath);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -219,6 +254,11 @@ public class MarkdownMeetingRepositoryTests : IDisposable
     }
 
     private string AudioPath(Guid id) => Path.Combine(_tempDirectory, $"{id}.wav");
+
+    private string InboxMarkdownPath(string title) =>
+        Path.Combine(_tempDirectory, MeetingLibraryLayout.InboxFolderName, MeetingLibraryLayout.FileStem(DateTimeOffset.Parse("2026-09-01T12:00:00Z"), title) + ".md");
+
+    private string InboxAudioPath(string title) => Path.ChangeExtension(InboxMarkdownPath(title), ".wav");
 
     private static MeetingRecord CreateRecord(Guid id, string audioPath, string title = "Standup") => new()
     {

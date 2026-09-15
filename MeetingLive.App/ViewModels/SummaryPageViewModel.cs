@@ -233,12 +233,21 @@ public partial class SummaryPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenFileLocation()
+    private async Task OpenFileLocationAsync()
     {
         if (_record is null)
             return;
 
-        var filePath = Path.Combine(AppPaths.MeetingsDirectory, $"{_record.Id}.md");
+        var filePath = _record.SourcePath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            var loaded = await AppServices.Meetings.GetByIdAsync(_record.Id);
+            filePath = loaded?.SourcePath;
+        }
+
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return;
+
         Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
     }
 

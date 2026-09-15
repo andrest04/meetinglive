@@ -87,12 +87,16 @@ public partial class TranscriptPageViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenFileLocation()
+    private async Task OpenFileLocationAsync()
     {
         if (_recordId is not { } id)
             return;
 
-        var filePath = Path.Combine(AppPaths.MeetingsDirectory, $"{id}.md");
+        var record = await AppServices.Meetings.GetByIdAsync(id);
+        var filePath = record?.SourcePath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return;
+
         Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
     }
 

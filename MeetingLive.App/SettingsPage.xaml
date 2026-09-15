@@ -334,13 +334,19 @@
             <!-- Data location -->
             <StackPanel Spacing="4">
                 <TextBlock x:Uid="Settings_Data" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard x:Uid="Settings_DataLocation"
-                                         Description="{x:Bind ViewModel.DataDirectoryPath, Mode=OneWay}"
-                                        HeaderIcon="{ui:FontIcon Glyph=&#xE8B7;}">
+                <controls:SettingsCard x:Uid="Settings_MeetingsLocation"
+                                         Description="{x:Bind ViewModel.MeetingsFolderPath, Mode=OneWay}"
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE8B7;}"
+                                        AutomationProperties.AutomationId="CardMeetingsLocation">
                     <Button x:Uid="Settings_OpenFolder"
                             Command="{x:Bind ViewModel.OpenDataFolderCommand}"
-                            AutomationProperties.AutomationId="BtnOpenDataFolder" />
+                            AutomationProperties.AutomationId="BtnOpenMeetingsFolder" />
                 </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_AppDataLocation"
+                                         Description="{x:Bind ViewModel.AppDataDirectoryPath, Mode=OneWay}"
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE115;}"
+                                        IsActionIconVisible="False"
+                                        AutomationProperties.AutomationId="CardAppDataLocation" />
             </StackPanel>
 
             <!-- About (informational only; not a navigation target) -->

@@ -130,7 +130,8 @@
 
   <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>On-screen captions with Nemotron while you record. The saved transcript always uses Nemotron after you stop. Turning this off skips only the live preview.</value></data>
   <data name="Settings_Data.Text" xml:space="preserve"><value>Data</value></data>
-  <data name="Settings_DataLocation.Header" xml:space="preserve"><value>Data location</value></data>
+  <data name="Settings_MeetingsLocation.Header" xml:space="preserve"><value>Meetings</value></data>
+  <data name="Settings_AppDataLocation.Header" xml:space="preserve"><value>App data</value></data>
   <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Open folder</value></data>
   <data name="Settings_About.Header" xml:space="preserve"><value>MeetingLive</value></data>
   <data name="Setup_Title.Title" xml:space="preserve"><value>Set up summary generation</value></data>

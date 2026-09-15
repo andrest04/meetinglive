@@ -1,8 +1,8 @@
 namespace MeetingLive.Core.Models;
 
 /// <summary>
-/// Nested Library container. Meetings are filed by <see cref="MeetingRecord.FolderId"/>;
-/// folders themselves live in <c>folders.json</c>, not as directories on disk.
+/// Nested Library container. Meetings are filed by <see cref="MeetingRecord.FolderId"/>.
+/// Metadata lives in <c>folders.json</c>; the same tree is mirrored as directories on disk.
 /// </summary>
 public sealed class FolderRecord
 {

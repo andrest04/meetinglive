@@ -5,35 +5,46 @@ using MeetingLive.Core.Models;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Persists each <see cref="MeetingRecord"/> as its own human-readable Markdown
-/// file under <see cref="AppPaths.MeetingsDirectory"/> (<c>{id}.md</c>) instead of
-/// one shared JSON blob. One file per meeting means saves never rewrite the whole
-/// history and lookups by id are direct file reads instead of an O(n) scan.
-/// The optional constructor argument overrides the meetings directory so tests
-/// never write into the user's real %LOCALAPPDATA%\MeetingLive data.
+/// Persists each <see cref="MeetingRecord"/> as Markdown + sibling WAV under
+/// <see cref="AppPaths.UserDataDirectory"/>, mirroring Library folders on disk.
+/// Lookups walk the tree by the <c>id</c> frontmatter field. The optional
+/// constructor argument overrides the library root so tests never write into
+/// the user's real Documents folder.
 /// </summary>
-public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) : IMeetingRepository
+public sealed class MarkdownMeetingRepository : IMeetingRepository
 {
     private const string TranscriptHeader = "## Transcript";
     private const string SummaryHeader = "## Summary";
     private const string ActionItemsHeader = "## Action Items";
     private const string PersonalNotesHeader = "## Personal Notes";
 
-    private readonly string _meetingsDirectory = meetingsDirectory ?? AppPaths.MeetingsDirectory;
+    private readonly string _rootDirectory;
+    private readonly IFolderRepository _folders;
+
+    public MarkdownMeetingRepository(string? rootDirectory = null, IFolderRepository? folders = null)
+    {
+        _rootDirectory = rootDirectory ?? AppPaths.UserDataDirectory;
+        _folders = folders ?? new JsonFolderRepository(Path.Combine(_rootDirectory, "folders.json"));
+    }
 
     public async Task<IReadOnlyList<MeetingRecord>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        if (!Directory.Exists(_meetingsDirectory))
+        if (!Directory.Exists(_rootDirectory))
             return [];
 
-        var records = new List<MeetingRecord>();
-        foreach (var path in Directory.EnumerateFiles(_meetingsDirectory, "*.md"))
+        var byId = new Dictionary<Guid, MeetingRecord>();
+        foreach (var path in Directory.EnumerateFiles(_rootDirectory, "*.md", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var markdown = await File.ReadAllTextAsync(path, cancellationToken);
-                records.Add(Parse(path, markdown));
+                var record = Parse(path, markdown);
+                if (!byId.TryGetValue(record.Id, out var existing) ||
+                    (IsLegacyFlatDump(existing.SourcePath) && !IsLegacyFlatDump(path)))
+                {
+                    byId[record.Id] = record;
+                }
             }
             catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
             {
@@ -41,13 +52,13 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
             }
         }
 
-        return records;
+        return [.. byId.Values];
     }
 
     public async Task<MeetingRecord?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var path = PathFor(id);
-        if (!File.Exists(path))
+        var path = FindMarkdownPath(id);
+        if (path is null)
             return null;
 
         var markdown = await File.ReadAllTextAsync(path, cancellationToken);
@@ -56,27 +67,96 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
 
     public async Task SaveAsync(MeetingRecord record, CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(_meetingsDirectory);
-        var markdown = Render(record);
-        await File.WriteAllTextAsync(PathFor(record.Id), markdown, cancellationToken);
+        ArgumentNullException.ThrowIfNull(record);
+
+        var folders = await _folders.GetAllAsync(cancellationToken);
+        var directory = MeetingLibraryLayout.DirectoryFor(_rootDirectory, folders, record.FolderId);
+        var desiredStem = MeetingLibraryLayout.FileStem(record.RecordedAt, record.Title);
+        var stem = MeetingLibraryLayout.AllocateFileStem(directory, desiredStem, record.Id, TryReadId);
+        var markdownPath = MeetingLibraryLayout.MarkdownPath(directory, stem);
+        var audioPath = MeetingLibraryLayout.AudioPath(directory, stem);
+
+        var existingMarkdown = FindMarkdownPath(record.Id);
+        var existingAudio = record.AudioFilePath;
+        if (string.IsNullOrWhiteSpace(existingAudio) && existingMarkdown is not null)
+            existingAudio = Path.ChangeExtension(existingMarkdown, ".wav");
+
+        MeetingLibraryLayout.MoveFileIfNeeded(existingAudio, audioPath);
+        if (File.Exists(audioPath))
+            record.AudioFilePath = audioPath;
+
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(markdownPath, Render(record), cancellationToken);
+
+        if (existingMarkdown is not null &&
+            !MeetingLibraryLayout.PathsEqual(existingMarkdown, markdownPath) &&
+            File.Exists(existingMarkdown))
+        {
+            File.Delete(existingMarkdown);
+        }
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var path = PathFor(id);
+        var path = FindMarkdownPath(id);
         string? audioFilePath = null;
-        if (File.Exists(path))
+        if (path is not null && File.Exists(path))
         {
             var markdown = await File.ReadAllTextAsync(path, cancellationToken);
             audioFilePath = Parse(path, markdown).AudioFilePath;
             File.Delete(path);
+            var sibling = Path.ChangeExtension(path, ".wav");
+            if (File.Exists(sibling))
+                File.Delete(sibling);
         }
 
         if (!string.IsNullOrWhiteSpace(audioFilePath) && File.Exists(audioFilePath))
             File.Delete(audioFilePath);
     }
 
-    private string PathFor(Guid id) => Path.Combine(_meetingsDirectory, $"{id}.md");
+    private string? FindMarkdownPath(Guid id)
+    {
+        if (!Directory.Exists(_rootDirectory))
+            return null;
+
+        string? fallback = null;
+        foreach (var path in Directory.EnumerateFiles(_rootDirectory, "*.md", SearchOption.AllDirectories))
+        {
+            if (TryReadId(path) != id)
+                continue;
+
+            if (!IsLegacyFlatDump(path))
+                return path;
+
+            fallback = path;
+        }
+
+        return fallback;
+    }
+
+    private Guid? TryReadId(string markdownPath)
+    {
+        try
+        {
+            return Parse(markdownPath, File.ReadAllText(markdownPath)).Id;
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private bool IsLegacyFlatDump(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var relative = Path.GetRelativePath(_rootDirectory, path);
+        var slash = relative.IndexOfAny(['\\', '/']);
+        var first = slash < 0 ? relative : relative[..slash];
+        return first.Equals("Meetings", StringComparison.OrdinalIgnoreCase)
+            || first.Equals("Recordings", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Renders a <see cref="MeetingRecord"/> as the frontmatter + sections
     /// Markdown format described in the plan. A section is omitted entirely when its
@@ -160,6 +240,9 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
 
         var title = frontmatter.GetValueOrDefault("title", string.Empty);
         var audioFilePath = frontmatter.GetValueOrDefault("audioFilePath", string.Empty);
+        var siblingWav = Path.ChangeExtension(path, ".wav");
+        if ((string.IsNullOrWhiteSpace(audioFilePath) || !File.Exists(audioFilePath)) && File.Exists(siblingWav))
+            audioFilePath = siblingWav;
         var summaryProvider = frontmatter.GetValueOrDefault("summaryProvider");
         Guid? folderId = null;
         if (frontmatter.TryGetValue("folderId", out var folderIdText) &&
@@ -187,6 +270,7 @@ public sealed class MarkdownMeetingRepository(string? meetingsDirectory = null) 
             FolderId = folderId,
             Notes = notes,
             ActionItems = actionItems,
+            SourcePath = path,
         };
     }
 

@@ -86,6 +86,8 @@ public partial class App : Application
         Exception? migrationError = null;
         try
         {
+            new UserDataLocationMigrationService().MigrateIfNeeded();
+            await new MeetingLibraryLayoutMigrationService().MigrateIfNeededAsync();
             await new MeetingsMigrationService(AppServices.Meetings).MigrateIfNeededAsync();
         }
         catch (Exception ex)

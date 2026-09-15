@@ -145,7 +145,9 @@ public partial class SettingsPageViewModel : ObservableObject
 
     public ObservableCollection<MicrophoneDeviceOption> Microphones { get; } = [];
 
-    public string DataDirectoryPath { get; } = AppPaths.RootDirectory;
+    public string MeetingsFolderPath { get; } = AppPaths.UserDataDirectory;
+
+    public string AppDataDirectoryPath { get; } = AppPaths.RootDirectory;
 
     public string AppVersion { get; } = ResolveAppVersion();
 
@@ -642,7 +644,12 @@ public partial class SettingsPageViewModel : ObservableObject
     private void OpenDataFolder()
     {
         AppPaths.EnsureDirectoriesExist();
-        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{DataDirectoryPath}\"") { UseShellExecute = true });
+        // explorer.exe "C:\path" is ignored and opens Documents. Open the directory itself.
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = MeetingsFolderPath,
+            UseShellExecute = true,
+        });
     }
 
     /// <summary>Loads the current settings, applies <paramref name="mutate"/>, and saves the whole

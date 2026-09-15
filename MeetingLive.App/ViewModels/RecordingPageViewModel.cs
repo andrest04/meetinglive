@@ -263,7 +263,7 @@ public partial class RecordingPageViewModel : ObservableObject
         _currentMeetingId = Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;
         AppPaths.EnsureDirectoriesExist();
-        _currentAudioPath = Path.Combine(AppPaths.RecordingsDirectory, $"{_currentMeetingId}.wav");
+        _currentAudioPath = await CreateLibraryAudioPathAsync(_currentMeetingId, _recordedAt, MeetingTitle);
 
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
@@ -359,9 +359,10 @@ public partial class RecordingPageViewModel : ObservableObject
             return;
 
         var meetingId = Guid.NewGuid();
-        AppPaths.EnsureDirectoriesExist();
-        var destinationPath = Path.Combine(AppPaths.RecordingsDirectory, $"{meetingId}.wav");
         var sourcePath = picked.Path;
+        var recordedAt = ReadSourceTimestamp(sourcePath);
+        AppPaths.EnsureDirectoriesExist();
+        var destinationPath = await CreateLibraryAudioPathAsync(meetingId, recordedAt, MeetingTitle);
 
         StatusText = AppStrings.Get("Status_Importing");
         StopMicPreview();
@@ -380,7 +381,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
         _currentMeetingId = meetingId;
         _currentAudioPath = destinationPath;
-        _recordedAt = ReadSourceTimestamp(sourcePath);
+        _recordedAt = recordedAt;
         _liveDraft = null;
         _pausedDuration = TimeSpan.Zero;
         LiveTranscriptText = string.Empty;
@@ -906,6 +907,19 @@ public partial class RecordingPageViewModel : ObservableObject
 
         SelectedDestination = Destinations.FirstOrDefault(item => item.FolderId == previousId)
             ?? Destinations[0];
+    }
+
+    private async Task<string> CreateLibraryAudioPathAsync(Guid meetingId, DateTimeOffset recordedAt, string title)
+    {
+        var folders = await _folders.GetAllAsync();
+        var folderId = await ResolveSelectedFolderIdAsync();
+        var directory = MeetingLibraryLayout.DirectoryFor(AppPaths.UserDataDirectory, folders, folderId);
+        var stem = MeetingLibraryLayout.AllocateFileStem(
+            directory,
+            MeetingLibraryLayout.FileStem(recordedAt, title),
+            meetingId,
+            _ => null);
+        return MeetingLibraryLayout.AudioPath(directory, stem);
     }
 
     private async Task<Guid?> ResolveSelectedFolderIdAsync()

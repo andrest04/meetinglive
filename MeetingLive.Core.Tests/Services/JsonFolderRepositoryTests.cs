@@ -25,6 +25,30 @@ public class JsonFolderRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAsync_CreatesFolderDirectoryOnDisk()
+    {
+        var id = Guid.NewGuid();
+        var repo = new JsonFolderRepository(TempFilePath);
+
+        await repo.SaveAsync(CreateFolder(id, "Universidad"));
+
+        Assert.True(Directory.Exists(Path.Combine(_tempDirectory, "Universidad")));
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenRenamed_MovesDirectory()
+    {
+        var id = Guid.NewGuid();
+        var repo = new JsonFolderRepository(TempFilePath);
+        await repo.SaveAsync(CreateFolder(id, "Universidad"));
+
+        await repo.SaveAsync(CreateFolder(id, "Uni"));
+
+        Assert.False(Directory.Exists(Path.Combine(_tempDirectory, "Universidad")));
+        Assert.True(Directory.Exists(Path.Combine(_tempDirectory, "Uni")));
+    }
+
+    [Fact]
     public async Task SaveAsync_ThenGetByIdAsync_RoundtripsFolder()
     {
         var id = Guid.NewGuid();

@@ -13,10 +13,12 @@ public sealed class JsonFolderRepository : IFolderRepository
 
     private readonly SemaphoreSlim _fileLock = new(1, 1);
     private readonly string _foldersFilePath;
+    private readonly string _libraryRoot;
 
     public JsonFolderRepository(string? foldersFilePath = null)
     {
         _foldersFilePath = foldersFilePath ?? AppPaths.FoldersFilePath;
+        _libraryRoot = Path.GetDirectoryName(_foldersFilePath) ?? AppPaths.UserDataDirectory;
     }
 
     public async Task<IReadOnlyList<FolderRecord>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -46,11 +48,19 @@ public sealed class JsonFolderRepository : IFolderRepository
         try
         {
             var folders = await ReadAllUnlockedAsync(cancellationToken);
+            var previous = folders.FirstOrDefault(existing => existing.Id == folder.Id);
+            var previousDir = previous is null
+                ? null
+                : MeetingLibraryLayout.DirectoryFor(_libraryRoot, folders, previous.Id);
+
             var index = folders.FindIndex(existing => existing.Id == folder.Id);
             if (index >= 0)
                 folders[index] = folder;
             else
                 folders.Add(folder);
+
+            var nextDir = MeetingLibraryLayout.DirectoryFor(_libraryRoot, folders, folder.Id);
+            SyncFolderDirectory(previousDir, nextDir);
 
             await WriteAllUnlockedAsync(folders, cancellationToken);
         }
@@ -66,10 +76,12 @@ public sealed class JsonFolderRepository : IFolderRepository
         try
         {
             var folders = await ReadAllUnlockedAsync(cancellationToken);
+            var directory = MeetingLibraryLayout.DirectoryFor(_libraryRoot, folders, id);
             if (folders.RemoveAll(folder => folder.Id == id) == 0)
                 return;
 
             await WriteAllUnlockedAsync(folders, cancellationToken);
+            TryDeleteEmptyDirectory(directory);
         }
         finally
         {
@@ -95,5 +107,41 @@ public sealed class JsonFolderRepository : IFolderRepository
 
         await using var stream = File.Create(_foldersFilePath);
         await JsonSerializer.SerializeAsync(stream, folders, JsonOptions, cancellationToken);
+    }
+
+    private static void SyncFolderDirectory(string? previousDir, string nextDir)
+    {
+        var moved = false;
+        if (previousDir is not null &&
+            !MeetingLibraryLayout.PathsEqual(previousDir, nextDir) &&
+            Directory.Exists(previousDir) &&
+            !Directory.Exists(nextDir))
+        {
+            var parent = Path.GetDirectoryName(nextDir);
+            if (!string.IsNullOrEmpty(parent))
+                Directory.CreateDirectory(parent);
+
+            Directory.Move(previousDir, nextDir);
+            moved = true;
+        }
+        else
+        {
+            Directory.CreateDirectory(nextDir);
+        }
+
+        if (moved)
+            MeetingLibraryLayout.RewriteSiblingAudioPaths(nextDir);
+    }
+
+    private static void TryDeleteEmptyDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+                Directory.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 }
