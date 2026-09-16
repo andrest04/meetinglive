@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:MeetingLive_App.Dialogs"
     mc:Ignorable="d"
     x:Uid="XaiAuth"
     DefaultButton="Close">
@@ -17,12 +18,15 @@
                 <TextBlock x:Uid="XaiAuth_SuperGrokHeader" Style="{StaticResource BodyStrongTextBlockStyle}" />
                 <TextBlock x:Uid="XaiAuth_SuperGrokHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                 <Button x:Name="SuperGrokButton" x:Uid="XaiAuth_SuperGrok"
-                        Click="SuperGrok_Click"
+                        Command="{x:Bind ViewModel.SignInWithSuperGrokCommand}"
+                        IsEnabled="{x:Bind local:XaiAuthDialog.Negate(ViewModel.IsBusy), Mode=OneWay}"
                         Style="{StaticResource AccentButtonStyle}"
                         AutomationProperties.AutomationId="BtnXaiSuperGrok" />
-                <StackPanel x:Name="DeviceCodePanel" Spacing="8" Visibility="Collapsed">
+                <StackPanel x:Name="DeviceCodePanel" Spacing="8"
+                            Visibility="{x:Bind local:XaiAuthDialog.BoolToVisibility(ViewModel.IsDeviceCodePanelVisible), Mode=OneWay}">
                     <TextBlock x:Uid="XaiAuth_UserCodeLabel" Style="{StaticResource CaptionTextBlockStyle}" />
                     <TextBlock x:Name="UserCodeText"
+                               Text="{x:Bind ViewModel.UserCode, Mode=OneWay}"
                                Style="{StaticResource TitleTextBlockStyle}"
                                IsTextSelectionEnabled="True"
                                AutomationProperties.AutomationId="TxtXaiUserCode" />
@@ -39,14 +43,20 @@
                 <TextBlock x:Uid="XaiAuth_ApiKeyHint" Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.7" TextWrapping="Wrap" />
                 <PasswordBox x:Name="ApiKeyBox"
                              x:Uid="XaiAuth_ApiKey"
+                             PasswordChanged="ApiKeyBox_PasswordChanged"
+                             IsEnabled="{x:Bind local:XaiAuthDialog.Negate(ViewModel.IsBusy), Mode=OneWay}"
                              PasswordRevealMode="Peek"
                              AutomationProperties.AutomationId="BoxXaiApiKey" />
                 <Button x:Name="SaveApiKeyButton" x:Uid="XaiAuth_SaveApiKey"
-                        Click="SaveApiKey_Click"
+                        Command="{x:Bind ViewModel.SaveApiKeyCommand}"
+                        IsEnabled="{x:Bind local:XaiAuthDialog.Negate(ViewModel.IsBusy), Mode=OneWay}"
                         AutomationProperties.AutomationId="BtnXaiSaveApiKey" />
             </StackPanel>
 
-            <InfoBar x:Name="ErrorInfoBar" IsOpen="False" Severity="Error" />
+            <InfoBar x:Name="ErrorInfoBar"
+                     IsOpen="{x:Bind ViewModel.IsErrorVisible, Mode=OneWay}"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                     Severity="Error" />
         </StackPanel>
     </ScrollViewer>
 </ContentDialog>

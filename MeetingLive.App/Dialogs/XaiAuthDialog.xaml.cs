@@ -1,22 +1,21 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using MeetingLive.Core.Services;
-using MeetingLive_App.Services;
+using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App.Dialogs;
 
 /// <summary>
 /// Blocking SuperGrok device-code login or pasted API key. Used from Settings,
-/// <see cref="XaiProviderResolver"/>, and the first-run summary wizard.
+/// <see cref="Services.XaiProviderResolver"/>, and the first-run summary wizard.
 /// </summary>
 public sealed partial class XaiAuthDialog : ContentDialog
 {
-    private CancellationTokenSource? _pollCts;
-    private bool _succeeded;
+    public XaiAuthDialogViewModel ViewModel { get; } = new();
 
     public XaiAuthDialog()
     {
         InitializeComponent();
+        ViewModel.Completed += (_, _) => Hide();
         Closed += OnClosed;
     }
 
@@ -25,83 +24,21 @@ public sealed partial class XaiAuthDialog : ContentDialog
     {
         var dialog = new XaiAuthDialog { XamlRoot = xamlRoot };
         await dialog.ShowAsync();
-        return dialog._succeeded;
+        return dialog.ViewModel.Succeeded;
     }
 
-    private async void SuperGrok_Click(object sender, RoutedEventArgs e)
+    private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
-        _pollCts?.Cancel();
-        _pollCts = new CancellationTokenSource();
-        var cancellationToken = _pollCts.Token;
-        ErrorInfoBar.IsOpen = false;
-        SetBusy(true);
-
-        try
-        {
-            var device = await AppServices.XaiOAuth.RequestDeviceCodeAsync(cancellationToken);
-            UserCodeText.Text = device.UserCode;
-            DeviceCodePanel.Visibility = Visibility.Visible;
-            await Windows.System.Launcher.LaunchUriAsync(device.VerificationUri);
-
-            var credentials = await AppServices.XaiOAuth.PollDeviceCodeTokenAsync(device, cancellationToken);
-            AppServices.XaiAuth.SaveOAuth(credentials);
-            _succeeded = true;
-            Hide();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-        finally
-        {
-            SetBusy(false);
-        }
-    }
-
-    private void SaveApiKey_Click(object sender, RoutedEventArgs e)
-    {
-        var apiKey = ApiKeyBox.Password?.Trim();
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            ShowError(AppStrings.Get("XaiAuth_ApiKeyRequired"));
-            return;
-        }
-
-        try
-        {
-            AppServices.XaiAuth.SaveApiKey(apiKey);
-            ApiKeyBox.Password = string.Empty;
-            _succeeded = true;
-            Hide();
-        }
-        catch (Exception ex)
-        {
-            ShowError(ex.Message);
-        }
-    }
-
-    private void SetBusy(bool busy)
-    {
-        SuperGrokButton.IsEnabled = !busy;
-        SaveApiKeyButton.IsEnabled = !busy;
-        ApiKeyBox.IsEnabled = !busy;
-        if (!busy)
-            DeviceCodePanel.Visibility = Visibility.Collapsed;
-    }
-
-    private void ShowError(string message)
-    {
-        ErrorInfoBar.Message = message;
-        ErrorInfoBar.IsOpen = true;
+        if (sender is PasswordBox box)
+            ViewModel.ApiKeyDraft = box.Password ?? string.Empty;
     }
 
     private void OnClosed(ContentDialog sender, ContentDialogClosedEventArgs args)
     {
-        _pollCts?.Cancel();
-        _pollCts?.Dispose();
-        _pollCts = null;
+        ViewModel.CancelPolling();
     }
+
+    public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+
+    public static bool Negate(bool value) => !value;
 }
