@@ -19,44 +19,11 @@ public sealed class LocalLlmModelManager(HttpClient httpClient, string? modelsDi
     public bool IsModelDownloaded(SummaryModelInfo model) =>
         File.Exists(GetModelPath(model));
 
-    public async Task DownloadModelAsync(SummaryModelInfo model, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public Task DownloadModelAsync(SummaryModelInfo model, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(_modelsDirectory);
 
-        var finalPath = GetModelPath(model);
-        var partPath = finalPath + ".part";
-
-        try
-        {
-            using (var response = await httpClient.GetAsync(model.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
-            {
-                response.EnsureSuccessStatusCode();
-
-                var totalBytes = response.Content.Headers.ContentLength;
-                await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var fileStream = File.Create(partPath);
-
-                var buffer = new byte[81920];
-                long totalRead = 0;
-                int bytesRead;
-                while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
-                {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                    totalRead += bytesRead;
-
-                    if (totalBytes is > 0)
-                        progress?.Report(totalRead * 100.0 / totalBytes.Value);
-                }
-            }
-
-            File.Move(partPath, finalPath, overwrite: true);
-        }
-        catch
-        {
-            if (File.Exists(partPath))
-                File.Delete(partPath);
-            throw;
-        }
+        return ResumableFileDownloader.DownloadAsync(httpClient, model.DownloadUrl, GetModelPath(model), progress, cancellationToken);
     }
 
     public void DeleteModel(SummaryModelInfo model)

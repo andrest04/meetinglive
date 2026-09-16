@@ -36,7 +36,7 @@ public sealed class NemotronModelManager(HttpClient httpClient, string? modelsDi
 
     public void DeleteDiarizationModel() => DeleteIfExists(GetDiarizationModelPath());
 
-    private async Task DownloadFileAsync(
+    private Task DownloadFileAsync(
         string url,
         string finalPath,
         IProgress<double>? progress,
@@ -44,39 +44,7 @@ public sealed class NemotronModelManager(HttpClient httpClient, string? modelsDi
     {
         Directory.CreateDirectory(_modelsDirectory);
 
-        var partPath = finalPath + ".part";
-
-        try
-        {
-            using (var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
-            {
-                response.EnsureSuccessStatusCode();
-
-                var totalBytes = response.Content.Headers.ContentLength;
-                await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var fileStream = File.Create(partPath);
-
-                var buffer = new byte[81920];
-                long totalRead = 0;
-                int bytesRead;
-                while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
-                {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                    totalRead += bytesRead;
-
-                    if (totalBytes is > 0)
-                        progress?.Report(totalRead * 100.0 / totalBytes.Value);
-                }
-            }
-
-            File.Move(partPath, finalPath, overwrite: true);
-        }
-        catch
-        {
-            if (File.Exists(partPath))
-                File.Delete(partPath);
-            throw;
-        }
+        return ResumableFileDownloader.DownloadAsync(httpClient, url, finalPath, progress, cancellationToken);
     }
 
     private static void DeleteIfExists(string path)

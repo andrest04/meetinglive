@@ -29,32 +29,13 @@ public sealed class NemoSpeechRuntimeManager(HttpClient httpClient, string? runt
 
         var zipUrl = NemotronAsrCatalog.ZipUrl(backend);
         var expectedSha = NemotronAsrCatalog.ZipSha256(backend);
-        var zipPath = Path.Combine(_runtimeDirectory, $"{NemotronAsrCatalog.BackendFolderName(backend)}.zip.part");
+        var zipPath = Path.Combine(_runtimeDirectory, $"{NemotronAsrCatalog.BackendFolderName(backend)}.zip");
         var extractRoot = Path.Combine(_runtimeDirectory, NemotronAsrCatalog.BackendFolderName(backend));
         var extractTemp = extractRoot + ".extracting";
 
         try
         {
-            using (var response = await httpClient.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
-            {
-                response.EnsureSuccessStatusCode();
-
-                var totalBytes = response.Content.Headers.ContentLength;
-                await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var fileStream = File.Create(zipPath);
-
-                var buffer = new byte[81920];
-                long totalRead = 0;
-                int bytesRead;
-                while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
-                {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                    totalRead += bytesRead;
-
-                    if (totalBytes is > 0)
-                        progress?.Report(totalRead * 100.0 / totalBytes.Value);
-                }
-            }
+            await ResumableFileDownloader.DownloadAsync(httpClient, zipUrl, zipPath, progress, cancellationToken);
 
             var actualSha = await HashFileSha256Async(zipPath, cancellationToken);
             if (!actualSha.Equals(expectedSha, StringComparison.OrdinalIgnoreCase))
