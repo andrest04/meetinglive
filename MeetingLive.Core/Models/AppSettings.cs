@@ -75,6 +75,11 @@ public sealed class AppSettings
     /// then re-reads the WAV and replaces that transcript when it produces text.</summary>
     public bool LiveTranscriptionEnabled { get; set; } = true;
 
+    /// <summary>Whether Sortformer speaker labels (Speaker 1–4) run during live and WAV
+    /// transcription. Defaults to <see langword="false"/> (opt-in). A missing JSON field
+    /// deserializes as false. The GGUF is downloaded separately and is not required for Record.</summary>
+    public bool SpeakerDiarizationEnabled { get; set; }
+
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
     public double? NavigationPaneLength { get; set; }
 

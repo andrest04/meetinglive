@@ -84,6 +84,30 @@ public partial class SettingsPageViewModel : ObservableObject
     private bool _isLiveTranscriptionEnabled = true;
 
     [ObservableProperty]
+    private bool _isSpeakerDiarizationEnabled;
+
+    [ObservableProperty]
+    private bool _isSpeakerDiarizationModelInstalled;
+
+    [ObservableProperty]
+    private bool _isSpeakerDiarizationDownloading;
+
+    [ObservableProperty]
+    private double _speakerDiarizationDownloadProgressPercent;
+
+    [ObservableProperty]
+    private string _speakerDiarizationDownloadStatusText = string.Empty;
+
+    public bool ShowSpeakerDiarizationProgress =>
+        IsSpeakerDiarizationDownloading || !string.IsNullOrEmpty(SpeakerDiarizationDownloadStatusText);
+
+    partial void OnIsSpeakerDiarizationDownloadingChanged(bool value) =>
+        OnPropertyChanged(nameof(ShowSpeakerDiarizationProgress));
+
+    partial void OnSpeakerDiarizationDownloadStatusTextChanged(string value) =>
+        OnPropertyChanged(nameof(ShowSpeakerDiarizationProgress));
+
+    [ObservableProperty]
     private bool _isTranscriptionEngineInstalled;
 
     [ObservableProperty]
@@ -214,6 +238,8 @@ public partial class SettingsPageViewModel : ObservableObject
             SelectedSummaryLanguage = SummaryLanguageCatalog.Languages.FirstOrDefault(l => l.Code == summaryLanguageCode)
                 ?? SummaryLanguageCatalog.Languages[0];
             IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
+            IsSpeakerDiarizationEnabled = settings.SpeakerDiarizationEnabled;
+            IsSpeakerDiarizationModelInstalled = snapshot.SpeakerDiarizationInstalled;
             IsTranscriptionEngineInstalled = snapshot.TranscriptionInstalled;
             TranscriptionAccelerationCaption = snapshot.TranscriptionCaption;
 
@@ -261,6 +287,7 @@ public partial class SettingsPageViewModel : ObservableObject
         return new SettingsLoadSnapshot(
             models,
             TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime),
+            AppServices.NemotronModels.IsDiarizationModelDownloaded(),
             TranscriptionEngineInstaller.AccelerationCaption(hardware, AppServices.NemoSpeechRuntime),
             AppServices.Microphones.GetAvailableMicrophones());
     }
@@ -289,6 +316,7 @@ public partial class SettingsPageViewModel : ObservableObject
     private sealed record SettingsLoadSnapshot(
         IReadOnlyList<(SummaryModelInfo Info, FitRating Rating, bool Downloaded)> Models,
         bool TranscriptionInstalled,
+        bool SpeakerDiarizationInstalled,
         string TranscriptionCaption,
         IReadOnlyList<MicrophoneDeviceOption> Microphones);
 
@@ -638,6 +666,60 @@ public partial class SettingsPageViewModel : ObservableObject
 
         IsLiveTranscriptionEnabled = isEnabled;
         await SaveSettingsAsync(settings => settings.LiveTranscriptionEnabled = isEnabled);
+    }
+
+    [RelayCommand]
+    private async Task ToggleSpeakerDiarizationAsync(bool isEnabled)
+    {
+        if (isEnabled == IsSpeakerDiarizationEnabled)
+            return;
+
+        IsSpeakerDiarizationEnabled = isEnabled;
+        await SaveSettingsAsync(settings => settings.SpeakerDiarizationEnabled = isEnabled);
+        if (isEnabled && !AppServices.NemotronModels.IsDiarizationModelDownloaded())
+            await DownloadSpeakerDiarizationModelAsync();
+    }
+
+    [RelayCommand]
+    private async Task DownloadSpeakerDiarizationModelAsync()
+    {
+        if (IsSpeakerDiarizationDownloading)
+            return;
+
+        IsSpeakerDiarizationDownloading = true;
+        SpeakerDiarizationDownloadProgressPercent = 0;
+        SpeakerDiarizationDownloadStatusText = AppStrings.Get("Status_DownloadingSpeakerModel");
+        try
+        {
+            var progress = new Progress<double>(percent =>
+            {
+                App.DispatcherQueue.TryEnqueue(() =>
+                {
+                    SpeakerDiarizationDownloadProgressPercent = percent;
+                    SpeakerDiarizationDownloadStatusText =
+                        $"{AppStrings.Get("Status_DownloadingSpeakerModel")}  {percent:0}%";
+                });
+            });
+            await AppServices.NemotronModels.DownloadDiarizationModelAsync(progress);
+            IsSpeakerDiarizationModelInstalled = AppServices.NemotronModels.IsDiarizationModelDownloaded();
+            SpeakerDiarizationDownloadStatusText = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            SpeakerDiarizationDownloadStatusText = AppStrings.Format("Error_DownloadFailedCaption", ex.Message);
+        }
+        finally
+        {
+            IsSpeakerDiarizationDownloading = false;
+            SpeakerDiarizationDownloadProgressPercent = 0;
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteSpeakerDiarizationModel()
+    {
+        AppServices.NemotronModels.DeleteDiarizationModel();
+        IsSpeakerDiarizationModelInstalled = false;
     }
 
     [RelayCommand]

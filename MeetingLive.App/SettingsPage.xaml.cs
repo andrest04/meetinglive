@@ -155,6 +155,12 @@ public sealed partial class SettingsPage : Page
             ViewModel.ToggleLiveTranscriptionCommand.Execute(toggleSwitch.IsOn);
     }
 
+    private void SpeakerDiarizationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggleSwitch)
+            ViewModel.ToggleSpeakerDiarizationCommand.Execute(toggleSwitch.IsOn);
+    }
+
     public static bool Not(bool value) => !value;
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;

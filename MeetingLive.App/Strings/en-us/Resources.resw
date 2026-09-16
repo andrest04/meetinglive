@@ -125,6 +125,11 @@
   <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install.</value></data>
   <data name="Settings_DownloadEngine.Content" xml:space="preserve"><value>Download</value></data>
   <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Speaker labels</value></data>
+  <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Optional Sortformer model (~0.14 GB). Uses extra GPU/CPU while transcribing and labels up to four voices as Speaker 1–4. Turn off to transcribe without who-spoke tags.</value></data>
+  <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Download</value></data>
+  <data name="Settings_DeleteSpeakers.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Status_DownloadingSpeakerModel" xml:space="preserve"><value>Downloading Sortformer speaker model...</value></data>
   <data name="Settings_Recording.Text" xml:space="preserve"><value>Recording</value></data>
   <data name="Settings_LiveTranscription.Header" xml:space="preserve"><value>Live transcription during recording</value></data>
 

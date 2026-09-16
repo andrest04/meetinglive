@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Tests.Models;
@@ -57,5 +58,21 @@ public class AppSettingsTests
         var settings = new AppSettings { SummaryLanguage = "en" };
 
         Assert.Equal("en", settings.ResolveSummaryLanguage());
+    }
+
+    [Fact]
+    public void SpeakerDiarizationEnabled_WhenUnset_DefaultsFalse()
+    {
+        Assert.False(new AppSettings().SpeakerDiarizationEnabled);
+    }
+
+    [Fact]
+    public void SpeakerDiarizationEnabled_WhenJsonOmitsField_DefaultsFalse()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.False(settings!.SpeakerDiarizationEnabled);
     }
 }

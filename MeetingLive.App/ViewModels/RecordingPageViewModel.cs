@@ -279,7 +279,8 @@ public partial class RecordingPageViewModel : ObservableObject
             if (settings.LiveTranscriptionEnabled)
             {
                 StatusText = AppStrings.Get("Status_LoadingModel");
-                await Task.Run(() => _liveTranscription.Start(language, _recordedAt));
+                await Task.Run(() => _liveTranscription.Start(
+                    language, _recordedAt, settings.SpeakerDiarizationEnabled));
                 _liveSessionActive = true;
             }
 
@@ -560,7 +561,13 @@ public partial class RecordingPageViewModel : ObservableObject
                 try
                 {
                     wavTranscript = await _transcription.TranscribeAsync(
-                        audioPath, language, progress, cancellationToken, recordedAt, pausedDuration);
+                        audioPath,
+                        language,
+                        progress,
+                        cancellationToken,
+                        recordedAt,
+                        pausedDuration,
+                        transcriptionSettings.SpeakerDiarizationEnabled);
                 }
                 catch (OperationCanceledException)
                 {
