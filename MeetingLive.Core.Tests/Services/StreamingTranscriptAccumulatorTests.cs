@@ -16,7 +16,7 @@ public class StreamingTranscriptAccumulatorTests
         accumulator.Apply(Interim("hel"));
         accumulator.Apply(Interim("hello"));
 
-        Assert.Equal("hello", accumulator.DisplayText);
+        Assert.Equal(Header() + Environment.NewLine + "hello", accumulator.DisplayText);
         Assert.Equal(string.Empty, accumulator.CommittedText);
     }
 
@@ -178,6 +178,43 @@ public class StreamingTranscriptAccumulatorTests
     }
 
     [Fact]
+    public void Apply_SameSpeakerWithPause_SplitsIntoIdeaLines()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(1), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1.2), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(3.5), 1),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "hello there later", 3.5f, words));
+
+        var expected =
+            Header() + Environment.NewLine +
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(1.2), "hello there", 1) + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(3.5), "later", 1);
+        Assert.Equal(expected, accumulator.CommittedText);
+    }
+
+    [Fact]
+    public void Apply_SameSpeakerWithShortGap_StaysOneLine()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(0.4), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(0.9), 1),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "hello there", 0.9f, words));
+
+        var expected = Header() + Environment.NewLine +
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(0.9), "hello there", 1);
+        Assert.Equal(expected, accumulator.CommittedText);
+    }
+
+    [Fact]
     public void Apply_SpeakerChange_SplitsLinesAndPreservesStamps()
     {
         var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
@@ -197,6 +234,59 @@ public class StreamingTranscriptAccumulatorTests
             Line(TimeSpan.Zero, TimeSpan.FromSeconds(2), "hello there", 1) + Environment.NewLine +
             Line(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), "how are you", 2);
         Assert.Equal(expected, accumulator.CommittedText);
+    }
+
+    [Fact]
+    public void Apply_InterimWithWords_FormatsTimestampedDisplayWithoutCommitting()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(1), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 2),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(false, "hello there", 2, words));
+
+        var expected =
+            Header() + Environment.NewLine +
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(1), "hello", 1) + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "there", 2);
+        Assert.Equal(expected, accumulator.DisplayText);
+        Assert.Equal(string.Empty, accumulator.CommittedText);
+        Assert.DoesNotContain("->", accumulator.DisplayText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Apply_InterimWithWords_DoesNotAdvanceLastEndForNextFinal()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var interimWords = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(40)),
+        };
+        accumulator.Apply(new NemoSpeechAsrResult(false, "draft window", 40, interimWords));
+        accumulator.Apply(new NemoSpeechAsrResult(true, "Hi", 3.2f, []));
+
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(3.2f), "Hi");
+        Assert.Equal(expected, accumulator.CommittedText);
+    }
+
+    [Fact]
+    public void CommitRemainingInterim_FormatsLeftoverWordsIntoCommittedLines()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0),
+        };
+        accumulator.Apply(new NemoSpeechAsrResult(false, "hello there", 2, words));
+
+        accumulator.CommitRemainingInterim();
+
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(2), "hello there");
+        Assert.Equal(expected, accumulator.CommittedText);
+        Assert.Equal(expected, accumulator.DisplayText);
     }
 
     [Fact]

@@ -68,7 +68,7 @@ public static class TranscriptStampFormatter
         return $"{range} {text}";
     }
 
-    private static string FormatElapsed(TimeSpan time)
+    public static string FormatElapsed(TimeSpan time)
     {
         if (time < TimeSpan.Zero)
             time = TimeSpan.Zero;

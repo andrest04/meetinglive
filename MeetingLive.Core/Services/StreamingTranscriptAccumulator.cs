@@ -6,12 +6,16 @@ namespace MeetingLive.Core.Services;
 /// <summary>
 /// Pure streaming-ASR transcript builder: FINAL results are appended as committed timestamped
 /// lines; INTERIM results replace the current partial suffix instead of being appended.
-/// Long finals are split on word boundaries into ~30-second windows, and also
-/// on speaker-tag changes when Sortformer tags are present.
+/// Live display uses the same NVIDIA line format as committed text when word timings exist.
+/// Long windows are split on word boundaries into ~30-second spans, on
+/// speaker-tag changes when Sortformer tags are present, and on silences of
+/// <see cref="IdeaPause"/> or more so one speaker is not one giant block.
 /// </summary>
 public sealed class StreamingTranscriptAccumulator
 {
     private static readonly TimeSpan WindowLength = TimeSpan.FromSeconds(30);
+    /// <summary>Silence between words that starts a new idea line for the same speaker.</summary>
+    internal static readonly TimeSpan IdeaPause = TimeSpan.FromMilliseconds(500);
     private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled);
 
     private readonly DateTimeOffset _recordedAt;
@@ -36,7 +40,7 @@ public sealed class StreamingTranscriptAccumulator
             if (text.Length > 0)
             {
                 EnsureHeader();
-                foreach (var line in FormatFinalWindows(result, text))
+                foreach (var line in FormatWindows(result, text, commitTiming: true))
                     _committedLines.Add(line);
             }
 
@@ -44,7 +48,9 @@ public sealed class StreamingTranscriptAccumulator
         }
         else
         {
-            _interim = text;
+            _interim = text.Length == 0
+                ? string.Empty
+                : string.Join(Environment.NewLine, FormatWindows(result, text, commitTiming: false));
         }
     }
 
@@ -54,7 +60,14 @@ public sealed class StreamingTranscriptAccumulator
         get
         {
             if (_committedLines.Count == 0)
-                return _interim;
+            {
+                if (string.IsNullOrEmpty(_interim))
+                    return string.Empty;
+
+                return _recordedAt == default
+                    ? _interim
+                    : TranscriptStampFormatter.FormatHeader(_recordedAt) + Environment.NewLine + _interim;
+            }
 
             var committed = string.Join(Environment.NewLine, _committedLines);
             return string.IsNullOrEmpty(_interim)
@@ -66,13 +79,15 @@ public sealed class StreamingTranscriptAccumulator
     /// <summary>Finals only — the authoritative transcript after the stream is finished.</summary>
     public string CommittedText => string.Join(Environment.NewLine, _committedLines);
 
-    /// <summary>If the engine never promoted the last partial to FINAL, keep it as a committed line.</summary>
+    /// <summary>If the engine never promoted the last partial to FINAL, keep it as committed lines.</summary>
     public void CommitRemainingInterim()
     {
         if (string.IsNullOrWhiteSpace(_interim))
             return;
 
-        _committedLines.Add(_interim.Trim());
+        EnsureHeader();
+        foreach (var line in _interim.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+            _committedLines.Add(line);
         _interim = string.Empty;
     }
 
@@ -85,7 +100,7 @@ public sealed class StreamingTranscriptAccumulator
         _wroteHeader = true;
     }
 
-    private IEnumerable<string> FormatFinalWindows(NemoSpeechAsrResult result, string text)
+    private IEnumerable<string> FormatWindows(NemoSpeechAsrResult result, string text, bool commitTiming)
     {
         TimeSpan start;
         TimeSpan end;
@@ -100,9 +115,16 @@ public sealed class StreamingTranscriptAccumulator
             end = TimeSpan.FromSeconds(result.AudioProcessedSeconds);
             if (end < start)
                 end = start;
+
+            if (!commitTiming && end == start)
+            {
+                yield return text;
+                yield break;
+            }
         }
 
-        _lastEnd = end;
+        if (commitTiming)
+            _lastEnd = end;
 
         if (result.Words.Count == 0)
         {
@@ -112,7 +134,7 @@ public sealed class StreamingTranscriptAccumulator
 
         var duration = end - start;
         var uniqueSpeakers = result.Words.Select(word => word.SpeakerTag).Distinct().Count();
-        if (duration <= WindowLength && uniqueSpeakers == 1)
+        if (duration <= WindowLength && uniqueSpeakers == 1 && !HasIdeaPause(result.Words))
         {
             yield return FormatLine(start, end, text, result.Words[0].SpeakerTag);
             yield break;
@@ -137,7 +159,8 @@ public sealed class StreamingTranscriptAccumulator
             var word = result.Words[i];
             var speakerChanged = current.Count > 0 && word.SpeakerTag != windowSpeaker;
             var windowElapsed = current.Count > 0 && word.End - windowStart >= WindowLength;
-            if (speakerChanged || windowElapsed)
+            var ideaPaused = current.Count > 0 && word.Start - previousWordEnd >= IdeaPause;
+            if (speakerChanged || windowElapsed || ideaPaused)
             {
                 windows.Add((windowStart, previousWordEnd, current, windowSpeaker));
                 current = [];
@@ -169,6 +192,17 @@ public sealed class StreamingTranscriptAccumulator
 
             yield return FormatLine(window.Start, window.End, windowText, window.SpeakerTag);
         }
+    }
+
+    private static bool HasIdeaPause(IReadOnlyList<NemoSpeechWordTiming> words)
+    {
+        for (var i = 1; i < words.Count; i++)
+        {
+            if (words[i].Start - words[i - 1].End >= IdeaPause)
+                return true;
+        }
+
+        return false;
     }
 
     private static string[] ResolveTokens(NemoSpeechAsrResult result, string text)
