@@ -59,7 +59,7 @@ public sealed class MeetingLibraryLayoutMigrationService
             MeetingRecord record;
             try
             {
-                record = MarkdownMeetingRepository.Parse(markdownPath, await File.ReadAllTextAsync(markdownPath, cancellationToken));
+                record = MeetingMarkdownFormatter.Parse(markdownPath, await File.ReadAllTextAsync(markdownPath, cancellationToken));
             }
             catch (FormatException)
             {
