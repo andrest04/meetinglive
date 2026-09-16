@@ -25,9 +25,10 @@ public sealed class ClaudeCodeCliSummaryProvider(
         string title,
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
-        string? outputLanguage = null)
+        string? outputLanguage = null,
+        DateTimeOffset? endedAt = null)
     {
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
         var raw = await CliFailureMapper.RunRequiredStdoutAsync(
             processRunner,
             ExecutableName,

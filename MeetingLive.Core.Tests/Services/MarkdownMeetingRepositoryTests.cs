@@ -95,6 +95,61 @@ public class MarkdownMeetingRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAsync_WhenEndedAtIsNull_OmitsEndedAtFromFrontmatter()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+
+        await repo.SaveAsync(CreateRecord(id, AudioPath(id)));
+
+        var markdown = await File.ReadAllTextAsync(InboxMarkdownPath("Standup"));
+        Assert.DoesNotContain("endedAt:", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenEndedAtIsSet_RoundtripsEndedAt()
+    {
+        var id = Guid.NewGuid();
+        var endedAt = DateTimeOffset.Parse("2026-09-01T13:45:00.0000000+00:00");
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var record = CreateRecord(id, AudioPath(id));
+        record.EndedAt = endedAt;
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+        var markdown = await File.ReadAllTextAsync(InboxMarkdownPath("Standup"));
+
+        Assert.NotNull(loaded);
+        Assert.Equal(endedAt, loaded.EndedAt);
+        Assert.Contains("endedAt: " + endedAt.ToString("O"), markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Parse_LegacyFileWithoutEndedAt_LeavesEndedAtNull()
+    {
+        var id = Guid.NewGuid();
+        Directory.CreateDirectory(_tempDirectory);
+        var path = Path.Combine(_tempDirectory, $"{id}.md");
+        var markdown =
+            "---\n" +
+            $"id: {id}\n" +
+            "title: Standup\n" +
+            "recordedAt: 2026-09-01T12:00:00.0000000+00:00\n" +
+            $"audioFilePath: {AudioPath(id)}\n" +
+            "---\n\n" +
+            "## Transcript\n\n" +
+            "hello\n";
+        await File.WriteAllTextAsync(path, markdown);
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Null(loaded.EndedAt);
+        Assert.Equal("hello", loaded.Transcript);
+    }
+
+    [Fact]
     public async Task SaveAsync_WhenFolderIdIsSet_RoundtripsFolderId()
     {
         var id = Guid.NewGuid();

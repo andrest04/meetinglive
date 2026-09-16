@@ -10,9 +10,9 @@ public class TranscriptPolishPromptBuilderTests
         var prompt = TranscriptPolishPromptBuilder.Build("[00:00:01 | 15:00] hola onu", "es");
 
         Assert.Contains("Return ONLY the polished transcript", prompt, StringComparison.Ordinal);
-        Assert.Contains("Keep the \"Recorded ...\" header", prompt, StringComparison.Ordinal);
+        Assert.Contains("Keep the \"Recorded ...\" and \"Ended ...\" headers", prompt, StringComparison.Ordinal);
         Assert.Contains("byte-for-byte", prompt, StringComparison.Ordinal);
-        Assert.Contains("Keep existing \"Speaker N:\" labels when present", prompt, StringComparison.Ordinal);
+        Assert.Contains("Keep existing \"[ Speaker-N ]\" labels when present", prompt, StringComparison.Ordinal);
         Assert.Contains("Do not add, drop, or rename speakers", prompt, StringComparison.Ordinal);
         Assert.Contains("Do not add speakers, action items, or a summary", prompt, StringComparison.Ordinal);
         Assert.Contains("Do not invent content", prompt, StringComparison.Ordinal);

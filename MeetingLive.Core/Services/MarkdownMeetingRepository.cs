@@ -168,6 +168,8 @@ public sealed class MarkdownMeetingRepository : IMeetingRepository
         sb.Append("id: ").Append(record.Id).Append('\n');
         sb.Append("title: ").Append(record.Title).Append('\n');
         sb.Append("recordedAt: ").Append(record.RecordedAt.ToString("O", CultureInfo.InvariantCulture)).Append('\n');
+        if (record.EndedAt is { } endedAt)
+            sb.Append("endedAt: ").Append(endedAt.ToString("O", CultureInfo.InvariantCulture)).Append('\n');
         sb.Append("audioFilePath: ").Append(record.AudioFilePath).Append('\n');
         if (record.FolderId is { } folderId)
             sb.Append("folderId: ").Append(folderId).Append('\n');
@@ -238,6 +240,14 @@ public sealed class MarkdownMeetingRepository : IMeetingRepository
             !DateTimeOffset.TryParse(recordedAtText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var recordedAt))
             throw new FormatException($"Meeting file '{path}' has a missing or invalid 'recordedAt' in its frontmatter.");
 
+        DateTimeOffset? endedAt = null;
+        if (frontmatter.TryGetValue("endedAt", out var endedAtText) &&
+            !string.IsNullOrWhiteSpace(endedAtText) &&
+            DateTimeOffset.TryParse(endedAtText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedEndedAt))
+        {
+            endedAt = parsedEndedAt;
+        }
+
         var title = frontmatter.GetValueOrDefault("title", string.Empty);
         var audioFilePath = frontmatter.GetValueOrDefault("audioFilePath", string.Empty);
         var siblingWav = Path.ChangeExtension(path, ".wav");
@@ -263,6 +273,7 @@ public sealed class MarkdownMeetingRepository : IMeetingRepository
             Id = id,
             Title = title,
             RecordedAt = recordedAt,
+            EndedAt = endedAt,
             AudioFilePath = audioFilePath,
             Transcript = transcript,
             Summary = summary,

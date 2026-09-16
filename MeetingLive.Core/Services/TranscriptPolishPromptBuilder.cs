@@ -3,7 +3,7 @@ namespace MeetingLive.Core.Services;
 /// <summary>
 /// Builds the non-interactive prompt for transcript polish (Claude Code, Codex, local LLM).
 /// The model must return only the polished transcript — no summary, no extra lines.
-/// Existing <c>Speaker N:</c> labels and stamps must be preserved.
+/// Existing <c>[start-end]</c> prefixes and <c>[ Speaker-N ]</c> labels must be preserved.
 /// </summary>
 internal static class TranscriptPolishPromptBuilder
 {
@@ -21,8 +21,8 @@ internal static class TranscriptPolishPromptBuilder
             Return ONLY the polished transcript. No preamble, no code fences, no commentary.
 
             Rules:
-            - Keep the "Recorded ..." header (if present) and every [stamp] prefix byte-for-byte.
-            - Keep existing "Speaker N:" labels when present. Do not add, drop, or rename speakers.
+            - Keep the "Recorded ..." and "Ended ..." headers (if present) and every [start-end] prefix byte-for-byte.
+            - Keep existing "[ Speaker-N ]" labels when present. Do not add, drop, or rename speakers.
             - Only edit the spoken text after the stamp and speaker label.
             - Fix punctuation, Spanish/English accents, truecasing, and well-known acronyms (ONU, NASA, FBI, UNESCO).
             - Convert obvious questions to ¿? / ?.

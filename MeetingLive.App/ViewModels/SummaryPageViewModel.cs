@@ -132,7 +132,7 @@ public partial class SummaryPageViewModel : ObservableObject
 
             var summaryLanguage = settings.ResolveSummaryLanguage();
             var result = await Task.Run(() => provider.SummarizeAsync(
-                transcript, _record.Title, _record.RecordedAt, outputLanguage: summaryLanguage));
+                transcript, _record.Title, _record.RecordedAt, outputLanguage: summaryLanguage, endedAt: _record.EndedAt));
 
             var resolvedTitle = SuggestedMeetingTitle.Resolve(_record.Title, result.SuggestedTitle);
             var titleChanged = !string.Equals(resolvedTitle, _record.Title, StringComparison.Ordinal);

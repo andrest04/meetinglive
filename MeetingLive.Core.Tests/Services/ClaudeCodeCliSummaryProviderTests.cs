@@ -1,3 +1,4 @@
+using System.Globalization;
 using MeetingLive.Core.Services;
 using MeetingLive.Core.Tests.TestHelpers;
 
@@ -180,5 +181,47 @@ public class ClaudeCodeCliSummaryProviderTests
         Assert.Contains("### Qué fue esto", stdinCaptured);
         Assert.Contains("### Decisiones", stdinCaptured);
         Assert.DoesNotContain("### What this was", stdinCaptured);
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_WhenEndedAtIsPassed_IncludesEndedAtTagInStdin()
+    {
+        var endedAt = new DateTimeOffset(2026, 9, 2, 16, 30, 0, TimeSpan.Zero);
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((_, _, stdin) =>
+        {
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## Summary\n\nHello.\n", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner);
+
+        await provider.SummarizeAsync(
+            "Hello everyone.",
+            "Kickoff",
+            DateTimeOffset.UtcNow,
+            endedAt: endedAt);
+
+        Assert.Contains(
+            $"<ended_at>{endedAt.ToString("O", CultureInfo.InvariantCulture)}</ended_at>",
+            stdinCaptured,
+            StringComparison.Ordinal);
+        Assert.Contains("Never write that the end time was not recorded", stdinCaptured, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SummarizeAsync_WhenEndedAtIsOmitted_DoesNotEmitEndedAtTag()
+    {
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((_, _, stdin) =>
+        {
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## Summary\n\nHello.\n", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner);
+
+        await provider.SummarizeAsync("Hello everyone.", "Kickoff", DateTimeOffset.UtcNow);
+
+        Assert.DoesNotContain("</ended_at>", stdinCaptured, StringComparison.Ordinal);
+        Assert.Contains("Never write that the end time was not recorded", stdinCaptured, StringComparison.Ordinal);
     }
 }

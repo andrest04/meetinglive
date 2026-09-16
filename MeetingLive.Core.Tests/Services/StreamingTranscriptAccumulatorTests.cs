@@ -32,13 +32,13 @@ public class StreamingTranscriptAccumulatorTests
 
         accumulator.Apply(new NemoSpeechAsrResult(true, "Hello there", 2, words));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.FromSeconds(1), "Hello there");
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "Hello there");
         Assert.Equal(expected, accumulator.CommittedText);
         Assert.Equal(accumulator.CommittedText, accumulator.DisplayText);
     }
 
     [Fact]
-    public void Apply_ShortFinal_StaysOneLineWithClock()
+    public void Apply_ShortFinal_StaysOneLine()
     {
         var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
         var words = Enumerable.Range(0, 5)
@@ -47,7 +47,7 @@ public class StreamingTranscriptAccumulatorTests
 
         accumulator.Apply(new NemoSpeechAsrResult(true, "short window stays together", 20, words));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "short window stays together");
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(20), "short window stays together");
         Assert.Equal(expected, accumulator.CommittedText);
         Assert.DoesNotContain("->", accumulator.CommittedText, StringComparison.Ordinal);
     }
@@ -65,8 +65,8 @@ public class StreamingTranscriptAccumulatorTests
 
         var expected =
             Header() + Environment.NewLine +
-            Line(TimeSpan.Zero, "Hello") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(1), "world");
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "world");
         Assert.Equal(expected, accumulator.DisplayText);
         Assert.Equal(expected, accumulator.CommittedText);
     }
@@ -78,9 +78,9 @@ public class StreamingTranscriptAccumulatorTests
         accumulator.Apply(Final("Hello", TimeSpan.Zero, TimeSpan.FromSeconds(1)));
         accumulator.Apply(Interim("wor"));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "Hello") + Environment.NewLine + "wor";
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello") + Environment.NewLine + "wor";
         Assert.Equal(expected, accumulator.DisplayText);
-        Assert.Equal(Header() + Environment.NewLine + Line(TimeSpan.Zero, "Hello"), accumulator.CommittedText);
+        Assert.Equal(Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello"), accumulator.CommittedText);
     }
 
     [Fact]
@@ -89,12 +89,12 @@ public class StreamingTranscriptAccumulatorTests
         var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
         accumulator.Apply(new NemoSpeechAsrResult(true, "Hi", 3.2f, []));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "Hi");
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(3.2f), "Hi");
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
     [Fact]
-    public void Apply_ClockSkew_ShiftsWallClockNotElapsed()
+    public void Apply_ClockSkew_DoesNotChangeElapsedRange()
     {
         var accumulator = new StreamingTranscriptAccumulator(RecordedAt)
         {
@@ -103,9 +103,9 @@ public class StreamingTranscriptAccumulatorTests
         accumulator.Apply(Final("after break", TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5.5)));
 
         var expected = Header() + Environment.NewLine +
-            Line(TimeSpan.FromMinutes(5), "after break", TimeSpan.FromMinutes(15));
+            Line(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5.5), "after break");
         Assert.Equal(expected, accumulator.CommittedText);
-        Assert.Contains("[00:05:00 |", accumulator.CommittedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("|", accumulator.CommittedText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class StreamingTranscriptAccumulatorTests
         var accumulator = new StreamingTranscriptAccumulator(default);
         accumulator.Apply(Final("Hello", TimeSpan.Zero, TimeSpan.FromSeconds(1)));
 
-        Assert.Equal("[00:00:00] Hello", accumulator.CommittedText);
+        Assert.Equal("[00:00.00-00:01.00] Hello", accumulator.CommittedText);
         Assert.DoesNotContain("Recorded ", accumulator.CommittedText, StringComparison.Ordinal);
         Assert.DoesNotContain("|", accumulator.CommittedText, StringComparison.Ordinal);
     }
@@ -132,11 +132,11 @@ public class StreamingTranscriptAccumulatorTests
 
         var expected =
             Header() + Environment.NewLine +
-            Line(TimeSpan.Zero, "one two") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(20), "three four") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(40), "five six") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(60), "seven eight") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(80), "nine");
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(20), "one two") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(40), "three four") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(40), TimeSpan.FromSeconds(60), "five six") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(80), "seven eight") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(80), TimeSpan.FromSeconds(90), "nine");
         Assert.Equal(expected, accumulator.CommittedText);
         Assert.DoesNotContain("onetwo", accumulator.CommittedText, StringComparison.Ordinal);
     }
@@ -157,8 +157,8 @@ public class StreamingTranscriptAccumulatorTests
 
         var expected =
             Header() + Environment.NewLine +
-            Line(TimeSpan.Zero, "a b") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(20), "c d extra leftover");
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(20), "a b") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(40), "c d extra leftover");
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
@@ -173,7 +173,7 @@ public class StreamingTranscriptAccumulatorTests
 
         accumulator.Apply(new NemoSpeechAsrResult(true, "supercalifragilistic", 90, words));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "supercalifragilistic");
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(90), "supercalifragilistic");
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
@@ -194,11 +194,9 @@ public class StreamingTranscriptAccumulatorTests
 
         var expected =
             Header() + Environment.NewLine +
-            Line(TimeSpan.Zero, "Speaker 1: hello there") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(2), "Speaker 2: how are you");
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(2), "hello there", 1) + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), "how are you", 2);
         Assert.Equal(expected, accumulator.CommittedText);
-        Assert.StartsWith("[00:00:00 |", Line(TimeSpan.Zero, "Speaker 1: hello there"), StringComparison.Ordinal);
-        Assert.Contains(" | ", expected, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -213,9 +211,9 @@ public class StreamingTranscriptAccumulatorTests
 
         accumulator.Apply(new NemoSpeechAsrResult(true, "hello there", 2, words));
 
-        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "hello there");
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(2), "hello there");
         Assert.Equal(expected, accumulator.CommittedText);
-        Assert.DoesNotContain("Speaker ", accumulator.CommittedText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Speaker-", accumulator.CommittedText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -232,8 +230,8 @@ public class StreamingTranscriptAccumulatorTests
 
         var expected =
             Header() + Environment.NewLine +
-            Line(TimeSpan.Zero, "Speaker 1: Hello,") + Environment.NewLine +
-            Line(TimeSpan.FromSeconds(1), "Speaker 2: world.");
+            Line(TimeSpan.Zero, TimeSpan.FromSeconds(1), "Hello,", 1) + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), "world.", 2);
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
@@ -243,12 +241,8 @@ public class StreamingTranscriptAccumulatorTests
         return $"Recorded {stamp}";
     }
 
-    private static string Line(TimeSpan start, string text, TimeSpan clockSkew = default)
-    {
-        var elapsed = start.ToString(@"hh\:mm\:ss");
-        var clock = (RecordedAt.ToLocalTime() + start + clockSkew).ToString("HH:mm", CultureInfo.InvariantCulture);
-        return $"[{elapsed} | {clock}] {text}";
-    }
+    private static string Line(TimeSpan start, TimeSpan end, string text, int speakerTag = 0) =>
+        TranscriptStampFormatter.FormatLine(start, end, text, speakerTag);
 
     private static NemoSpeechAsrResult Interim(string text) =>
         new(false, text, 0, []);

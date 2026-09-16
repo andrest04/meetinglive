@@ -106,7 +106,7 @@ public sealed class StreamingTranscriptAccumulator
 
         if (result.Words.Count == 0)
         {
-            yield return FormatLine(start, text);
+            yield return FormatLine(start, end, text);
             yield break;
         }
 
@@ -114,22 +114,23 @@ public sealed class StreamingTranscriptAccumulator
         var uniqueSpeakers = result.Words.Select(word => word.SpeakerTag).Distinct().Count();
         if (duration <= WindowLength && uniqueSpeakers == 1)
         {
-            yield return FormatLine(start, text, result.Words[0].SpeakerTag);
+            yield return FormatLine(start, end, text, result.Words[0].SpeakerTag);
             yield break;
         }
 
         var tokens = ResolveTokens(result, text);
         if (tokens.Length == 0)
         {
-            yield return FormatLine(start, text, result.Words[0].SpeakerTag);
+            yield return FormatLine(start, end, text, result.Words[0].SpeakerTag);
             yield break;
         }
 
         var pairCount = Math.Min(tokens.Length, result.Words.Count);
-        var windows = new List<(TimeSpan Start, List<string> Tokens, int SpeakerTag)>();
+        var windows = new List<(TimeSpan Start, TimeSpan End, List<string> Tokens, int SpeakerTag)>();
         var windowStart = result.Words[0].Start;
         var windowSpeaker = result.Words[0].SpeakerTag;
         var current = new List<string>();
+        var previousWordEnd = result.Words[0].End;
 
         for (var i = 0; i < pairCount; i++)
         {
@@ -138,23 +139,24 @@ public sealed class StreamingTranscriptAccumulator
             var windowElapsed = current.Count > 0 && word.End - windowStart >= WindowLength;
             if (speakerChanged || windowElapsed)
             {
-                windows.Add((windowStart, current, windowSpeaker));
+                windows.Add((windowStart, previousWordEnd, current, windowSpeaker));
                 current = [];
                 windowStart = word.Start;
                 windowSpeaker = word.SpeakerTag;
             }
 
             current.Add(tokens[i]);
+            previousWordEnd = word.End;
         }
 
         if (current.Count > 0)
-            windows.Add((windowStart, current, windowSpeaker));
+            windows.Add((windowStart, previousWordEnd, current, windowSpeaker));
 
         if (tokens.Length > pairCount)
         {
             var extra = tokens[pairCount..];
             if (windows.Count == 0)
-                windows.Add((start, extra.ToList(), 0));
+                windows.Add((start, end, extra.ToList(), 0));
             else
                 windows[^1].Tokens.AddRange(extra);
         }
@@ -165,7 +167,7 @@ public sealed class StreamingTranscriptAccumulator
             if (windowText.Length == 0)
                 continue;
 
-            yield return FormatLine(window.Start, windowText, window.SpeakerTag);
+            yield return FormatLine(window.Start, window.End, windowText, window.SpeakerTag);
         }
     }
 
@@ -178,9 +180,6 @@ public sealed class StreamingTranscriptAccumulator
         return split;
     }
 
-    private string FormatLine(TimeSpan start, string text, int speakerTag = 0)
-    {
-        var spoken = speakerTag > 0 ? $"Speaker {speakerTag}: {text}" : text;
-        return TranscriptStampFormatter.FormatLine(start, spoken, _recordedAt, ClockSkew);
-    }
+    private static string FormatLine(TimeSpan start, TimeSpan end, string text, int speakerTag = 0) =>
+        TranscriptStampFormatter.FormatLine(start, end, text, speakerTag);
 }

@@ -13,11 +13,15 @@ internal static class CliSummaryPromptBuilder
         string title,
         DateTimeOffset recordedAt,
         string transcript,
-        string? outputLanguage = null)
+        string? outputLanguage = null,
+        DateTimeOffset? endedAt = null)
     {
         var languageName = ToEnglishLanguageName(outputLanguage);
         var headings = SubheadingsFor(outputLanguage);
         var actionExamples = ActionExamplesFor(outputLanguage);
+        var endedAtBlock = endedAt is { } value
+            ? $"\n            <ended_at>{value.ToString("O", CultureInfo.InvariantCulture)}</ended_at>"
+            : string.Empty;
 
         return $"""
             # Identity
@@ -67,7 +71,8 @@ internal static class CliSummaryPromptBuilder
             - Ground every sentence in the transcript. Do not invent attendees, dates, companies, or tasks.
             - If the recording is an informal ASR test or rambling, say so in "{headings.WhatThisWas}". Do not dress it up as a formal meeting.
             - If a name or number is unclear because of ASR noise, paraphrase without guessing the spelling.
-            - Transcript lines are stamped [elapsed | clock] (elapsed from recording start as hh:mm:ss, clock as local HH:mm). When placing a key point, decision, or quote in time, mention that clock time.
+            - Transcript lines are stamped [mm:ss.ff-mm:ss.ff] elapsed ranges from recording start, with optional [ Speaker-N ] labels. When placing a key point, decision, or quote in time, use that elapsed range (and Recorded/Ended for wall-clock meeting bounds).
+            - Transcript may start with Recorded and Ended local stamps (yyyy-MM-dd HH:mm). Use those / <ended_at> as the meeting end. Never write that the end time was not recorded when Ended or <ended_at> is present. If missing, omit end time (do not invent, do not say "not recorded").
             - Write the Title, the Summary body, and action-item text in {languageName}.
             - Use the ### subheadings above verbatim — do not translate them.
             - Keep the Markdown headings exactly "## Title", "## Summary", and "## Action Items" in English.
@@ -75,7 +80,7 @@ internal static class CliSummaryPromptBuilder
             # Context
 
             <meeting_title>{title}</meeting_title>
-            <recorded_at>{recordedAt.ToString("O", CultureInfo.InvariantCulture)}</recorded_at>
+            <recorded_at>{recordedAt.ToString("O", CultureInfo.InvariantCulture)}</recorded_at>{endedAtBlock}
             <transcript>
             {transcript}
             </transcript>

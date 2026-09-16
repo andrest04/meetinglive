@@ -28,7 +28,8 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         string title,
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
-        string? outputLanguage = null)
+        string? outputLanguage = null,
+        DateTimeOffset? endedAt = null)
     {
         if (!File.Exists(modelPath))
         {
@@ -50,7 +51,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
             SamplingPipeline = new DefaultSamplingPipeline { Temperature = 0.3f },
         };
 
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
 
         var result = new StringBuilder();
         await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))

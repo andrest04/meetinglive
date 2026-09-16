@@ -31,6 +31,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
     private Guid _currentMeetingId;
     private DateTimeOffset _recordedAt;
+    private DateTimeOffset _endedAt;
     private string? _currentAudioPath;
     private bool _liveSessionActive;
     private bool _isPageVisible;
@@ -262,6 +263,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
         _currentMeetingId = Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;
+        _endedAt = default;
         AppPaths.EnsureDirectoriesExist();
         _currentAudioPath = await CreateLibraryAudioPathAsync(_currentMeetingId, _recordedAt, MeetingTitle);
 
@@ -316,6 +318,8 @@ public partial class RecordingPageViewModel : ObservableObject
             StatusText = AppStrings.Format("Error_StopRecording", ex.Message);
         }
 
+        _endedAt = DateTimeOffset.Now;
+
         if (_liveSessionActive)
         {
             _liveDraft = await Task.Run(() => _liveTranscription.Stop());
@@ -368,9 +372,14 @@ public partial class RecordingPageViewModel : ObservableObject
         StatusText = AppStrings.Get("Status_Importing");
         StopMicPreview();
 
+        TimeSpan wavDuration;
         try
         {
-            await Task.Run(() => _audioImport.ConvertToNemotronWav(sourcePath, destinationPath));
+            wavDuration = await Task.Run(() =>
+            {
+                _audioImport.ConvertToNemotronWav(sourcePath, destinationPath);
+                return WavFileDuration.ReadTotalTime(destinationPath);
+            });
         }
         catch (Exception ex)
         {
@@ -383,6 +392,7 @@ public partial class RecordingPageViewModel : ObservableObject
         _currentMeetingId = meetingId;
         _currentAudioPath = destinationPath;
         _recordedAt = recordedAt;
+        _endedAt = recordedAt + wavDuration;
         _liveDraft = null;
         _pausedDuration = TimeSpan.Zero;
         LiveTranscriptText = string.Empty;
@@ -530,12 +540,13 @@ public partial class RecordingPageViewModel : ObservableObject
         var meetingId = _currentMeetingId;
         var audioPath = _currentAudioPath;
         var recordedAt = _recordedAt;
+        var endedAt = _endedAt;
         var title = MeetingTitle;
         var liveDraft = _liveDraft;
         var pausedDuration = _pausedDuration;
         var folderId = await ResolveSelectedFolderIdAsync();
 
-        string? transcript = liveDraft;
+        string? transcript = StampEndedHeader(liveDraft, recordedAt, endedAt);
         try
         {
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
@@ -544,7 +555,7 @@ public partial class RecordingPageViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(transcript))
             {
                 await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
                     summary: null, actionItems: [], summaryProviderId: null);
             }
 
@@ -580,8 +591,9 @@ public partial class RecordingPageViewModel : ObservableObject
 
                 if (!string.IsNullOrWhiteSpace(wavTranscript))
                 {
-                    transcript = wavTranscript;
-                    App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = wavTranscript);
+                    var stamped = TranscriptStampFormatter.EnsureEndedHeader(wavTranscript, recordedAt, endedAt);
+                    transcript = stamped;
+                    App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = stamped);
                 }
             }
             else if (string.IsNullOrWhiteSpace(transcript))
@@ -600,7 +612,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
             cancellationToken.ThrowIfCancellationRequested();
             await SaveProcessedMeetingAsync(
-                meetingId, title, recordedAt, audioPath, folderId, transcript,
+                meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
                 summary: null, actionItems: [], summaryProviderId: null);
 
             var pipeline = await ResolveSummaryProviderAsync();
@@ -622,11 +634,12 @@ public partial class RecordingPageViewModel : ObservableObject
 
             var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
             var result = await pipeline.Provider.SummarizeAsync(
-                transcript, title, recordedAt, cancellationToken, summaryLanguage);
+                transcript, title, recordedAt, cancellationToken, summaryLanguage,
+                endedAt == default ? null : endedAt);
 
             var saveTitle = SuggestedMeetingTitle.Resolve(title, result.SuggestedTitle);
             await SaveProcessedMeetingAsync(
-                meetingId, saveTitle, recordedAt, audioPath, folderId, transcript,
+                meetingId, saveTitle, recordedAt, endedAt, audioPath, folderId, transcript,
                 result.SummaryMarkdown, result.ActionItems, result.ProviderId);
 
             if (!string.Equals(saveTitle, title, StringComparison.Ordinal))
@@ -640,11 +653,11 @@ public partial class RecordingPageViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            transcript = string.IsNullOrWhiteSpace(transcript) ? liveDraft : transcript;
+            transcript = string.IsNullOrWhiteSpace(transcript) ? StampEndedHeader(liveDraft, recordedAt, endedAt) : transcript;
             if (transcript is not null)
             {
                 await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
                     summary: null, actionItems: [], summaryProviderId: null);
                 App.DispatcherQueue.TryEnqueue(() =>
                 {
@@ -664,7 +677,7 @@ public partial class RecordingPageViewModel : ObservableObject
             if (transcript is not null)
             {
                 await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, audioPath, folderId, transcript,
+                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
                     summary: null, actionItems: [], summaryProviderId: null);
                 App.DispatcherQueue.TryEnqueue(() =>
                 {
@@ -688,6 +701,7 @@ public partial class RecordingPageViewModel : ObservableObject
         Guid meetingId,
         string title,
         DateTimeOffset recordedAt,
+        DateTimeOffset endedAt,
         string audioPath,
         Guid? folderId,
         string transcript,
@@ -695,11 +709,13 @@ public partial class RecordingPageViewModel : ObservableObject
         IReadOnlyList<ActionItem> actionItems,
         string? summaryProviderId)
     {
+        transcript = StampEndedHeader(transcript, recordedAt, endedAt) ?? transcript;
         var record = new MeetingRecord
         {
             Id = meetingId,
             Title = title,
             RecordedAt = recordedAt,
+            EndedAt = endedAt == default ? null : endedAt,
             AudioFilePath = audioPath,
             Transcript = transcript,
             Summary = summary,
@@ -717,6 +733,14 @@ public partial class RecordingPageViewModel : ObservableObject
             AppServices.Workspace.SetLastProcessed(record);
             LastMeeting = record;
         });
+    }
+
+    private static string? StampEndedHeader(string? transcript, DateTimeOffset recordedAt, DateTimeOffset endedAt)
+    {
+        if (transcript is null)
+            return null;
+
+        return TranscriptStampFormatter.EnsureEndedHeader(transcript, recordedAt, endedAt);
     }
 
     /// <summary>Resolves an already-chosen engine (and, for a CLI provider, gates on PATH as a

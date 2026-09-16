@@ -19,7 +19,8 @@ public interface ISummaryProvider
         string title,
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
-        string? outputLanguage = null);
+        string? outputLanguage = null,
+        DateTimeOffset? endedAt = null);
 
     /// <summary>
     /// Title-only inference. Returns the model stdout; callers persist with

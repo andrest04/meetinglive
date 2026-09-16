@@ -5,6 +5,13 @@ public sealed class MeetingRecord
     public required Guid Id { get; init; }
     public required string Title { get; set; }
     public required DateTimeOffset RecordedAt { get; init; }
+
+    /// <summary>
+    /// When capture actually stopped (live Stop) or source duration after import.
+    /// Omitted from Markdown frontmatter when null so existing files stay valid.
+    /// </summary>
+    public DateTimeOffset? EndedAt { get; set; }
+
     public required string AudioFilePath { get; set; }
 
     /// <summary>Absolute markdown path when loaded from disk. Not persisted in frontmatter.</summary>
