@@ -60,16 +60,13 @@ public sealed partial class RecordingPage : Page
 
     private async void DiscardRecording_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-            Title = AppStrings.Get("RecordDiscard_Title"),
-            Content = AppStrings.Get("RecordDiscard_Content"),
-            PrimaryButtonText = AppStrings.Get("RecordDiscard_Primary"),
-            CloseButtonText = AppStrings.Get("RecordDiscard_Cancel"),
-            DefaultButton = ContentDialogButton.Close,
-        };
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
+            AppStrings.Get("RecordDiscard_Title"),
+            AppStrings.Get("RecordDiscard_Content"),
+            AppStrings.Get("RecordDiscard_Primary"),
+            AppStrings.Get("RecordDiscard_Cancel"),
+            ContentDialogButton.Close);
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;

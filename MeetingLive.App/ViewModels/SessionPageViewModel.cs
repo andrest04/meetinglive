@@ -163,23 +163,9 @@ public partial class SessionPageViewModel : ObservableObject
         }
     }
 
-    private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind)
-    {
-        if (providerKind == SummaryProviderKind.Local)
-        {
-            var modelPath = EnsureSummaryModelAsync is null ? null : await EnsureSummaryModelAsync();
-            return modelPath is null ? null : AppServices.CreateSummaryProvider(SummaryProviderKind.Local, modelPath);
-        }
-
-        if (providerKind == SummaryProviderKind.Xai)
-        {
-            var xaiAvailable = EnsureXaiProviderAsync is not null && await EnsureXaiProviderAsync();
-            return xaiAvailable ? AppServices.CreateSummaryProvider(SummaryProviderKind.Xai, localModelPath: null) : null;
-        }
-
-        var available = EnsureCliProviderAsync is not null && await EnsureCliProviderAsync(providerKind);
-        return available ? AppServices.CreateSummaryProvider(providerKind, localModelPath: null) : null;
-    }
+    private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind) =>
+        (await SummaryProviderResolver.ResolveAsync(
+            providerKind, EnsureSummaryModelAsync, EnsureCliProviderAsync, EnsureXaiProviderAsync))?.Provider;
 
     private void OnMeetingChanged(object? sender, Guid id)
     {

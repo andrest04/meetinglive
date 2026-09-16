@@ -56,7 +56,8 @@ public sealed partial class SessionPage : Page
             return;
 
         var nameBox = CreateNameBox(ViewModel.Title);
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("SessionRename_Title"),
             nameBox,
             AppStrings.Get("SessionRename_Primary"),
@@ -77,15 +78,11 @@ public sealed partial class SessionPage : Page
         var (applied, error) = await ViewModel.SuggestTitleAsync();
         if (error is not null)
         {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-                Title = AppStrings.Get("SessionSuggestTitle_ErrorTitle"),
-                Content = error,
-                CloseButtonText = AppStrings.Get("Dialog_OK"),
-                DefaultButton = ContentDialogButton.Close,
-            };
+            var dialog = AppDialogFactory.CreateError(
+                XamlRoot,
+                AppStrings.Get("SessionSuggestTitle_ErrorTitle"),
+                error,
+                AppStrings.Get("Dialog_OK"));
             await dialog.ShowAsync();
             return;
         }
@@ -161,22 +158,6 @@ public sealed partial class SessionPage : Page
     };
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
-
-    private ContentDialog CreateDialog(
-        string title,
-        object content,
-        string primary,
-        string close,
-        ContentDialogButton defaultButton) => new()
-    {
-        XamlRoot = XamlRoot,
-        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-        Title = title,
-        Content = content,
-        PrimaryButtonText = primary,
-        CloseButtonText = close,
-        DefaultButton = defaultButton,
-    };
 
     private static TextBox CreateNameBox(string text) => new()
     {

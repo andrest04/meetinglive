@@ -78,7 +78,8 @@ public sealed partial class HistoryPage : Page
             return;
 
         var title = ViewModel.Meetings.FirstOrDefault(m => m.Id == meetingId)?.Title ?? string.Empty;
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("HistoryDelete_Title"),
             AppStrings.Format("HistoryDelete_Content", title),
             AppStrings.Get("HistoryDelete_Primary"),
@@ -98,7 +99,8 @@ public sealed partial class HistoryPage : Page
         var title = ViewModel.IsRealFolderSelected
             ? AppStrings.Format("LibraryNewFolder_TitleIn", ViewModel.SelectedFolderName)
             : AppStrings.Get("LibraryNewFolder_Title");
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             title,
             nameBox,
             AppStrings.Get("LibraryNewFolder_Primary"),
@@ -169,7 +171,8 @@ public sealed partial class HistoryPage : Page
             return;
         }
 
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("LibraryDeleteFolder_Title"),
             AppStrings.Format("LibraryDeleteFolder_Content", ViewModel.SelectedFolderName),
             AppStrings.Get("LibraryDeleteFolder_Primary"),
@@ -208,7 +211,8 @@ public sealed partial class HistoryPage : Page
             SelectedIndex = selectedIndex,
         };
 
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("LibraryMove_Title"),
             list,
             AppStrings.Get("LibraryMove_Primary"),
@@ -267,7 +271,8 @@ public sealed partial class HistoryPage : Page
             return;
 
         var nameBox = CreateNameBox(ViewModel.SelectedFolderName);
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("LibraryRenameFolder_Title"),
             nameBox,
             AppStrings.Get("LibraryRenameFolder_Primary"),
@@ -288,7 +293,8 @@ public sealed partial class HistoryPage : Page
             return;
 
         var picker = new FolderPersonalityPicker(node.Name, node.ColorKey, node.IconKey, folderId);
-        var dialog = CreateDialog(
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
             AppStrings.Get("LibraryPersonality_Title"),
             picker,
             AppStrings.Get("LibraryPersonality_Primary"),
@@ -341,22 +347,6 @@ public sealed partial class HistoryPage : Page
         item.Click += click;
         return item;
     }
-
-    private ContentDialog CreateDialog(
-        string title,
-        object content,
-        string primary,
-        string close,
-        ContentDialogButton defaultButton) => new()
-    {
-        XamlRoot = XamlRoot,
-        Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-        Title = title,
-        Content = content,
-        PrimaryButtonText = primary,
-        CloseButtonText = close,
-        DefaultButton = defaultButton,
-    };
 
     private static TextBox CreateNameBox(string text) => new()
     {

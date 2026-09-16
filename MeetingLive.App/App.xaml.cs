@@ -111,13 +111,11 @@ public partial class App : Application
 
     private static async Task ShowMigrationFailureDialogAsync(Exception ex)
     {
-        var dialog = new ContentDialog
-        {
-            Title = AppStrings.Get("MigrationFailed_Title"),
-            Content = AppStrings.Format("MigrationFailed_Content", ex.Message),
-            CloseButtonText = AppStrings.Get("Dialog_OK"),
-            XamlRoot = Window.Content.XamlRoot,
-        };
+        var dialog = AppDialogFactory.CreateError(
+            Window.Content.XamlRoot,
+            AppStrings.Get("MigrationFailed_Title"),
+            AppStrings.Format("MigrationFailed_Content", ex.Message),
+            AppStrings.Get("Dialog_OK"));
         await dialog.ShowAsync();
     }
 }

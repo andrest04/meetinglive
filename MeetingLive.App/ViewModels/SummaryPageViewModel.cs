@@ -185,23 +185,9 @@ public partial class SummaryPageViewModel : ObservableObject
     /// <summary>Resolves (and, for a CLI provider, gates on availability) the provider to
     /// summarize with, or null if the required gate wasn't satisfied (no model chosen / setup
     /// dialog cancelled) — the caller then aborts generation.</summary>
-    private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind)
-    {
-        if (providerKind == SummaryProviderKind.Local)
-        {
-            var modelPath = EnsureSummaryModelAsync is null ? null : await EnsureSummaryModelAsync();
-            return modelPath is null ? null : AppServices.CreateSummaryProvider(SummaryProviderKind.Local, modelPath);
-        }
-
-        if (providerKind == SummaryProviderKind.Xai)
-        {
-            var xaiAvailable = EnsureXaiProviderAsync is not null && await EnsureXaiProviderAsync();
-            return xaiAvailable ? AppServices.CreateSummaryProvider(SummaryProviderKind.Xai, localModelPath: null) : null;
-        }
-
-        var available = EnsureCliProviderAsync is not null && await EnsureCliProviderAsync(providerKind);
-        return available ? AppServices.CreateSummaryProvider(providerKind, localModelPath: null) : null;
-    }
+    private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind) =>
+        (await SummaryProviderResolver.ResolveAsync(
+            providerKind, EnsureSummaryModelAsync, EnsureCliProviderAsync, EnsureXaiProviderAsync))?.Provider;
 
     [RelayCommand]
     private void CopyToClipboard()

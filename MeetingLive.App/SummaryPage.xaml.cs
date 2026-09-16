@@ -37,16 +37,13 @@ public sealed partial class SummaryPage : Page
 
     private async Task<bool> ConfirmRegenerateAsync()
     {
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
-            Title = AppStrings.Get("SummaryRegenerate_Title"),
-            Content = AppStrings.Format("SummaryRegenerate_Content", ViewModel.Title),
-            PrimaryButtonText = AppStrings.Get("SummaryRegenerate_Primary"),
-            CloseButtonText = AppStrings.Get("SummaryRegenerate_Cancel"),
-            DefaultButton = ContentDialogButton.Close,
-        };
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
+            AppStrings.Get("SummaryRegenerate_Title"),
+            AppStrings.Format("SummaryRegenerate_Content", ViewModel.Title),
+            AppStrings.Get("SummaryRegenerate_Primary"),
+            AppStrings.Get("SummaryRegenerate_Cancel"),
+            ContentDialogButton.Close);
 
         var result = await dialog.ShowAsync();
         return result == ContentDialogResult.Primary;
