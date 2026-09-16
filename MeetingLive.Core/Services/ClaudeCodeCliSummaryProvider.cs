@@ -11,14 +11,15 @@ namespace MeetingLive.Core.Services;
 public sealed class ClaudeCodeCliSummaryProvider(
         ICliProcessRunner processRunner,
         string? modelId = null,
-        string? effort = null) : ISummaryProvider
+        string? effort = null) : CliToolProviderBase(processRunner), ISummaryProvider
     {
         /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
         public const string ProviderId = "claude-code";
 
-        private const string ExecutableName = "claude";
-        private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
-        private readonly string _arguments = CliInvocation.ClaudePrint(modelId, effort);
+        protected override string ExecutableName => "claude";
+        protected override TimeSpan Timeout { get; } = TimeSpan.FromMinutes(5);
+        protected override string Arguments { get; } = CliInvocation.ClaudePrint(modelId, effort);
+        protected override string ProviderDisplayName => CliFailureMapper.ClaudeCodeDisplayName;
 
     public async Task<SummaryResult> SummarizeAsync(
         string transcript,
@@ -29,14 +30,7 @@ public sealed class ClaudeCodeCliSummaryProvider(
         DateTimeOffset? endedAt = null)
     {
         var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
-        var raw = await CliFailureMapper.RunRequiredStdoutAsync(
-            processRunner,
-            ExecutableName,
-            _arguments,
-            prompt,
-            Timeout,
-            CliFailureMapper.ClaudeCodeDisplayName,
-            cancellationToken);
+        var raw = await RunAsync(prompt, cancellationToken);
 
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
@@ -49,13 +43,6 @@ public sealed class ClaudeCodeCliSummaryProvider(
         string? outputLanguage = null)
     {
         var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
-        return CliFailureMapper.RunRequiredStdoutAsync(
-            processRunner,
-            ExecutableName,
-            _arguments,
-            prompt,
-            Timeout,
-            CliFailureMapper.ClaudeCodeDisplayName,
-            cancellationToken);
+        return RunAsync(prompt, cancellationToken);
     }
 }

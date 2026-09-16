@@ -13,14 +13,15 @@ namespace MeetingLive.Core.Services;
     public sealed class CodexCliSummaryProvider(
         ICliProcessRunner processRunner,
         string? modelId = null,
-        string? effort = null) : ISummaryProvider
+        string? effort = null) : CliToolProviderBase(processRunner), ISummaryProvider
     {
         /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
         public const string ProviderId = "codex";
 
-        private const string ExecutableName = "codex";
-        private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(5);
-        private readonly string _arguments = CliInvocation.CodexExec(modelId, effort);
+        protected override string ExecutableName => "codex";
+        protected override TimeSpan Timeout { get; } = TimeSpan.FromMinutes(5);
+        protected override string Arguments { get; } = CliInvocation.CodexExec(modelId, effort);
+        protected override string ProviderDisplayName => CliFailureMapper.CodexDisplayName;
 
     public async Task<SummaryResult> SummarizeAsync(
         string transcript,
@@ -31,14 +32,7 @@ namespace MeetingLive.Core.Services;
         DateTimeOffset? endedAt = null)
     {
         var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
-        var raw = await CliFailureMapper.RunRequiredStdoutAsync(
-            processRunner,
-            ExecutableName,
-            _arguments,
-            prompt,
-            Timeout,
-            CliFailureMapper.CodexDisplayName,
-            cancellationToken);
+        var raw = await RunAsync(prompt, cancellationToken);
 
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
@@ -51,13 +45,6 @@ namespace MeetingLive.Core.Services;
         string? outputLanguage = null)
     {
         var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
-        return CliFailureMapper.RunRequiredStdoutAsync(
-            processRunner,
-            ExecutableName,
-            _arguments,
-            prompt,
-            Timeout,
-            CliFailureMapper.CodexDisplayName,
-            cancellationToken);
+        return RunAsync(prompt, cancellationToken);
     }
 }
