@@ -24,6 +24,7 @@ public sealed partial class RecordingPage : Page
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
             ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
             ViewModel.EnsureRecordingReadyAsync = () => RecordingSetupResolver.EnsureReadyAsync(XamlRoot);
+            ApplyLiveTranscript(follow: false);
         };
     }
 
@@ -90,9 +91,24 @@ public sealed partial class RecordingPage : Page
         else if (e.PropertyName is nameof(ViewModel.LiveTranscriptText)
                  or nameof(ViewModel.CanvasTranscriptText))
         {
-            SyncTranscriptCanvasHeight();
-            FollowLiveTranscriptIfNeeded();
+            ApplyLiveTranscript(follow: true);
         }
+    }
+
+    private void LiveTranscriptBlock_LostFocus(object sender, RoutedEventArgs e) =>
+        ApplyLiveTranscript(follow: true);
+
+    private void ApplyLiveTranscript(bool follow)
+    {
+        if (LiveTranscriptBlock.FocusState != FocusState.Unfocused)
+            return;
+
+        var next = ViewModel.CanvasTranscriptText;
+        if (LiveTranscriptBlock.Text != next)
+            LiveTranscriptBlock.Text = next;
+
+        if (follow)
+            FollowLiveTranscriptIfNeeded();
     }
 
     private void UpdateRecordingPulse()
@@ -108,21 +124,11 @@ public sealed partial class RecordingPage : Page
         }
     }
 
-    private void LiveTranscriptScroll_SizeChanged(object sender, SizeChangedEventArgs e) =>
-        SyncTranscriptCanvasHeight();
-
     private void LiveTranscriptScroll_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
         var scroll = LiveTranscriptScroll;
         _stickToTranscriptEnd = scroll.ScrollableHeight <= 0 ||
             scroll.VerticalOffset >= scroll.ScrollableHeight - 32;
-    }
-
-    private void SyncTranscriptCanvasHeight()
-    {
-        var viewport = LiveTranscriptScroll.ViewportHeight;
-        if (viewport > 0)
-            LiveTranscriptHost.MinHeight = viewport;
     }
 
     private void FollowLiveTranscriptIfNeeded()
@@ -135,7 +141,6 @@ public sealed partial class RecordingPage : Page
             if (!_stickToTranscriptEnd)
                 return;
 
-            SyncTranscriptCanvasHeight();
             LiveTranscriptScroll.UpdateLayout();
             LiveTranscriptScroll.ChangeView(null, LiveTranscriptScroll.ExtentHeight, null, disableAnimation: true);
         });
@@ -158,6 +163,10 @@ public sealed partial class RecordingPage : Page
         isPaused ? AppStrings.Get("Record_Resume") : AppStrings.Get("Record_Pause");
 
     public static string DiscardLabel() => AppStrings.Get("Record_Discard");
+
+    public static string HighlightLabel() => AppStrings.Get("Record_Highlight");
+
+    public static string HighlightTooltip() => AppStrings.Get("RecordPage_HighlightTooltip");
 
     public static string ImportLabel() => AppStrings.Get("Record_Import");
 

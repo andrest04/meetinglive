@@ -155,6 +155,12 @@
                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                        HorizontalAlignment="Center"
                        AutomationProperties.AutomationId="TxtRecordingElapsed" />
+            <TextBlock Text="{x:Bind ViewModel.HighlightFeedback, Mode=OneWay}"
+                       Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasHighlightFeedback), Mode=OneWay}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       AutomationProperties.AutomationId="TxtHighlightFeedback" />
             <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}">
                 <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
@@ -194,11 +200,42 @@
         <Grid Grid.Row="4" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
-                       Style="{StaticResource BodyStrongTextBlockStyle}" />
-            <Border Grid.Row="1"
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
+                           Style="{StaticResource BodyStrongTextBlockStyle}"
+                           VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Command="{x:Bind ViewModel.HighlightMomentCommand}"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.HighlightTooltip()}"
+                            AutomationProperties.AutomationId="BtnHighlightMoment"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.HighlightLabel()}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE734;" FontSize="16" />
+                            <TextBlock Text="{x:Bind local:RecordingPage.HighlightLabel()}" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Uid="RecordPage_Copy"
+                            Command="{x:Bind ViewModel.CopyToClipboardCommand}"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
+                </StackPanel>
+            </Grid>
+            <InfoBar Grid.Row="1"
+                     x:Uid="RecordPage_CopyConfirmation"
+                     Severity="Success"
+                     IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
+                     AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
+            <Border Grid.Row="2"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -209,22 +246,31 @@
                 <ScrollViewer x:Name="LiveTranscriptScroll"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
-                              ViewChanged="LiveTranscriptScroll_ViewChanged"
-                              SizeChanged="LiveTranscriptScroll_SizeChanged">
-                    <Grid x:Name="LiveTranscriptHost">
+                              ViewChanged="LiveTranscriptScroll_ViewChanged">
+                    <Grid>
                         <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextWrapping="Wrap"
-                                   VerticalAlignment="Bottom"
+                                   VerticalAlignment="Top"
                                     Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}" />
-                        <TextBlock Text="{x:Bind ViewModel.CanvasTranscriptText, Mode=OneWay}"
+                        <TextBlock x:Name="LiveTranscriptBlock"
+                                   IsTextSelectionEnabled="True"
                                    TextWrapping="Wrap"
-                                   VerticalAlignment="Bottom"
+                                   VerticalAlignment="Top"
+                                   LostFocus="LiveTranscriptBlock_LostFocus"
                                    AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
                     </Grid>
                 </ScrollViewer>
             </Border>
+            <TextBox Grid.Row="3"
+                     x:Uid="RecordPage_SessionNotes"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     MaxHeight="64"
+                     Text="{x:Bind ViewModel.SessionNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSessionNotes), Mode=OneWay}"
+                     AutomationProperties.AutomationId="TxtRecordingNotes" />
         </Grid>
 
         <Border Grid.Row="5"

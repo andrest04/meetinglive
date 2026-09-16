@@ -7,6 +7,7 @@ using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.Storage.Pickers;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -37,10 +38,13 @@ public partial class RecordingPageViewModel : ObservableObject
     private bool _isPageVisible;
     private int _previewGeneration;
     private DispatcherQueueTimer? _elapsedTimer;
+    private DispatcherQueueTimer? _copyConfirmationTimer;
+    private DispatcherQueueTimer? _highlightFeedbackTimer;
     private CancellationTokenSource? _processingCts;
     private TimeSpan _pausedDuration;
     private readonly Stopwatch _pauseClock = new();
     private string? _liveDraft;
+    private readonly List<TimeSpan> _highlights = [];
 
     [ObservableProperty]
     private bool _isRecording;
@@ -64,6 +68,15 @@ public partial class RecordingPageViewModel : ObservableObject
     /// meeting text comes from Nemotron over the WAV.</summary>
     [ObservableProperty]
     private string _liveTranscriptText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCopyConfirmationOpen;
+
+    [ObservableProperty]
+    private string _sessionNotes = string.Empty;
+
+    [ObservableProperty]
+    private string _highlightFeedback = string.Empty;
 
     [ObservableProperty]
     private string _elapsedText = "00:00";
@@ -140,7 +153,13 @@ public partial class RecordingPageViewModel : ObservableObject
     public bool IsSessionActive => IsRecording || IsProcessing;
 
     public string CanvasTranscriptText =>
-        IsSessionActive ? LiveTranscriptText : LastMeeting?.Transcript ?? string.Empty;
+        IsSessionActive
+            ? TranscriptHighlightApplicator.Apply(LiveTranscriptText, _highlights)
+            : LastMeeting?.Transcript ?? string.Empty;
+
+    public bool ShowSessionNotes => IsRecording || IsProcessing;
+
+    public bool HasHighlightFeedback => !string.IsNullOrEmpty(HighlightFeedback);
 
     public bool HasCanvasTranscript => !string.IsNullOrEmpty(CanvasTranscriptText);
 
@@ -270,6 +289,9 @@ public partial class RecordingPageViewModel : ObservableObject
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
         _liveSessionActive = false;
+        SessionNotes = string.Empty;
+        HighlightFeedback = string.Empty;
+        _highlights.Clear();
         _pausedDuration = TimeSpan.Zero;
         _pauseClock.Reset();
         IsPaused = false;
@@ -396,6 +418,9 @@ public partial class RecordingPageViewModel : ObservableObject
         _liveDraft = null;
         _pausedDuration = TimeSpan.Zero;
         LiveTranscriptText = string.Empty;
+        SessionNotes = string.Empty;
+        HighlightFeedback = string.Empty;
+        _highlights.Clear();
         IsPaused = false;
 
         _processingCts?.Dispose();
@@ -476,6 +501,28 @@ public partial class RecordingPageViewModel : ObservableObject
 
     private bool CanTogglePause() => IsRecording;
 
+    [RelayCommand(CanExecute = nameof(CanHighlightMoment))]
+    private void HighlightMoment()
+    {
+        if (!IsRecording)
+            return;
+
+        var elapsed = _elapsed.Elapsed;
+        if (elapsed < TimeSpan.Zero)
+            elapsed = TimeSpan.Zero;
+
+        _highlights.Add(elapsed);
+        HighlightFeedback = AppStrings.Format("RecordPage_Highlighted", TranscriptStampFormatter.FormatElapsed(elapsed));
+        _highlightFeedbackTimer ??= CreateHighlightFeedbackTimer();
+        _highlightFeedbackTimer.Stop();
+        _highlightFeedbackTimer.Start();
+        OnPropertyChanged(nameof(CanvasTranscriptText));
+        OnPropertyChanged(nameof(HasCanvasTranscript));
+        OnPropertyChanged(nameof(HasHighlightFeedback));
+    }
+
+    private bool CanHighlightMoment() => IsRecording;
+
     [RelayCommand(CanExecute = nameof(CanDiscardRecording))]
     private async Task DiscardRecordingAsync()
     {
@@ -517,6 +564,9 @@ public partial class RecordingPageViewModel : ObservableObject
         IsRecording = false;
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
+        SessionNotes = string.Empty;
+        HighlightFeedback = string.Empty;
+        _highlights.Clear();
         StopElapsedTimer();
         StatusText = AppStrings.Get("Status_RecordingDiscarded");
         TryStartMicPreview();
@@ -717,11 +767,12 @@ public partial class RecordingPageViewModel : ObservableObject
             RecordedAt = recordedAt,
             EndedAt = endedAt == default ? null : endedAt,
             AudioFilePath = audioPath,
-            Transcript = transcript,
+            Transcript = TranscriptHighlightApplicator.Apply(transcript, _highlights),
             Summary = summary,
             ActionItems = actionItems,
             SummaryProvider = summaryProviderId,
             FolderId = folderId,
+            Notes = string.IsNullOrWhiteSpace(SessionNotes) ? null : SessionNotes.Trim(),
         };
 
         await _meetings.SaveAsync(record);
@@ -813,6 +864,7 @@ public partial class RecordingPageViewModel : ObservableObject
         NotifyCanvasState();
         TogglePauseCommand.NotifyCanExecuteChanged();
         DiscardRecordingCommand.NotifyCanExecuteChanged();
+        HighlightMomentCommand.NotifyCanExecuteChanged();
         ImportAudioCommand.NotifyCanExecuteChanged();
     }
 
@@ -820,11 +872,55 @@ public partial class RecordingPageViewModel : ObservableObject
 
     partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(IsStatusError));
 
+    [RelayCommand(CanExecute = nameof(CanCopyToClipboard))]
+    private void CopyToClipboard()
+    {
+        if (!CanCopyToClipboard())
+            return;
+
+        var package = new DataPackage();
+        package.SetText(CanvasTranscriptText);
+        Clipboard.SetContent(package);
+        ShowCopyConfirmation();
+    }
+
+    private bool CanCopyToClipboard() => HasCanvasTranscript;
+
+    private void ShowCopyConfirmation()
+    {
+        IsCopyConfirmationOpen = true;
+        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
+        _copyConfirmationTimer.Stop();
+        _copyConfirmationTimer.Start();
+    }
+
+    private DispatcherQueueTimer CreateCopyConfirmationTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2.5);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
+        return timer;
+    }
+
+    private DispatcherQueueTimer CreateHighlightFeedbackTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => HighlightFeedback = string.Empty;
+        return timer;
+    }
+
+    partial void OnHighlightFeedbackChanged(string value) =>
+        OnPropertyChanged(nameof(HasHighlightFeedback));
+
     partial void OnLiveTranscriptTextChanged(string value)
     {
         OnPropertyChanged(nameof(HasLiveTranscript));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
+        CopyToClipboardCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsProcessingChanged(bool value)
@@ -842,10 +938,12 @@ public partial class RecordingPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSetupPanel));
         OnPropertyChanged(nameof(ShowRecordHero));
         OnPropertyChanged(nameof(ShowImportAudio));
+        OnPropertyChanged(nameof(ShowSessionNotes));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
         OnPropertyChanged(nameof(CanvasHeading));
         OnPropertyChanged(nameof(LastMeetingTitle));
+        CopyToClipboardCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyReadiness(RecordingSetupSnapshot snapshot)
