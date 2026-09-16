@@ -17,7 +17,7 @@ namespace MeetingLive_App.ViewModels;
 /// After Stop, the live draft is saved immediately; Nemotron re-reads the WAV in the
 /// background and replaces that transcript. Summary waits for the WAV pass.
 /// </summary>
-public partial class RecordingPageViewModel : ObservableObject
+public partial class RecordingPageViewModel : ObservableObject, IRecordingPipelineCallbacks
 {
     private readonly IAudioCaptureService _audioCapture = AppServices.AudioCapture;
     private readonly IAudioImportService _audioImport = AppServices.AudioImport;
@@ -28,6 +28,7 @@ public partial class RecordingPageViewModel : ObservableObject
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private readonly IFolderRepository _folders = AppServices.Folders;
     private readonly IMicrophoneLevelMeterService _levelMeter = AppServices.MicrophoneLevelMeter;
+    private readonly RecordingPipelineOrchestrator _pipeline;
     private readonly Stopwatch _elapsed = new();
 
     private Guid _currentMeetingId;
@@ -184,6 +185,7 @@ public partial class RecordingPageViewModel : ObservableObject
 
     public RecordingPageViewModel()
     {
+        _pipeline = new RecordingPipelineOrchestrator(_transcription, _meetings);
         _liveTranscription.TranscriptUpdated += OnLiveTranscriptUpdated;
         _levelMeter.LevelChanged += OnMicLevelChanged;
         AppServices.Workspace.MeetingDeleted += OnMeetingDeleted;
@@ -579,6 +581,11 @@ public partial class RecordingPageViewModel : ObservableObject
 
     private bool CanCancelProcessing() => IsProcessing;
 
+    /// <summary>Runs transcription, summary-provider resolution, summarization, and saving via
+    /// <see cref="RecordingPipelineOrchestrator"/>. This ViewModel only supplies the take's data
+    /// and the UI-owned readiness gates, then receives pipeline events back through
+    /// <see cref="IRecordingPipelineCallbacks"/> (implemented explicitly below) and reflects them
+    /// onto its own observable properties.</summary>
     private async Task ProcessRecordingAsync(CancellationToken cancellationToken)
     {
         if (_currentAudioPath is null)
@@ -594,253 +601,65 @@ public partial class RecordingPageViewModel : ObservableObject
         var title = MeetingTitle;
         var liveDraft = _liveDraft;
         var pausedDuration = _pausedDuration;
+        var highlights = _highlights.ToArray();
         var folderId = await ResolveSelectedFolderIdAsync();
+        var request = new RecordingPipelineRequest(
+            meetingId,
+            audioPath,
+            recordedAt,
+            endedAt,
+            title,
+            liveDraft,
+            pausedDuration,
+            folderId,
+            highlights);
 
-        string? transcript = StampEndedHeader(liveDraft, recordedAt, endedAt);
-        try
-        {
-            var transcriptionSettings = await AppServices.Settings.LoadAsync();
-            var language = transcriptionSettings.ResolveTranscriptionLanguage();
-
-            if (!string.IsNullOrWhiteSpace(transcript))
-            {
-                await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null);
-            }
-
-            if (TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime))
-            {
-                App.DispatcherQueue.TryEnqueue(() => StatusText = AppStrings.Get("Status_Transcribing"));
-                var progress = new Progress<int>(percent =>
-                {
-                    App.DispatcherQueue.TryEnqueue(() =>
-                        StatusText = AppStrings.Format("Status_TranscribingPercent", percent));
-                });
-
-                string? wavTranscript = null;
-                try
-                {
-                    wavTranscript = await _transcription.TranscribeAsync(
-                        audioPath,
-                        language,
-                        progress,
-                        cancellationToken,
-                        recordedAt,
-                        pausedDuration,
-                        transcriptionSettings.SpeakerDiarizationEnabled);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch
-                {
-                    wavTranscript = null;
-                }
-
-                if (!string.IsNullOrWhiteSpace(wavTranscript))
-                {
-                    var stamped = TranscriptStampFormatter.EnsureEndedHeader(wavTranscript, recordedAt, endedAt);
-                    transcript = stamped;
-                    App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = stamped);
-                }
-            }
-            else if (string.IsNullOrWhiteSpace(transcript))
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                    FinishProcessing(AppStrings.Get("Error_EngineNotReady")));
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(transcript))
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                    FinishProcessing(AppStrings.Get("Error_NoTranscript")));
-                return;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            await SaveProcessedMeetingAsync(
-                meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                summary: null, actionItems: [], summaryProviderId: null);
-
-            var pipeline = await ResolveSummaryProviderAsync();
-            if (pipeline is null)
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                {
-                    MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                    FinishProcessing(AppStrings.Get("Status_DoneNoSummary"));
-                });
-                return;
-            }
-
-            App.DispatcherQueue.TryEnqueue(() =>
-            {
-                MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                FinishProcessing(AppStrings.Get("Status_GeneratingSummary"));
-            });
-
-            var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
-            var result = await pipeline.Provider.SummarizeAsync(
-                transcript, title, recordedAt, cancellationToken, summaryLanguage,
-                endedAt == default ? null : endedAt);
-
-            var saveTitle = SuggestedMeetingTitle.Resolve(title, result.SuggestedTitle);
-            await SaveProcessedMeetingAsync(
-                meetingId, saveTitle, recordedAt, endedAt, audioPath, folderId, transcript,
-                result.SummaryMarkdown, result.ActionItems, result.ProviderId);
-
-            if (!string.Equals(saveTitle, title, StringComparison.Ordinal))
-                AppServices.Workspace.NotifyMeetingChanged(meetingId);
-
-            App.DispatcherQueue.TryEnqueue(() =>
-            {
-                if (LastMeeting?.Id == meetingId)
-                    StatusText = AppStrings.Get("Status_DoneWithSummary");
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            transcript = string.IsNullOrWhiteSpace(transcript) ? StampEndedHeader(liveDraft, recordedAt, endedAt) : transcript;
-            if (transcript is not null)
-            {
-                await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null);
-                App.DispatcherQueue.TryEnqueue(() =>
-                {
-                    MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                    FinishProcessing(AppStrings.Get("Status_CancelledTranscriptSaved"));
-                });
-            }
-            else
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                    FinishProcessing(AppStrings.Get("Status_ProcessingCancelled")));
-            }
-        }
-        catch (Exception ex)
-        {
-            var friendly = CliFailureUserMessage.Format(ex);
-            if (transcript is not null)
-            {
-                await SaveProcessedMeetingAsync(
-                    meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null);
-                App.DispatcherQueue.TryEnqueue(() =>
-                {
-                    MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-                    var message = AppStrings.Format("Status_TranscriptSavedSummaryFailed", friendly);
-                    if (IsProcessing)
-                        FinishProcessing(message);
-                    else if (LastMeeting?.Id == meetingId)
-                        StatusText = message;
-                });
-            }
-            else
-            {
-                App.DispatcherQueue.TryEnqueue(() =>
-                    FinishProcessing(AppStrings.Format("Error_ProcessRecording", friendly)));
-            }
-        }
+        await _pipeline.RunAsync(
+            request,
+            EnsureSummaryModelAsync,
+            EnsureCliProviderAsync,
+            EnsureXaiProviderAsync,
+            this,
+            cancellationToken);
     }
 
-    private async Task SaveProcessedMeetingAsync(
-        Guid meetingId,
-        string title,
-        DateTimeOffset recordedAt,
-        DateTimeOffset endedAt,
-        string audioPath,
-        Guid? folderId,
-        string transcript,
-        string? summary,
-        IReadOnlyList<ActionItem> actionItems,
-        string? summaryProviderId)
+    string? IRecordingPipelineCallbacks.CurrentSessionNotes => SessionNotes;
+
+    void IRecordingPipelineCallbacks.OnStatusChanged(string status) => StatusText = status;
+
+    void IRecordingPipelineCallbacks.OnTranscriptRefreshed(string transcript) => LiveTranscriptText = transcript;
+
+    void IRecordingPipelineCallbacks.OnMeetingSaved(MeetingRecord record)
     {
-        transcript = StampEndedHeader(transcript, recordedAt, endedAt) ?? transcript;
-        var record = new MeetingRecord
-        {
-            Id = meetingId,
-            Title = title,
-            RecordedAt = recordedAt,
-            EndedAt = endedAt == default ? null : endedAt,
-            AudioFilePath = audioPath,
-            Transcript = TranscriptHighlightApplicator.Apply(transcript, _highlights),
-            Summary = summary,
-            ActionItems = actionItems,
-            SummaryProvider = summaryProviderId,
-            FolderId = folderId,
-            Notes = string.IsNullOrWhiteSpace(SessionNotes) ? null : SessionNotes.Trim(),
-        };
+        if (LastMeeting is not null && LastMeeting.Id != record.Id)
+            return;
 
-        await _meetings.SaveAsync(record);
-        App.DispatcherQueue.TryEnqueue(() =>
-        {
-            if (LastMeeting is not null && LastMeeting.Id != meetingId)
-                return;
-
-            AppServices.Workspace.SetLastProcessed(record);
-            LastMeeting = record;
-        });
+        AppServices.Workspace.SetLastProcessed(record);
+        LastMeeting = record;
     }
 
-    private static string? StampEndedHeader(string? transcript, DateTimeOffset recordedAt, DateTimeOffset endedAt)
+    void IRecordingPipelineCallbacks.OnFinished(string status) => FinishProcessing(status);
+
+    void IRecordingPipelineCallbacks.OnTitleResetAndFinished(string status)
     {
-        if (transcript is null)
-            return null;
-
-        return TranscriptStampFormatter.EnsureEndedHeader(transcript, recordedAt, endedAt);
+        MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+        FinishProcessing(status);
     }
 
-    /// <summary>Resolves an already-chosen engine (and, for a CLI provider, gates on PATH as a
-    /// safety net). The first-time engine chooser lives in pre-record setup — this must not
-    /// prompt after the WAV exists. Returns null when no engine was chosen or a gate failed;
-    /// the caller then skips polish and summarization.</summary>
-    private async Task<ResolvedSummaryPipeline?> ResolveSummaryProviderAsync()
+    void IRecordingPipelineCallbacks.OnMeetingCompleted(Guid meetingId, string status)
     {
-        var settings = await AppServices.Settings.LoadAsync();
-
-        if (string.IsNullOrWhiteSpace(settings.SelectedSummaryProvider))
-            return null;
-
-        var providerKind = settings.ResolveSummaryProviderKind();
-        if (providerKind == SummaryProviderKind.Local)
-        {
-            var modelPath = EnsureSummaryModelAsync is null ? null : await EnsureSummaryModelAsync();
-            return modelPath is null
-                ? null
-                : new ResolvedSummaryPipeline(
-                    AppServices.CreateSummaryProvider(SummaryProviderKind.Local, modelPath),
-                    SummaryProviderKind.Local,
-                    modelPath);
-        }
-
-        if (providerKind == SummaryProviderKind.Xai)
-        {
-            var xaiAvailable = EnsureXaiProviderAsync is not null && await EnsureXaiProviderAsync();
-            return xaiAvailable
-                ? new ResolvedSummaryPipeline(
-                    AppServices.CreateSummaryProvider(SummaryProviderKind.Xai, localModelPath: null),
-                    SummaryProviderKind.Xai,
-                    LocalModelPath: null)
-                : null;
-        }
-
-        var available = EnsureCliProviderAsync is not null && await EnsureCliProviderAsync(providerKind);
-        return available
-            ? new ResolvedSummaryPipeline(
-                AppServices.CreateSummaryProvider(providerKind, localModelPath: null),
-                providerKind,
-                LocalModelPath: null)
-            : null;
+        if (LastMeeting?.Id == meetingId)
+            StatusText = status;
     }
 
-    private sealed record ResolvedSummaryPipeline(
-        ISummaryProvider Provider,
-        SummaryProviderKind Kind,
-        string? LocalModelPath);
+    void IRecordingPipelineCallbacks.OnSummaryFailedAfterTranscriptSaved(Guid meetingId, string message)
+    {
+        MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+        if (IsProcessing)
+            FinishProcessing(message);
+        else if (LastMeeting?.Id == meetingId)
+            StatusText = message;
+    }
 
     partial void OnLastMeetingChanged(MeetingRecord? value)
     {
