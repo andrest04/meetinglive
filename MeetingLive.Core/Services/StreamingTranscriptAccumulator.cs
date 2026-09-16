@@ -6,7 +6,8 @@ namespace MeetingLive.Core.Services;
 /// <summary>
 /// Pure streaming-ASR transcript builder: FINAL results are appended as committed timestamped
 /// lines; INTERIM results replace the current partial suffix instead of being appended.
-/// Long finals are split on word boundaries into ~30-second windows.
+/// Long finals are split on word boundaries into ~30-second windows, and also
+/// on speaker-tag changes when Sortformer tags are present.
 /// </summary>
 public sealed class StreamingTranscriptAccumulator
 {
@@ -103,46 +104,57 @@ public sealed class StreamingTranscriptAccumulator
 
         _lastEnd = end;
 
-        var duration = end - start;
-        if (result.Words.Count == 0 || duration <= WindowLength)
+        if (result.Words.Count == 0)
         {
             yield return FormatLine(start, text);
             yield break;
         }
 
-        var tokens = Whitespace.Split(text).Where(token => token.Length > 0).ToArray();
+        var duration = end - start;
+        var uniqueSpeakers = result.Words.Select(word => word.SpeakerTag).Distinct().Count();
+        if (duration <= WindowLength && uniqueSpeakers == 1)
+        {
+            yield return FormatLine(start, text, result.Words[0].SpeakerTag);
+            yield break;
+        }
+
+        var tokens = ResolveTokens(result, text);
         if (tokens.Length == 0)
         {
-            yield return FormatLine(start, text);
+            yield return FormatLine(start, text, result.Words[0].SpeakerTag);
             yield break;
         }
 
         var pairCount = Math.Min(tokens.Length, result.Words.Count);
-        var windows = new List<(TimeSpan Start, List<string> Tokens)>();
+        var windows = new List<(TimeSpan Start, List<string> Tokens, int SpeakerTag)>();
         var windowStart = result.Words[0].Start;
+        var windowSpeaker = result.Words[0].SpeakerTag;
         var current = new List<string>();
 
         for (var i = 0; i < pairCount; i++)
         {
             var word = result.Words[i];
-            if (current.Count > 0 && word.End - windowStart >= WindowLength)
+            var speakerChanged = current.Count > 0 && word.SpeakerTag != windowSpeaker;
+            var windowElapsed = current.Count > 0 && word.End - windowStart >= WindowLength;
+            if (speakerChanged || windowElapsed)
             {
-                windows.Add((windowStart, current));
+                windows.Add((windowStart, current, windowSpeaker));
                 current = [];
                 windowStart = word.Start;
+                windowSpeaker = word.SpeakerTag;
             }
 
             current.Add(tokens[i]);
         }
 
         if (current.Count > 0)
-            windows.Add((windowStart, current));
+            windows.Add((windowStart, current, windowSpeaker));
 
         if (tokens.Length > pairCount)
         {
             var extra = tokens[pairCount..];
             if (windows.Count == 0)
-                windows.Add((start, extra.ToList()));
+                windows.Add((start, extra.ToList(), 0));
             else
                 windows[^1].Tokens.AddRange(extra);
         }
@@ -153,10 +165,22 @@ public sealed class StreamingTranscriptAccumulator
             if (windowText.Length == 0)
                 continue;
 
-            yield return FormatLine(window.Start, windowText);
+            yield return FormatLine(window.Start, windowText, window.SpeakerTag);
         }
     }
 
-    private string FormatLine(TimeSpan start, string text) =>
-        TranscriptStampFormatter.FormatLine(start, text, _recordedAt, ClockSkew);
+    private static string[] ResolveTokens(NemoSpeechAsrResult result, string text)
+    {
+        var split = Whitespace.Split(text).Where(token => token.Length > 0).ToArray();
+        if (result.Words.Count == split.Length && result.Words.All(word => word.Text is not null))
+            return result.Words.Select(word => word.Text!).ToArray();
+
+        return split;
+    }
+
+    private string FormatLine(TimeSpan start, string text, int speakerTag = 0)
+    {
+        var spoken = speakerTag > 0 ? $"Speaker {speakerTag}: {text}" : text;
+        return TranscriptStampFormatter.FormatLine(start, spoken, _recordedAt, ClockSkew);
+    }
 }

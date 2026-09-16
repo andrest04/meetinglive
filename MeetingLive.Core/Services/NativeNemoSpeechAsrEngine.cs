@@ -10,13 +10,21 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
 {
-    public INemoSpeechRecognizer CreateRecognizer(string modelPath, string runtimeBinDirectory, int gpu)
+    public INemoSpeechRecognizer CreateRecognizer(
+        string modelPath,
+        string runtimeBinDirectory,
+        int gpu,
+        string? diarizationModelPath = null,
+        SortformerGeometry geometry = SortformerGeometry.Streaming)
     {
         var library = NemoSpeechNativeLibrary.Load(runtimeBinDirectory);
         try
         {
-            var recognizer = library.CreateRecognizer(modelPath, gpu);
-            return new NativeNemoSpeechRecognizer(library, recognizer);
+            var recognizer = library.CreateRecognizer(modelPath, gpu, diarizationModelPath, geometry);
+            return new NativeNemoSpeechRecognizer(
+                library,
+                recognizer,
+                enableSpeakerDiarization: !string.IsNullOrWhiteSpace(diarizationModelPath));
         }
         catch
         {
@@ -29,25 +37,35 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
     {
         private readonly NemoSpeechNativeLibrary _library;
         private readonly NemoOwnedHandle _recognizer;
+        private readonly bool _enableSpeakerDiarization;
         private bool _disposed;
 
-        public NativeNemoSpeechRecognizer(NemoSpeechNativeLibrary library, NemoOwnedHandle recognizer)
+        public NativeNemoSpeechRecognizer(
+            NemoSpeechNativeLibrary library,
+            NemoOwnedHandle recognizer,
+            bool enableSpeakerDiarization)
         {
             _library = library;
             _recognizer = recognizer;
+            _enableSpeakerDiarization = enableSpeakerDiarization;
         }
 
         public INemoSpeechStream StartStream(string languageCode)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var stream = _library.StartStream(_recognizer, languageCode);
+            var stream = _library.StartStream(_recognizer, languageCode, _enableSpeakerDiarization);
             return new NativeNemoSpeechStream(_library, stream);
         }
 
         public NemoSpeechAsrResult Recognize(float[] samples, int sampleRate, string languageCode)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var result = _library.RecognizeF32(_recognizer, samples, sampleRate, languageCode);
+            var result = _library.RecognizeF32(
+                _recognizer,
+                samples,
+                sampleRate,
+                languageCode,
+                _enableSpeakerDiarization);
             return ReadResult(_library, result);
         }
 
@@ -130,9 +148,13 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
             {
                 var startMs = library.ResultWordStartTimeMs(result, i);
                 var endMs = library.ResultWordEndTimeMs(result, i);
+                var speakerTag = library.ResultWordSpeakerTag(result, i);
+                var wordText = library.ResultWordText(result, i);
                 words[i] = new NemoSpeechWordTiming(
                     TimeSpan.FromMilliseconds(startMs),
-                    TimeSpan.FromMilliseconds(endMs));
+                    TimeSpan.FromMilliseconds(endMs),
+                    speakerTag,
+                    wordText);
             }
 
             return new NemoSpeechAsrResult(isFinal, transcript, audioProcessed, words);

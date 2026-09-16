@@ -7,7 +7,12 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public interface INemoSpeechAsrEngine
 {
-    INemoSpeechRecognizer CreateRecognizer(string modelPath, string runtimeBinDirectory, int gpu);
+    INemoSpeechRecognizer CreateRecognizer(
+        string modelPath,
+        string runtimeBinDirectory,
+        int gpu,
+        string? diarizationModelPath = null,
+        SortformerGeometry geometry = SortformerGeometry.Streaming);
 }
 
 public interface INemoSpeechRecognizer : IDisposable

@@ -11,5 +11,6 @@ public interface ITranscriptionService
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default,
         DateTimeOffset? recordedAt = null,
-        TimeSpan clockSkew = default);
+        TimeSpan clockSkew = default,
+        bool enableSpeakerDiarization = false);
 }

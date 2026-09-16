@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 
 namespace MeetingLive.Core.Native;
 
@@ -34,6 +36,8 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
     private readonly ResultWordCountDelegate _resultWordCount;
     private readonly ResultWordStartTimeDelegate _resultWordStartTime;
     private readonly ResultWordEndTimeDelegate _resultWordEndTime;
+    private readonly ResultWordTextDelegate _resultWordText;
+    private readonly ResultWordSpeakerTagDelegate _resultWordSpeakerTag;
     private readonly ResultDestroyDelegate _resultDestroy;
     private readonly LastErrorDelegate _lastError;
 
@@ -56,6 +60,8 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         _resultWordCount = GetExport<ResultWordCountDelegate>(handle, "nemo_speech_asr_result_word_count");
         _resultWordStartTime = GetExport<ResultWordStartTimeDelegate>(handle, "nemo_speech_asr_result_word_start_time");
         _resultWordEndTime = GetExport<ResultWordEndTimeDelegate>(handle, "nemo_speech_asr_result_word_end_time");
+        _resultWordText = GetExport<ResultWordTextDelegate>(handle, "nemo_speech_asr_result_word_text");
+        _resultWordSpeakerTag = GetExport<ResultWordSpeakerTagDelegate>(handle, "nemo_speech_asr_result_word_speaker_tag");
         _resultDestroy = GetExport<ResultDestroyDelegate>(handle, "nemo_speech_asr_result_destroy");
         _lastError = GetExport<LastErrorDelegate>(handle, "nemo_speech_asr_last_error");
     }
@@ -96,12 +102,18 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public NemoOwnedHandle CreateRecognizer(string modelPath, int gpu)
+    public NemoOwnedHandle CreateRecognizer(
+        string modelPath,
+        int gpu,
+        string? diarizationModelPath = null,
+        SortformerGeometry geometry = SortformerGeometry.Streaming)
     {
         var modelPathPtr = Marshal.StringToCoTaskMemUTF8(modelPath);
+        var diarPathPtr = IntPtr.Zero;
         var backendPtr = IntPtr.Zero;
         var modelPtr = IntPtr.Zero;
         var streamingPtr = IntPtr.Zero;
+        var diarPtr = IntPtr.Zero;
         var cfgPtr = IntPtr.Zero;
         try
         {
@@ -133,12 +145,31 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
             };
             streamingPtr = Alloc(streaming);
 
+            if (!string.IsNullOrWhiteSpace(diarizationModelPath))
+            {
+                diarPathPtr = Marshal.StringToCoTaskMemUTF8(diarizationModelPath);
+                var meeting = geometry == SortformerGeometry.Meeting;
+                var diar = new NemoSpeechAsrDiarConfig
+                {
+                    Size = (nuint)Marshal.SizeOf<NemoSpeechAsrDiarConfig>(),
+                    ModelPath = diarPathPtr,
+                    ChunkFrames = meeting ? NemotronAsrCatalog.MeetingChunkFrames : 0,
+                    RightContextFrames = meeting ? NemotronAsrCatalog.MeetingRightContextFrames : 0,
+                    LeftContextFrames = NemotronAsrCatalog.MeetingLeftContextFrames,
+                    FifoFrames = meeting ? NemotronAsrCatalog.MeetingFifoFrames : 0,
+                    SpkcacheFrames = meeting ? NemotronAsrCatalog.MeetingSpkcacheFrames : 0,
+                    UpdatePeriodFrames = meeting ? NemotronAsrCatalog.MeetingUpdatePeriodFrames : 0,
+                };
+                diarPtr = Alloc(diar);
+            }
+
             var cfg = new NemoSpeechAsrRecognizerConfig
             {
                 Size = (nuint)Marshal.SizeOf<NemoSpeechAsrRecognizerConfig>(),
                 Backend = backendPtr,
                 Model = modelPtr,
                 Streaming = streamingPtr,
+                Diar = diarPtr,
             };
             cfgPtr = Alloc(cfg);
 
@@ -151,14 +182,22 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         finally
         {
             Free(cfgPtr);
+            Free(diarPtr);
             Free(streamingPtr);
             Free(modelPtr);
             Free(backendPtr);
             Marshal.FreeCoTaskMem(modelPathPtr);
+            if (diarPathPtr != IntPtr.Zero)
+                Marshal.FreeCoTaskMem(diarPathPtr);
         }
     }
 
-    public NemoOwnedHandle RecognizeF32(NemoOwnedHandle recognizer, float[] samples, int sampleRate, string languageCode)
+    public NemoOwnedHandle RecognizeF32(
+        NemoOwnedHandle recognizer,
+        float[] samples,
+        int sampleRate,
+        string languageCode,
+        bool enableSpeakerDiarization = false)
     {
         var optionsPtr = IntPtr.Zero;
         var languagePtr = Marshal.StringToCoTaskMemUTF8(languageCode);
@@ -166,7 +205,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         try
         {
             using var recognizerScope = new DangerousHandleScope(recognizer);
-            optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: false);
+            optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: false, enableSpeakerDiarization);
             var status = _recognizeF32(
                 recognizerScope.Pointer,
                 optionsPtr,
@@ -186,14 +225,17 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
-    public NemoOwnedHandle StartStream(NemoOwnedHandle recognizer, string languageCode)
+    public NemoOwnedHandle StartStream(
+        NemoOwnedHandle recognizer,
+        string languageCode,
+        bool enableSpeakerDiarization = false)
     {
         var optionsPtr = IntPtr.Zero;
         var languagePtr = Marshal.StringToCoTaskMemUTF8(languageCode);
         try
         {
             using var recognizerScope = new DangerousHandleScope(recognizer);
-            optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: true);
+            optionsPtr = AllocRecognitionOptions(languagePtr, interimResults: true, enableSpeakerDiarization);
             var status = _streamingRecognize(recognizerScope.Pointer, optionsPtr, out var stream);
             if (status != NemoSpeechAsrOk || stream == IntPtr.Zero)
                 throw new InvalidOperationException($"nemo_speech_asr_streaming_recognize failed: {LastError()}");
@@ -279,6 +321,19 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         return _resultWordEndTime(scope.Pointer, 0, index);
     }
 
+    public string ResultWordText(NemoOwnedHandle result, nuint index)
+    {
+        using var scope = new DangerousHandleScope(result);
+        var ptr = _resultWordText(scope.Pointer, 0, index);
+        return ptr == IntPtr.Zero ? string.Empty : Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
+    }
+
+    public int ResultWordSpeakerTag(NemoOwnedHandle result, nuint index)
+    {
+        using var scope = new DangerousHandleScope(result);
+        return _resultWordSpeakerTag(scope.Pointer, 0, index);
+    }
+
     public string LastError()
     {
         var ptr = _lastError();
@@ -295,7 +350,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
     private NemoOwnedHandle Own(IntPtr native, Action<IntPtr> release) =>
         new(native, _libraryHandle, release);
 
-    private IntPtr AllocRecognitionOptions(IntPtr languagePtr, bool interimResults)
+    private IntPtr AllocRecognitionOptions(IntPtr languagePtr, bool interimResults, bool enableSpeakerDiarization)
     {
         var options = new NemoSpeechAsrRecognitionOptions
         {
@@ -311,7 +366,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
             SpeechContexts = IntPtr.Zero,
             SpeechContextCount = 0,
             MaxAlternatives = 1,
-            EnableSpeakerDiarization = 0,
+            EnableSpeakerDiarization = (byte)(enableSpeakerDiarization ? 1 : 0),
             MaxSpeakerCount = 0,
         };
         return Alloc(options);
@@ -382,6 +437,12 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int ResultWordEndTimeDelegate(IntPtr result, nuint alt, nuint index);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate IntPtr ResultWordTextDelegate(IntPtr result, nuint alt, nuint index);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int ResultWordSpeakerTagDelegate(IntPtr result, nuint alt, nuint index);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void ResultDestroyDelegate(IntPtr result);

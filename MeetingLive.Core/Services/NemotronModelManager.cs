@@ -1,11 +1,11 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Downloads the Nemotron 3.5 ASR GGUF from Hugging Face into
-/// <see cref="AppPaths.TranscriptionModelsDirectory"/> (overridable for tests).
+/// Downloads the Nemotron 3.5 ASR GGUF and Sortformer diarization sidecar from Hugging Face
+/// into <see cref="AppPaths.TranscriptionModelsDirectory"/> (overridable for tests).
 /// Downloads land in a ".part" file first and are only moved into place once complete,
 /// so a cancelled or failed download never leaves a corrupt file that
-/// <see cref="IsModelDownloaded"/> would report as ready.
+/// <see cref="IsModelDownloaded"/> / <see cref="IsDiarizationModelDownloaded"/> would report as ready.
 /// </summary>
 public sealed class NemotronModelManager(HttpClient httpClient, string? modelsDirectory = null) : INemotronModelManager
 {
@@ -15,16 +15,40 @@ public sealed class NemotronModelManager(HttpClient httpClient, string? modelsDi
 
     public bool IsModelDownloaded() => File.Exists(GetModelPath());
 
-    public async Task DownloadModelAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public Task DownloadModelAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default) =>
+        DownloadFileAsync(NemotronAsrCatalog.DownloadUrl, GetModelPath(), progress, cancellationToken);
+
+    public void DeleteModel() => DeleteIfExists(GetModelPath());
+
+    public string GetDiarizationModelPath() =>
+        Path.Combine(_modelsDirectory, NemotronAsrCatalog.DiarizationFileName);
+
+    public bool IsDiarizationModelDownloaded() => File.Exists(GetDiarizationModelPath());
+
+    public Task DownloadDiarizationModelAsync(
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default) =>
+        DownloadFileAsync(
+            NemotronAsrCatalog.DiarizationDownloadUrl,
+            GetDiarizationModelPath(),
+            progress,
+            cancellationToken);
+
+    public void DeleteDiarizationModel() => DeleteIfExists(GetDiarizationModelPath());
+
+    private async Task DownloadFileAsync(
+        string url,
+        string finalPath,
+        IProgress<double>? progress,
+        CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(_modelsDirectory);
 
-        var finalPath = GetModelPath();
         var partPath = finalPath + ".part";
 
         try
         {
-            using (var response = await httpClient.GetAsync(NemotronAsrCatalog.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+            using (var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
             {
                 response.EnsureSuccessStatusCode();
 
@@ -55,9 +79,8 @@ public sealed class NemotronModelManager(HttpClient httpClient, string? modelsDi
         }
     }
 
-    public void DeleteModel()
+    private static void DeleteIfExists(string path)
     {
-        var path = GetModelPath();
         if (File.Exists(path))
             File.Delete(path);
     }

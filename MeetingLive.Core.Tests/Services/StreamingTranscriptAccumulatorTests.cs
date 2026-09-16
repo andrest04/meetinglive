@@ -177,6 +177,66 @@ public class StreamingTranscriptAccumulatorTests
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
+    [Fact]
+    public void Apply_SpeakerChange_SplitsLinesAndPreservesStamps()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(1), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 1),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), 2),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(4), 2),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(5), 2),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "hello there how are you", 5, words));
+
+        var expected =
+            Header() + Environment.NewLine +
+            Line(TimeSpan.Zero, "Speaker 1: hello there") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(2), "Speaker 2: how are you");
+        Assert.Equal(expected, accumulator.CommittedText);
+        Assert.StartsWith("[00:00:00 |", Line(TimeSpan.Zero, "Speaker 1: hello there"), StringComparison.Ordinal);
+        Assert.Contains(" | ", expected, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Apply_UntaggedWords_KeepsOldFormatWithoutSpeakerPrefix()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(1), 0),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "hello there", 2, words));
+
+        var expected = Header() + Environment.NewLine + Line(TimeSpan.Zero, "hello there");
+        Assert.Equal(expected, accumulator.CommittedText);
+        Assert.DoesNotContain("Speaker ", accumulator.CommittedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Apply_SpeakerChange_WhenWordTextsMatchCount_UsesWordTexts()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var words = new[]
+        {
+            new NemoSpeechWordTiming(TimeSpan.Zero, TimeSpan.FromSeconds(1), 1, "Hello,"),
+            new NemoSpeechWordTiming(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 2, "world."),
+        };
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "Hello world", 2, words));
+
+        var expected =
+            Header() + Environment.NewLine +
+            Line(TimeSpan.Zero, "Speaker 1: Hello,") + Environment.NewLine +
+            Line(TimeSpan.FromSeconds(1), "Speaker 2: world.");
+        Assert.Equal(expected, accumulator.CommittedText);
+    }
+
     private static string Header()
     {
         var stamp = RecordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);

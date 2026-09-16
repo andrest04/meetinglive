@@ -30,6 +30,24 @@ internal struct NemoSpeechAsrStreamingConfig
     [FieldOffset(20)] public int RnntRightContext;
 }
 
+/// <summary>
+/// POD mirror of <c>nemo_speech_asr_diar_config</c> (x64 MSVC layout, 40 bytes).
+/// <see cref="LeftContextFrames"/> uses -1 as the default sentinel because 0 is valid.
+/// Other frame fields 0 = library default.
+/// </summary>
+[StructLayout(LayoutKind.Explicit, Size = 40)]
+internal struct NemoSpeechAsrDiarConfig
+{
+    [FieldOffset(0)] public nuint Size;
+    [FieldOffset(8)] public IntPtr ModelPath;
+    [FieldOffset(16)] public int ChunkFrames;
+    [FieldOffset(20)] public int RightContextFrames;
+    [FieldOffset(24)] public int LeftContextFrames;
+    [FieldOffset(28)] public int FifoFrames;
+    [FieldOffset(32)] public int SpkcacheFrames;
+    [FieldOffset(36)] public int UpdatePeriodFrames;
+}
+
 /// <summary>POD mirror of <c>nemo_speech_asr_recognizer_config</c>. Unused subsystem pointers stay NULL.</summary>
 [StructLayout(LayoutKind.Explicit, Size = 80)]
 internal struct NemoSpeechAsrRecognizerConfig

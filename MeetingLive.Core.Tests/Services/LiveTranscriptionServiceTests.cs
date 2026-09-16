@@ -44,17 +44,19 @@ public class LiveTranscriptionServiceTests
         var capture = new FakeAudioCapture();
         var stream = new TrackingStream();
         var recognizer = new TrackingRecognizer(stream);
+        var engine = new FakeEngine(recognizer);
         var service = new LiveTranscriptionService(
             capture,
             new FakeModels(),
             new FakeRuntime(),
-            new FakeEngine(recognizer),
+            engine,
             new FakeHardware());
 
         service.Start("en", DateTimeOffset.UnixEpoch);
         var text = service.Stop();
 
         Assert.Equal(string.Empty, text);
+        Assert.Equal(SortformerGeometry.Streaming, engine.LastGeometry);
         Assert.Equal(0, stream.FinishAndDrainCalls);
         Assert.Equal(1, stream.DisposeCalls);
         Assert.Equal(1, recognizer.DisposeCalls);
@@ -98,6 +100,18 @@ public class LiveTranscriptionServiceTests
         public void DeleteModel()
         {
         }
+
+        public string GetDiarizationModelPath() => "diar.gguf";
+
+        public bool IsDiarizationModelDownloaded() => true;
+
+        public Task DownloadDiarizationModelAsync(
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void DeleteDiarizationModel()
+        {
+        }
     }
 
     private sealed class FakeRuntime : INemoSpeechRuntimeManager
@@ -131,8 +145,18 @@ public class LiveTranscriptionServiceTests
 
         public FakeEngine(INemoSpeechRecognizer recognizer) => _recognizer = recognizer;
 
-        public INemoSpeechRecognizer CreateRecognizer(string modelPath, string runtimeBinDirectory, int gpu) =>
-            _recognizer;
+        public SortformerGeometry LastGeometry { get; private set; }
+
+        public INemoSpeechRecognizer CreateRecognizer(
+            string modelPath,
+            string runtimeBinDirectory,
+            int gpu,
+            string? diarizationModelPath = null,
+            SortformerGeometry geometry = SortformerGeometry.Streaming)
+        {
+            LastGeometry = geometry;
+            return _recognizer;
+        }
     }
 
     private sealed class FakeRecognizer(INemoSpeechStream stream) : INemoSpeechRecognizer

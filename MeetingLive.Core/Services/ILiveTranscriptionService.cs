@@ -15,7 +15,7 @@ public interface ILiveTranscriptionService
     /// <see cref="IAudioCaptureService.PcmFrameAvailable"/>. Safe to call while a previous
     /// session is still running — it is stopped first. Does not take a WAV path.
     /// <paramref name="recordedAt"/> stamps committed lines with elapsed and wall-clock time.</summary>
-    void Start(string language, DateTimeOffset recordedAt);
+    void Start(string language, DateTimeOffset recordedAt, bool enableSpeakerDiarization = false);
 
     /// <summary>Closes the live stream and releases native handles without a CUDA
     /// <c>stream_finish</c> flush. Non-empty returned text is the draft saved at Stop;

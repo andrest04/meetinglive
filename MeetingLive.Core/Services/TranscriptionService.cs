@@ -1,3 +1,4 @@
+using MeetingLive.Core.Models;
 using NAudio.Wave;
 
 namespace MeetingLive.Core.Services;
@@ -22,12 +23,19 @@ public sealed class TranscriptionService(
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default,
         DateTimeOffset? recordedAt = null,
-        TimeSpan clockSkew = default)
+        TimeSpan clockSkew = default,
+        bool enableSpeakerDiarization = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.Run(
             () => TranscribeWav(
-                wavFilePath, language, progress, cancellationToken, recordedAt ?? default, clockSkew),
+                wavFilePath,
+                language,
+                progress,
+                cancellationToken,
+                recordedAt ?? default,
+                clockSkew,
+                enableSpeakerDiarization),
             cancellationToken);
     }
 
@@ -37,10 +45,11 @@ public sealed class TranscriptionService(
         IProgress<int>? progress,
         CancellationToken cancellationToken,
         DateTimeOffset recordedAt,
-        TimeSpan clockSkew)
+        TimeSpan clockSkew,
+        bool enableSpeakerDiarization)
     {
         var factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware);
-        var recognizer = factory.Create();
+        var recognizer = factory.Create(enableSpeakerDiarization, SortformerGeometry.Meeting);
         INemoSpeechStream? stream = null;
         try
         {

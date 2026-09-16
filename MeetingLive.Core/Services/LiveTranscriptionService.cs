@@ -38,12 +38,12 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
 
     public event EventHandler<string>? TranscriptUpdated;
 
-    public void Start(string language, DateTimeOffset recordedAt)
+    public void Start(string language, DateTimeOffset recordedAt, bool enableSpeakerDiarization = false)
     {
         Stop();
 
         var locale = NemotronLanguageMapper.ToNemotronLocale(language);
-        var recognizer = _factory.Create();
+        var recognizer = _factory.Create(enableSpeakerDiarization);
         INemoSpeechStream stream;
         try
         {

@@ -29,10 +29,11 @@ public class TranscriptionServiceTests : IDisposable
         var wavPath = WriteSilenceWav();
         var stream = new ScriptedStream("hello there");
         var recognizer = new TrackingRecognizer(stream);
+        var engine = new FakeEngine(recognizer);
         var service = new TranscriptionService(
             new FakeModels(),
             new FakeRuntime(),
-            new FakeEngine(recognizer),
+            engine,
             new FakeHardware());
 
         var text = await service.TranscribeAsync(
@@ -40,6 +41,7 @@ public class TranscriptionServiceTests : IDisposable
 
         Assert.Contains("hello there", text, StringComparison.Ordinal);
         Assert.Equal("en-US", recognizer.LastLanguage);
+        Assert.Equal(SortformerGeometry.Meeting, engine.LastGeometry);
         Assert.True(stream.PushCalls > 0);
         Assert.Equal(0, stream.FinishAndDrainCalls);
         Assert.Equal(1, stream.DisposeCalls);
@@ -83,6 +85,18 @@ public class TranscriptionServiceTests : IDisposable
         public void DeleteModel()
         {
         }
+
+        public string GetDiarizationModelPath() => "diar.gguf";
+
+        public bool IsDiarizationModelDownloaded() => true;
+
+        public Task DownloadDiarizationModelAsync(
+            IProgress<double>? progress = null,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void DeleteDiarizationModel()
+        {
+        }
     }
 
     private sealed class FakeRuntime : INemoSpeechRuntimeManager
@@ -108,8 +122,18 @@ public class TranscriptionServiceTests : IDisposable
 
     private sealed class FakeEngine(INemoSpeechRecognizer recognizer) : INemoSpeechAsrEngine
     {
-        public INemoSpeechRecognizer CreateRecognizer(string modelPath, string runtimeBinDirectory, int gpu) =>
-            recognizer;
+        public SortformerGeometry LastGeometry { get; private set; }
+
+        public INemoSpeechRecognizer CreateRecognizer(
+            string modelPath,
+            string runtimeBinDirectory,
+            int gpu,
+            string? diarizationModelPath = null,
+            SortformerGeometry geometry = SortformerGeometry.Streaming)
+        {
+            LastGeometry = geometry;
+            return recognizer;
+        }
     }
 
     private sealed class TrackingRecognizer(INemoSpeechStream stream) : INemoSpeechRecognizer
