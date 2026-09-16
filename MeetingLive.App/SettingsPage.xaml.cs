@@ -37,25 +37,25 @@ public sealed partial class SettingsPage : Page
     private void ModelRadioButton_Checked(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is ModelOption option)
-            ViewModel.SelectModelCommand.Execute(option);
+            ViewModel.LocalModel.SelectModelCommand.Execute(option);
     }
 
     private void DownloadModelButton_Click(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is ModelOption option)
-            ViewModel.DownloadModelCommand.Execute(option);
+            ViewModel.LocalModel.DownloadModelCommand.Execute(option);
     }
 
     private void DeleteModelButton_Click(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is ModelOption option)
-            ViewModel.DeleteModelCommand.Execute(option);
+            ViewModel.LocalModel.DeleteModelCommand.Execute(option);
     }
 
     private void ProviderRadioButton_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is RadioButton { Tag: string tag } && Enum.TryParse<SummaryProviderKind>(tag, out var kind))
-            ViewModel.SelectProviderCommand.Execute(kind);
+            ViewModel.SummaryProvider.SelectProviderCommand.Execute(kind);
     }
 
     private async void XaiSignIn_Click(object sender, RoutedEventArgs e)
@@ -63,8 +63,8 @@ public sealed partial class SettingsPage : Page
         var signedIn = await Dialogs.XaiAuthDialog.ShowAsync(XamlRoot);
         if (signedIn)
         {
-            await ViewModel.RefreshXaiAccountCommand.ExecuteAsync(null);
-            ViewModel.ShowXaiFeedback(AppStrings.Get("Xai_FeedbackSignedIn"));
+            await ViewModel.SummaryProvider.RefreshXaiAccountCommand.ExecuteAsync(null);
+            ViewModel.SummaryProvider.ShowXaiFeedback(AppStrings.Get("Xai_FeedbackSignedIn"));
         }
     }
 
@@ -76,89 +76,89 @@ public sealed partial class SettingsPage : Page
             return;
 
         _xaiApiKeyBox = box;
-        ViewModel.XaiApiKeyDraft = box.Password ?? string.Empty;
+        ViewModel.SummaryProvider.XaiApiKeyDraft = box.Password ?? string.Empty;
     }
 
     private async void XaiSaveApiKey_Click(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.CanSaveXaiApiKey)
+        if (!ViewModel.SummaryProvider.CanSaveXaiApiKey)
             return;
 
-        await ViewModel.SaveXaiApiKeyCommand.ExecuteAsync(null);
+        await ViewModel.SummaryProvider.SaveXaiApiKeyCommand.ExecuteAsync(null);
         if (_xaiApiKeyBox is not null)
             _xaiApiKeyBox.Password = string.Empty;
-        ViewModel.XaiApiKeyDraft = string.Empty;
+        ViewModel.SummaryProvider.XaiApiKeyDraft = string.Empty;
     }
 
     private async void XaiSignOut_Click(object sender, RoutedEventArgs e)
     {
-        await ViewModel.SignOutXaiCommand.ExecuteAsync(null);
+        await ViewModel.SummaryProvider.SignOutXaiCommand.ExecuteAsync(null);
     }
 
     private void XaiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string modelId })
-            ViewModel.SelectXaiModelCommand.Execute(modelId);
+            ViewModel.SummaryProvider.SelectXaiModelCommand.Execute(modelId);
     }
 
     private void XaiEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string effort })
-            ViewModel.SelectXaiEffortCommand.Execute(effort);
+            ViewModel.SummaryProvider.SelectXaiEffortCommand.Execute(effort);
     }
 
     private void ClaudeModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string modelId })
-            ViewModel.SelectClaudeModelCommand.Execute(modelId);
+            ViewModel.SummaryProvider.SelectClaudeModelCommand.Execute(modelId);
     }
 
     private void ClaudeEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string effort })
-            ViewModel.SelectClaudeEffortCommand.Execute(effort);
+            ViewModel.SummaryProvider.SelectClaudeEffortCommand.Execute(effort);
     }
 
     private void CodexModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string modelId })
-            ViewModel.SelectCodexModelCommand.Execute(modelId);
+            ViewModel.SummaryProvider.SelectCodexModelCommand.Execute(modelId);
     }
 
     private void CodexEffortComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string effort })
-            ViewModel.SelectCodexEffortCommand.Execute(effort);
+            ViewModel.SummaryProvider.SelectCodexEffortCommand.Execute(effort);
     }
 
     private void LanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })
-            ViewModel.SelectLanguageCommand.Execute(option);
+            ViewModel.Language.SelectLanguageCommand.Execute(option);
     }
 
     private void SummaryLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: TranscriptionLanguageOption option })
-            ViewModel.SelectSummaryLanguageCommand.Execute(option);
+            ViewModel.Language.SelectSummaryLanguageCommand.Execute(option);
     }
 
     private void MicrophoneComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: MicrophoneDeviceOption option })
-            ViewModel.SelectMicrophoneCommand.Execute(option);
+            ViewModel.Microphone.SelectMicrophoneCommand.Execute(option);
     }
 
     private void LiveTranscriptionToggleSwitch_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggleSwitch)
-            ViewModel.ToggleLiveTranscriptionCommand.Execute(toggleSwitch.IsOn);
+            ViewModel.TranscriptionEngine.ToggleLiveTranscriptionCommand.Execute(toggleSwitch.IsOn);
     }
 
     private void SpeakerDiarizationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggleSwitch)
-            ViewModel.ToggleSpeakerDiarizationCommand.Execute(toggleSwitch.IsOn);
+            ViewModel.TranscriptionEngine.ToggleSpeakerDiarizationCommand.Execute(toggleSwitch.IsOn);
     }
 
     public static bool Not(bool value) => !value;
