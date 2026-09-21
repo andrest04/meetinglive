@@ -119,14 +119,26 @@ public sealed class RecordingPipelineOrchestrator(
                 endedAt == default ? null : endedAt);
 
             var saveTitle = SuggestedMeetingTitle.Resolve(title, result.SuggestedTitle);
-            await SaveProcessedMeetingAsync(
+            var record = await SaveProcessedMeetingAsync(
                 request, meetingId, saveTitle, recordedAt, endedAt, audioPath, folderId, transcript,
                 result.SummaryMarkdown, result.ActionItems, result.ProviderId, callbacks);
 
             if (!string.Equals(saveTitle, title, StringComparison.Ordinal))
                 AppServices.Workspace.NotifyMeetingChanged(meetingId);
 
-            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, AppStrings.Get("Status_DoneWithSummary")));
+            var doneMessage = AppStrings.Get("Status_DoneWithSummary");
+            try
+            {
+                var jevStatus = await MeetingJevRunner.TryAnalyzeAndSaveAsync(record, meetings, cancellationToken);
+                if (jevStatus is not null)
+                    doneMessage = jevStatus;
+            }
+            catch (OperationCanceledException)
+            {
+                // Summary is already saved; do not take the summary-failed path.
+            }
+
+            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, doneMessage));
         }
         catch (OperationCanceledException)
         {
@@ -181,7 +193,7 @@ public sealed class RecordingPipelineOrchestrator(
             providerKind, ensureSummaryModelAsync, ensureCliProviderAsync, ensureXaiProviderAsync);
     }
 
-    private async Task SaveProcessedMeetingAsync(
+    private async Task<MeetingRecord> SaveProcessedMeetingAsync(
         RecordingPipelineRequest request,
         Guid meetingId,
         string title,
@@ -213,6 +225,7 @@ public sealed class RecordingPipelineOrchestrator(
 
         await meetings.SaveAsync(record);
         Dispatch(() => callbacks.OnMeetingSaved(record));
+        return record;
     }
 
     private static string? StampEndedHeader(string? transcript, DateTimeOffset recordedAt, DateTimeOffset endedAt)

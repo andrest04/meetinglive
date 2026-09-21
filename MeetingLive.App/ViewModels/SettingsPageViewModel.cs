@@ -23,6 +23,8 @@ public partial class SettingsPageViewModel : ObservableObject
 
     public SummaryProviderSectionViewModel SummaryProvider { get; } = new();
 
+    public TypeSafeSectionViewModel TypeSafe { get; } = new();
+
     public LanguageSectionViewModel Language { get; } = new();
 
     public MicrophoneSectionViewModel Microphone { get; } = new();
@@ -55,6 +57,7 @@ public partial class SettingsPageViewModel : ObservableObject
 
             LocalModel.ApplyLoadedModels(snapshot.Models, settings.SelectedSummaryModelId);
             await SummaryProvider.LoadAsync(settings);
+            await TypeSafe.LoadAsync(settings);
             Language.ApplyLoadedSettings(settings);
             TranscriptionEngine.ApplyLoadedSettings(
                 settings, snapshot.TranscriptionInstalled, snapshot.SpeakerDiarizationInstalled, snapshot.TranscriptionCaption);

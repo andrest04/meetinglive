@@ -233,6 +233,45 @@
                          AutomationProperties.AutomationId="InfoXaiFeedback" />
             </StackPanel>
 
+            <!-- TypeSafe (Jev) — not a summary provider -->
+            <StackPanel Spacing="4">
+                <TextBlock x:Uid="Settings_TypeSafe" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_TypeSafeEnabled"
+                                        HeaderIcon="{ui:FontIcon Glyph=&#xE945;}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.TypeSafe.IsEnabled, Mode=OneWay}"
+                                  Toggled="TypeSafeEnabledToggleSwitch_Toggled"
+                                  AutomationProperties.AutomationId="ToggleTypeSafe" />
+                </controls:SettingsCard>
+                <controls:SettingsCard Header="{x:Bind ViewModel.TypeSafe.StatusText, Mode=OneWay}"
+                                       Description="{x:Bind ViewModel.TypeSafe.StatusDetail, Mode=OneWay}"
+                                       AutomationProperties.AutomationId="CardTypeSafeStatus">
+                    <ProgressRing IsActive="{x:Bind ViewModel.TypeSafe.IsBusy, Mode=OneWay}"
+                                  Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.TypeSafe.IsBusy), Mode=OneWay}"
+                                  Width="16" Height="16" />
+                </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_TypeSafeApiKey" ContentAlignment="Vertical">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <PasswordBox x:Uid="Settings_TypeSafeApiKeyBox"
+                                     Width="240"
+                                     PasswordRevealMode="Peek"
+                                     PasswordChanged="TypeSafeApiKey_PasswordChanged"
+                                     AutomationProperties.AutomationId="BoxSettingsTypeSafeApiKey" />
+                        <Button x:Uid="Settings_TypeSafeSaveApiKey"
+                                Click="TypeSafeSaveApiKey_Click"
+                                IsEnabled="{x:Bind ViewModel.TypeSafe.CanSaveApiKey, Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnTypeSafeSaveApiKey" />
+                        <Button x:Uid="Settings_TypeSafeClearApiKey"
+                                Click="TypeSafeClearApiKey_Click"
+                                IsEnabled="{x:Bind ViewModel.TypeSafe.CanClearApiKey, Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnTypeSafeClearApiKey" />
+                    </StackPanel>
+                </controls:SettingsCard>
+                <InfoBar IsOpen="{x:Bind ViewModel.TypeSafe.IsFeedbackOpen, Mode=TwoWay}"
+                         Severity="Success"
+                         Message="{x:Bind ViewModel.TypeSafe.FeedbackMessage, Mode=OneWay}"
+                         AutomationProperties.AutomationId="InfoTypeSafeFeedback" />
+            </StackPanel>
+
             <!-- Microphone -->
             <StackPanel Spacing="4">
                 <TextBlock x:Uid="Settings_Microphone" Style="{StaticResource BodyStrongTextBlockStyle}" />

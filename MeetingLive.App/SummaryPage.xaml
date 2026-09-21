@@ -58,7 +58,12 @@
                     Style="{StaticResource AccentButtonStyle}"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRegenerateSummary), Mode=OneWay}"
                     AutomationProperties.AutomationId="BtnRegenerateSummary" />
+            <Button x:Uid="SummaryPage_RecheckJev"
+                    Command="{x:Bind ViewModel.RecheckJevCommand}"
+                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRecheckJev), Mode=OneWay}"
+                    AutomationProperties.AutomationId="BtnRecheckJev" />
             <ProgressRing IsActive="{x:Bind ViewModel.IsGenerating, Mode=OneWay}" Width="20" Height="20" />
+            <ProgressRing IsActive="{x:Bind ViewModel.IsRechecking, Mode=OneWay}" Width="20" Height="20" />
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.7" />
         </StackPanel>
 
@@ -87,13 +92,45 @@
                                           AutomationProperties.AutomationId="TxtSummaryContent" />
 
                     <StackPanel Spacing="8"
+                                Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasJevStrip), Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="{x:Bind ViewModel.JevMeetingTypeText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.7"
+                                       Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowJevMeetingType), Mode=OneWay}"
+                                       AutomationProperties.AutomationId="TxtJevMeetingType" />
+                            <TextBlock Text="{x:Bind ViewModel.JevUrgencyText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.7"
+                                       Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowJevUrgency), Mode=OneWay}"
+                                       AutomationProperties.AutomationId="TxtJevUrgency" />
+                        </StackPanel>
+                        <InfoBar Severity="Warning"
+                                 IsOpen="{x:Bind ViewModel.ShowJevWarning, Mode=OneWay}"
+                                 Message="{x:Bind ViewModel.JevWarningText, Mode=OneWay}"
+                                 IsClosable="False"
+                                 AutomationProperties.AutomationId="InfoJevWarning" />
+                        <Button Content="{x:Bind ViewModel.FileInFolderButtonText, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.FileInFolderCommand}"
+                                Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowFileInFolder), Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnFileInFolder" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="8"
                                 Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasActionItems), Mode=OneWay}">
                         <TextBlock x:Uid="SummaryPage_ActionItems" Style="{StaticResource BodyStrongTextBlockStyle}" />
                         <ItemsControl ItemsSource="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
                                       AutomationProperties.AutomationId="ListActionItems">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ActionItemViewModel">
-                                    <CheckBox Content="{x:Bind Text, Mode=OneWay}" IsChecked="{x:Bind IsDone, Mode=TwoWay}" />
+                                    <StackPanel Margin="0,0,0,8">
+                                        <CheckBox Content="{x:Bind Text, Mode=OneWay}" IsChecked="{x:Bind IsDone, Mode=TwoWay}" />
+                                        <TextBlock Text="{x:Bind VerdictCaption, Mode=OneWay}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Opacity="0.7"
+                                                   Margin="32,0,0,0"
+                                                   Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ShowVerdictCaption), Mode=OneWay}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

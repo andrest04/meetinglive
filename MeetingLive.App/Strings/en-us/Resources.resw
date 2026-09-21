@@ -350,4 +350,43 @@
   <data name="XaiAuth_ApiKey.PlaceholderText" xml:space="preserve"><value>xAI API key</value></data>
   <data name="XaiAuth_SaveApiKey.Content" xml:space="preserve"><value>Save API key</value></data>
   <data name="XaiAuth_ApiKeyRequired" xml:space="preserve"><value>Paste an API key first.</value></data>
+
+  <data name="Settings_TypeSafe.Text" xml:space="preserve"><value>TypeSafe (Jev)</value></data>
+  <data name="Settings_TypeSafeEnabled.Header" xml:space="preserve"><value>Check action items with Jev</value></data>
+  <data name="Settings_TypeSafeEnabled.Description" xml:space="preserve"><value>Sends the transcript to TypeSafe to check action items. Off by default until you save a key.</value></data>
+  <data name="Settings_TypeSafeApiKey.Header" xml:space="preserve"><value>API key</value></data>
+  <data name="Settings_TypeSafeApiKey.Description" xml:space="preserve"><value>Stored on this PC with Windows encryption. Never written to settings.json.</value></data>
+  <data name="Settings_TypeSafeApiKeyBox.PlaceholderText" xml:space="preserve"><value>TypeSafe API key</value></data>
+  <data name="Settings_TypeSafeSaveApiKey.Content" xml:space="preserve"><value>Save</value></data>
+  <data name="Settings_TypeSafeClearApiKey.Content" xml:space="preserve"><value>Clear</value></data>
+  <data name="TypeSafe_StatusNotConfigured" xml:space="preserve"><value>Not configured</value></data>
+  <data name="TypeSafe_StatusApiKeySaved" xml:space="preserve"><value>API key saved</value></data>
+  <data name="TypeSafe_StatusReady" xml:space="preserve"><value>Ready. Using Jev.</value></data>
+  <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>Could not reach TypeSafe</value></data>
+  <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>API key saved.</value></data>
+  <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>TypeSafe API key cleared.</value></data>
+  <data name="TypeSafe_CheckFailed" xml:space="preserve"><value>TypeSafe could not complete that request.</value></data>
+  <data name="Status_JevFailed" xml:space="preserve"><value>Summary saved. Jev check skipped ({0}).</value></data>
+  <data name="Status_JevChecking" xml:space="preserve"><value>Checking with Jev...</value></data>
+  <data name="Status_JevRechecked" xml:space="preserve"><value>Jev check updated.</value></data>
+  <data name="SummaryPage_RecheckJev.Content" xml:space="preserve"><value>Recheck with Jev</value></data>
+  <data name="Jev_VerdictVerified" xml:space="preserve"><value>Verified</value></data>
+  <data name="Jev_VerdictConflicts" xml:space="preserve"><value>Conflicts with transcript</value></data>
+  <data name="Jev_VerdictNeedsReview" xml:space="preserve"><value>Needs review</value></data>
+  <data name="Jev_UrgencyRoutine" xml:space="preserve"><value>Routine</value></data>
+  <data name="Jev_UrgencyTimeSensitive" xml:space="preserve"><value>Time-sensitive</value></data>
+  <data name="Jev_UrgencyBlocking" xml:space="preserve"><value>Blocking</value></data>
+  <data name="Jev_FileInFolder" xml:space="preserve"><value>File in {0}</value></data>
+  <data name="Jev_WarningPii" xml:space="preserve"><value>This transcript may contain credentials or other secrets.</value></data>
+  <data name="Jev_WarningUnfaithful" xml:space="preserve"><value>The summary may not match the transcript.</value></data>
+  <data name="Jev_WarningPiiAndUnfaithful" xml:space="preserve"><value>This transcript may contain secrets, and the summary may not match the transcript.</value></data>
+  <data name="Jev_MeetingType_standup" xml:space="preserve"><value>Stand-up</value></data>
+  <data name="Jev_MeetingType_one_on_one" xml:space="preserve"><value>One-on-one</value></data>
+  <data name="Jev_MeetingType_interview" xml:space="preserve"><value>Interview</value></data>
+  <data name="Jev_MeetingType_planning" xml:space="preserve"><value>Planning</value></data>
+  <data name="Jev_MeetingType_review" xml:space="preserve"><value>Review</value></data>
+  <data name="Jev_MeetingType_lecture" xml:space="preserve"><value>Lecture</value></data>
+  <data name="Jev_MeetingType_sales" xml:space="preserve"><value>Sales</value></data>
+  <data name="Jev_MeetingType_support" xml:space="preserve"><value>Support</value></data>
+  <data name="Jev_MeetingType_other" xml:space="preserve"><value>Other</value></data>
 </root>

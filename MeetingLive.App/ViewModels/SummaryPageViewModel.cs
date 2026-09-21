@@ -21,6 +21,10 @@ public partial class SummaryPageViewModel : ObservableObject
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private MeetingRecord? _record;
     private DispatcherQueueTimer? _copyConfirmationTimer;
+    private IReadOnlyList<FolderPathItem> _folderPaths = [];
+    private Guid? _suggestedFolderId;
+    private bool _hasTypeSafeKey;
+    private bool _typeSafeEnabled = true;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -49,6 +53,43 @@ public partial class SummaryPageViewModel : ObservableObject
     [ObservableProperty]
     private string _statusText = string.Empty;
 
+    [ObservableProperty]
+    private bool _isRechecking;
+
+    [ObservableProperty]
+    private bool _showJevMeetingType;
+
+    [ObservableProperty]
+    private string _jevMeetingTypeText = string.Empty;
+
+    [ObservableProperty]
+    private bool _showJevUrgency;
+
+    [ObservableProperty]
+    private string _jevUrgencyText = string.Empty;
+
+    [ObservableProperty]
+    private bool _showJevWarning;
+
+    [ObservableProperty]
+    private string _jevWarningText = string.Empty;
+
+    [ObservableProperty]
+    private bool _showFileInFolder;
+
+    [ObservableProperty]
+    private string _fileInFolderButtonText = string.Empty;
+
+    public bool HasJevStrip => ShowJevMeetingType || ShowJevUrgency || ShowJevWarning || ShowFileInFolder;
+
+    public bool CanRecheckJev =>
+        _record is not null &&
+        !string.IsNullOrWhiteSpace(_record.Transcript) &&
+        _hasTypeSafeKey &&
+        _typeSafeEnabled &&
+        !IsGenerating &&
+        !IsRechecking;
+
     /// <summary>Supplied by the page (needs a XamlRoot for the setup dialog). Used only when the
     /// selected provider is Local.</summary>
     public Func<Task<string?>>? EnsureSummaryModelAsync { get; set; }
@@ -76,7 +117,7 @@ public partial class SummaryPageViewModel : ObservableObject
     public bool IsEmpty => !IsLoading && !HasSummary && !CanGenerateSummary;
 
     /// <summary>Generate or regenerate chrome — precomputed so XAML doesn't nest x:Bind arguments.</summary>
-    public bool ShowSummaryActionBar => CanGenerateSummary || CanRegenerateSummary;
+    public bool ShowSummaryActionBar => CanGenerateSummary || CanRegenerateSummary || CanRecheckJev;
 
     public async Task LoadAsync(Guid? meetingId)
     {
@@ -97,13 +138,17 @@ public partial class SummaryPageViewModel : ObservableObject
             CanGenerateSummary = hasTranscript && !HasSummary;
             CanRegenerateSummary = hasTranscript && HasSummary;
             StatusText = string.Empty;
+            await RefreshTypeSafeGateAsync();
+            await RefreshFolderPathsAsync();
             LoadActionItems();
+            ApplyJevUi();
         }
         finally
         {
             IsLoading = false;
             GenerateSummaryCommand.NotifyCanExecuteChanged();
             RegenerateSummaryCommand.NotifyCanExecuteChanged();
+            RecheckJevCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -155,11 +200,16 @@ public partial class SummaryPageViewModel : ObservableObject
             }
 
             Summary = result.SummaryMarkdown;
-            LoadActionItems();
             HasSummary = true;
             CanGenerateSummary = false;
             CanRegenerateSummary = true;
             StatusText = AppStrings.Get("Status_SummaryGenerated");
+
+            var jevStatus = await MeetingJevRunner.TryAnalyzeAndSaveAsync(_record, _meetings, CancellationToken.None);
+            LoadActionItems();
+            ApplyJevUi();
+            if (jevStatus is not null)
+                StatusText = jevStatus;
         }
         catch (Exception ex)
         {
@@ -170,7 +220,54 @@ public partial class SummaryPageViewModel : ObservableObject
             IsGenerating = false;
             GenerateSummaryCommand.NotifyCanExecuteChanged();
             RegenerateSummaryCommand.NotifyCanExecuteChanged();
+            RecheckJevCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    private bool CanExecuteRecheckJev() => CanRecheckJev;
+
+    [RelayCommand(CanExecute = nameof(CanExecuteRecheckJev))]
+    private async Task RecheckJevAsync()
+    {
+        if (_record is null || IsRechecking)
+            return;
+
+        IsRechecking = true;
+        StatusText = AppStrings.Get("Status_JevChecking");
+        try
+        {
+            await RefreshTypeSafeGateAsync();
+            if (_record is null ||
+                string.IsNullOrWhiteSpace(_record.Transcript) ||
+                !_hasTypeSafeKey ||
+                !_typeSafeEnabled)
+            {
+                StatusText = string.Empty;
+                return;
+            }
+
+            var jevStatus = await MeetingJevRunner.TryAnalyzeAndSaveAsync(_record, _meetings, CancellationToken.None);
+            LoadActionItems();
+            ApplyJevUi();
+            StatusText = jevStatus ?? AppStrings.Get("Status_JevRechecked");
+        }
+        finally
+        {
+            IsRechecking = false;
+            RecheckJevCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    [RelayCommand]
+    private async Task FileInFolderAsync()
+    {
+        if (_record is null || _suggestedFolderId is not { } folderId)
+            return;
+
+        _record.FolderId = folderId;
+        await _meetings.SaveAsync(_record);
+        AppServices.Workspace.NotifyMeetingChanged(_record.Id);
+        ApplyJevUi();
     }
 
     [RelayCommand(CanExecute = nameof(CanExecuteRegenerateSummary))]
@@ -247,9 +344,11 @@ public partial class SummaryPageViewModel : ObservableObject
 
         if (_record is not null)
         {
+            var verdicts = _record.JevAnalysis?.ActionItems;
             foreach (var actionItem in _record.ActionItems)
             {
-                var itemViewModel = new ActionItemViewModel(actionItem);
+                var verdict = ActionItemVerdictDisplay.Match(verdicts, actionItem.Text);
+                var itemViewModel = new ActionItemViewModel(actionItem, verdict);
                 itemViewModel.PropertyChanged += OnActionItemChanged;
                 ActionItems.Add(itemViewModel);
             }
@@ -276,6 +375,100 @@ public partial class SummaryPageViewModel : ObservableObject
         }
     }
 
+    private async Task RefreshTypeSafeGateAsync()
+    {
+        var settings = await AppServices.Settings.LoadAsync();
+        _typeSafeEnabled = settings.TypeSafeEnabled;
+        var credentials = AppServices.TypeSafeCredentials.Load();
+        _hasTypeSafeKey = credentials is not null && !string.IsNullOrWhiteSpace(credentials.ApiKey);
+        OnPropertyChanged(nameof(CanRecheckJev));
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        RecheckJevCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task RefreshFolderPathsAsync()
+    {
+        var folders = await AppServices.Folders.GetAllAsync();
+        _folderPaths = FolderPathList.Flatten(folders, AppStrings.Get("Library_Inbox"));
+    }
+
+    private void ApplyJevUi()
+    {
+        var analysis = _record?.JevAnalysis;
+        if (analysis is null)
+        {
+            ShowJevMeetingType = false;
+            JevMeetingTypeText = string.Empty;
+            ShowJevUrgency = false;
+            JevUrgencyText = string.Empty;
+            ShowJevWarning = false;
+            JevWarningText = string.Empty;
+            ShowFileInFolder = false;
+            FileInFolderButtonText = string.Empty;
+            _suggestedFolderId = null;
+            OnPropertyChanged(nameof(HasJevStrip));
+            return;
+        }
+
+        ShowJevMeetingType = MeetingJevPresentation.ShowMeetingType(analysis);
+        JevMeetingTypeText = ShowJevMeetingType
+            ? FormatMeetingType(analysis.MeetingType!)
+            : string.Empty;
+
+        var urgency = MeetingJevPresentation.UrgencyLabelScore(analysis);
+        ShowJevUrgency = urgency is not null;
+        JevUrgencyText = urgency switch
+        {
+            0 => AppStrings.Get("Jev_UrgencyRoutine"),
+            1 => AppStrings.Get("Jev_UrgencyTimeSensitive"),
+            2 => AppStrings.Get("Jev_UrgencyBlocking"),
+            _ => string.Empty,
+        };
+
+        var pii = MeetingJevPresentation.ShowPiiWarning(analysis);
+        var unfaithful = MeetingJevPresentation.ShowFaithfulWarning(analysis);
+        ShowJevWarning = pii || unfaithful;
+        JevWarningText = (pii, unfaithful) switch
+        {
+            (true, true) => AppStrings.Get("Jev_WarningPiiAndUnfaithful"),
+            (true, false) => AppStrings.Get("Jev_WarningPii"),
+            (false, true) => AppStrings.Get("Jev_WarningUnfaithful"),
+            _ => string.Empty,
+        };
+
+        if (MeetingJevPresentation.TryGetSuggestedFolderId(analysis, _record!.FolderId, out var folderId))
+        {
+            var path = _folderPaths.FirstOrDefault(item => item.FolderId == folderId)?.Path;
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                _suggestedFolderId = folderId;
+                ShowFileInFolder = true;
+                FileInFolderButtonText = AppStrings.Format("Jev_FileInFolder", path);
+            }
+            else
+            {
+                _suggestedFolderId = null;
+                ShowFileInFolder = false;
+                FileInFolderButtonText = string.Empty;
+            }
+        }
+        else
+        {
+            _suggestedFolderId = null;
+            ShowFileInFolder = false;
+            FileInFolderButtonText = string.Empty;
+        }
+
+        OnPropertyChanged(nameof(HasJevStrip));
+    }
+
+    private static string FormatMeetingType(string meetingType)
+    {
+        var key = "Jev_MeetingType_" + meetingType;
+        var label = AppStrings.Get(key);
+        return string.IsNullOrEmpty(label) ? meetingType : label;
+    }
+
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
     partial void OnHasSummaryChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -297,5 +490,23 @@ public partial class SummaryPageViewModel : ObservableObject
     {
         GenerateSummaryCommand.NotifyCanExecuteChanged();
         RegenerateSummaryCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanRecheckJev));
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        RecheckJevCommand.NotifyCanExecuteChanged();
     }
+
+    partial void OnIsRecheckingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRecheckJev));
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        RecheckJevCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnShowJevMeetingTypeChanged(bool value) => OnPropertyChanged(nameof(HasJevStrip));
+
+    partial void OnShowJevUrgencyChanged(bool value) => OnPropertyChanged(nameof(HasJevStrip));
+
+    partial void OnShowJevWarningChanged(bool value) => OnPropertyChanged(nameof(HasJevStrip));
+
+    partial void OnShowFileInFolderChanged(bool value) => OnPropertyChanged(nameof(HasJevStrip));
 }

@@ -95,6 +95,42 @@ public sealed partial class SettingsPage : Page
         await ViewModel.SummaryProvider.SignOutXaiCommand.ExecuteAsync(null);
     }
 
+    private PasswordBox? _typeSafeApiKeyBox;
+
+    private void TypeSafeEnabledToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggleSwitch)
+            ViewModel.TypeSafe.ToggleEnabledCommand.Execute(toggleSwitch.IsOn);
+    }
+
+    private void TypeSafeApiKey_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is not PasswordBox box)
+            return;
+
+        _typeSafeApiKeyBox = box;
+        ViewModel.TypeSafe.ApiKeyDraft = box.Password ?? string.Empty;
+    }
+
+    private async void TypeSafeSaveApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.TypeSafe.CanSaveApiKey)
+            return;
+
+        await ViewModel.TypeSafe.SaveApiKeyCommand.ExecuteAsync(null);
+        if (_typeSafeApiKeyBox is not null)
+            _typeSafeApiKeyBox.Password = string.Empty;
+        ViewModel.TypeSafe.ApiKeyDraft = string.Empty;
+    }
+
+    private void TypeSafeClearApiKey_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.TypeSafe.ClearApiKeyCommand.Execute(null);
+        if (_typeSafeApiKeyBox is not null)
+            _typeSafeApiKeyBox.Password = string.Empty;
+        ViewModel.TypeSafe.ApiKeyDraft = string.Empty;
+    }
+
     private void XaiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: string modelId })

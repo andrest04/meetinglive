@@ -17,6 +17,11 @@ public static class AppServices
 
     private static readonly Lazy<HttpClient> LazyXaiHttpClient = new(CreateXaiHttpClient);
 
+    private static readonly Lazy<HttpClient> LazyTypeSafeHttpClient = new(() => new HttpClient
+    {
+        Timeout = TimeSpan.FromMinutes(2),
+    });
+
     private static HttpClient CreateXaiHttpClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -61,6 +66,12 @@ public static class AppServices
     public static XaiApiClient XaiApi { get; } = new(LazyXaiHttpClient.Value);
 
     public static XaiAuthSession XaiAuth { get; } = new(XaiCredentials, XaiOAuth);
+
+    public static ITypeSafeCredentialStore TypeSafeCredentials { get; } = new FileDpapiTypeSafeCredentialStore();
+
+    public static TypeSafeApiClient TypeSafeApi { get; } = new(LazyTypeSafeHttpClient.Value);
+
+    public static MeetingJevService MeetingJev { get; } = new(TypeSafeApi, TypeSafeCredentials);
 
     public static WorkspaceService Workspace { get; } = new();
 
