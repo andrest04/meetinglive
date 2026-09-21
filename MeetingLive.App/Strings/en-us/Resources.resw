@@ -369,7 +369,7 @@
   <data name="Status_JevFailed" xml:space="preserve"><value>Summary saved. Jev check skipped ({0}).</value></data>
   <data name="Status_JevChecking" xml:space="preserve"><value>Checking with Jev...</value></data>
   <data name="Status_JevRechecked" xml:space="preserve"><value>Jev check updated.</value></data>
-  <data name="SummaryPage_RecheckJev.Content" xml:space="preserve"><value>Recheck with Jev</value></data>
+  <data name="SummaryPage_RecheckJev.Text" xml:space="preserve"><value>Recheck with Jev</value></data>
   <data name="Jev_VerdictVerified" xml:space="preserve"><value>Verified</value></data>
   <data name="Jev_VerdictConflicts" xml:space="preserve"><value>Conflicts with transcript</value></data>
   <data name="Jev_VerdictNeedsReview" xml:space="preserve"><value>Needs review</value></data>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    TypeSafe (Jev) mark: eight-pointed star from their public brand (GitHub org / console login).
+    Monochrome — Fill follows the current theme, same as CodexIcon and GrokIcon.
+-->
+<UserControl
+    x:Class="MeetingLive_App.Controls.TypeSafeIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="24" Height="24">
+            <Path Fill="{ThemeResource TextFillColorPrimaryBrush}"
+                  Data="F1 M12,2 L13.531,8.304 L19.071,4.929 L15.696,10.469 L22,12 L15.696,13.531 L19.071,19.071 L13.531,15.696 L12,22 L10.469,15.696 L4.929,19.071 L8.304,13.531 L2,12 L8.304,10.469 L4.929,4.929 L10.469,8.304 Z" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

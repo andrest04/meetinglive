@@ -235,9 +235,14 @@
 
             <!-- TypeSafe (Jev) — not a summary provider -->
             <StackPanel Spacing="4">
-                <TextBlock x:Uid="Settings_TypeSafe" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <controls:SettingsCard x:Uid="Settings_TypeSafeEnabled"
-                                        HeaderIcon="{ui:FontIcon Glyph=&#xE945;}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:TypeSafeIcon Width="16" Height="16" />
+                    <TextBlock x:Uid="Settings_TypeSafe" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                </StackPanel>
+                <controls:SettingsCard x:Uid="Settings_TypeSafeEnabled">
+                    <controls:SettingsCard.HeaderIcon>
+                        <PathIcon Data="F1 M12,2 L13.531,8.304 L19.071,4.929 L15.696,10.469 L22,12 L15.696,13.531 L19.071,19.071 L13.531,15.696 L12,22 L10.469,15.696 L4.929,19.071 L8.304,13.531 L2,12 L8.304,10.469 L4.929,4.929 L10.469,8.304 Z" />
+                    </controls:SettingsCard.HeaderIcon>
                     <ToggleSwitch IsOn="{x:Bind ViewModel.TypeSafe.IsEnabled, Mode=OneWay}"
                                   Toggled="TypeSafeEnabledToggleSwitch_Toggled"
                                   AutomationProperties.AutomationId="ToggleTypeSafe" />

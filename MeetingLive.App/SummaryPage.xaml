@@ -8,6 +8,7 @@
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
     xmlns:md="using:CommunityToolkit.WinUI.UI.Controls"
+    xmlns:icons="using:MeetingLive_App.Controls"
     mc:Ignorable="d">
 
     <Grid Padding="24" RowSpacing="12">
@@ -58,10 +59,14 @@
                     Style="{StaticResource AccentButtonStyle}"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRegenerateSummary), Mode=OneWay}"
                     AutomationProperties.AutomationId="BtnRegenerateSummary" />
-            <Button x:Uid="SummaryPage_RecheckJev"
-                    Command="{x:Bind ViewModel.RecheckJevCommand}"
+            <Button Command="{x:Bind ViewModel.RecheckJevCommand}"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRecheckJev), Mode=OneWay}"
-                    AutomationProperties.AutomationId="BtnRecheckJev" />
+                    AutomationProperties.AutomationId="BtnRecheckJev">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <icons:TypeSafeIcon Width="16" Height="16" />
+                    <TextBlock x:Uid="SummaryPage_RecheckJev" />
+                </StackPanel>
+            </Button>
             <ProgressRing IsActive="{x:Bind ViewModel.IsGenerating, Mode=OneWay}" Width="20" Height="20" />
             <ProgressRing IsActive="{x:Bind ViewModel.IsRechecking, Mode=OneWay}" Width="20" Height="20" />
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Opacity="0.7" />
