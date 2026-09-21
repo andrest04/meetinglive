@@ -26,6 +26,7 @@
   <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
   <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Summary</value></data>
   <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notes</value></data>
+  <data name="SessionPage_TabAsk.Text" xml:space="preserve"><value>Ask</value></data>
   <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Open a meeting from Library, or record one.</value></data>
   <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Rename</value></data>
@@ -389,4 +390,14 @@
   <data name="Jev_MeetingType_sales" xml:space="preserve"><value>Sales</value></data>
   <data name="Jev_MeetingType_support" xml:space="preserve"><value>Support</value></data>
   <data name="Jev_MeetingType_other" xml:space="preserve"><value>Other</value></data>
+  <data name="AskPage_Query.Header" xml:space="preserve"><value>Ask this meeting</value></data>
+  <data name="AskPage_Query.PlaceholderText" xml:space="preserve"><value>Who committed to send the doc?</value></data>
+  <data name="AskPage_Ask.Text" xml:space="preserve"><value>Ask</value></data>
+  <data name="AskPage_EmptyTranscript" xml:space="preserve"><value>This meeting has no transcript to ask yet.</value></data>
+  <data name="AskPage_NoApiKey" xml:space="preserve"><value>Save a TypeSafe API key in Settings to ask this meeting.</value></data>
+  <data name="AskPage_VerdictAnswered" xml:space="preserve"><value>Answered in this meeting</value></data>
+  <data name="AskPage_VerdictPartial" xml:space="preserve"><value>Partially addressed</value></data>
+  <data name="AskPage_VerdictAbsent" xml:space="preserve"><value>Not in this meeting</value></data>
+  <data name="AskPage_NoHits" xml:space="preserve"><value>Jev did not find matching lines.</value></data>
+  <data name="AskPage_Copied" xml:space="preserve"><value>Copied.</value></data>
 </root>

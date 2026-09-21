@@ -128,6 +128,7 @@ public sealed partial class SessionPage : Page
         var pageType = tab switch
         {
             WorkspaceService.TabSummary => typeof(SummaryPage),
+            WorkspaceService.TabAsk => typeof(AskPage),
             WorkspaceService.TabNotes => typeof(NotesPage),
             _ => typeof(TranscriptPage),
         };
@@ -146,6 +147,7 @@ public sealed partial class SessionPage : Page
     private SelectorBarItem ItemFromTab(string tab) => tab switch
     {
         WorkspaceService.TabSummary => TabSummaryItem,
+        WorkspaceService.TabAsk => TabAskItem,
         WorkspaceService.TabNotes => TabNotesItem,
         _ => TabTranscriptItem,
     };
@@ -153,6 +155,7 @@ public sealed partial class SessionPage : Page
     private static string TabFromItem(SelectorBarItem? item) => (item?.Tag as string) switch
     {
         WorkspaceService.TabSummary => WorkspaceService.TabSummary,
+        WorkspaceService.TabAsk => WorkspaceService.TabAsk,
         WorkspaceService.TabNotes => WorkspaceService.TabNotes,
         _ => WorkspaceService.TabTranscript,
     };

@@ -81,6 +81,14 @@
                               FontFamily="{ThemeResource SymbolThemeFontFamily}" />
                 </SelectorBarItem.Icon>
             </SelectorBarItem>
+            <SelectorBarItem x:Name="TabAskItem"
+                             x:Uid="SessionPage_TabAsk"
+                             Tag="Ask"
+                             AutomationProperties.AutomationId="SelectorSessionAsk">
+                <SelectorBarItem.Icon>
+                    <PathIcon Data="F1 M12,2 L13.531,8.304 L19.071,4.929 L15.696,10.469 L22,12 L15.696,13.531 L19.071,19.071 L13.531,15.696 L12,22 L10.469,15.696 L4.929,19.071 L8.304,13.531 L2,12 L8.304,10.469 L4.929,4.929 L10.469,8.304 Z" />
+                </SelectorBarItem.Icon>
+            </SelectorBarItem>
             <SelectorBarItem x:Name="TabNotesItem"
                              x:Uid="SessionPage_TabNotes"
                              Tag="Notes"
