@@ -51,6 +51,9 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private readonly HashSet<string> _dismissedQuestionBodies = new(StringComparer.Ordinal);
     private CancellationTokenSource? _liveAnswerCts;
     private int _liveAnswerGeneration;
+    private CancellationTokenSource? _liveQuestionCts;
+    private int _liveQuestionGeneration;
+    private string _questionJudgeBaseline = string.Empty;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -281,13 +284,105 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             return;
         }
 
-        var detected = LiveQuestionDetector.TryDetectNew(_previousCommittedTranscript, current);
         _previousCommittedTranscript = current;
         _committedTranscript = current;
-        if (string.IsNullOrEmpty(detected) || _dismissedQuestionBodies.Contains(detected))
+
+        // Judge off the dispatcher callback, never inside live ASR or the PCM pump.
+        // A newer update cancels the previous call. Do not fall back to LiveQuestionDetector.
+        var generation = Interlocked.Increment(ref _liveQuestionGeneration);
+        var cancellationToken = ReplaceLiveQuestionCancellation().Token;
+        var baseline = _questionJudgeBaseline;
+        _ = Task.Run(() => JudgeNewCommittedLinesAsync(baseline, current, generation, cancellationToken));
+    }
+
+    private async Task JudgeNewCommittedLinesAsync(
+        string previousCommitted,
+        string currentCommitted,
+        int generation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (generation != Volatile.Read(ref _liveQuestionGeneration) || cancellationToken.IsCancellationRequested)
+                return;
+
+            var settings = await AppServices.Settings.LoadAsync(cancellationToken).ConfigureAwait(false);
+            if (generation != Volatile.Read(ref _liveQuestionGeneration) || cancellationToken.IsCancellationRequested)
+                return;
+
+            if (!settings.TypeSafeEnabled)
+            {
+                SkipQuestionJudgment(generation, currentCommitted);
+                return;
+            }
+
+            var credentials = AppServices.TypeSafeCredentials.Load();
+            if (credentials is null || string.IsNullOrWhiteSpace(credentials.ApiKey))
+            {
+                SkipQuestionJudgment(generation, currentCommitted);
+                return;
+            }
+
+            var armed = await LiveQuestionJevJudge.JudgeAsync(
+                AppServices.TypeSafeApi,
+                credentials.ApiKey,
+                previousCommitted,
+                currentCommitted,
+                cancellationToken).ConfigureAwait(false);
+
+            App.DispatcherQueue.TryEnqueue(() => ApplyQuestionJudgment(generation, currentCommitted, armed));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (TypeSafeException)
+        {
+            // A failed judgment must not stop the recording or fill LiveAnswerError.
+        }
+        catch (Exception)
+        {
+            // Skip the arm. Do not stop the recording or fill LiveAnswerError.
+        }
+    }
+
+    private void SkipQuestionJudgment(int generation, string judgedTranscript)
+    {
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (generation != _liveQuestionGeneration || !IsRecording)
+                return;
+
+            _questionJudgeBaseline = judgedTranscript;
+        });
+    }
+
+    private void ApplyQuestionJudgment(int generation, string judgedTranscript, string? armed)
+    {
+        if (generation != _liveQuestionGeneration || !IsRecording)
             return;
 
-        ArmedQuestion = detected;
+        _questionJudgeBaseline = judgedTranscript;
+        if (string.IsNullOrEmpty(armed) || _dismissedQuestionBodies.Contains(armed))
+            return;
+
+        ArmedQuestion = armed;
+    }
+
+    private CancellationTokenSource ReplaceLiveQuestionCancellation()
+    {
+        var previous = _liveQuestionCts;
+        var next = new CancellationTokenSource();
+        _liveQuestionCts = next;
+        CancelTokenSource(previous);
+        return next;
+    }
+
+    private void CancelLiveQuestionJudgment()
+    {
+        Interlocked.Increment(ref _liveQuestionGeneration);
+        var cts = _liveQuestionCts;
+        _liveQuestionCts = null;
+        CancelTokenSource(cts);
     }
 
     /// <summary>Confirms the armed question, or the typed question when the box is non-empty.</summary>
@@ -469,8 +564,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private void ResetLiveAnswerSession()
     {
         CancelLiveAnswer();
+        CancelLiveQuestionJudgment();
         _previousCommittedTranscript = string.Empty;
         _committedTranscript = string.Empty;
+        _questionJudgeBaseline = string.Empty;
         _dismissedQuestionBodies.Clear();
         ArmedQuestion = string.Empty;
         LiveAskText = string.Empty;
@@ -588,6 +685,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private async Task StopRecordingAsync()
     {
         CancelLiveAnswer();
+        CancelLiveQuestionJudgment();
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
         try
         {
@@ -788,6 +886,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             return;
 
         CancelLiveAnswer();
+        CancelLiveQuestionJudgment();
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
         try
         {
@@ -934,7 +1033,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         if (value)
             StartElapsedTimer();
         else
+        {
             StopElapsedTimer();
+            CancelLiveQuestionJudgment();
+        }
 
         AppServices.Workspace.IsCaptureActive = value || IsProcessing;
         NotifyCanvasState();

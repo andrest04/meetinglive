@@ -62,6 +62,7 @@ Strategy: `ask-on-risk`. Chain: `stacked-to-main` (user chose 2026-09-21). Forec
 
 - [x] T1 Detector, 90-second window, prompt builder, and Core tests. Route: delegated. No UI.
 - [x] T2 Recording notice, typed ask, answer card, provider combo, committed-text event, off-thread call. Route: delegated.
+- [x] T3 Jev Noul decides whether a new committed line is a direct question. The selected provider still writes the answer. No word-list fallback on the live path. Route: delegated.
 
 ## Checks
 
@@ -74,6 +75,8 @@ Strategy: `ask-on-risk`. Chain: `stacked-to-main` (user chose 2026-09-21). Forec
 
 2026-09-21: T2 commit `059dc5f`. Same filter re-run by parent: passed 32, failed 0, skipped 0. Writer build: `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` — 0 errors. WinUI review: no error-severity issues. C#12 private fields kept over WUI3xxx. Notice sits above the transcript scroller. Provider call is `Task.Run`. App was not launched. Rollback: revert the T2 commit; T1 detector still stands.
 
+2026-09-21: T3 verified. `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj --filter "FullyQualifiedName~LiveQuestion"` re-run by parent: passed 27, failed 0, skipped 0. Live path calls `LiveQuestionJevJudge`, not `LiveQuestionDetector`. One Noul per new line, `ArmThreshold` 0.7, no word-list fallback. Writer app build: 0 errors. App was not launched. Runtime harness N/A beyond that build.
+
 ## Next
 
-Manual smoke while recording. Do not open a PR to main until Jev is on main, or the diff stays polluted.
+Manual smoke while recording, with TypeSafe enabled and a key. Do not open a PR to main until the Jev commits are on main, or the diff stays polluted.
