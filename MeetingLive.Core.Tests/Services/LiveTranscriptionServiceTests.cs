@@ -62,6 +62,45 @@ public class LiveTranscriptionServiceTests
         Assert.Equal(1, recognizer.DisposeCalls);
     }
 
+    [Fact]
+    public async Task TranscriptUpdated_RaisesCommittedTextSeparatelyFromDisplay()
+    {
+        var capture = new FakeAudioCapture();
+        var stream = new ScriptedStream(
+        [
+            new NemoSpeechAsrResult(true, "What is the third principle?", 1, []),
+            new NemoSpeechAsrResult(false, "still talking", 1.4f, []),
+        ]);
+        var service = new LiveTranscriptionService(
+            capture,
+            new FakeModels(),
+            new FakeRuntime(),
+            new FakeEngine(stream),
+            new FakeHardware());
+        var raised = new TaskCompletionSource<LiveTranscriptUpdate>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.TranscriptUpdated += (_, update) =>
+        {
+            if (update.DisplayText.Contains("still talking", StringComparison.Ordinal))
+                raised.TrySetResult(update);
+        };
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        try
+        {
+            capture.Raise(new float[1600], 16000);
+            var update = await raised.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+            Assert.Contains("What is the third principle?", update.CommittedText, StringComparison.Ordinal);
+            Assert.DoesNotContain("still talking", update.CommittedText, StringComparison.Ordinal);
+            Assert.Contains("What is the third principle?", update.DisplayText, StringComparison.Ordinal);
+            Assert.Contains("still talking", update.DisplayText, StringComparison.Ordinal);
+        }
+        finally
+        {
+            service.Stop();
+        }
+    }
+
     private sealed class FakeAudioCapture : IAudioCaptureService
     {
         public bool IsRecording { get; private set; }
@@ -224,5 +263,29 @@ public class LiveTranscriptionServiceTests
         }
 
         public void Dispose() => DisposeCalls++;
+    }
+
+    private sealed class ScriptedStream(IReadOnlyList<NemoSpeechAsrResult> results) : INemoSpeechStream
+    {
+        private bool _pulled;
+
+        public void Push(float[] samples, int sampleRate)
+        {
+        }
+
+        public IReadOnlyList<NemoSpeechAsrResult> PullAvailable()
+        {
+            if (_pulled)
+                return [];
+
+            _pulled = true;
+            return results;
+        }
+
+        public IReadOnlyList<NemoSpeechAsrResult> FinishAndDrain() => [];
+
+        public void Dispose()
+        {
+        }
     }
 }

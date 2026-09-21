@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using MeetingLive.Core.Models;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
@@ -11,6 +13,7 @@ namespace MeetingLive_App;
 public sealed partial class RecordingPage : Page
 {
     private bool _stickToTranscriptEnd = true;
+    private bool _applyingLiveAnswerProvider;
 
     public RecordingPageViewModel ViewModel { get; } = new();
 
@@ -24,6 +27,10 @@ public sealed partial class RecordingPage : Page
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
             ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
             ViewModel.EnsureRecordingReadyAsync = () => RecordingSetupResolver.EnsureReadyAsync(XamlRoot);
+            // ScopeOwner keeps Ctrl+Enter on these controls. A null owner is global and would steal the shortcut from notes.
+            LiveAskAccelerator.ScopeOwner = TxtLiveAsk;
+            LiveAnswerAccelerator.ScopeOwner = BtnLiveAnswer;
+            ApplyLiveAnswerProviderSelection();
             ApplyLiveTranscript(follow: false);
         };
     }
@@ -81,10 +88,51 @@ public sealed partial class RecordingPage : Page
             ViewModel.SelectedDestination = destination;
     }
 
+    private async void LiveAnswerProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingLiveAnswerProvider)
+            return;
+        if (sender is not ComboBox { SelectedItem: LiveAnswerProviderOption option })
+            return;
+        if (ViewModel.SelectedLiveAnswerProvider?.Kind == option.Kind)
+            return;
+
+        await ViewModel.SaveLiveAnswerProviderAsync(option.Kind);
+    }
+
+    private void LiveAsk_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (ViewModel.SubmitTypedAskCommand.CanExecute(null))
+            _ = ViewModel.SubmitTypedAskCommand.ExecuteAsync(null);
+    }
+
+    private void LiveAnswer_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (ViewModel.ConfirmLiveAnswerCommand.CanExecute(null))
+            _ = ViewModel.ConfirmLiveAnswerCommand.ExecuteAsync(null);
+    }
+
+    private void ApplyLiveAnswerProviderSelection()
+    {
+        _applyingLiveAnswerProvider = true;
+        try
+        {
+            CmbLiveAnswerProvider.SelectedItem = ViewModel.SelectedLiveAnswerProvider;
+        }
+        finally
+        {
+            _applyingLiveAnswerProvider = false;
+        }
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ViewModel.IsRecording) or nameof(ViewModel.IsPaused))
             UpdateRecordingPulse();
+        else if (e.PropertyName is nameof(ViewModel.SelectedLiveAnswerProvider))
+            ApplyLiveAnswerProviderSelection();
         else if (e.PropertyName is nameof(ViewModel.LiveTranscriptText)
                  or nameof(ViewModel.CanvasTranscriptText))
         {
@@ -166,6 +214,10 @@ public sealed partial class RecordingPage : Page
     public static string HighlightTooltip() => AppStrings.Get("RecordPage_HighlightTooltip");
 
     public static string ImportLabel() => AppStrings.Get("Record_Import");
+
+    public static string LiveAskTooltip() => AppStrings.Get("RecordPage_LiveAskTooltip");
+
+    public static string LiveAnswerTooltip() => AppStrings.Get("RecordPage_LiveAnswerTooltip");
 
     public static InfoBarSeverity StatusSeverity(string statusText) =>
         statusText.StartsWith(AppStrings.Get("ErrorPrefix"), StringComparison.OrdinalIgnoreCase)

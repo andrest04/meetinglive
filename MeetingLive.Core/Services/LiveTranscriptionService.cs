@@ -36,7 +36,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         _factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware);
     }
 
-    public event EventHandler<string>? TranscriptUpdated;
+    public event EventHandler<LiveTranscriptUpdate>? TranscriptUpdated;
 
     public void Start(string language, DateTimeOffset recordedAt, bool enableSpeakerDiarization = false)
     {
@@ -146,6 +146,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
             await foreach (var frame in reader.ReadAllAsync().ConfigureAwait(false))
             {
                 string? display = null;
+                var committed = string.Empty;
                 lock (_gate)
                 {
                     if (!_running || _stream is null || _accumulator is null)
@@ -157,6 +158,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
                         foreach (var result in _stream.PullAvailable())
                             _accumulator.Apply(result);
                         display = _accumulator.DisplayText;
+                        committed = _accumulator.CommittedText;
                     }
                     catch
                     {
@@ -165,8 +167,9 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
                     }
                 }
 
+                // Outside the gate, and never a provider or detector call — OnPcmFrame must stay non-blocking.
                 if (display is not null)
-                    TranscriptUpdated?.Invoke(this, display);
+                    TranscriptUpdated?.Invoke(this, new LiveTranscriptUpdate(display, committed));
             }
         }
         catch (ChannelClosedException)

@@ -201,6 +201,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -230,12 +231,116 @@
                             AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
                 </StackPanel>
             </Grid>
-            <InfoBar Grid.Row="1"
+            <StackPanel Grid.Row="1" Spacing="8"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                <Grid ColumnSpacing="8"
+                      Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasArmedQuestion), Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <InfoBar Grid.Column="0"
+                             x:Uid="RecordPage_LiveQuestionNotice"
+                             IsOpen="True"
+                             IsClosable="False"
+                             Severity="Informational"
+                             Message="{x:Bind ViewModel.ArmedQuestion, Mode=OneWay}"
+                             VerticalAlignment="Center"
+                             AutomationProperties.AutomationId="InfoLiveQuestion" />
+                    <Button Grid.Column="1"
+                            x:Name="BtnLiveAnswer"
+                            x:Uid="RecordPage_LiveAnswer"
+                            Command="{x:Bind ViewModel.ConfirmLiveAnswerCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            VerticalAlignment="Center"
+                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAnswerTooltip()}"
+                            AutomationProperties.AutomationId="BtnLiveAnswer">
+                        <Button.KeyboardAccelerators>
+                            <KeyboardAccelerator x:Name="LiveAnswerAccelerator"
+                                                 Modifiers="Control"
+                                                 Key="Enter"
+                                                 Invoked="LiveAnswer_AcceleratorInvoked" />
+                        </Button.KeyboardAccelerators>
+                    </Button>
+                    <Button Grid.Column="2"
+                            x:Uid="RecordPage_LiveAnswerDismiss"
+                            Command="{x:Bind ViewModel.DismissArmedQuestionCommand}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="BtnLiveAnswerDismiss" />
+                </Grid>
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="CmbLiveAnswerProvider"
+                              x:Uid="RecordPage_LiveAnswerProvider"
+                              ItemsSource="{x:Bind ViewModel.LiveAnswerProviders, Mode=OneWay}"
+                              SelectionChanged="LiveAnswerProvider_SelectionChanged"
+                              HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="CmbLiveAnswerProvider">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
+                                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBox x:Name="TxtLiveAsk"
+                             Grid.Column="1"
+                             x:Uid="RecordPage_LiveAsk"
+                             AcceptsReturn="False"
+                             Text="{x:Bind ViewModel.LiveAskText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAskTooltip()}"
+                             AutomationProperties.AutomationId="TxtLiveAsk">
+                        <TextBox.KeyboardAccelerators>
+                            <KeyboardAccelerator x:Name="LiveAskAccelerator"
+                                                 Modifiers="Control"
+                                                 Key="Enter"
+                                                 Invoked="LiveAsk_AcceleratorInvoked" />
+                        </TextBox.KeyboardAccelerators>
+                    </TextBox>
+                </Grid>
+                <ProgressRing x:Uid="RecordPage_LiveAnswerProgress"
+                              IsActive="{x:Bind ViewModel.IsAnswering, Mode=OneWay}"
+                              Width="20"
+                              Height="20"
+                              HorizontalAlignment="Left"
+                              Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsAnswering), Mode=OneWay}"
+                              AutomationProperties.AutomationId="ProgressLiveAnswer" />
+                <InfoBar x:Uid="RecordPage_LiveAnswerError"
+                         IsOpen="{x:Bind ViewModel.HasLiveAnswerError, Mode=OneWay}"
+                         IsClosable="False"
+                         Severity="Error"
+                         Message="{x:Bind ViewModel.LiveAnswerError, Mode=OneWay}"
+                         AutomationProperties.AutomationId="InfoLiveAnswerError" />
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{ThemeResource ControlCornerRadius}"
+                        Padding="16"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLiveAnswer), Mode=OneWay}">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Uid="RecordPage_LiveAnswerHeading"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <ScrollViewer MaxHeight="160"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <TextBlock x:Uid="RecordPage_LiveAnswerText"
+                                       Text="{x:Bind ViewModel.LiveAnswerText, Mode=OneWay}"
+                                       TextWrapping="Wrap"
+                                       IsTextSelectionEnabled="True"
+                                       AutomationProperties.AutomationId="TxtLiveAnswer" />
+                        </ScrollViewer>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            <InfoBar Grid.Row="2"
                      x:Uid="RecordPage_CopyConfirmation"
                      Severity="Success"
                      IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
                      AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
-            <Border Grid.Row="2"
+            <Border Grid.Row="3"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
@@ -263,7 +368,7 @@
                     </Grid>
                 </ScrollViewer>
             </Border>
-            <TextBox Grid.Row="3"
+            <TextBox Grid.Row="4"
                      x:Uid="RecordPage_SessionNotes"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"

@@ -1,6 +1,12 @@
 namespace MeetingLive.Core.Services;
 
 /// <summary>
+/// One live-transcript snapshot. <see cref="DisplayText"/> is committed lines plus the
+/// rewritten interim suffix. <see cref="CommittedText"/> is finals only.
+/// </summary>
+public readonly record struct LiveTranscriptUpdate(string DisplayText, string CommittedText);
+
+/// <summary>
 /// Streaming transcription over the live mixed PCM tap. Non-empty <see cref="Stop"/>
 /// text is saved immediately as a draft. <see cref="ITranscriptionService"/> then re-reads
 /// the WAV and replaces that transcript when it produces text. <see cref="Stop"/> closes
@@ -8,8 +14,12 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public interface ILiveTranscriptionService
 {
-    /// <summary>Raised on a background thread whenever committed or interim text changes.</summary>
-    event EventHandler<string>? TranscriptUpdated;
+    /// <summary>
+    /// Raised on a background thread after a frame is applied. Carries display text and
+    /// committed text separately so callers can detect questions without treating interim
+    /// rewrites as new lines. Subscribers must not block the caller.
+    /// </summary>
+    event EventHandler<LiveTranscriptUpdate>? TranscriptUpdated;
 
     /// <summary>Creates the Nemotron recognizer and starts consuming
     /// <see cref="IAudioCaptureService.PcmFrameAvailable"/>. Safe to call while a previous

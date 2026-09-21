@@ -47,7 +47,7 @@ Delegated writer. Trigger: two or more non-trivial files. TDD mode: unknown (no 
 
 ## Delivery
 
-Strategy: `ask-on-risk`. Forecast: about 500 authored lines across T1+T2. No pull request until the user asks. Running count: 0.
+Strategy: `ask-on-risk`. Chain: `stacked-to-main` (user chose 2026-09-21). Forecast was about 500; actual T1 is 835 additions and T2 is about 620. Both slices stay one behavior each. Neither fits 400 lines without splitting tests away from the code, so each slice needs `size:exception` if opened as a PR. No PR opened: this branch also contains the Jev commits above `origin/main`, so a PR to main would be polluted. Running count: 835 plus T2.
 
 ## Acceptance
 
@@ -61,7 +61,7 @@ Strategy: `ask-on-risk`. Forecast: about 500 authored lines across T1+T2. No pul
 ## Tasks
 
 - [x] T1 Detector, 90-second window, prompt builder, and Core tests. Route: delegated. No UI.
-- [ ] T2 Recording notice, typed ask, answer card, provider combo, committed-text event, off-thread call. Route: delegated.
+- [x] T2 Recording notice, typed ask, answer card, provider combo, committed-text event, off-thread call. Route: delegated.
 
 ## Checks
 
@@ -70,8 +70,10 @@ Strategy: `ask-on-risk`. Forecast: about 500 authored lines across T1+T2. No pul
 
 ## Progress
 
-2026-09-21: T1 done. `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj --filter "FullyQualifiedName~LiveQuestion|FullyQualifiedName~LiveAnswer"` — passed 24, failed 0, skipped 0. Parent re-ran the same command. `porque` does not arm; `por qué` still does. WinUI review N/A (no XAML or view models in this unit). Runtime harness N/A (pure Core, no UI boundary).
+2026-09-21: T1 done. Commit `6bd8859`. `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj --filter "FullyQualifiedName~LiveQuestion|FullyQualifiedName~LiveAnswer"` — passed 24, failed 0, skipped 0. Parent re-ran the same command. `porque` does not arm; `por qué` still does. WinUI review N/A (no XAML or view models in this unit). Runtime harness N/A (pure Core, no UI boundary). Diff is 835 additions because the parser, prompt, and tests ship with the detector; not split by file type.
+
+2026-09-21: T2 verified before commit. Same filter re-run by parent: passed 32, failed 0, skipped 0. Writer build: `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` — 0 errors. WinUI review: no error-severity issues. C#12 private fields kept over WUI3xxx. Notice sits above the transcript scroller. Provider call is `Task.Run`. App was not launched. Rollback: revert the T2 commit; T1 detector still stands.
 
 ## Next
 
-T2 recording notice and provider call.
+Manual smoke while recording. Do not open a PR to main until Jev is on main, or the diff stays polluted.

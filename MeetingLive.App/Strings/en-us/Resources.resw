@@ -401,4 +401,23 @@
   <data name="AskPage_StatusFinding" xml:space="preserve"><value>Finding what you need to do...</value></data>
   <data name="AskPage_StatusWriting" xml:space="preserve"><value>Writing your checklist...</value></data>
   <data name="AskPage_Copied" xml:space="preserve"><value>Copied.</value></data>
+  <data name="RecordPage_LiveQuestionNotice.Title" xml:space="preserve"><value>Question detected</value></data>
+  <data name="RecordPage_LiveQuestionNotice.AutomationProperties.Name" xml:space="preserve"><value>Detected question</value></data>
+  <data name="RecordPage_LiveAnswer.Content" xml:space="preserve"><value>Answer</value></data>
+  <data name="RecordPage_LiveAnswer.AutomationProperties.Name" xml:space="preserve"><value>Answer the detected question</value></data>
+  <data name="RecordPage_LiveAnswerTooltip" xml:space="preserve"><value>Answer (Ctrl+Enter)</value></data>
+  <data name="RecordPage_LiveAnswerDismiss.Content" xml:space="preserve"><value>Dismiss</value></data>
+  <data name="RecordPage_LiveAnswerDismiss.AutomationProperties.Name" xml:space="preserve"><value>Dismiss the detected question</value></data>
+  <data name="RecordPage_LiveAnswerProvider.Header" xml:space="preserve"><value>Answer with</value></data>
+  <data name="RecordPage_LiveAnswerProvider.AutomationProperties.Name" xml:space="preserve"><value>Live answer provider</value></data>
+  <data name="RecordPage_LiveAsk.Header" xml:space="preserve"><value>Ask</value></data>
+  <data name="RecordPage_LiveAsk.PlaceholderText" xml:space="preserve"><value>Type a question, then press Ctrl+Enter</value></data>
+  <data name="RecordPage_LiveAsk.AutomationProperties.Name" xml:space="preserve"><value>Type a question</value></data>
+  <data name="RecordPage_LiveAskTooltip" xml:space="preserve"><value>Press Ctrl+Enter to ask</value></data>
+  <data name="RecordPage_LiveAnswerProgress.AutomationProperties.Name" xml:space="preserve"><value>Answering</value></data>
+  <data name="RecordPage_LiveAnswerError.Title" xml:space="preserve"><value>Could not answer</value></data>
+  <data name="RecordPage_LiveAnswerError.AutomationProperties.Name" xml:space="preserve"><value>Live answer error</value></data>
+  <data name="RecordPage_LiveAnswerEmpty" xml:space="preserve"><value>The answer came back empty.</value></data>
+  <data name="RecordPage_LiveAnswerHeading.Text" xml:space="preserve"><value>Answer</value></data>
+  <data name="RecordPage_LiveAnswerText.AutomationProperties.Name" xml:space="preserve"><value>Live answer</value></data>
 </root>

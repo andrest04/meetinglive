@@ -49,6 +49,21 @@ public sealed class AppSettings
     public SummaryProviderKind ResolveSummaryProviderKind() =>
         Enum.TryParse<SummaryProviderKind>(SelectedSummaryProvider, out var kind) ? kind : SummaryProviderKind.Local;
 
+    /// <summary>The <see cref="SummaryProviderKind"/> used to answer a live question, stored as its
+    /// enum name. Null or unrecognized means follow <see cref="ResolveSummaryProviderKind"/>.</summary>
+    public string? SelectedLiveAnswerProvider { get; set; }
+
+    /// <summary>Parses <see cref="SelectedLiveAnswerProvider"/>. When unset, blank, or unrecognized,
+    /// falls back to <see cref="ResolveSummaryProviderKind"/>.</summary>
+    public SummaryProviderKind ResolveLiveAnswerProviderKind()
+    {
+        if (!string.IsNullOrWhiteSpace(SelectedLiveAnswerProvider)
+            && Enum.TryParse<SummaryProviderKind>(SelectedLiveAnswerProvider, out var kind))
+            return kind;
+
+        return ResolveSummaryProviderKind();
+    }
+
     /// <summary>The meeting-language code (<see cref="TranscriptionLanguageOption.Code"/>) the user
     /// pinned in Settings, e.g. "en". Null means the default (Spanish — NVIDIA LangID beats auto).</summary>
     public string? TranscriptionLanguage { get; set; }

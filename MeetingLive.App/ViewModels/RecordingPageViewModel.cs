@@ -46,6 +46,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private readonly Stopwatch _pauseClock = new();
     private string? _liveDraft;
     private readonly List<TimeSpan> _highlights = [];
+    private string _previousCommittedTranscript = string.Empty;
+    private string _committedTranscript = string.Empty;
+    private readonly HashSet<string> _dismissedQuestionBodies = new(StringComparer.Ordinal);
+    private CancellationTokenSource? _liveAnswerCts;
+    private int _liveAnswerGeneration;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -141,6 +146,38 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     [ObservableProperty]
     private string _summarySetupDetailText = string.Empty;
 
+    [ObservableProperty]
+    private string _armedQuestion = string.Empty;
+
+    [ObservableProperty]
+    private string _liveAskText = string.Empty;
+
+    [ObservableProperty]
+    private string _liveAnswerText = string.Empty;
+
+    [ObservableProperty]
+    private string _liveAnswerError = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAnswering;
+
+    [ObservableProperty]
+    private LiveAnswerProviderOption? _selectedLiveAnswerProvider;
+
+    public IReadOnlyList<LiveAnswerProviderOption> LiveAnswerProviders { get; } =
+    [
+        new() { Kind = SummaryProviderKind.Local, DisplayName = AppStrings.Get("RecordingSetup_SummaryLocal") },
+        new() { Kind = SummaryProviderKind.ClaudeCode, DisplayName = AppStrings.Get("Cli_ClaudeName") },
+        new() { Kind = SummaryProviderKind.Codex, DisplayName = AppStrings.Get("Cli_CodexName") },
+        new() { Kind = SummaryProviderKind.Xai, DisplayName = AppStrings.Get("Xai_ProviderName") },
+    ];
+
+    public bool HasArmedQuestion => !string.IsNullOrWhiteSpace(ArmedQuestion);
+
+    public bool HasLiveAnswer => !string.IsNullOrEmpty(LiveAnswerText);
+
+    public bool HasLiveAnswerError => !string.IsNullOrEmpty(LiveAnswerError);
+
     public bool HasLastMeeting => LastMeeting is not null;
 
     public bool HasSummary => LastMeeting?.Summary is not null;
@@ -226,9 +263,225 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             StopMicPreview();
     }
 
-    private void OnLiveTranscriptUpdated(object? sender, string transcript)
+    private void OnLiveTranscriptUpdated(object? sender, LiveTranscriptUpdate update)
     {
-        App.DispatcherQueue.TryEnqueue(() => LiveTranscriptText = transcript);
+        App.DispatcherQueue.TryEnqueue(() => ApplyLiveTranscriptUpdate(update));
+    }
+
+    private void ApplyLiveTranscriptUpdate(LiveTranscriptUpdate update)
+    {
+        LiveTranscriptText = update.DisplayText ?? string.Empty;
+        if (!IsRecording)
+            return;
+
+        var current = update.CommittedText ?? string.Empty;
+        if (string.Equals(_previousCommittedTranscript, current, StringComparison.Ordinal))
+        {
+            _committedTranscript = current;
+            return;
+        }
+
+        var detected = LiveQuestionDetector.TryDetectNew(_previousCommittedTranscript, current);
+        _previousCommittedTranscript = current;
+        _committedTranscript = current;
+        if (string.IsNullOrEmpty(detected) || _dismissedQuestionBodies.Contains(detected))
+            return;
+
+        ArmedQuestion = detected;
+    }
+
+    /// <summary>Confirms the armed question, or the typed question when the box is non-empty.</summary>
+    [RelayCommand(CanExecute = nameof(CanConfirmLiveAnswer), AllowConcurrentExecutions = true)]
+    private Task ConfirmLiveAnswerAsync() => AskLiveAsync(typedOnly: false);
+
+    /// <summary>Submits the typed question. Does not confirm or dismiss the armed notice.</summary>
+    [RelayCommand(CanExecute = nameof(CanSubmitTypedAsk), AllowConcurrentExecutions = true)]
+    private Task SubmitTypedAskAsync() => AskLiveAsync(typedOnly: true);
+
+    [RelayCommand(CanExecute = nameof(CanDismissArmedQuestion))]
+    private void DismissArmedQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(ArmedQuestion))
+            return;
+
+        _dismissedQuestionBodies.Add(ArmedQuestion);
+        ArmedQuestion = string.Empty;
+    }
+
+    private bool CanConfirmLiveAnswer() =>
+        IsRecording && (!string.IsNullOrWhiteSpace(LiveAskText) || HasArmedQuestion);
+
+    private bool CanSubmitTypedAsk() => IsRecording && !string.IsNullOrWhiteSpace(LiveAskText);
+
+    private bool CanDismissArmedQuestion() => HasArmedQuestion;
+
+    public async Task SaveLiveAnswerProviderAsync(SummaryProviderKind kind)
+    {
+        ApplyLoadedLiveAnswerProvider(kind);
+        var settings = await AppServices.Settings.LoadAsync();
+        settings.SelectedLiveAnswerProvider = kind.ToString();
+        await AppServices.Settings.SaveAsync(settings);
+    }
+
+    private async Task AskLiveAsync(bool typedOnly)
+    {
+        if (!IsRecording)
+            return;
+
+        var typed = LiveAskText.Trim();
+        var armed = ArmedQuestion;
+        var question = typed.Length > 0 ? typed : armed.Trim();
+        if (typedOnly && typed.Length == 0)
+            return;
+        if (question.Length == 0)
+            return;
+
+        var confirmPath = !typedOnly;
+        var clearedArmed = confirmPath && armed.Length > 0;
+        if (confirmPath)
+            ArmedQuestion = string.Empty;
+
+        var generation = Interlocked.Increment(ref _liveAnswerGeneration);
+        var cts = ReplaceLiveAnswerCancellation();
+        var token = cts.Token;
+        IsAnswering = true;
+        LiveAnswerError = string.Empty;
+        LiveAnswerText = string.Empty;
+
+        var committed = _committedTranscript;
+        var selectedKind = SelectedLiveAnswerProvider?.Kind;
+
+        try
+        {
+            var settings = await AppServices.Settings.LoadAsync();
+            if (generation != _liveAnswerGeneration || token.IsCancellationRequested)
+                return;
+
+            var providerKind = selectedKind ?? settings.ResolveLiveAnswerProviderKind();
+            var resolved = await SummaryProviderResolver.ResolveAsync(
+                providerKind,
+                EnsureSummaryModelAsync,
+                EnsureCliProviderAsync,
+                EnsureXaiProviderAsync);
+            if (generation != _liveAnswerGeneration || token.IsCancellationRequested)
+                return;
+
+            if (resolved is null)
+            {
+                PublishLiveAnswer(
+                    generation,
+                    answer: null,
+                    error: AppStrings.Get("Status_SetupCancelled"),
+                    answering: false,
+                    restoreArmed: clearedArmed ? armed : null);
+                return;
+            }
+
+            var prompt = LiveAnswerPromptBuilder.Build(
+                question,
+                LiveAnswerWindow.TakeRecent(committed, LiveAnswerWindow.Default),
+                settings.ResolveSummaryLanguage());
+            var answer = await Task.Run(
+                () => resolved.Provider.CompletePromptAsync(prompt, token),
+                token).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(answer))
+            {
+                PublishLiveAnswer(
+                    generation,
+                    answer: null,
+                    error: AppStrings.Get("RecordPage_LiveAnswerEmpty"),
+                    answering: false);
+                return;
+            }
+
+            PublishLiveAnswer(generation, answer, error: string.Empty, answering: false);
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer ask, or Stop, owns the UI state.
+        }
+        catch (Exception ex)
+        {
+            PublishLiveAnswer(
+                generation,
+                answer: null,
+                error: CliFailureUserMessage.Format(ex),
+                answering: false);
+        }
+    }
+
+    private void PublishLiveAnswer(
+        int generation,
+        string? answer,
+        string? error,
+        bool answering,
+        string? restoreArmed = null)
+    {
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            if (generation != _liveAnswerGeneration)
+                return;
+
+            if (restoreArmed is not null)
+                ArmedQuestion = restoreArmed;
+            if (answer is not null)
+                LiveAnswerText = answer;
+            if (error is not null)
+                LiveAnswerError = error;
+            IsAnswering = answering;
+        });
+    }
+
+    private CancellationTokenSource ReplaceLiveAnswerCancellation()
+    {
+        var previous = _liveAnswerCts;
+        var next = new CancellationTokenSource();
+        _liveAnswerCts = next;
+        CancelTokenSource(previous);
+        return next;
+    }
+
+    private void CancelLiveAnswer()
+    {
+        Interlocked.Increment(ref _liveAnswerGeneration);
+        var cts = _liveAnswerCts;
+        _liveAnswerCts = null;
+        CancelTokenSource(cts);
+        IsAnswering = false;
+    }
+
+    private static void CancelTokenSource(CancellationTokenSource? cts)
+    {
+        if (cts is null)
+            return;
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        cts.Dispose();
+    }
+
+    private void ResetLiveAnswerSession()
+    {
+        CancelLiveAnswer();
+        _previousCommittedTranscript = string.Empty;
+        _committedTranscript = string.Empty;
+        _dismissedQuestionBodies.Clear();
+        ArmedQuestion = string.Empty;
+        LiveAskText = string.Empty;
+        LiveAnswerText = string.Empty;
+        LiveAnswerError = string.Empty;
+    }
+
+    private void ApplyLoadedLiveAnswerProvider(SummaryProviderKind kind)
+    {
+        SelectedLiveAnswerProvider = LiveAnswerProviders.FirstOrDefault(item => item.Kind == kind)
+            ?? LiveAnswerProviders[0];
     }
 
     private void OnMeetingDeleted(object? sender, Guid id)
@@ -281,6 +534,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             return;
 
         var settings = await AppServices.Settings.LoadAsync();
+        ResetLiveAnswerSession();
+        ApplyLoadedLiveAnswerProvider(settings.ResolveLiveAnswerProviderKind());
 
         _currentMeetingId = Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;
@@ -332,6 +587,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private async Task StopRecordingAsync()
     {
+        CancelLiveAnswer();
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
         try
         {
@@ -531,6 +787,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         if (!IsRecording)
             return;
 
+        CancelLiveAnswer();
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
         try
         {
@@ -685,6 +942,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         DiscardRecordingCommand.NotifyCanExecuteChanged();
         HighlightMomentCommand.NotifyCanExecuteChanged();
         ImportAudioCommand.NotifyCanExecuteChanged();
+        ConfirmLiveAnswerCommand.NotifyCanExecuteChanged();
+        SubmitTypedAskCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsPausedChanged(bool value) => NotifyCanvasState();
@@ -733,6 +992,23 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     partial void OnHighlightFeedbackChanged(string value) =>
         OnPropertyChanged(nameof(HasHighlightFeedback));
+
+    partial void OnArmedQuestionChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasArmedQuestion));
+        ConfirmLiveAnswerCommand.NotifyCanExecuteChanged();
+        DismissArmedQuestionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnLiveAskTextChanged(string value)
+    {
+        ConfirmLiveAnswerCommand.NotifyCanExecuteChanged();
+        SubmitTypedAskCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnLiveAnswerTextChanged(string value) => OnPropertyChanged(nameof(HasLiveAnswer));
+
+    partial void OnLiveAnswerErrorChanged(string value) => OnPropertyChanged(nameof(HasLiveAnswerError));
 
     partial void OnLiveTranscriptTextChanged(string value)
     {
