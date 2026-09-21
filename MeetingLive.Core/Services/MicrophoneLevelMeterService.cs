@@ -112,6 +112,9 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
             for (var i = 0; i + 4 <= bytesRecorded; i += 4)
             {
                 var sample = BitConverter.ToSingle(buffer, i);
+                if (!float.IsFinite(sample))
+                    continue;
+
                 sumSquares += sample * sample;
                 sampleCount++;
             }
