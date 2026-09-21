@@ -72,7 +72,7 @@ Strategy: `ask-on-risk`. Chain: `stacked-to-main` (user chose 2026-09-21). Forec
 
 2026-09-21: T1 done. Commit `6bd8859`. `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj --filter "FullyQualifiedName~LiveQuestion|FullyQualifiedName~LiveAnswer"` — passed 24, failed 0, skipped 0. Parent re-ran the same command. `porque` does not arm; `por qué` still does. WinUI review N/A (no XAML or view models in this unit). Runtime harness N/A (pure Core, no UI boundary). Diff is 835 additions because the parser, prompt, and tests ship with the detector; not split by file type.
 
-2026-09-21: T2 verified before commit. Same filter re-run by parent: passed 32, failed 0, skipped 0. Writer build: `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` — 0 errors. WinUI review: no error-severity issues. C#12 private fields kept over WUI3xxx. Notice sits above the transcript scroller. Provider call is `Task.Run`. App was not launched. Rollback: revert the T2 commit; T1 detector still stands.
+2026-09-21: T2 commit `059dc5f`. Same filter re-run by parent: passed 32, failed 0, skipped 0. Writer build: `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` — 0 errors. WinUI review: no error-severity issues. C#12 private fields kept over WUI3xxx. Notice sits above the transcript scroller. Provider call is `Task.Run`. App was not launched. Rollback: revert the T2 commit; T1 detector still stands.
 
 ## Next
 
