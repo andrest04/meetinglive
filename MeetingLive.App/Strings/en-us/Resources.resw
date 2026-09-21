@@ -391,7 +391,7 @@
   <data name="Jev_MeetingType_support" xml:space="preserve"><value>Support</value></data>
   <data name="Jev_MeetingType_other" xml:space="preserve"><value>Other</value></data>
   <data name="AskPage_Topic.Header" xml:space="preserve"><value>Topic (optional)</value></data>
-  <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>e.g. TV1</value></data>
+  <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>e.g. Agile</value></data>
   <data name="AskPage_Do.Text" xml:space="preserve"><value>What do I need to do</value></data>
   <data name="AskPage_EmptyTranscript" xml:space="preserve"><value>This meeting has no transcript to ask yet.</value></data>
   <data name="AskPage_NoApiKey" xml:space="preserve"><value>Save a TypeSafe API key in Settings to ask this meeting.</value></data>
