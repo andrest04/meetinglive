@@ -38,6 +38,9 @@ namespace MeetingLive.Core.Services;
         return CompleteAsync(prompt, cancellationToken);
     }
 
+    public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
+        CompleteAsync(prompt, cancellationToken);
+
     private async Task<string> CompleteAsync(string prompt, CancellationToken cancellationToken)
     {
         var token = await session.GetAccessTokenAsync(cancellationToken);

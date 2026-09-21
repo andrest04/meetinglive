@@ -224,4 +224,23 @@ public class ClaudeCodeCliSummaryProviderTests
         Assert.DoesNotContain("</ended_at>", stdinCaptured, StringComparison.Ordinal);
         Assert.Contains("Never write that the end time was not recorded", stdinCaptured, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task CompletePromptAsync_SendsPromptOnStdin()
+    {
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((fileName, arguments, stdin) =>
+        {
+            Assert.Equal("claude", fileName);
+            Assert.Equal("-p", arguments);
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## What you need to do\n\n- [ ] Send the deck\n", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner);
+
+        var result = await provider.CompletePromptAsync("Write a checklist from evidence.");
+
+        Assert.Equal("## What you need to do\n\n- [ ] Send the deck", result);
+        Assert.Equal("Write a checklist from evidence.", stdinCaptured);
+    }
 }

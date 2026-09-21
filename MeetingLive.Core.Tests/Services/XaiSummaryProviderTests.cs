@@ -63,6 +63,26 @@ public class XaiSummaryProviderTests
         Assert.DoesNotContain("exactly three Markdown sections", prompt);
     }
 
+    [Fact]
+    public async Task CompletePromptAsync_SendsPromptInChatBody()
+    {
+        var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(
+            HttpStatusCode.OK,
+            """{"choices":[{"message":{"content":"## What you need to do\n\n- [ ] Send the deck"}}]}"""));
+        var store = new InMemoryXaiCredentialStore();
+        store.Save(new XaiCredentials(XaiCredentialKind.ApiKey, "key", null, null));
+        var http = new HttpClient(handler);
+        var provider = new XaiSummaryProvider(
+            new XaiAuthSession(store, new XaiOAuthClient(http)),
+            new XaiApiClient(http),
+            "grok-4-fast");
+
+        var result = await provider.CompletePromptAsync("Write a checklist from evidence.");
+
+        Assert.Equal("## What you need to do\n\n- [ ] Send the deck", result);
+        Assert.Equal("Write a checklist from evidence.", ChatPrompt(handler.LastRequestBody));
+    }
+
     private static string ChatPrompt(string? requestBody)
     {
         using var document = JsonDocument.Parse(requestBody!);

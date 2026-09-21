@@ -72,4 +72,23 @@ public class CodexCliSummaryProviderTests
         Assert.Equal(CliFailureKind.EmptyOutput, exception.Kind);
         Assert.Equal(CliFailureMapper.CodexDisplayName, exception.ProviderDisplayName);
     }
+
+    [Fact]
+    public async Task CompletePromptAsync_SendsPromptOnStdin()
+    {
+        string? stdinCaptured = null;
+        var runner = new FakeCliProcessRunner((fileName, arguments, stdin) =>
+        {
+            Assert.Equal("codex", fileName);
+            Assert.Equal("exec -", arguments);
+            stdinCaptured = stdin;
+            return new CliProcessResult(0, "## What you need to do\n\n- [ ] Send the deck\n", string.Empty);
+        });
+        var provider = new CodexCliSummaryProvider(runner);
+
+        var result = await provider.CompletePromptAsync("Write a checklist from evidence.");
+
+        Assert.Equal("## What you need to do\n\n- [ ] Send the deck", result);
+        Assert.Equal("Write a checklist from evidence.", stdinCaptured);
+    }
 }

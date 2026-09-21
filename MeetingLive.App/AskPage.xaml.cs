@@ -6,7 +6,7 @@ using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App;
 
-/// <summary>Asks Jev to point at transcript lines for the opened meeting.</summary>
+/// <summary>Finds personal tasks in the opened meeting, then writes a checklist.</summary>
 public sealed partial class AskPage : Page
 {
     public AskPageViewModel ViewModel { get; } = new();
@@ -14,6 +14,12 @@ public sealed partial class AskPage : Page
     public AskPage()
     {
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
+            ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
+            ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
+        };
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

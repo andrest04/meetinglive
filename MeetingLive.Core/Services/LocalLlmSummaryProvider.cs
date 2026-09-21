@@ -31,45 +31,30 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         string? outputLanguage = null,
         DateTimeOffset? endedAt = null)
     {
-        if (!File.Exists(modelPath))
-        {
-            throw new FileNotFoundException(
-                "The selected local summary model has not been downloaded yet. Download it from Settings first.",
-                modelPath);
-        }
-
-        var (weights, modelParams) = await EnsureLoadedAsync(cancellationToken);
-
-        var executor = new StatelessExecutor(weights, modelParams)
-        {
-            ApplyTemplate = true,
-        };
-
-        var inferenceParams = new InferenceParams
-        {
-            MaxTokens = 1024,
-            SamplingPipeline = new DefaultSamplingPipeline { Temperature = 0.3f },
-        };
-
         var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
-
-        var result = new StringBuilder();
-        await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))
-            result.Append(token);
-
-        var raw = result.ToString().Trim();
-        if (raw.Length == 0)
-            throw new InvalidOperationException("The local model did not return any content.");
-
+        var raw = await InferAsync(prompt, maxTokens: 1024, temperature: 0.3f, cancellationToken);
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
     }
 
-    public async Task<string> SuggestTitleAsync(
+    public Task<string> SuggestTitleAsync(
         string transcript,
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
         string? outputLanguage = null)
+    {
+        var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
+        return InferAsync(prompt, maxTokens: 80, temperature: 0.3f, cancellationToken);
+    }
+
+    public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
+        InferAsync(prompt, maxTokens: 512, temperature: 0.2f, cancellationToken);
+
+    private async Task<string> InferAsync(
+        string prompt,
+        int maxTokens,
+        float temperature,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(modelPath))
         {
@@ -87,11 +72,9 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
 
         var inferenceParams = new InferenceParams
         {
-            MaxTokens = 80,
-            SamplingPipeline = new DefaultSamplingPipeline { Temperature = 0.3f },
+            MaxTokens = maxTokens,
+            SamplingPipeline = new DefaultSamplingPipeline { Temperature = temperature },
         };
-
-        var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
 
         var result = new StringBuilder();
         await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))

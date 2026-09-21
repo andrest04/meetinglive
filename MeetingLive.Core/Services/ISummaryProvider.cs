@@ -32,4 +32,10 @@ public interface ISummaryProvider
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
         string? outputLanguage = null);
+
+    /// <summary>
+    /// Runs an already-built prompt and returns the model text. Used for Ask checklists
+    /// so Jev can select evidence and the user's summary provider writes the list.
+    /// </summary>
+    Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default);
 }

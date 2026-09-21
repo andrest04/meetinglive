@@ -47,4 +47,7 @@ namespace MeetingLive.Core.Services;
         var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
         return RunAsync(prompt, cancellationToken);
     }
+
+    public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
+        RunAsync(prompt, cancellationToken);
 }

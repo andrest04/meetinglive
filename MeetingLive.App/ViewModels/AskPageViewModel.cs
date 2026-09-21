@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 using Microsoft.UI.Xaml.Controls;
@@ -22,7 +23,9 @@ public sealed class AskHitViewModel
     public string ScorePercent => Score.ToString("P0", CultureInfo.CurrentCulture);
 }
 
-/// <summary>Asks Jev to point at transcript lines. Does not generate an answer paragraph.</summary>
+/// <summary>
+/// Jev picks request/commitment lines; the selected summary provider writes a personal checklist.
+/// </summary>
 public partial class AskPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
@@ -31,7 +34,7 @@ public partial class AskPageViewModel : ObservableObject
     private bool _hasApiKey;
 
     [ObservableProperty]
-    private string _query = string.Empty;
+    private string _topic = string.Empty;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -57,11 +60,22 @@ public partial class AskPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasHits;
 
+    [ObservableProperty]
+    private string _checklistMarkdown = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasChecklist;
+
     public ObservableCollection<AskHitViewModel> Hits { get; } = [];
+
+    public Func<Task<string?>>? EnsureSummaryModelAsync { get; set; }
+
+    public Func<SummaryProviderKind, Task<bool>>? EnsureCliProviderAsync { get; set; }
+
+    public Func<Task<bool>>? EnsureXaiProviderAsync { get; set; }
 
     public bool CanAsk =>
         HasTranscript &&
-        !string.IsNullOrWhiteSpace(Query) &&
         !IsAsking &&
         _typeSafeEnabled &&
         _hasApiKey;
@@ -71,10 +85,7 @@ public partial class AskPageViewModel : ObservableObject
         IsLoading = true;
         try
         {
-            Hits.Clear();
-            HasHits = false;
-            IsVerdictOpen = false;
-            VerdictMessage = string.Empty;
+            ClearResults();
 
             var record = meetingId is { } id
                 ? await _meetings.GetByIdAsync(id)
@@ -103,7 +114,7 @@ public partial class AskPageViewModel : ObservableObject
         if (!CanAsk)
             return;
 
-        var query = Query.Trim();
+        var topic = string.IsNullOrWhiteSpace(Topic) ? null : Topic.Trim();
         var transcript = _transcript;
         await RefreshTypeSafeGateAsync();
         if (!HasTranscript || !_hasApiKey || !_typeSafeEnabled)
@@ -123,20 +134,45 @@ public partial class AskPageViewModel : ObservableObject
         }
 
         IsAsking = true;
-        StatusText = string.Empty;
-        Hits.Clear();
-        HasHits = false;
-        IsVerdictOpen = false;
+        StatusText = AppStrings.Get("AskPage_StatusFinding");
+        ClearResults();
         NotifyAskCanExecute();
         try
         {
-            var result = await MeetingJevAsk.AskAsync(
+            var result = await MeetingJevPersonalTasks.FindAsync(
                 AppServices.TypeSafeApi,
                 apiKey,
                 transcript,
-                query);
+                topic);
 
-            ApplyResult(result);
+            if (result.Verdict == MeetingJevAskVerdict.Absent)
+            {
+                ShowAbsent(topic);
+                return;
+            }
+
+            ShowEvidence(result.Evidence);
+            if (result.Evidence.Count == 0)
+            {
+                ShowAbsent(topic);
+                return;
+            }
+
+            StatusText = AppStrings.Get("AskPage_StatusWriting");
+            var settings = await AppServices.Settings.LoadAsync();
+            var provider = await ResolveSummaryProviderAsync(settings.ResolveSummaryProviderKind());
+            if (provider is null)
+            {
+                StatusText = AppStrings.Get("Status_SetupCancelled");
+                return;
+            }
+
+            var prompt = PersonalTasksPromptBuilder.Build(
+                result.Evidence.Select(item => item.Line).ToArray(),
+                topic,
+                settings.ResolveSummaryLanguage());
+            var markdown = await Task.Run(() => provider.CompletePromptAsync(prompt));
+            ApplyChecklist(markdown, topic);
         }
         catch (TypeSafeException ex)
         {
@@ -167,35 +203,64 @@ public partial class AskPageViewModel : ObservableObject
         StatusText = AppStrings.Get("AskPage_Copied");
     }
 
-    private void ApplyResult(MeetingJevAskResult result)
+    private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind) =>
+        (await SummaryProviderResolver.ResolveAsync(
+            providerKind, EnsureSummaryModelAsync, EnsureCliProviderAsync, EnsureXaiProviderAsync))?.Provider;
+
+    private void ShowEvidence(IReadOnlyList<MeetingJevPersonalTaskEvidence> evidence)
     {
         Hits.Clear();
-        foreach (var hit in result.Hits)
+        foreach (var item in evidence)
         {
             Hits.Add(new AskHitViewModel
             {
-                LineId = hit.LineId,
-                Index = hit.Index,
-                Text = hit.Text,
-                Score = hit.Score,
+                LineId = item.Line.Id,
+                Index = item.Line.Index,
+                Text = item.Line.Text,
+                Score = item.Score,
             });
         }
 
         HasHits = Hits.Count > 0;
-        VerdictMessage = result.Verdict switch
+    }
+
+    private void ApplyChecklist(string markdown, string? topic)
+    {
+        var trimmed = markdown.Trim();
+        if (string.Equals(trimmed, "NONE", StringComparison.OrdinalIgnoreCase))
         {
-            MeetingJevAskVerdict.Answered => AppStrings.Get("AskPage_VerdictAnswered"),
-            MeetingJevAskVerdict.Partial => AppStrings.Get("AskPage_VerdictPartial"),
-            _ => AppStrings.Get("AskPage_VerdictAbsent"),
-        };
-        VerdictSeverity = result.Verdict switch
-        {
-            MeetingJevAskVerdict.Answered => InfoBarSeverity.Informational,
-            MeetingJevAskVerdict.Partial => InfoBarSeverity.Warning,
-            _ => InfoBarSeverity.Error,
-        };
+            ShowAbsent(topic);
+            return;
+        }
+
+        ChecklistMarkdown = trimmed;
+        HasChecklist = trimmed.Length > 0;
+        StatusText = string.Empty;
+        IsVerdictOpen = false;
+    }
+
+    private void ShowAbsent(string? topic)
+    {
+        HasChecklist = false;
+        ChecklistMarkdown = string.Empty;
+        Hits.Clear();
+        HasHits = false;
+        VerdictMessage = topic is null
+            ? AppStrings.Get("AskPage_NothingAsked")
+            : AppStrings.Format("AskPage_TopicAbsent", topic);
+        VerdictSeverity = InfoBarSeverity.Informational;
         IsVerdictOpen = true;
-        StatusText = Hits.Count == 0 ? AppStrings.Get("AskPage_NoHits") : string.Empty;
+        StatusText = string.Empty;
+    }
+
+    private void ClearResults()
+    {
+        Hits.Clear();
+        HasHits = false;
+        HasChecklist = false;
+        ChecklistMarkdown = string.Empty;
+        IsVerdictOpen = false;
+        VerdictMessage = string.Empty;
     }
 
     private async Task RefreshTypeSafeGateAsync()
@@ -221,8 +286,6 @@ public partial class AskPageViewModel : ObservableObject
         OnPropertyChanged(nameof(CanAsk));
         AskCommand.NotifyCanExecuteChanged();
     }
-
-    partial void OnQueryChanged(string value) => NotifyAskCanExecute();
 
     partial void OnIsAskingChanged(bool value) => NotifyAskCanExecute();
 
