@@ -62,6 +62,67 @@ public class MeetingMarkdownFormatterTests
         Assert.DoesNotContain("summaryProvider:", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Personal Notes", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Action Items", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Jev", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderThenParse_RoundtripsJevAnalysis()
+    {
+        var id = Guid.NewGuid();
+        var recordedAt = DateTimeOffset.Parse("2026-09-01T12:00:00.0000000+00:00");
+        var analyzedAt = DateTimeOffset.Parse("2026-09-01T13:00:00.0000000+00:00");
+        var record = new MeetingRecord
+        {
+            Id = id,
+            Title = "Standup",
+            RecordedAt = recordedAt,
+            AudioFilePath = string.Empty,
+            Transcript = "hello there",
+            Summary = "### Notes\nHello\n\n## Decisions\nShip it",
+            ActionItems = [new ActionItem { Text = "Follow up", IsDone = false }],
+            JevAnalysis = new MeetingJevAnalysis
+            {
+                MeetingType = "standup",
+                MeetingTypeConfidence = 0.85,
+                SpokenLanguage = "en",
+                UrgencyScore = 1.0,
+                UrgencyConfidence = 0.9,
+                ContainsDecisions = 0.8,
+                ContainsCommitments = 0.2,
+                PiiRisk = 0.01,
+                SummaryFaithful = 0.7,
+                SuggestedFolderId = "inbox",
+                FolderConfidence = 0.5,
+                Model = "jev-1.13.0",
+                AnalyzedAt = analyzedAt,
+                ActionItems =
+                [
+                    new ActionItemVerdict { Text = "Follow up", Relation = "supports", Confidence = 0.88 },
+                ],
+            },
+        };
+
+        var markdown = MeetingMarkdownFormatter.Render(record);
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", markdown);
+
+        Assert.Contains("## Jev", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-key", markdown, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("apiKey", markdown, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(record.Summary, parsed.Summary);
+        Assert.NotNull(parsed.JevAnalysis);
+        Assert.Equal("standup", parsed.JevAnalysis.MeetingType);
+        Assert.Equal(0.85, parsed.JevAnalysis.MeetingTypeConfidence);
+        Assert.Equal("en", parsed.JevAnalysis.SpokenLanguage);
+        Assert.Equal(1.0, parsed.JevAnalysis.UrgencyScore);
+        Assert.Equal(0.8, parsed.JevAnalysis.ContainsDecisions);
+        Assert.Equal(0.7, parsed.JevAnalysis.SummaryFaithful);
+        Assert.Equal("inbox", parsed.JevAnalysis.SuggestedFolderId);
+        Assert.Equal("jev-1.13.0", parsed.JevAnalysis.Model);
+        Assert.Equal(analyzedAt, parsed.JevAnalysis.AnalyzedAt);
+        var verdict = Assert.Single(parsed.JevAnalysis.ActionItems);
+        Assert.Equal("Follow up", verdict.Text);
+        Assert.Equal("supports", verdict.Relation);
+        Assert.Equal(0.88, verdict.Confidence);
     }
 
     [Fact]

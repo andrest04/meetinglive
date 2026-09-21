@@ -80,6 +80,13 @@ public sealed class AppSettings
     /// deserializes as false. The GGUF is downloaded separately and is not required for Record.</summary>
     public bool SpeakerDiarizationEnabled { get; set; }
 
+    /// <summary>
+    /// When true, Jev may run after a summary if a TypeSafe API key is saved.
+    /// Key presence is the real gate; this toggle lets the user keep the key
+    /// without sending transcripts. Defaults to <see langword="true"/>.
+    /// </summary>
+    public bool TypeSafeEnabled { get; set; } = true;
+
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
     public double? NavigationPaneLength { get; set; }
 

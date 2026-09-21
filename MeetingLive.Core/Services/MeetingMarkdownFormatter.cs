@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
@@ -15,7 +16,10 @@ internal static class MeetingMarkdownFormatter
     internal const string TranscriptHeader = "## Transcript";
     internal const string SummaryHeader = "## Summary";
     internal const string ActionItemsHeader = "## Action Items";
+    internal const string JevHeader = "## Jev";
     internal const string PersonalNotesHeader = "## Personal Notes";
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Renders a <see cref="MeetingRecord"/> as the frontmatter + sections
     /// Markdown format described in the plan. A section is omitted entirely when its
@@ -52,6 +56,12 @@ internal static class MeetingMarkdownFormatter
         {
             sb.Append('\n').Append(ActionItemsHeader).Append('\n').Append('\n');
             sb.Append(ActionItemParser.Render(record.ActionItems));
+        }
+
+        if (record.JevAnalysis is not null)
+        {
+            sb.Append('\n').Append(JevHeader).Append('\n').Append('\n');
+            sb.Append(JsonSerializer.Serialize(record.JevAnalysis, JsonOptions)).Append('\n');
         }
 
         if (!string.IsNullOrEmpty(record.Notes))
@@ -126,6 +136,19 @@ internal static class MeetingMarkdownFormatter
         var actionItemsBody = ExtractSection(lines, bodyStart, ActionItemsHeader);
         var actionItems = actionItemsBody is null ? [] : ActionItemParser.Parse(actionItemsBody);
         var notes = ExtractSection(lines, bodyStart, PersonalNotesHeader);
+        var jevBody = ExtractSection(lines, bodyStart, JevHeader);
+        MeetingJevAnalysis? jevAnalysis = null;
+        if (jevBody is not null)
+        {
+            try
+            {
+                jevAnalysis = JsonSerializer.Deserialize<MeetingJevAnalysis>(jevBody, JsonOptions);
+            }
+            catch (JsonException ex)
+            {
+                throw new FormatException($"Meeting file '{path}' has an invalid Jev section.", ex);
+            }
+        }
 
         return new MeetingRecord
         {
@@ -140,6 +163,7 @@ internal static class MeetingMarkdownFormatter
             FolderId = folderId,
             Notes = notes,
             ActionItems = actionItems,
+            JevAnalysis = jevAnalysis,
             SourcePath = path,
         };
     }
@@ -147,7 +171,7 @@ internal static class MeetingMarkdownFormatter
     /// <summary>Finds the exact, case-sensitive <paramref name="header"/> line and
     /// returns everything up to (but not including) the next meeting section header
     /// (<c>## Transcript</c> / <c>## Summary</c> / <c>## Action Items</c> /
-    /// <c>## Personal Notes</c>), or null if the header isn't present at all.</summary>
+    /// <c>## Jev</c> / <c>## Personal Notes</c>), or null if the header isn't present at all.</summary>
     private static string? ExtractSection(string[] lines, int bodyStart, string header)
     {
         var start = -1;
@@ -180,5 +204,5 @@ internal static class MeetingMarkdownFormatter
     }
 
     private static bool IsMeetingSectionHeader(string line) =>
-        line is TranscriptHeader or SummaryHeader or ActionItemsHeader or PersonalNotesHeader;
+        line is TranscriptHeader or SummaryHeader or ActionItemsHeader or JevHeader or PersonalNotesHeader;
 }

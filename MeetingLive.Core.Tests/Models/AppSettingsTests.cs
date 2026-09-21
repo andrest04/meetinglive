@@ -75,4 +75,30 @@ public class AppSettingsTests
 
         Assert.False(settings!.SpeakerDiarizationEnabled);
     }
+
+    [Fact]
+    public void TypeSafeEnabled_WhenUnset_DefaultsTrue()
+    {
+        Assert.True(new AppSettings().TypeSafeEnabled);
+    }
+
+    [Fact]
+    public void TypeSafeEnabled_WhenJsonOmitsField_DefaultsTrue()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.True(settings!.TypeSafeEnabled);
+    }
+
+    [Fact]
+    public void TypeSafeEnabled_RoundTripsFalse()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(new AppSettings { TypeSafeEnabled = false }, options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.False(settings!.TypeSafeEnabled);
+    }
 }

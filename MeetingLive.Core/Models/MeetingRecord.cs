@@ -37,4 +37,7 @@ public sealed class MeetingRecord
     /// <summary>Parsed from the "## Action Items" Markdown section — not a separately
     /// persisted field, the rendered Markdown is the source of truth.</summary>
     public IReadOnlyList<ActionItem> ActionItems { get; set; } = [];
+
+    /// <summary>Typed Jev judgments persisted as a <c>## Jev</c> JSON section. Null when analysis was skipped or failed.</summary>
+    public MeetingJevAnalysis? JevAnalysis { get; set; }
 }

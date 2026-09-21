@@ -45,6 +45,9 @@ public static class AppPaths
     /// 512-character limit, so this is a CurrentUser-encrypted file rather than Credential Locker.</summary>
     public static string XaiCredentialsFilePath { get; } = Path.Combine(RootDirectory, "xai-credentials.bin");
 
+    /// <summary>DPAPI-protected TypeSafe API-key blob under %LOCALAPPDATA%\MeetingLive.</summary>
+    public static string TypeSafeCredentialsFilePath { get; } = Path.Combine(RootDirectory, "typesafe-credentials.bin");
+
     /// <summary>Nested Library folders. Lives next to meetings, not as directories on disk.</summary>
     public static string FoldersFilePath { get; } = Path.Combine(UserDataDirectory, "folders.json");
 
