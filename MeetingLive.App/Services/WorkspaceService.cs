@@ -36,6 +36,9 @@ public sealed class WorkspaceService
 
     public event EventHandler? CallPromptOffered;
 
+    /// <summary>Child pages ask SessionPage to switch Transcript / Summary / Ask / Notes. Not a shell destination.</summary>
+    public event EventHandler<string>? SessionTabRequested;
+
     /// <summary>True while Record is capturing or processing, so the call prompt stays quiet.</summary>
     public bool IsCaptureActive { get; set; }
 
@@ -87,6 +90,19 @@ public sealed class WorkspaceService
         NavigateTo(Session);
     }
 
+    /// <summary>
+    /// Switches the open meeting's inner tab without adding a shell destination.
+    /// SessionPage is the only listener.
+    /// </summary>
+    public void RequestSessionTab(string tab, Guid? meetingId = null)
+    {
+        if (meetingId is { } id)
+            SelectMeeting(id);
+
+        SetSessionTab(tab);
+        SessionTabRequested?.Invoke(this, tab);
+    }
+
     public void NavigateTo(string tag)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);
@@ -100,20 +116,34 @@ public sealed class WorkspaceService
     }
 
     private bool _takeNotesPending;
+    private string? _pendingCalendarEventId;
 
     public void OfferCallPrompt() => CallPromptOffered?.Invoke(this, EventArgs.Empty);
 
-    public void RequestTakeNotes()
+    /// <summary>
+    /// Asks Record to start a blank capture, or to open <paramref name="calendarEventId"/>
+    /// through the existing Coming up path when that id is set.
+    /// The pending value survives until Record is constructed and calls <see cref="ConsumeTakeNotes()"/>.
+    /// </summary>
+    public void RequestTakeNotes(string? calendarEventId = null)
     {
+        _pendingCalendarEventId = string.IsNullOrWhiteSpace(calendarEventId) ? null : calendarEventId;
         _takeNotesPending = true;
         TakeNotesRequested?.Invoke(this, EventArgs.Empty);
         NavigateTo(Recording);
     }
 
-    public bool ConsumeTakeNotes()
+    public bool ConsumeTakeNotes() => ConsumeTakeNotes(out _);
+
+    public bool ConsumeTakeNotes(out string? calendarEventId)
     {
+        calendarEventId = _pendingCalendarEventId;
+        _pendingCalendarEventId = null;
         if (!_takeNotesPending)
+        {
+            calendarEventId = null;
             return false;
+        }
 
         _takeNotesPending = false;
         return true;

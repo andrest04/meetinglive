@@ -55,9 +55,13 @@ public static class AppServices
 
     public static IMeetingRepository Meetings { get; } = new MarkdownMeetingRepository();
 
+    public static ICalendarStore Calendar { get; } = new WindowsAppointmentCalendarStore();
+
     public static IFolderRepository Folders { get; } = new JsonFolderRepository();
 
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
+
+    public static JsonCustomNoteTemplateStore NoteTemplates { get; } = new();
 
     public static IXaiCredentialStore XaiCredentials { get; } = new FileDpapiXaiCredentialStore();
 

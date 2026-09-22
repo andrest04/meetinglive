@@ -148,6 +148,59 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void CalendarNotificationsEnabled_WhenUnset_DefaultsTrue()
+    {
+        Assert.True(new AppSettings().CalendarNotificationsEnabled);
+    }
+
+    [Fact]
+    public void CalendarNotificationsEnabled_WhenJsonOmitsField_DefaultsTrue()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.True(settings!.CalendarNotificationsEnabled);
+    }
+
+    [Fact]
+    public void CalendarNotificationsEnabled_RoundTripsFalse()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(new AppSettings { CalendarNotificationsEnabled = false }, options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.False(settings!.CalendarNotificationsEnabled);
+    }
+
+    [Fact]
+    public void DisabledCalendarIds_WhenUnsetOrJsonOmitsField_IsEmpty()
+    {
+        Assert.Empty(new AppSettings().DisabledCalendarIds);
+
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Empty(settings!.DisabledCalendarIds);
+        Assert.Empty(settings.DisabledCalendarIdsAsSet());
+    }
+
+    [Fact]
+    public void DisabledCalendarIds_RoundTripsNonEmptyAndDropsBlanks()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(
+            new AppSettings { DisabledCalendarIds = ["cal-1", " ", "cal-1"] },
+            options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.Equal(["cal-1", " ", "cal-1"], settings!.DisabledCalendarIds);
+        var disabled = Assert.Single(settings.DisabledCalendarIdsAsSet());
+        Assert.Equal("cal-1", disabled);
+    }
+
+    [Fact]
     public void TypeSafeEnabled_RoundTripsFalse()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);

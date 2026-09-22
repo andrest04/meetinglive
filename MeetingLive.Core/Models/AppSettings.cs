@@ -102,6 +102,41 @@ public sealed class AppSettings
     /// </summary>
     public bool TypeSafeEnabled { get; set; } = true;
 
+    /// <summary>
+    /// One-minute calendar reminder. Defaults to <see langword="true"/>.
+    /// A missing JSON field deserializes as true so older settings files stay on.
+    /// </summary>
+    public bool CalendarNotificationsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Calendar ids hidden from Coming up and the reminder. Empty means every calendar is visible.
+    /// A missing JSON field stays empty. The serializer writes this list like the other fields,
+    /// including when it is empty — optional strings in this type are written even when null.
+    /// </summary>
+    public List<string> DisabledCalendarIds { get; set; } = [];
+
+    /// <summary>Empty set passed to <see cref="Services.ICalendarStore"/> when no calendar is hidden.</summary>
+    public static IReadOnlySet<string> NoDisabledCalendars { get; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Ids to skip, compared with <see cref="StringComparer.Ordinal"/> — the same comparer the store uses.
+    /// Null or blank entries are dropped. An empty result keeps every calendar.
+    /// </summary>
+    public IReadOnlySet<string> DisabledCalendarIdsAsSet()
+    {
+        if (DisabledCalendarIds is not { Count: > 0 })
+            return NoDisabledCalendars;
+
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in DisabledCalendarIds)
+        {
+            if (!string.IsNullOrWhiteSpace(id))
+                set.Add(id);
+        }
+
+        return set.Count == 0 ? NoDisabledCalendars : set;
+    }
+
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
     public double? NavigationPaneLength { get; set; }
 

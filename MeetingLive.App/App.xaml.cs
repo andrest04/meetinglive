@@ -47,6 +47,7 @@ public partial class App : Application
         Microsoft.UI.Win32Interop.GetWindowIdFromWindow(WindowHandle);
 
     private MeetingCallWatcher? _callWatcher;
+    private CalendarReminderWatcher? _calendarReminderWatcher;
 
     /// <summary>
     /// Initializes the singleton application object.
@@ -100,10 +101,14 @@ public partial class App : Application
         {
             _callWatcher?.Dispose();
             _callWatcher = null;
+            _calendarReminderWatcher?.Dispose();
+            _calendarReminderWatcher = null;
         };
 
         _callWatcher = new MeetingCallWatcher();
         _callWatcher.Start();
+        _calendarReminderWatcher = new CalendarReminderWatcher();
+        _calendarReminderWatcher.Start();
 
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);

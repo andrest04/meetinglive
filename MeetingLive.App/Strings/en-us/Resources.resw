@@ -143,6 +143,12 @@
   <data name="Settings_LiveTranscription.Header" xml:space="preserve"><value>Live transcription during recording</value></data>
 
   <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>On-screen captions with Nemotron while you record. The saved transcript always uses Nemotron after you stop. Turning this off skips only the live preview.</value></data>
+  <data name="Settings_Calendar.Text" xml:space="preserve"><value>Calendar</value></data>
+  <data name="Settings_CalendarNotifications.Header" xml:space="preserve"><value>Notify one minute before a meeting</value></data>
+  <data name="Settings_CalendarNotifications.Description" xml:space="preserve"><value>Shows a notification when a meeting with two or more people is about to start. Stays quiet while you are already recording.</value></data>
+  <data name="Settings_Calendars.Header" xml:space="preserve"><value>Calendars</value></data>
+  <data name="Settings_Calendars.Description" xml:space="preserve"><value>Turn a calendar off to hide it from Coming up and notifications.</value></data>
+  <data name="CalendarReminder_Body" xml:space="preserve"><value>This meeting is about to start.</value></data>
   <data name="Settings_Data.Text" xml:space="preserve"><value>Data</value></data>
   <data name="Settings_MeetingsLocation.Header" xml:space="preserve"><value>Meetings</value></data>
   <data name="Settings_AppDataLocation.Header" xml:space="preserve"><value>App data</value></data>
@@ -420,4 +426,60 @@
   <data name="RecordPage_LiveAnswerEmpty" xml:space="preserve"><value>The answer came back empty.</value></data>
   <data name="RecordPage_LiveAnswerHeading.Text" xml:space="preserve"><value>Answer</value></data>
   <data name="RecordPage_LiveAnswerText.AutomationProperties.Name" xml:space="preserve"><value>Live answer</value></data>
+  <data name="ComingUp_Heading.Text" xml:space="preserve"><value>Coming up</value></data>
+  <data name="ComingUp_Heading.AutomationProperties.Name" xml:space="preserve"><value>Coming up</value></data>
+  <data name="ComingUp_Previous.Content" xml:space="preserve"><value>Previous</value></data>
+  <data name="ComingUp_Previous.AutomationProperties.Name" xml:space="preserve"><value>Previous meetings</value></data>
+  <data name="ComingUp_Next.Content" xml:space="preserve"><value>Next</value></data>
+  <data name="ComingUp_Next.AutomationProperties.Name" xml:space="preserve"><value>Next meetings</value></data>
+  <data name="ComingUp_Empty" xml:space="preserve"><value>Nothing coming up.</value></data>
+  <data name="ComingUp_AccessDenied" xml:space="preserve"><value>Windows denied calendar access. Allow MeetingLive to read the calendar, then open Record again.</value></data>
+  <data name="ComingUp_NoPackageIdentity" xml:space="preserve"><value>MeetingLive cannot read the Windows calendar because this launch has no package identity.</value></data>
+  <data name="ComingUp_TimeRange" xml:space="preserve"><value>{0:t} – {1:t}</value></data>
+  <data name="ComingUp_TimeRangeOtherDay" xml:space="preserve"><value>{0:ddd, MMM d} {1:t} – {2:t}</value></data>
+  <data name="RecordPage_BriefHeading.Text" xml:space="preserve"><value>Brief</value></data>
+  <data name="RecordPage_BriefHeading.AutomationProperties.Name" xml:space="preserve"><value>Pre-meeting brief</value></data>
+  <data name="RecordPage_BriefText.AutomationProperties.Name" xml:space="preserve"><value>Pre-meeting brief</value></data>
+  <data name="RecordPage_BriefFailed.Title" xml:space="preserve"><value>Could not prepare the brief</value></data>
+  <data name="RecordPage_BriefFailed.AutomationProperties.Name" xml:space="preserve"><value>Brief error</value></data>
+  <data name="RecordPage_BriefFailedFormat" xml:space="preserve"><value>The note is open. The brief could not be prepared: {0}</value></data>
+  <data name="RecordPage_NoteTemplate.Header" xml:space="preserve"><value>Template</value></data>
+  <data name="RecordPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>
+  <data name="RecordPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Save custom template</value></data>
+  <data name="RecordPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Save custom template</value></data>
+  <data name="NoteTemplate_Auto" xml:space="preserve"><value>Auto</value></data>
+  <data name="NoteTemplate_OneOnOne" xml:space="preserve"><value>1:1</value></data>
+  <data name="NoteTemplate_Standup" xml:space="preserve"><value>Standup</value></data>
+  <data name="NoteTemplate_Sales" xml:space="preserve"><value>Sales</value></data>
+  <data name="NoteTemplate_UserInterview" xml:space="preserve"><value>User interview</value></data>
+  <data name="CustomTemplate_Title" xml:space="preserve"><value>Custom template</value></data>
+  <data name="CustomTemplate_Name.Header" xml:space="preserve"><value>Name</value></data>
+  <data name="CustomTemplate_Name.PlaceholderText" xml:space="preserve"><value>Name this template</value></data>
+  <data name="CustomTemplate_Name.AutomationProperties.Name" xml:space="preserve"><value>Template name</value></data>
+  <data name="CustomTemplate_Instructions.Header" xml:space="preserve"><value>Instructions</value></data>
+  <data name="CustomTemplate_Instructions.PlaceholderText" xml:space="preserve"><value>What the enhanced notes should include</value></data>
+  <data name="CustomTemplate_Instructions.AutomationProperties.Name" xml:space="preserve"><value>Template instructions</value></data>
+  <data name="CustomTemplate_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="CustomTemplate_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="NotesMode_MyNotes.Text" xml:space="preserve"><value>My notes</value></data>
+  <data name="NotesMode_MyNotes.AutomationProperties.Name" xml:space="preserve"><value>My notes</value></data>
+  <data name="NotesMode_Enhanced.Text" xml:space="preserve"><value>Enhanced</value></data>
+  <data name="NotesMode_Enhanced.AutomationProperties.Name" xml:space="preserve"><value>Enhanced</value></data>
+  <data name="SummaryPage_NoteTemplate.Header" xml:space="preserve"><value>Template</value></data>
+  <data name="SummaryPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>
+  <data name="SummaryPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Save custom template</value></data>
+  <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Save custom template</value></data>
+  <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>List actions</value></data>
+  <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copy action items</value></data>
+  <data name="SummaryPage_FollowUp.Content" xml:space="preserve"><value>Write follow-up email</value></data>
+  <data name="SummaryPage_FollowUp.AutomationProperties.Name" xml:space="preserve"><value>Write follow-up email</value></data>
+  <data name="SummaryPage_ProjectPlan.Content" xml:space="preserve"><value>Draft project plan</value></data>
+  <data name="SummaryPage_ProjectPlan.AutomationProperties.Name" xml:space="preserve"><value>Draft project plan</value></data>
+  <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>Could not create the draft</value></data>
+  <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Draft status</value></data>
+  <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No action items to copy.</value></data>
+  <data name="SummaryPage_ActionsCopied" xml:space="preserve"><value>Action items copied to the clipboard.</value></data>
+  <data name="SummaryPage_FollowUpCopied" xml:space="preserve"><value>Follow-up copied to the clipboard.</value></data>
+  <data name="SummaryPage_ProjectPlanCopied" xml:space="preserve"><value>Project plan copied to the clipboard.</value></data>
+  <data name="SummaryPage_DraftEmpty" xml:space="preserve"><value>The draft came back empty. The summary was not changed.</value></data>
 </root>
