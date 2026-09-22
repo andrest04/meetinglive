@@ -18,6 +18,15 @@ internal static class MeetingMarkdownFormatter
     internal const string ActionItemsHeader = "## Action Items";
     internal const string JevHeader = "## Jev";
     internal const string PersonalNotesHeader = "## Personal Notes";
+    internal const string BriefHeader = "## Brief";
+    internal const string FollowUpHeader = "## Follow-up";
+    internal const string ProjectPlanHeader = "## Project plan";
+
+    /// <summary>
+    /// Separator for the single <c>attendees</c> frontmatter line.
+    /// Split only on this token, not on commas or colons.
+    /// </summary>
+    internal const string AttendeeSeparator = " | ";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -38,7 +47,16 @@ internal static class MeetingMarkdownFormatter
             sb.Append("folderId: ").Append(folderId).Append('\n');
         if (!string.IsNullOrEmpty(record.SummaryProvider))
             sb.Append("summaryProvider: ").Append(record.SummaryProvider).Append('\n');
+        AppendOptional(sb, "calendarEventId", record.CalendarEventId);
+        AppendOptional(sb, "calendarId", record.CalendarId);
+        AppendOptional(sb, "seriesId", record.SeriesId);
+        AppendOptional(sb, "joinUrl", record.JoinUrl);
+        AppendOptional(sb, "noteTemplateId", record.NoteTemplateId);
+        if (record.Attendees.Count > 0)
+            sb.Append("attendees: ").Append(string.Join(AttendeeSeparator, record.Attendees.Select(FrontmatterValue))).Append('\n');
         sb.Append("---\n");
+
+        AppendSection(sb, BriefHeader, record.Brief);
 
         if (!string.IsNullOrEmpty(record.Transcript))
         {
@@ -69,6 +87,9 @@ internal static class MeetingMarkdownFormatter
             sb.Append('\n').Append(PersonalNotesHeader).Append('\n').Append('\n');
             sb.Append(record.Notes.Trim()).Append('\n');
         }
+
+        AppendSection(sb, FollowUpHeader, record.FollowUp);
+        AppendSection(sb, ProjectPlanHeader, record.ProjectPlan);
 
         return sb.ToString();
     }
@@ -131,11 +152,18 @@ internal static class MeetingMarkdownFormatter
             folderId = parsedFolderId;
         }
 
+        var attendees = frontmatter.TryGetValue("attendees", out var attendeesText)
+            ? ParseAttendees(attendeesText)
+            : [];
+
         var transcript = ExtractSection(lines, bodyStart, TranscriptHeader);
         var summary = ExtractSection(lines, bodyStart, SummaryHeader);
         var actionItemsBody = ExtractSection(lines, bodyStart, ActionItemsHeader);
         var actionItems = actionItemsBody is null ? [] : ActionItemParser.Parse(actionItemsBody);
         var notes = ExtractSection(lines, bodyStart, PersonalNotesHeader);
+        var brief = ExtractSection(lines, bodyStart, BriefHeader);
+        var followUp = ExtractSection(lines, bodyStart, FollowUpHeader);
+        var projectPlan = ExtractSection(lines, bodyStart, ProjectPlanHeader);
         var jevBody = ExtractSection(lines, bodyStart, JevHeader);
         MeetingJevAnalysis? jevAnalysis = null;
         if (jevBody is not null)
@@ -165,13 +193,49 @@ internal static class MeetingMarkdownFormatter
             ActionItems = actionItems,
             JevAnalysis = jevAnalysis,
             SourcePath = path,
+            CalendarEventId = Optional(frontmatter, "calendarEventId"),
+            CalendarId = Optional(frontmatter, "calendarId"),
+            SeriesId = Optional(frontmatter, "seriesId"),
+            JoinUrl = Optional(frontmatter, "joinUrl"),
+            Attendees = attendees,
+            Brief = brief,
+            NoteTemplateId = Optional(frontmatter, "noteTemplateId"),
+            FollowUp = followUp,
+            ProjectPlan = projectPlan,
         };
     }
+
+    private static void AppendSection(StringBuilder sb, string header, string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return;
+
+        sb.Append('\n').Append(header).Append('\n').Append('\n');
+        sb.Append(body.Trim()).Append('\n');
+    }
+
+    private static void AppendOptional(StringBuilder sb, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        sb.Append(key).Append(": ").Append(FrontmatterValue(value)).Append('\n');
+    }
+
+    private static string? Optional(Dictionary<string, string> frontmatter, string key) =>
+        frontmatter.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
+
+    private static IReadOnlyList<string> ParseAttendees(string value) =>
+        value.Split(AttendeeSeparator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    private static string FrontmatterValue(string value) =>
+        value.Replace("\r", " ", StringComparison.Ordinal).Replace("\n", " ", StringComparison.Ordinal);
 
     /// <summary>Finds the exact, case-sensitive <paramref name="header"/> line and
     /// returns everything up to (but not including) the next meeting section header
     /// (<c>## Transcript</c> / <c>## Summary</c> / <c>## Action Items</c> /
-    /// <c>## Jev</c> / <c>## Personal Notes</c>), or null if the header isn't present at all.</summary>
+    /// <c>## Jev</c> / <c>## Personal Notes</c> / <c>## Brief</c> / <c>## Follow-up</c> /
+    /// <c>## Project plan</c>), or null if the header isn't present at all.</summary>
     private static string? ExtractSection(string[] lines, int bodyStart, string header)
     {
         var start = -1;
@@ -204,5 +268,6 @@ internal static class MeetingMarkdownFormatter
     }
 
     private static bool IsMeetingSectionHeader(string line) =>
-        line is TranscriptHeader or SummaryHeader or ActionItemsHeader or JevHeader or PersonalNotesHeader;
+        line is TranscriptHeader or SummaryHeader or ActionItemsHeader or JevHeader or PersonalNotesHeader
+            or BriefHeader or FollowUpHeader or ProjectPlanHeader;
 }

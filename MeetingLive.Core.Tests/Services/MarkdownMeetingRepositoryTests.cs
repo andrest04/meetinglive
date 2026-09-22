@@ -302,6 +302,45 @@ public class MarkdownMeetingRepositoryTests : IDisposable
         Assert.Equal(movedWav, loaded?.AudioFilePath);
     }
 
+    [Fact]
+    public async Task SaveAsync_WhenCalendarFieldsAreSet_RoundtripsThem()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        var record = CreateRecord(id, AudioPath(id));
+        record.CalendarEventId = "appt-1";
+        record.CalendarId = "cal-9";
+        record.SeriesId = "series-4";
+        record.JoinUrl = "https://meet.example/room";
+        record.Attendees = ["Ada Lovelace", "Grace Hopper"];
+
+        await repo.SaveAsync(record);
+        var loaded = await repo.GetByIdAsync(id);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("appt-1", loaded.CalendarEventId);
+        Assert.Equal("cal-9", loaded.CalendarId);
+        Assert.Equal("series-4", loaded.SeriesId);
+        Assert.Equal("https://meet.example/room", loaded.JoinUrl);
+        Assert.Equal(["Ada Lovelace", "Grace Hopper"], loaded.Attendees);
+    }
+
+    [Fact]
+    public async Task SaveAsync_WhenCalendarFieldsAreUnset_OmitsThemFromFrontmatter()
+    {
+        var id = Guid.NewGuid();
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+
+        await repo.SaveAsync(CreateRecord(id, AudioPath(id)));
+
+        var markdown = await File.ReadAllTextAsync(InboxMarkdownPath("Standup"));
+        Assert.DoesNotContain("calendarEventId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("calendarId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("seriesId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("joinUrl:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("attendees:", markdown, StringComparison.Ordinal);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))

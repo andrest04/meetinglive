@@ -40,4 +40,35 @@ public sealed class MeetingRecord
 
     /// <summary>Typed Jev judgments persisted as a <c>## Jev</c> JSON section. Null when analysis was skipped or failed.</summary>
     public MeetingJevAnalysis? JevAnalysis { get; set; }
+
+    /// <summary>Windows calendar appointment id. Omitted from frontmatter when null or empty.</summary>
+    public string? CalendarEventId { get; set; }
+
+    /// <summary>Windows calendar id. Omitted from frontmatter when null or empty.</summary>
+    public string? CalendarId { get; set; }
+
+    /// <summary>Recurring series id when the calendar API provided one. Omitted from frontmatter when null or empty.</summary>
+    public string? SeriesId { get; set; }
+
+    /// <summary>Join URL for the calendar event. Omitted from frontmatter when null or empty.</summary>
+    public string? JoinUrl { get; set; }
+
+    /// <summary>
+    /// Attendee display names. Omitted from frontmatter when empty.
+    /// Written as one line joined by <c> | </c> so a title that contains a colon is unaffected
+    /// (frontmatter already splits each line on the first colon only).
+    /// </summary>
+    public IReadOnlyList<string> Attendees { get; set; } = [];
+
+    /// <summary>Pre-meeting brief. Persisted as <c>## Brief</c>. Omitted when empty.</summary>
+    public string? Brief { get; set; }
+
+    /// <summary>Selected note template id. Omitted from frontmatter when empty. Auto is stored as empty.</summary>
+    public string? NoteTemplateId { get; set; }
+
+    /// <summary>Copied follow-up draft. Persisted as <c>## Follow-up</c>. Omitted when empty. Nothing is sent.</summary>
+    public string? FollowUp { get; set; }
+
+    /// <summary>Copied project-plan draft. Persisted as <c>## Project plan</c>. Omitted when empty. Nothing is sent.</summary>
+    public string? ProjectPlan { get; set; }
 }

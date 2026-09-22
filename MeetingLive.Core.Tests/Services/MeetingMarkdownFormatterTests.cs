@@ -63,6 +63,91 @@ public class MeetingMarkdownFormatterTests
         Assert.DoesNotContain("## Personal Notes", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Action Items", markdown, StringComparison.Ordinal);
         Assert.DoesNotContain("## Jev", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("calendarEventId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("attendees:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("noteTemplateId:", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Brief", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Follow-up", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Project plan", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RenderThenParse_RoundtripsBriefTemplateAndDrafts_AndOmitsThemWhenEmpty()
+    {
+        var record = new MeetingRecord
+        {
+            Id = Guid.NewGuid(),
+            Title = "Standup",
+            RecordedAt = DateTimeOffset.Parse("2026-09-01T12:00:00.0000000+00:00"),
+            AudioFilePath = string.Empty,
+            Brief = "Ada is in. Last time you left the API contract open.",
+            NoteTemplateId = "standup",
+            FollowUp = "Subject: Standup follow-up",
+            ProjectPlan = "### Steps\nShip the contract",
+        };
+
+        var markdown = MeetingMarkdownFormatter.Render(record);
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", markdown);
+
+        Assert.Contains("noteTemplateId: standup", markdown, StringComparison.Ordinal);
+        Assert.Contains("## Brief", markdown, StringComparison.Ordinal);
+        Assert.Contains("## Follow-up", markdown, StringComparison.Ordinal);
+        Assert.Contains("## Project plan", markdown, StringComparison.Ordinal);
+        Assert.Equal(record.Brief, parsed.Brief);
+        Assert.Equal("standup", parsed.NoteTemplateId);
+        Assert.Equal(record.FollowUp, parsed.FollowUp);
+        Assert.Equal(record.ProjectPlan, parsed.ProjectPlan);
+    }
+
+    [Fact]
+    public void RenderThenParse_RoundtripsCalendarLink_AndOmitsItWhenUnset()
+    {
+        var record = new MeetingRecord
+        {
+            Id = Guid.NewGuid(),
+            Title = "Team: planning",
+            RecordedAt = DateTimeOffset.Parse("2026-09-01T12:00:00.0000000+00:00"),
+            AudioFilePath = @"C:\Meetings\standup.wav",
+            CalendarEventId = "appt-1",
+            CalendarId = "cal-9",
+            SeriesId = "series-4",
+            JoinUrl = "https://meet.example/room",
+            Attendees = ["Ada Lovelace", "Grace: Hopper"],
+        };
+
+        var markdown = MeetingMarkdownFormatter.Render(record);
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", markdown);
+
+        Assert.Contains("title: Team: planning", markdown, StringComparison.Ordinal);
+        Assert.Contains("attendees: Ada Lovelace | Grace: Hopper", markdown, StringComparison.Ordinal);
+        Assert.Equal("Team: planning", parsed.Title);
+        Assert.Equal(@"C:\Meetings\standup.wav", parsed.AudioFilePath);
+        Assert.Equal("appt-1", parsed.CalendarEventId);
+        Assert.Equal("cal-9", parsed.CalendarId);
+        Assert.Equal("series-4", parsed.SeriesId);
+        Assert.Equal("https://meet.example/room", parsed.JoinUrl);
+        Assert.Equal(["Ada Lovelace", "Grace: Hopper"], parsed.Attendees);
+    }
+
+    [Fact]
+    public void Parse_FileWithoutCalendarFields_LeavesThemUnset()
+    {
+        var markdown = """
+            ---
+            id: 11111111-1111-1111-1111-111111111111
+            title: Standup
+            recordedAt: 2026-09-01T12:00:00.0000000+00:00
+            audioFilePath: C:\Meetings\standup.wav
+            ---
+            """;
+
+        var parsed = MeetingMarkdownFormatter.Parse("legacy.md", markdown.Trim());
+
+        Assert.Null(parsed.CalendarEventId);
+        Assert.Null(parsed.CalendarId);
+        Assert.Null(parsed.SeriesId);
+        Assert.Null(parsed.JoinUrl);
+        Assert.Empty(parsed.Attendees);
     }
 
     [Fact]
