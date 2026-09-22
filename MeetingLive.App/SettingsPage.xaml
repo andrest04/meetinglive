@@ -412,6 +412,39 @@
                 </controls:SettingsCard>
             </StackPanel>
 
+            <!-- Calendar -->
+            <StackPanel Spacing="4">
+                <TextBlock x:Uid="Settings_Calendar" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <controls:SettingsCard x:Uid="Settings_CalendarNotifications"
+                                       HeaderIcon="{ui:FontIcon Glyph=&#xE787;}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Calendar.NotificationsEnabled, Mode=OneWay}"
+                                  Toggled="CalendarNotificationsToggle_Toggled"
+                                  AutomationProperties.AutomationId="ToggleCalendarNotifications" />
+                </controls:SettingsCard>
+                <controls:SettingsExpander x:Uid="Settings_Calendars"
+                                           HeaderIcon="{ui:FontIcon Glyph=&#xE787;}"
+                                           ItemsSource="{x:Bind ViewModel.Calendar.Calendars, Mode=OneWay}"
+                                           IsExpanded="True"
+                                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.Calendar.HasCalendars), Mode=OneWay}"
+                                           AutomationProperties.AutomationId="ExpanderCalendars">
+                    <controls:SettingsExpander.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CalendarVisibilityOption">
+                            <controls:SettingsCard Header="{x:Bind Name, Mode=OneWay}">
+                                <ToggleSwitch IsOn="{x:Bind IsEnabled, Mode=OneWay}"
+                                              Toggled="CalendarVisibilityToggle_Toggled"
+                                              AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+                                              AutomationProperties.AutomationId="{x:Bind ToggleAutomationId, Mode=OneWay}" />
+                            </controls:SettingsCard>
+                        </DataTemplate>
+                    </controls:SettingsExpander.ItemTemplate>
+                </controls:SettingsExpander>
+                <TextBlock Text="{x:Bind ViewModel.Calendar.CalendarMessage, Mode=OneWay}"
+                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.Calendar.HasCalendarMessage), Mode=OneWay}"
+                           Style="{StaticResource BodyTextBlockStyle}"
+                           TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="TxtCalendarStatus" />
+            </StackPanel>
+
             <!-- Data location -->
             <StackPanel Spacing="4">
                 <TextBlock x:Uid="Settings_Data" Style="{StaticResource BodyStrongTextBlockStyle}" />

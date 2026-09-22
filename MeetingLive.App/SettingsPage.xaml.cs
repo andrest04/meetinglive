@@ -191,6 +191,20 @@ public sealed partial class SettingsPage : Page
             ViewModel.TranscriptionEngine.ToggleLiveTranscriptionCommand.Execute(toggleSwitch.IsOn);
     }
 
+    private void CalendarNotificationsToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggleSwitch)
+            ViewModel.Calendar.SetNotificationsEnabledCommand.Execute(toggleSwitch.IsOn);
+    }
+
+    private void CalendarVisibilityToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleSwitch toggleSwitch || toggleSwitch.DataContext is not CalendarVisibilityOption option)
+            return;
+
+        _ = ViewModel.Calendar.SetCalendarEnabledAsync(option, toggleSwitch.IsOn);
+    }
+
     private void SpeakerDiarizationToggleSwitch_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is ToggleSwitch toggleSwitch)

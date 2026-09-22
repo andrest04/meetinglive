@@ -33,6 +33,8 @@ public partial class SettingsPageViewModel : ObservableObject
 
     public DataFolderSectionViewModel DataFolder { get; } = new();
 
+    public CalendarSectionViewModel Calendar { get; } = new();
+
     /// <summary>False after <see cref="StopLevelMeter"/> so a load that finishes after
     /// the user left Settings does not reopen WASAPI on another page, and so a settings
     /// snapshot loaded after navigating away is never applied to the sections.</summary>
@@ -62,6 +64,12 @@ public partial class SettingsPageViewModel : ObservableObject
             TranscriptionEngine.ApplyLoadedSettings(
                 settings, snapshot.TranscriptionInstalled, snapshot.SpeakerDiarizationInstalled, snapshot.TranscriptionCaption);
             Microphone.ApplyLoadedDevices(snapshot.Microphones, settings.SelectedMicrophoneDeviceId);
+            if (!_isPageVisible)
+                return;
+
+            await Calendar.LoadAsync(settings);
+            if (!_isPageVisible)
+                return;
 
             // Opening WASAPI is another hitch — start after this frame paints, and only
             // if the page is still visible when this deferred callback runs.
