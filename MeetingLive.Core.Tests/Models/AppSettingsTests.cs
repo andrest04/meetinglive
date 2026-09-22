@@ -148,6 +148,42 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void ResolveChatProviderKind_WhenUnset_FallsBackToSummaryProvider()
+    {
+        var settings = new AppSettings { SelectedSummaryProvider = "Codex" };
+
+        Assert.Equal(SummaryProviderKind.Codex, settings.ResolveChatProviderKind());
+    }
+
+    [Theory]
+    [InlineData("Local", SummaryProviderKind.Local)]
+    [InlineData("ClaudeCode", SummaryProviderKind.ClaudeCode)]
+    [InlineData("Codex", SummaryProviderKind.Codex)]
+    [InlineData("Xai", SummaryProviderKind.Xai)]
+    public void ResolveChatProviderKind_WhenSet_ReturnsSelectedKind(string stored, SummaryProviderKind expected)
+    {
+        var settings = new AppSettings
+        {
+            SelectedSummaryProvider = "Local",
+            SelectedChatProvider = stored,
+        };
+
+        Assert.Equal(expected, settings.ResolveChatProviderKind());
+    }
+
+    [Fact]
+    public void ResolveChatProviderKind_WhenUnrecognized_FallsBackToSummaryProvider()
+    {
+        var settings = new AppSettings
+        {
+            SelectedSummaryProvider = "Xai",
+            SelectedChatProvider = "OpenAI",
+        };
+
+        Assert.Equal(SummaryProviderKind.Xai, settings.ResolveChatProviderKind());
+    }
+
+    [Fact]
     public void TypeSafeEnabled_RoundTripsFalse()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);

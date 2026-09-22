@@ -1,4 +1,5 @@
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 
 namespace MeetingLive_App.Services;
 
@@ -10,10 +11,10 @@ namespace MeetingLive_App.Services;
 /// </summary>
 public sealed class WorkspaceService
 {
-    public const string Recording = "Recording";
-    public const string History = "History";
-    public const string Settings = "Settings";
-    public const string Session = "Session";
+    public const string Recording = ChatScopeResolver.RecordingTag;
+    public const string History = ChatScopeResolver.HistoryTag;
+    public const string Settings = ChatScopeResolver.SettingsTag;
+    public const string Session = ChatScopeResolver.SessionTag;
 
     public const string TabTranscript = "Transcript";
     public const string TabSummary = "Summary";
@@ -26,7 +27,19 @@ public sealed class WorkspaceService
 
     public string SessionTab { get; private set; } = TabTranscript;
 
+    /// <summary>Shell tag last passed to <c>MainPage.NavigateContent</c>. Defaults to Record.</summary>
+    public string CurrentShellTag { get; private set; } = Recording;
+
+    /// <summary>Library selection. Null is Inbox, not "no page loaded".</summary>
+    public Guid? SelectedFolderId { get; private set; }
+
+    /// <summary>Latest live transcript window. Chat reads this only while <see cref="IsCaptureActive"/>.</summary>
+    public string LiveTranscript { get; private set; } = string.Empty;
+
     public event EventHandler<string>? NavigationRequested;
+
+    /// <summary>Shell tag, folder, meeting, or capture state changed. Transcript text alone does not raise this.</summary>
+    public event EventHandler? ScopeChanged;
 
     public event EventHandler<Guid>? MeetingDeleted;
 
@@ -36,17 +49,55 @@ public sealed class WorkspaceService
 
     public event EventHandler? CallPromptOffered;
 
-    /// <summary>True while Record is capturing or processing, so the call prompt stays quiet.</summary>
-    public bool IsCaptureActive { get; set; }
+    /// <summary>True while Record is capturing or processing, so the call prompt stays quiet
+    /// and meeting chat uses the live transcript instead of a saved meeting.</summary>
+    private bool _isCaptureActive;
 
-    public void SelectMeeting(Guid id) => SelectedMeetingId = id;
+    public bool IsCaptureActive
+    {
+        get => _isCaptureActive;
+        set
+        {
+            if (_isCaptureActive == value)
+                return;
+
+            _isCaptureActive = value;
+            ScopeChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public void SetCurrentShellTag(string tag)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tag);
+        if (tag is not (Recording or History or Settings or Session))
+            throw new ArgumentOutOfRangeException(nameof(tag), tag, "Unknown workspace navigation tag.");
+
+        if (CurrentShellTag == tag)
+            return;
+
+        CurrentShellTag = tag;
+        ScopeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void PublishSelectedFolder(Guid? folderId)
+    {
+        SelectedFolderId = folderId;
+        ScopeChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void PublishLiveTranscript(string? transcript)
+    {
+        LiveTranscript = transcript ?? string.Empty;
+    }
+
+    public void SelectMeeting(Guid id) => SetSelectedMeetingId(id);
 
     public void ClearSelection()
     {
         if (LastProcessedMeeting?.Id == SelectedMeetingId)
             LastProcessedMeeting = null;
 
-        SelectedMeetingId = null;
+        SetSelectedMeetingId(null);
     }
 
     /// <summary>Drops workspace pointers to a meeting that was just deleted, even when
@@ -57,7 +108,7 @@ public sealed class WorkspaceService
             LastProcessedMeeting = null;
 
         if (SelectedMeetingId == id)
-            SelectedMeetingId = null;
+            SetSelectedMeetingId(null);
 
         MeetingDeleted?.Invoke(this, id);
     }
@@ -68,7 +119,16 @@ public sealed class WorkspaceService
     {
         ArgumentNullException.ThrowIfNull(record);
         LastProcessedMeeting = record;
-        SelectedMeetingId = record.Id;
+        SetSelectedMeetingId(record.Id);
+    }
+
+    private void SetSelectedMeetingId(Guid? id)
+    {
+        if (SelectedMeetingId == id)
+            return;
+
+        SelectedMeetingId = id;
+        ScopeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Updates the session tab without requesting shell navigation.</summary>

@@ -420,4 +420,64 @@
   <data name="RecordPage_LiveAnswerEmpty" xml:space="preserve"><value>The answer came back empty.</value></data>
   <data name="RecordPage_LiveAnswerHeading.Text" xml:space="preserve"><value>Answer</value></data>
   <data name="RecordPage_LiveAnswerText.AutomationProperties.Name" xml:space="preserve"><value>Live answer</value></data>
+  <data name="Chat_Bar.AutomationProperties.Name" xml:space="preserve"><value>Meeting chat</value></data>
+  <data name="Chat_Composer.PlaceholderText" xml:space="preserve"><value>Ask about your meetings</value></data>
+  <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Message</value></data>
+  <data name="Chat_Send.AutomationProperties.Name" xml:space="preserve"><value>Send</value></data>
+  <data name="Chat_Send.ToolTipService.ToolTip" xml:space="preserve"><value>Send (Enter)</value></data>
+  <data name="Chat_Recipes.AutomationProperties.Name" xml:space="preserve"><value>Recipes</value></data>
+  <data name="Chat_Recipes.ToolTipService.ToolTip" xml:space="preserve"><value>Recipes</value></data>
+  <data name="Chat_History.AutomationProperties.Name" xml:space="preserve"><value>Chat history</value></data>
+  <data name="Chat_History.ToolTipService.ToolTip" xml:space="preserve"><value>Chat history</value></data>
+  <data name="Chat_New.AutomationProperties.Name" xml:space="preserve"><value>New chat</value></data>
+  <data name="Chat_New.ToolTipService.ToolTip" xml:space="preserve"><value>New chat</value></data>
+  <data name="Chat_Provider.Header" xml:space="preserve"><value>Answer with</value></data>
+  <data name="Chat_Provider.AutomationProperties.Name" xml:space="preserve"><value>Chat provider</value></data>
+  <data name="Chat_Transcript.AutomationProperties.Name" xml:space="preserve"><value>Chat messages</value></data>
+  <data name="Chat_Sending.AutomationProperties.Name" xml:space="preserve"><value>Sending</value></data>
+  <data name="Chat_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copy</value></data>
+  <data name="Chat_Copy.ToolTipService.ToolTip" xml:space="preserve"><value>Copy</value></data>
+  <data name="Chat_Error.Title" xml:space="preserve"><value>Could not answer</value></data>
+  <data name="Chat_Error.AutomationProperties.Name" xml:space="preserve"><value>Chat error</value></data>
+  <data name="Chat_SendFailed" xml:space="preserve"><value>Could not answer. {0}</value></data>
+  <data name="Chat_EmptyAnswer" xml:space="preserve"><value>The answer came back empty.</value></data>
+  <data name="Chat_CopyFailed" xml:space="preserve"><value>Could not copy. {0}</value></data>
+  <data name="Chat_UiMarshalFailed" xml:space="preserve"><value>Could not show the answer in the window.</value></data>
+  <data name="Chat_ScopeLive" xml:space="preserve"><value>Live</value></data>
+  <data name="Chat_ScopeMeeting" xml:space="preserve"><value>Meeting</value></data>
+  <data name="Chat_ScopeMeetingNamed" xml:space="preserve"><value>Meeting: {0}</value></data>
+  <data name="Chat_ScopeFolder" xml:space="preserve"><value>Folder</value></data>
+  <data name="Chat_ScopeFolderNamed" xml:space="preserve"><value>Folder: {0}</value></data>
+  <data name="Chat_ScopeAll" xml:space="preserve"><value>All meetings</value></data>
+  <data name="Chat_ScopeMismatch.Text" xml:space="preserve"><value>This chat is from another scope. Sending starts a new chat.</value></data>
+  <data name="Chat_RoleUser" xml:space="preserve"><value>You</value></data>
+  <data name="Chat_RoleAssistant" xml:space="preserve"><value>Assistant</value></data>
+  <data name="Chat_Untitled" xml:space="preserve"><value>Untitled chat</value></data>
+  <data name="Chat_ThreadUpdated" xml:space="preserve"><value>Updated {0}</value></data>
+  <data name="Chat_HistoryEmpty.Text" xml:space="preserve"><value>No chats yet.</value></data>
+  <data name="Chat_NoRecipes.Text" xml:space="preserve"><value>No recipes for this scope.</value></data>
+  <data name="Chat_CreateRecipe.Content" xml:space="preserve"><value>New recipe</value></data>
+  <data name="Chat_CreateRecipe.AutomationProperties.Name" xml:space="preserve"><value>New recipe</value></data>
+  <data name="Chat_CreateRecipeTitle" xml:space="preserve"><value>New recipe</value></data>
+  <data name="Chat_CreateRecipePrimary" xml:space="preserve"><value>Save</value></data>
+  <data name="Chat_CreateRecipeCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Chat_RecipeName.Header" xml:space="preserve"><value>Name</value></data>
+  <data name="Chat_RecipeName.PlaceholderText" xml:space="preserve"><value>Recipe name</value></data>
+  <data name="Chat_RecipePrompt.Header" xml:space="preserve"><value>Prompt</value></data>
+  <data name="Chat_RecipePrompt.PlaceholderText" xml:space="preserve"><value>What should this recipe ask?</value></data>
+  <data name="Chat_RecipeAvailability.Header" xml:space="preserve"><value>Available for</value></data>
+  <data name="Chat_RecipeSingle" xml:space="preserve"><value>This meeting</value></data>
+  <data name="Chat_RecipeMultiple" xml:space="preserve"><value>Multiple meetings</value></data>
+  <data name="Chat_DeleteRecipe.AutomationProperties.Name" xml:space="preserve"><value>Delete recipe</value></data>
+  <data name="Chat_DeleteRecipe.ToolTipService.ToolTip" xml:space="preserve"><value>Delete recipe</value></data>
+  <data name="Chat_DeleteRecipeTitle" xml:space="preserve"><value>Delete recipe?</value></data>
+  <data name="Chat_DeleteRecipeContent" xml:space="preserve"><value>Delete "{0}"? Built-in recipes stay.</value></data>
+  <data name="Chat_DeleteRecipePrimary" xml:space="preserve"><value>Delete</value></data>
+  <data name="Chat_DeleteRecipeCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Chat_DeleteThread.AutomationProperties.Name" xml:space="preserve"><value>Delete chat</value></data>
+  <data name="Chat_DeleteThread.ToolTipService.ToolTip" xml:space="preserve"><value>Delete chat</value></data>
+  <data name="Chat_DeleteThreadTitle" xml:space="preserve"><value>Delete chat?</value></data>
+  <data name="Chat_DeleteThreadContent" xml:space="preserve"><value>Delete "{0}"? This cannot be undone.</value></data>
+  <data name="Chat_DeleteThreadPrimary" xml:space="preserve"><value>Delete</value></data>
+  <data name="Chat_DeleteThreadCancel" xml:space="preserve"><value>Cancel</value></data>
 </root>

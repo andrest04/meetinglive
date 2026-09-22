@@ -203,6 +203,7 @@ public partial class HistoryPageViewModel : ObservableObject
         await _folders.DeleteAsync(id);
         _restoreFolderId = null;
         _selectedFolderId = null;
+        AppServices.Workspace.PublishSelectedFolder(null);
         await LoadAsync();
     }
 
@@ -252,6 +253,7 @@ public partial class HistoryPageViewModel : ObservableObject
     private void ApplySelection(FolderNode node)
     {
         _selectedFolderId = node.FolderId;
+        AppServices.Workspace.PublishSelectedFolder(node.FolderId);
         SelectedFolderName = node.Name;
         IsInboxSelected = node.FolderId is null;
         IsRealFolderSelected = node.FolderId is not null;

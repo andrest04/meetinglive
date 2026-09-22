@@ -57,6 +57,10 @@ public static class AppServices
 
     public static IFolderRepository Folders { get; } = new JsonFolderRepository();
 
+    public static IChatThreadRepository ChatThreads { get; } = new JsonChatThreadRepository();
+
+    public static IChatRecipeRepository ChatRecipes { get; } = new JsonChatRecipeRepository();
+
     public static IAppSettingsService Settings { get; } = new AppSettingsService();
 
     public static IXaiCredentialStore XaiCredentials { get; } = new FileDpapiXaiCredentialStore();

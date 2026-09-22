@@ -1039,6 +1039,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
 
         AppServices.Workspace.IsCaptureActive = value || IsProcessing;
+        AppServices.Workspace.PublishLiveTranscript(LiveTranscriptText);
         NotifyCanvasState();
         TogglePauseCommand.NotifyCanExecuteChanged();
         DiscardRecordingCommand.NotifyCanExecuteChanged();
@@ -1114,6 +1115,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     partial void OnLiveTranscriptTextChanged(string value)
     {
+        AppServices.Workspace.PublishLiveTranscript(value);
         OnPropertyChanged(nameof(HasLiveTranscript));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
@@ -1123,6 +1125,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     partial void OnIsProcessingChanged(bool value)
     {
         AppServices.Workspace.IsCaptureActive = value || IsRecording;
+        AppServices.Workspace.PublishLiveTranscript(LiveTranscriptText);
         NotifyCanvasState();
         CancelProcessingCommand.NotifyCanExecuteChanged();
         ImportAudioCommand.NotifyCanExecuteChanged();
