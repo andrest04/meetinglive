@@ -89,10 +89,10 @@ Commits, stacked-to-main order:
 - `c33ed54` pack meeting context — 512 lines, `size:exception`
 - `2594c33` ground chat prompts — 405 lines, 5 over budget, left intact
 - `bc0e2df` resolve chat scope — 240 lines
-- Composer commit follows in the same branch. ViewModel and XAML stay together. `size:exception`.
+- `437e40b` add a meeting chat composer — 1482 lines, `size:exception`. ViewModel and XAML stay together.
 
 Checks for the core slices: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` — 546 passed, 0 failed. Runtime harness: N/A, no UI in those slices.
 
 ## Next
 
-Composer commit, then stop. Do not push or open PRs unless asked.
+Do not push or open PRs unless asked. Smoke the bar on Record, Library, and an open meeting.
