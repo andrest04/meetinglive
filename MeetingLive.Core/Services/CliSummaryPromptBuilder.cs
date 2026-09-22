@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace MeetingLive.Core.Services;
 
@@ -14,7 +15,8 @@ internal static class CliSummaryPromptBuilder
         DateTimeOffset recordedAt,
         string transcript,
         string? outputLanguage = null,
-        DateTimeOffset? endedAt = null)
+        DateTimeOffset? endedAt = null,
+        SummaryEnhancementContext? enhancement = null)
     {
         var languageName = ToEnglishLanguageName(outputLanguage);
         var headings = SubheadingsFor(outputLanguage);
@@ -23,7 +25,7 @@ internal static class CliSummaryPromptBuilder
             ? $"\n            <ended_at>{value.ToString("O", CultureInfo.InvariantCulture)}</ended_at>"
             : string.Empty;
 
-        return $"""
+        var prompt = $"""
             # Identity
 
             You extract meeting and lecture notes from an automatic-speech-recognition transcript.
@@ -85,6 +87,63 @@ internal static class CliSummaryPromptBuilder
             {transcript}
             </transcript>
             """;
+
+        if (enhancement is null || !enhancement.HasAny)
+            return prompt;
+
+        return prompt + "\n" + EnhancementRules(enhancement) + FormatEnhancement(enhancement);
+    }
+
+    private static string EnhancementRules(SummaryEnhancementContext enhancement)
+    {
+        var rawNotesRule = enhancement.HasRawNotes
+            ? "\n            - Treat the raw notes as important. Include those points. Fix typos. Fill structure from the transcript."
+            : string.Empty;
+
+        return $"""
+            Extra rules for the supplied context:
+            - Do not invent attendees, dates, quotes, or tasks that are not in the transcript or the supplied context.
+            - Still emit exactly "## Title", "## Summary", and "## Action Items" in that order, and nothing else.{rawNotesRule}
+            """;
+    }
+
+    private static string FormatEnhancement(SummaryEnhancementContext enhancement)
+    {
+        var blocks = new StringBuilder();
+        if (enhancement.HasRawNotes)
+        {
+            blocks.AppendLine();
+            blocks.AppendLine("            <raw_notes>");
+            blocks.AppendLine(enhancement.RawNotes!.Trim());
+            blocks.AppendLine("            </raw_notes>");
+        }
+
+        if (enhancement.HasAttendees)
+        {
+            var names = string.Join(", ", enhancement.Attendees!.Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name.Trim()));
+            blocks.AppendLine();
+            blocks.AppendLine("            <attendees>");
+            blocks.AppendLine(names);
+            blocks.AppendLine("            </attendees>");
+        }
+
+        if (enhancement.HasAgenda)
+        {
+            blocks.AppendLine();
+            blocks.AppendLine("            <agenda>");
+            blocks.AppendLine(enhancement.Agenda!.Trim());
+            blocks.AppendLine("            </agenda>");
+        }
+
+        if (enhancement.HasTemplateInstructions)
+        {
+            blocks.AppendLine();
+            blocks.AppendLine("            <template_instructions>");
+            blocks.AppendLine(enhancement.TemplateInstructions!.Trim());
+            blocks.AppendLine("            </template_instructions>");
+        }
+
+        return blocks.ToString();
     }
 
     internal readonly record struct Subheadings(

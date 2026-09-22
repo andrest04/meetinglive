@@ -36,4 +36,33 @@ public class CliSummaryPromptBuilderTests
         Assert.Contains("Never write that the end time was not recorded", prompt, StringComparison.Ordinal);
         Assert.Contains("do not say \"not recorded\"", prompt, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Build_WhenRawNotesSupplied_IncludesRawNotesBlockAndKeepsOutputContract()
+    {
+        var prompt = CliSummaryPromptBuilder.Build(
+            "Kickoff",
+            new DateTimeOffset(2026, 9, 2, 15, 0, 0, TimeSpan.Zero),
+            "[00:00:01 | 15:00] Hello",
+            enhancement: new SummaryEnhancementContext(RawNotes: "Ship the deck Friday"));
+
+        Assert.Contains("<raw_notes>", prompt, StringComparison.Ordinal);
+        Assert.Contains("Ship the deck Friday", prompt, StringComparison.Ordinal);
+        Assert.Contains("Treat the raw notes as important", prompt, StringComparison.Ordinal);
+        Assert.Contains("## Title", prompt, StringComparison.Ordinal);
+        Assert.Contains("## Summary", prompt, StringComparison.Ordinal);
+        Assert.Contains("## Action Items", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_WhenEnhancementOmitted_DoesNotContainRawNotesBlock()
+    {
+        var prompt = CliSummaryPromptBuilder.Build(
+            "Kickoff",
+            new DateTimeOffset(2026, 9, 2, 15, 0, 0, TimeSpan.Zero),
+            "[00:00:01 | 15:00] Hello");
+
+        Assert.DoesNotContain("<raw_notes>", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Treat the raw notes as important", prompt, StringComparison.Ordinal);
+    }
 }

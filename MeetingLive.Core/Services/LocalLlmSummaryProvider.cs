@@ -29,9 +29,10 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
         string? outputLanguage = null,
-        DateTimeOffset? endedAt = null)
+        DateTimeOffset? endedAt = null,
+        SummaryEnhancementContext? enhancement = null)
     {
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt, enhancement);
         var raw = await InferAsync(prompt, maxTokens: 1024, temperature: 0.3f, cancellationToken);
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);

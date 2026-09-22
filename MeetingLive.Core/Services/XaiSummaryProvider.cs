@@ -20,9 +20,10 @@ namespace MeetingLive.Core.Services;
         DateTimeOffset recordedAt,
         CancellationToken cancellationToken = default,
         string? outputLanguage = null,
-        DateTimeOffset? endedAt = null)
+        DateTimeOffset? endedAt = null,
+        SummaryEnhancementContext? enhancement = null)
     {
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt);
+        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt, enhancement);
         var raw = await CompleteAsync(prompt, cancellationToken);
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
