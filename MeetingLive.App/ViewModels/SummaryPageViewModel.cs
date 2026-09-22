@@ -54,6 +54,28 @@ public partial class SummaryPageViewModel : ObservableObject
     private string _statusText = string.Empty;
 
     [ObservableProperty]
+    private string? _selectedNoteTemplateId;
+
+    [ObservableProperty]
+    private bool _isDrafting;
+
+    [ObservableProperty]
+    private string _draftMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDraftError;
+
+    public ObservableCollection<NoteTemplateOption> NoteTemplates { get; } = [];
+
+    public Guid? MeetingId => _record?.Id;
+
+    public bool ShowNoteTemplate => CanGenerateSummary || CanRegenerateSummary;
+
+    public bool ShowDraftActions => HasSummary;
+
+    public bool HasDraftMessage => !string.IsNullOrEmpty(DraftMessage);
+
+    [ObservableProperty]
     private bool _isRechecking;
 
     [ObservableProperty]
@@ -138,6 +160,11 @@ public partial class SummaryPageViewModel : ObservableObject
             CanGenerateSummary = hasTranscript && !HasSummary;
             CanRegenerateSummary = hasTranscript && HasSummary;
             StatusText = string.Empty;
+            DraftMessage = string.Empty;
+            SelectedNoteTemplateId = string.IsNullOrWhiteSpace(_record?.NoteTemplateId)
+                ? NoteTemplateCatalog.AutoId
+                : _record.NoteTemplateId;
+            await LoadNoteTemplatesAsync();
             await RefreshTypeSafeGateAsync();
             await RefreshFolderPathsAsync();
             LoadActionItems();
@@ -149,6 +176,9 @@ public partial class SummaryPageViewModel : ObservableObject
             GenerateSummaryCommand.NotifyCanExecuteChanged();
             RegenerateSummaryCommand.NotifyCanExecuteChanged();
             RecheckJevCommand.NotifyCanExecuteChanged();
+            NotifyDraftCommands();
+            OnPropertyChanged(nameof(ShowNoteTemplate));
+            OnPropertyChanged(nameof(ShowDraftActions));
         }
     }
 
@@ -176,8 +206,20 @@ public partial class SummaryPageViewModel : ObservableObject
             }
 
             var summaryLanguage = settings.ResolveSummaryLanguage();
+            var templateId = NoteTemplateCatalog.NormalizeId(SelectedNoteTemplateId);
+            var instructions = await NoteTemplateInstructions.ResolveAsync(templateId, AppServices.NoteTemplates);
+            var enhancement = new SummaryEnhancementContext(
+                _record.Notes,
+                _record.Attendees,
+                Agenda: null,
+                TemplateInstructions: instructions);
             var result = await Task.Run(() => provider.SummarizeAsync(
-                transcript, _record.Title, _record.RecordedAt, outputLanguage: summaryLanguage, endedAt: _record.EndedAt));
+                transcript,
+                _record.Title,
+                _record.RecordedAt,
+                outputLanguage: summaryLanguage,
+                endedAt: _record.EndedAt,
+                enhancement: enhancement.HasAny ? enhancement : null));
 
             var resolvedTitle = SuggestedMeetingTitle.Resolve(_record.Title, result.SuggestedTitle);
             var titleChanged = !string.Equals(resolvedTitle, _record.Title, StringComparison.Ordinal);
@@ -185,6 +227,7 @@ public partial class SummaryPageViewModel : ObservableObject
             _record.Summary = result.SummaryMarkdown;
             _record.ActionItems = result.ActionItems;
             _record.SummaryProvider = result.ProviderId;
+            _record.NoteTemplateId = templateId;
             if (titleChanged)
                 _record.Title = resolvedTitle;
 
@@ -221,6 +264,9 @@ public partial class SummaryPageViewModel : ObservableObject
             GenerateSummaryCommand.NotifyCanExecuteChanged();
             RegenerateSummaryCommand.NotifyCanExecuteChanged();
             RecheckJevCommand.NotifyCanExecuteChanged();
+            NotifyDraftCommands();
+            OnPropertyChanged(nameof(ShowNoteTemplate));
+            OnPropertyChanged(nameof(ShowDraftActions));
         }
     }
 
@@ -285,6 +331,136 @@ public partial class SummaryPageViewModel : ObservableObject
     private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind) =>
         (await SummaryProviderResolver.ResolveAsync(
             providerKind, EnsureSummaryModelAsync, EnsureCliProviderAsync, EnsureXaiProviderAsync))?.Provider;
+
+    public async Task LoadNoteTemplatesAsync(string? selectId = null)
+    {
+        var items = await NoteTemplateOption.LoadAsync();
+        NoteTemplates.Clear();
+        foreach (var item in items)
+            NoteTemplates.Add(item);
+
+        if (selectId is not null)
+            SelectedNoteTemplateId = selectId;
+    }
+
+    public async Task SaveCustomTemplateAsync(CustomNoteTemplate template)
+    {
+        await AppServices.NoteTemplates.SaveAsync(template);
+        await LoadNoteTemplatesAsync(NoteTemplateCatalog.CustomId);
+    }
+
+    private bool CanDraft() => HasSummary && !IsGenerating && !IsDrafting;
+
+    [RelayCommand(CanExecute = nameof(CanDraft))]
+    private void CopyActionItems()
+    {
+        if (_record is null || _record.ActionItems.Count == 0)
+        {
+            ShowDraft(AppStrings.Get("SummaryPage_NoActionItems"), isError: true);
+            return;
+        }
+
+        if (!TryCopy(ActionItemParser.Render(_record.ActionItems).TrimEnd()))
+            return;
+
+        ShowDraft(AppStrings.Get("SummaryPage_ActionsCopied"), isError: false);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDraft))]
+    private Task WriteFollowUpAsync() => DraftSectionAsync(
+        () => FollowUpEmailPromptBuilder.Build(_record?.Summary, _record?.ActionItems ?? [], _record?.Notes, _record?.Attendees),
+        value => _record!.FollowUp = value,
+        () => _record?.FollowUp,
+        AppStrings.Get("SummaryPage_FollowUpCopied"));
+
+    [RelayCommand(CanExecute = nameof(CanDraft))]
+    private Task DraftProjectPlanAsync() => DraftSectionAsync(
+        () => ProjectPlanPromptBuilder.Build(_record?.Summary, _record?.ActionItems ?? [], _record?.Notes, _record?.Attendees),
+        value => _record!.ProjectPlan = value,
+        () => _record?.ProjectPlan,
+        AppStrings.Get("SummaryPage_ProjectPlanCopied"));
+
+    private async Task DraftSectionAsync(
+        Func<string> buildPrompt,
+        Action<string?> assign,
+        Func<string?> current,
+        string copiedMessage)
+    {
+        if (_record is null || IsDrafting)
+            return;
+
+        IsDrafting = true;
+        NotifyDraftCommands();
+        var previous = current();
+        try
+        {
+            var settings = await AppServices.Settings.LoadAsync();
+            var provider = await ResolveSummaryProviderAsync(settings.ResolveSummaryProviderKind());
+            if (provider is null)
+            {
+                ShowDraft(AppStrings.Get("Status_SetupCancelled"), isError: true);
+                return;
+            }
+
+            var prompt = buildPrompt();
+            var raw = await Task.Run(() => provider.CompletePromptAsync(prompt));
+            var draft = MeetingBriefPromptBuilder.Normalize(raw);
+            if (draft is null)
+            {
+                ShowDraft(AppStrings.Get("SummaryPage_DraftEmpty"), isError: true);
+                return;
+            }
+
+            assign(draft);
+            await _meetings.SaveAsync(_record);
+            if (!TryCopy(draft))
+                return;
+
+            ShowDraft(copiedMessage, isError: false);
+        }
+        catch (Exception ex)
+        {
+            if (_record is not null)
+                assign(string.IsNullOrWhiteSpace(previous) ? null : previous);
+            ShowDraft(AppStrings.Format("Error_GenerateSummary", CliFailureUserMessage.Format(ex)), isError: true);
+        }
+        finally
+        {
+            IsDrafting = false;
+            NotifyDraftCommands();
+        }
+    }
+
+    private bool TryCopy(string text)
+    {
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(text);
+            Clipboard.SetContent(package);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            ShowDraft(CliFailureUserMessage.Format(ex), isError: true);
+            return false;
+        }
+    }
+
+    private void ShowDraft(string message, bool isError)
+    {
+        IsDraftError = isError;
+        DraftMessage = message;
+    }
+
+    partial void OnDraftMessageChanged(string value) => OnPropertyChanged(nameof(HasDraftMessage));
+
+    private void NotifyDraftCommands()
+    {
+        CopyActionItemsCommand.NotifyCanExecuteChanged();
+        WriteFollowUpCommand.NotifyCanExecuteChanged();
+        DraftProjectPlanCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private void CopyToClipboard()

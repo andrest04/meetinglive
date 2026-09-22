@@ -11,9 +11,12 @@ public sealed partial class NotesPage : Page
 {
     public NotesPageViewModel ViewModel { get; } = new();
 
+    private bool _notesModeReady;
+
     public NotesPage()
     {
         InitializeComponent();
+        Loaded += (_, _) => _notesModeReady = true;
         Unloaded += (_, _) => _ = ViewModel.SaveNotesAsync();
     }
 
@@ -27,6 +30,15 @@ public sealed partial class NotesPage : Page
     private void Notes_LostFocus(object sender, RoutedEventArgs e)
     {
         _ = ViewModel.SaveNotesAsync();
+    }
+
+    private void NotesMode_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (!_notesModeReady)
+            return;
+
+        if (sender.SelectedItem is SelectorBarItem { Tag: "enhanced" })
+            ViewModel.OpenEnhancedCommand.Execute(null);
     }
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;

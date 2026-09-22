@@ -54,6 +54,20 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private CancellationTokenSource? _liveQuestionCts;
     private int _liveQuestionGeneration;
     private string _questionJudgeBaseline = string.Empty;
+    private readonly ICalendarStore _calendar = AppServices.Calendar;
+    private Guid? _linkedMeetingId;
+    private string? _linkedCalendarEventId;
+    private string? _linkedCalendarId;
+    private string? _linkedSeriesId;
+    private string? _linkedJoinUrl;
+    private string? _linkedAgenda;
+    private IReadOnlyList<string> _linkedAttendees = [];
+    private bool _comingUpNoteOpen;
+    private int _briefGeneration;
+    private IReadOnlyList<CalendarEvent> _comingUpAll = [];
+    private int _comingUpPageIndex;
+    private int _comingUpGeneration;
+    private bool _openingComingUp;
 
     [ObservableProperty]
     private bool _isRecording;
@@ -83,6 +97,17 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     [ObservableProperty]
     private string _sessionNotes = string.Empty;
+
+    [ObservableProperty]
+    private string _meetingBrief = string.Empty;
+
+    [ObservableProperty]
+    private string _briefError = string.Empty;
+
+    [ObservableProperty]
+    private string? _selectedNoteTemplateId;
+
+    public ObservableCollection<NoteTemplateOption> NoteTemplates { get; } = [];
 
     [ObservableProperty]
     private string _highlightFeedback = string.Empty;
@@ -198,7 +223,13 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             ? TranscriptHighlightApplicator.Apply(LiveTranscriptText, _highlights)
             : LastMeeting?.Transcript ?? string.Empty;
 
-    public bool ShowSessionNotes => IsRecording || IsProcessing;
+    public bool ShowSessionNotes => IsRecording || IsProcessing || _comingUpNoteOpen;
+
+    /// <summary>Brief stays up while the opened coming-up note is prep or still capturing.</summary>
+    public bool ShowMeetingBrief =>
+        _comingUpNoteOpen && !IsProcessing && !string.IsNullOrWhiteSpace(MeetingBrief);
+
+    public bool HasBriefError => !string.IsNullOrEmpty(BriefError);
 
     public bool HasHighlightFeedback => !string.IsNullOrEmpty(HighlightFeedback);
 
@@ -223,6 +254,19 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     /// <summary>Secondary Import on the Record hero while idle (not recording or processing).</summary>
     public bool ShowImportAudio => ShowRecordHero && !IsRecording && !IsProcessing;
 
+    /// <summary>Coming up is idle-only. Capture and processing keep the record canvas.</summary>
+    public bool ShowComingUp => !IsRecording && !IsProcessing;
+
+    public ObservableCollection<CalendarEvent> ComingUpEvents { get; } = [];
+
+    [ObservableProperty]
+    private string _comingUpMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isComingUpError;
+
+    public bool HasComingUpMessage => !string.IsNullOrEmpty(ComingUpMessage);
+
     public RecordingPageViewModel()
     {
         _pipeline = new RecordingPipelineOrchestrator(_transcription, _meetings);
@@ -239,6 +283,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         TryStartMicPreview();
         _ = LoadDestinationsAsync();
         _ = RefreshReadinessAsync();
+        _ = RefreshComingUpAsync();
+        _ = LoadNoteTemplatesAsync();
         TryStartFromTakeNotes();
     }
 
@@ -264,6 +310,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _isPageVisible = false;
         if (!IsRecording)
             StopMicPreview();
+        _ = SavePrepNotesAsync();
     }
 
     private void OnLiveTranscriptUpdated(object? sender, LiveTranscriptUpdate update)
@@ -597,8 +644,14 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private void TryStartFromTakeNotes()
     {
-        if (!AppServices.Workspace.ConsumeTakeNotes())
+        if (!AppServices.Workspace.ConsumeTakeNotes(out var eventId))
             return;
+
+        if (!string.IsNullOrEmpty(eventId))
+        {
+            _ = OpenPendingCalendarEventAsync(eventId);
+            return;
+        }
 
         if (IsRecording || IsProcessing)
             return;
@@ -606,6 +659,360 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         if (ToggleRecordingCommand.CanExecute(null))
             _ = ToggleRecordingCommand.ExecuteAsync(null);
     }
+
+    /// <summary>
+    /// Toast activation reuses <see cref="OpenComingUpAsync"/> so the calendar link, brief,
+    /// and "start capture only once start is now" decision stay on one path.
+    /// </summary>
+    private async Task OpenPendingCalendarEventAsync(string eventId)
+    {
+        try
+        {
+            if (IsRecording || IsProcessing)
+                return;
+
+            await RefreshComingUpAsync();
+            if (IsRecording || IsProcessing)
+                return;
+
+            var calendarEvent = FindComingUp(eventId);
+            if (calendarEvent is null)
+                return;
+
+            await OpenComingUpAsync(calendarEvent);
+        }
+        catch (Exception)
+        {
+            // A reminder must not crash Record if the calendar read or the open path fails.
+        }
+    }
+
+    public CalendarEvent? FindComingUp(string eventId) =>
+        _comingUpAll.FirstOrDefault(item => item.EventId == eventId);
+
+    [RelayCommand]
+    private async Task OpenComingUpAsync(CalendarEvent? calendarEvent)
+    {
+        if (calendarEvent is null || _openingComingUp || IsRecording || IsProcessing)
+            return;
+
+        _openingComingUp = true;
+        try
+        {
+            var meetings = await _meetings.GetAllAsync();
+            var existing = CalendarMeetingMatch.FindByEventId(meetings, calendarEvent.EventId);
+            RememberCalendarLink(calendarEvent, existing?.Id);
+            _linkedAgenda = string.IsNullOrWhiteSpace(calendarEvent.Details) ? null : calendarEvent.Details.Trim();
+            _comingUpNoteOpen = true;
+            MeetingBrief = string.Empty;
+            BriefError = string.Empty;
+            MeetingTitle = TitleFor(calendarEvent, existing);
+            await RestoreLinkedNotesAsync();
+            NotifyCanvasState();
+
+            var generation = ++_briefGeneration;
+            var captureNow = CalendarEventTiming.ShouldStartCapture(calendarEvent, DateTimeOffset.Now);
+            if (captureNow && !IsRecording && !IsProcessing && ToggleRecordingCommand.CanExecute(null))
+            {
+                await ToggleRecordingCommand.ExecuteAsync(null);
+                if (IsRecording)
+                    await TryLaunchJoinUrlAsync(calendarEvent.JoinUrl);
+            }
+
+            _ = GenerateBriefAsync(calendarEvent, existing, generation);
+        }
+        finally
+        {
+            _openingComingUp = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoToPreviousComingUp))]
+    private void PreviousComingUp()
+    {
+        _comingUpPageIndex--;
+        PublishComingUpPage();
+    }
+
+    private bool CanGoToPreviousComingUp() =>
+        CalendarEventPager.GetPage(_comingUpAll, _comingUpPageIndex).HasPrevious;
+
+    [RelayCommand(CanExecute = nameof(CanGoToNextComingUp))]
+    private void NextComingUp()
+    {
+        _comingUpPageIndex++;
+        PublishComingUpPage();
+    }
+
+    private bool CanGoToNextComingUp() =>
+        CalendarEventPager.GetPage(_comingUpAll, _comingUpPageIndex).HasNext;
+
+    private static async Task<IReadOnlySet<string>> LoadDisabledCalendarIdsAsync()
+    {
+        try
+        {
+            var settings = await AppServices.Settings.LoadAsync();
+            return settings.DisabledCalendarIdsAsSet();
+        }
+        catch (Exception)
+        {
+            return AppSettings.NoDisabledCalendars;
+        }
+    }
+
+    private async Task RefreshComingUpAsync()
+    {
+        var generation = ++_comingUpGeneration;
+        try
+        {
+            var result = await _calendar.GetUpcomingAsync(DateTimeOffset.Now, await LoadDisabledCalendarIdsAsync());
+            if (generation != _comingUpGeneration)
+                return;
+
+            ApplyComingUp(result);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+            if (generation != _comingUpGeneration)
+                return;
+
+            ShowComingUpFailure(CalendarStoreFailure.AccessDenied);
+        }
+    }
+
+    private void ApplyComingUp(CalendarStoreResult result)
+    {
+        if (result.Failure is CalendarStoreFailure.AccessDenied or CalendarStoreFailure.NoPackageIdentity)
+        {
+            ShowComingUpFailure(result.Failure.Value);
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        _comingUpAll = CalendarEventFilter.Visible(result.Events)
+            .Where(calendarEvent => CalendarEventTiming.IsStillRelevant(calendarEvent, now))
+            .OrderBy(calendarEvent => calendarEvent.Start)
+            .ThenBy(calendarEvent => calendarEvent.EventId, StringComparer.Ordinal)
+            .ToArray();
+        _comingUpPageIndex = 0;
+        ComingUpMessage = _comingUpAll.Count == 0 ? AppStrings.Get("ComingUp_Empty") : string.Empty;
+        IsComingUpError = false;
+        PublishComingUpPage();
+    }
+
+    private void ShowComingUpFailure(CalendarStoreFailure failure)
+    {
+        _comingUpAll = [];
+        _comingUpPageIndex = 0;
+        IsComingUpError = true;
+        ComingUpMessage = failure == CalendarStoreFailure.NoPackageIdentity
+            ? AppStrings.Get("ComingUp_NoPackageIdentity")
+            : AppStrings.Get("ComingUp_AccessDenied");
+        PublishComingUpPage();
+    }
+
+    private void PublishComingUpPage()
+    {
+        var page = CalendarEventPager.GetPage(_comingUpAll, _comingUpPageIndex);
+        _comingUpPageIndex = page.PageIndex;
+        ComingUpEvents.Clear();
+        foreach (var calendarEvent in page.Items)
+            ComingUpEvents.Add(calendarEvent);
+
+        PreviousComingUpCommand.NotifyCanExecuteChanged();
+        NextComingUpCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RememberCalendarLink(CalendarEvent calendarEvent, Guid? existingMeetingId)
+    {
+        _linkedMeetingId = existingMeetingId;
+        _linkedCalendarEventId = calendarEvent.EventId;
+        _linkedCalendarId = calendarEvent.CalendarId;
+        _linkedSeriesId = calendarEvent.SeriesId;
+        _linkedJoinUrl = calendarEvent.JoinUrl;
+        _linkedAttendees = calendarEvent.AttendeeDisplayNames;
+    }
+
+    private void ClearCalendarLink()
+    {
+        _linkedMeetingId = null;
+        _linkedCalendarEventId = null;
+        _linkedCalendarId = null;
+        _linkedSeriesId = null;
+        _linkedJoinUrl = null;
+        _linkedAgenda = null;
+        _linkedAttendees = [];
+        _comingUpNoteOpen = false;
+        _briefGeneration++;
+        MeetingBrief = string.Empty;
+        BriefError = string.Empty;
+        NotifyCanvasState();
+    }
+
+    private async Task RestoreLinkedNotesAsync()
+    {
+        if (_linkedMeetingId is not { } linkedId)
+            return;
+
+        var existing = await _meetings.GetByIdAsync(linkedId);
+        if (!string.IsNullOrWhiteSpace(existing?.Notes))
+            SessionNotes = existing.Notes;
+    }
+
+    public async Task LoadNoteTemplatesAsync(string? selectId = null)
+    {
+        var items = await NoteTemplateOption.LoadAsync();
+        NoteTemplates.Clear();
+        foreach (var item in items)
+            NoteTemplates.Add(item);
+
+        if (selectId is not null)
+            SelectedNoteTemplateId = selectId;
+        else if (string.IsNullOrWhiteSpace(SelectedNoteTemplateId))
+            SelectedNoteTemplateId = NoteTemplateCatalog.AutoId;
+    }
+
+    public async Task SaveCustomTemplateAsync(CustomNoteTemplate template)
+    {
+        await AppServices.NoteTemplates.SaveAsync(template);
+        await LoadNoteTemplatesAsync(NoteTemplateCatalog.CustomId);
+    }
+
+    public async Task SavePrepNotesAsync()
+    {
+        if (_linkedMeetingId is not { } id || IsRecording || IsProcessing)
+            return;
+
+        var record = await _meetings.GetByIdAsync(id);
+        if (record is null)
+            return;
+
+        var notes = string.IsNullOrWhiteSpace(SessionNotes) ? null : SessionNotes;
+        if (string.Equals(record.Notes, notes, StringComparison.Ordinal))
+            return;
+
+        record.Notes = notes;
+        await _meetings.SaveAsync(record);
+    }
+
+    private async Task GenerateBriefAsync(CalendarEvent calendarEvent, MeetingRecord? existing, int generation)
+    {
+        try
+        {
+            var meetings = await _meetings.GetAllAsync();
+            var probe = existing ?? new MeetingRecord
+            {
+                Id = Guid.NewGuid(),
+                Title = string.IsNullOrWhiteSpace(calendarEvent.Subject) ? MeetingTitle : calendarEvent.Subject.Trim(),
+                RecordedAt = calendarEvent.Start,
+                AudioFilePath = string.Empty,
+                SeriesId = calendarEvent.SeriesId,
+            };
+            var related = RelatedMeetings.Find(probe, meetings);
+            if (!MeetingBriefPromptBuilder.HasUsefulContext(related, calendarEvent.Details, calendarEvent.AttendeeDisplayNames))
+                return;
+
+            if (generation != _briefGeneration)
+                return;
+
+            var settings = await AppServices.Settings.LoadAsync();
+            var pipeline = await SummaryProviderResolver.ResolveAsync(
+                settings.ResolveSummaryProviderKind(),
+                EnsureSummaryModelAsync,
+                EnsureCliProviderAsync,
+                EnsureXaiProviderAsync);
+            if (pipeline is null || generation != _briefGeneration)
+                return;
+
+            var prompt = MeetingBriefPromptBuilder.Build(
+                calendarEvent.Subject,
+                calendarEvent.AttendeeDisplayNames,
+                calendarEvent.Details,
+                related);
+            string raw;
+            try
+            {
+                raw = await Task.Run(() => pipeline.Provider.CompletePromptAsync(prompt));
+            }
+            catch (Exception ex)
+            {
+                if (generation != _briefGeneration)
+                    return;
+
+                BriefError = AppStrings.Format("RecordPage_BriefFailedFormat", CliFailureUserMessage.Format(ex));
+                return;
+            }
+
+            if (generation != _briefGeneration)
+                return;
+
+            var brief = MeetingBriefPromptBuilder.Normalize(raw);
+            if (brief is null)
+                return;
+
+            MeetingBrief = brief;
+            if (existing is not null)
+            {
+                existing.Brief = brief;
+                try
+                {
+                    await _meetings.SaveAsync(existing);
+                }
+                catch (Exception ex)
+                {
+                    BriefError = AppStrings.Format("RecordPage_BriefFailedFormat", CliFailureUserMessage.Format(ex));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (generation != _briefGeneration)
+                return;
+
+            BriefError = AppStrings.Format("RecordPage_BriefFailedFormat", CliFailureUserMessage.Format(ex));
+        }
+    }
+
+    private static string? BlankToNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string TitleFor(CalendarEvent calendarEvent, MeetingRecord? existing)
+    {
+        if (!string.IsNullOrWhiteSpace(existing?.Title))
+            return existing.Title;
+
+        if (!string.IsNullOrWhiteSpace(calendarEvent.Subject))
+            return calendarEvent.Subject.Trim();
+
+        return AppStrings.MeetingTitle(calendarEvent.Start.LocalDateTime);
+    }
+
+    private static async Task TryLaunchJoinUrlAsync(string? joinUrl)
+    {
+        if (string.IsNullOrWhiteSpace(joinUrl) || !Uri.TryCreate(joinUrl, UriKind.Absolute, out var uri))
+            return;
+
+        if (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            return;
+
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+        }
+        catch (Exception)
+        {
+            // Joining the call is best-effort. Capture has already started.
+        }
+    }
+
+    partial void OnComingUpMessageChanged(string value) => OnPropertyChanged(nameof(HasComingUpMessage));
+
+    partial void OnMeetingBriefChanged(string value) => OnPropertyChanged(nameof(ShowMeetingBrief));
+
+    partial void OnBriefErrorChanged(string value) => OnPropertyChanged(nameof(HasBriefError));
 
     [RelayCommand(CanExecute = nameof(CanToggleRecording))]
     private async Task ToggleRecordingAsync()
@@ -634,7 +1041,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         ResetLiveAnswerSession();
         ApplyLoadedLiveAnswerProvider(settings.ResolveLiveAnswerProviderKind());
 
-        _currentMeetingId = Guid.NewGuid();
+        _currentMeetingId = _linkedMeetingId ?? Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;
         _endedAt = default;
         AppPaths.EnsureDirectoriesExist();
@@ -643,7 +1050,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
         _liveSessionActive = false;
-        SessionNotes = string.Empty;
+        if (!_comingUpNoteOpen)
+        {
+            SessionNotes = string.Empty;
+            await RestoreLinkedNotesAsync();
+        }
         HighlightFeedback = string.Empty;
         _highlights.Clear();
         _pausedDuration = TimeSpan.Zero;
@@ -741,7 +1152,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         if (picked is null)
             return;
 
-        var meetingId = Guid.NewGuid();
+        var meetingId = _linkedMeetingId ?? Guid.NewGuid();
         var sourcePath = picked.Path;
         var recordedAt = ReadSourceTimestamp(sourcePath);
         AppPaths.EnsureDirectoriesExist();
@@ -774,7 +1185,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _liveDraft = null;
         _pausedDuration = TimeSpan.Zero;
         LiveTranscriptText = string.Empty;
-        SessionNotes = string.Empty;
+        if (!_comingUpNoteOpen)
+        {
+            SessionNotes = string.Empty;
+            await RestoreLinkedNotesAsync();
+        }
         HighlightFeedback = string.Empty;
         _highlights.Clear();
         IsPaused = false;
@@ -922,7 +1337,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         IsRecording = false;
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
-        SessionNotes = string.Empty;
+        if (!_comingUpNoteOpen)
+            SessionNotes = string.Empty;
         HighlightFeedback = string.Empty;
         _highlights.Clear();
         StopElapsedTimer();
@@ -959,6 +1375,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         var pausedDuration = _pausedDuration;
         var highlights = _highlights.ToArray();
         var folderId = await ResolveSelectedFolderIdAsync();
+        var templateId = NoteTemplateCatalog.NormalizeId(SelectedNoteTemplateId);
+        var templateInstructions = await NoteTemplateInstructions.ResolveAsync(templateId, AppServices.NoteTemplates);
         var request = new RecordingPipelineRequest(
             meetingId,
             audioPath,
@@ -968,7 +1386,16 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             liveDraft,
             pausedDuration,
             folderId,
-            highlights);
+            highlights,
+            _linkedCalendarEventId,
+            _linkedCalendarId,
+            _linkedSeriesId,
+            _linkedJoinUrl,
+            _linkedAttendees,
+            BlankToNull(MeetingBrief),
+            _linkedAgenda,
+            templateId,
+            templateInstructions);
 
         await _pipeline.RunAsync(
             request,
@@ -999,6 +1426,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     void IRecordingPipelineCallbacks.OnTitleResetAndFinished(string status)
     {
         MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+        ClearCalendarLink();
         FinishProcessing(status);
     }
 
@@ -1011,6 +1439,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     void IRecordingPipelineCallbacks.OnSummaryFailedAfterTranscriptSaved(Guid meetingId, string message)
     {
         MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
+        ClearCalendarLink();
         if (IsProcessing)
             FinishProcessing(message);
         else if (LastMeeting?.Id == meetingId)
@@ -1135,7 +1564,9 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         OnPropertyChanged(nameof(ShowSetupPanel));
         OnPropertyChanged(nameof(ShowRecordHero));
         OnPropertyChanged(nameof(ShowImportAudio));
+        OnPropertyChanged(nameof(ShowComingUp));
         OnPropertyChanged(nameof(ShowSessionNotes));
+        OnPropertyChanged(nameof(ShowMeetingBrief));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
         OnPropertyChanged(nameof(CanvasHeading));

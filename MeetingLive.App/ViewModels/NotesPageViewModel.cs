@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 
@@ -9,6 +10,8 @@ public partial class NotesPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private Guid? _recordId;
+
+    public Guid? MeetingId => _recordId;
 
     [ObservableProperty]
     private string _notes = string.Empty;
@@ -53,5 +56,14 @@ public partial class NotesPageViewModel : ObservableObject
 
         record.Notes = notes;
         await _meetings.SaveAsync(record);
+    }
+
+    [RelayCommand]
+    private void OpenEnhanced()
+    {
+        if (_recordId is not { } id)
+            return;
+
+        AppServices.Workspace.RequestSessionTab(WorkspaceService.TabSummary, id);
     }
 }

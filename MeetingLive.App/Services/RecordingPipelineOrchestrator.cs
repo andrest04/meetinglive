@@ -114,9 +114,15 @@ public sealed class RecordingPipelineOrchestrator(
             Dispatch(() => callbacks.OnTitleResetAndFinished(AppStrings.Get("Status_GeneratingSummary")));
 
             var summaryLanguage = transcriptionSettings.ResolveSummaryLanguage();
+            var enhancement = new SummaryEnhancementContext(
+                callbacks.CurrentSessionNotes,
+                request.Attendees,
+                request.Agenda,
+                request.TemplateInstructions);
             var result = await pipeline.Provider.SummarizeAsync(
                 transcript, title, recordedAt, cancellationToken, summaryLanguage,
-                endedAt == default ? null : endedAt);
+                endedAt == default ? null : endedAt,
+                enhancement.HasAny ? enhancement : null);
 
             var saveTitle = SuggestedMeetingTitle.Resolve(title, result.SuggestedTitle);
             var record = await SaveProcessedMeetingAsync(
@@ -208,6 +214,7 @@ public sealed class RecordingPipelineOrchestrator(
         IRecordingPipelineCallbacks callbacks)
     {
         transcript = StampEndedHeader(transcript, recordedAt, endedAt) ?? transcript;
+        var existing = await meetings.GetByIdAsync(meetingId);
         var record = new MeetingRecord
         {
             Id = meetingId,
@@ -221,6 +228,18 @@ public sealed class RecordingPipelineOrchestrator(
             SummaryProvider = summaryProviderId,
             FolderId = folderId,
             Notes = string.IsNullOrWhiteSpace(callbacks.CurrentSessionNotes) ? null : callbacks.CurrentSessionNotes.Trim(),
+            CalendarEventId = BlankToNull(request.CalendarEventId),
+            CalendarId = BlankToNull(request.CalendarId),
+            SeriesId = BlankToNull(request.SeriesId),
+            JoinUrl = BlankToNull(request.JoinUrl),
+            Attendees = request.Attendees?
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .ToArray() ?? [],
+            Brief = BlankToNull(request.Brief) ?? existing?.Brief,
+            NoteTemplateId = BlankToNull(request.NoteTemplateId),
+            FollowUp = existing?.FollowUp,
+            ProjectPlan = existing?.ProjectPlan,
         };
 
         await meetings.SaveAsync(record);
@@ -235,6 +254,9 @@ public sealed class RecordingPipelineOrchestrator(
 
         return TranscriptStampFormatter.EnsureEndedHeader(transcript, recordedAt, endedAt);
     }
+
+    private static string? BlankToNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static void Dispatch(Action action) => App.DispatcherQueue.TryEnqueue(() => action());
 }
@@ -254,7 +276,16 @@ public sealed record RecordingPipelineRequest(
     string? LiveDraft,
     TimeSpan PausedDuration,
     Guid? FolderId,
-    IReadOnlyList<TimeSpan> Highlights);
+    IReadOnlyList<TimeSpan> Highlights,
+    string? CalendarEventId = null,
+    string? CalendarId = null,
+    string? SeriesId = null,
+    string? JoinUrl = null,
+    IReadOnlyList<string>? Attendees = null,
+    string? Brief = null,
+    string? Agenda = null,
+    string? NoteTemplateId = null,
+    string? TemplateInstructions = null);
 
 /// <summary>
 /// Pipeline events <see cref="RecordingPipelineOrchestrator"/> reports back to its host. Every

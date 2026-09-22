@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
@@ -14,6 +15,7 @@ public sealed partial class RecordingPage : Page
 {
     private bool _stickToTranscriptEnd = true;
     private bool _applyingLiveAnswerProvider;
+    private bool _applyingNoteTemplate;
 
     public RecordingPageViewModel ViewModel { get; } = new();
 
@@ -35,10 +37,12 @@ public sealed partial class RecordingPage : Page
         };
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
         ViewModel.OnNavigatedTo();
+        await ViewModel.LoadNoteTemplatesAsync();
+        ApplyNoteTemplateSelection();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -223,4 +227,82 @@ public sealed partial class RecordingPage : Page
         statusText.StartsWith(AppStrings.Get("ErrorPrefix"), StringComparison.OrdinalIgnoreCase)
             ? InfoBarSeverity.Error
             : InfoBarSeverity.Informational;
+
+    public static InfoBarSeverity ComingUpSeverity(bool isError) =>
+        isError ? InfoBarSeverity.Error : InfoBarSeverity.Informational;
+
+    public static string ComingUpWhen(DateTimeOffset start, TimeSpan duration)
+    {
+        var end = start + duration;
+        var localStart = start.LocalDateTime;
+        var localEnd = end.LocalDateTime;
+        if (localStart.Date == DateTime.Now.Date)
+            return AppStrings.Format("ComingUp_TimeRange", localStart, localEnd);
+
+        return AppStrings.Format("ComingUp_TimeRangeOtherDay", localStart, localStart, localEnd);
+    }
+
+    public static string ComingUpEventAutomationId(string eventId) => "BtnComingUpEvent_" + eventId;
+
+    public static Visibility NonEmptyVisibility(string? text) =>
+        string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
+
+    public static GridLength TranscriptRowHeight(bool showNotes) => new(1, GridUnitType.Star);
+
+    public static GridLength NotesRowHeight(bool showNotes) =>
+        showNotes ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+
+    private void ApplyNoteTemplateSelection()
+    {
+        _applyingNoteTemplate = true;
+        try
+        {
+            var id = string.IsNullOrWhiteSpace(ViewModel.SelectedNoteTemplateId)
+                ? NoteTemplateCatalog.AutoId
+                : ViewModel.SelectedNoteTemplateId;
+            CmbNoteTemplate.SelectedItem = ViewModel.NoteTemplates.FirstOrDefault(item => item.Id == id)
+                ?? ViewModel.NoteTemplates.FirstOrDefault();
+        }
+        finally
+        {
+            _applyingNoteTemplate = false;
+        }
+    }
+
+    private void NoteTemplate_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingNoteTemplate || sender is not ComboBox { SelectedItem: NoteTemplateOption option })
+            return;
+
+        ViewModel.SelectedNoteTemplateId = option.Id;
+    }
+
+    private async void SaveCustomTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var existing = await AppServices.NoteTemplates.LoadAsync();
+        var edited = await CustomNoteTemplateDialog.ShowAsync(XamlRoot, existing);
+        if (edited is null)
+            return;
+
+        await ViewModel.SaveCustomTemplateAsync(edited);
+        ApplyNoteTemplateSelection();
+    }
+
+    private void Notes_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _ = ViewModel.SavePrepNotesAsync();
+    }
+
+    private async void ComingUpEvent_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string eventId })
+            return;
+
+        var calendarEvent = ViewModel.FindComingUp(eventId);
+        if (calendarEvent is null)
+            return;
+
+        if (ViewModel.OpenComingUpCommand.CanExecute(calendarEvent))
+            await ViewModel.OpenComingUpCommand.ExecuteAsync(calendarEvent);
+    }
 }

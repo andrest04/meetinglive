@@ -7,6 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:models="using:MeetingLive.Core.Models"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
@@ -22,6 +23,8 @@
 
     <Grid Padding="24" RowSpacing="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -57,7 +60,97 @@
             </ComboBox>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="0,8,0,4">
+        <StackPanel Grid.Row="2" Spacing="8"
+                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowComingUp), Mode=OneWay}"
+                    AutomationProperties.AutomationId="ComingUpSection">
+            <Grid>
+                <TextBlock x:Uid="ComingUp_Heading"
+                           Style="{StaticResource BodyStrongTextBlockStyle}"
+                           VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button x:Uid="ComingUp_Previous"
+                            Command="{x:Bind ViewModel.PreviousComingUpCommand}"
+                            AutomationProperties.AutomationId="BtnComingUpPrevious" />
+                    <Button x:Uid="ComingUp_Next"
+                            Command="{x:Bind ViewModel.NextComingUpCommand}"
+                            AutomationProperties.AutomationId="BtnComingUpNext" />
+                </StackPanel>
+            </Grid>
+            <InfoBar IsOpen="{x:Bind ViewModel.HasComingUpMessage, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="{x:Bind local:RecordingPage.ComingUpSeverity(ViewModel.IsComingUpError), Mode=OneWay}"
+                     Message="{x:Bind ViewModel.ComingUpMessage, Mode=OneWay}"
+                     AutomationProperties.AutomationId="InfoComingUp" />
+            <ScrollViewer HorizontalScrollMode="Enabled"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollMode="Disabled"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.ComingUpEvents, Mode=OneWay}"
+                               AutomationProperties.AutomationId="ListComingUp">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="8" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="models:CalendarEvent">
+                            <Button MinWidth="200"
+                                    MaxWidth="240"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="0"
+                                    Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                                    BorderThickness="0"
+                                    Click="ComingUpEvent_Click"
+                                    Tag="{x:Bind EventId}"
+                                    AutomationProperties.Name="{x:Bind Subject}"
+                                    AutomationProperties.AutomationId="{x:Bind local:RecordingPage.ComingUpEventAutomationId(EventId)}">
+                                <Border Padding="12"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{x:Bind Subject}"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="{x:Bind local:RecordingPage.ComingUpWhen(Start, Duration)}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{x:Bind Location}"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Visibility="{x:Bind local:RecordingPage.NonEmptyVisibility(Location)}" />
+                                    </StackPanel>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Spacing="8">
+            <StackPanel Spacing="8"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMeetingBrief), Mode=OneWay}"
+                        AutomationProperties.AutomationId="BriefSection">
+                <TextBlock x:Uid="RecordPage_BriefHeading"
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock x:Uid="RecordPage_BriefText"
+                           Text="{x:Bind ViewModel.MeetingBrief, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           IsTextSelectionEnabled="True"
+                           AutomationProperties.AutomationId="TxtMeetingBrief" />
+            </StackPanel>
+            <InfoBar x:Uid="RecordPage_BriefFailed"
+                     IsOpen="{x:Bind ViewModel.HasBriefError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.BriefError, Mode=OneWay}"
+                     AutomationProperties.AutomationId="InfoBriefError" />
+        </StackPanel>
+
+        <Grid Grid.Row="4" Margin="0,8,0,4">
             <Border MaxWidth="480"
                     HorizontalAlignment="Center"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -190,20 +283,20 @@
             </StackPanel>
         </Grid>
 
-        <InfoBar Grid.Row="3"
+        <InfoBar Grid.Row="5"
                  IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
                  IsClosable="False"
                  Severity="{x:Bind local:RecordingPage.StatusSeverity(ViewModel.StatusText), Mode=OneWay}"
                  Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                  HorizontalAlignment="Stretch" />
 
-        <Grid Grid.Row="4" RowSpacing="8">
+        <Grid Grid.Row="6" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="{x:Bind local:RecordingPage.TranscriptRowHeight(ViewModel.ShowSessionNotes), Mode=OneWay}" />
+                <RowDefinition Height="{x:Bind local:RecordingPage.NotesRowHeight(ViewModel.ShowSessionNotes), Mode=OneWay}" />
             </Grid.RowDefinitions>
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -368,17 +461,48 @@
                     </Grid>
                 </ScrollViewer>
             </Border>
-            <TextBox Grid.Row="4"
-                     x:Uid="RecordPage_SessionNotes"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     MaxHeight="64"
-                     Text="{x:Bind ViewModel.SessionNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSessionNotes), Mode=OneWay}"
-                     AutomationProperties.AutomationId="TxtRecordingNotes" />
+            <Grid Grid.Row="4" RowSpacing="8"
+                  Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSessionNotes), Mode=OneWay}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="CmbNoteTemplate"
+                              x:Uid="RecordPage_NoteTemplate"
+                              ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
+                              SelectionChanged="NoteTemplate_SelectionChanged"
+                              HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="CmbNoteTemplate">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:NoteTemplateOption">
+                                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Grid.Column="1"
+                            x:Uid="RecordPage_SaveCustomTemplate"
+                            Click="SaveCustomTemplate_Click"
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.AutomationId="BtnSaveCustomTemplate" />
+                </Grid>
+                <TextBox Grid.Row="1"
+                         x:Uid="RecordPage_SessionNotes"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MinHeight="160"
+                         VerticalAlignment="Stretch"
+                         Text="{x:Bind ViewModel.SessionNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         LostFocus="Notes_LostFocus"
+                         AutomationProperties.AutomationId="TxtRecordingNotes" />
+            </Grid>
         </Grid>
 
-        <Border Grid.Row="5"
+        <Border Grid.Row="7"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"

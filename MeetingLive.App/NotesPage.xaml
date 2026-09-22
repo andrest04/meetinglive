@@ -8,8 +8,26 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Padding="24">
+    <Grid Padding="24" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <SelectorBar x:Name="NotesModeBar"
+                     Grid.Row="0"
+                     SelectionChanged="NotesMode_SelectionChanged"
+                     Visibility="{x:Bind local:NotesPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}"
+                     AutomationProperties.AutomationId="SelectorNotesMode">
+            <SelectorBarItem x:Uid="NotesMode_MyNotes"
+                             Tag="notes"
+                             IsSelected="True"
+                             AutomationProperties.AutomationId="SelectorMyNotes" />
+            <SelectorBarItem x:Uid="NotesMode_Enhanced"
+                             Tag="enhanced"
+                             AutomationProperties.AutomationId="SelectorEnhanced" />
+        </SelectorBar>
         <TextBox x:Uid="NotesPage_Notes"
+                 Grid.Row="1"
                  AcceptsReturn="True"
                  TextWrapping="Wrap"
                  HorizontalAlignment="Stretch"

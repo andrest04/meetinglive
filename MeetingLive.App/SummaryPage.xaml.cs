@@ -1,3 +1,4 @@
+using MeetingLive.Core.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -9,6 +10,9 @@ namespace MeetingLive_App;
 /// <summary>Shows the structured summary of a meeting, and can generate one on demand.</summary>
 public sealed partial class SummaryPage : Page
 {
+    private bool _applyingNoteTemplate;
+    private bool _notesModeReady;
+
     public SummaryPageViewModel ViewModel { get; } = new();
 
     public SummaryPage()
@@ -21,13 +25,15 @@ public sealed partial class SummaryPage : Page
             ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
             ViewModel.ConfirmRegenerateAsync = ConfirmRegenerateAsync;
         };
+        Loaded += (_, _) => _notesModeReady = true;
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
         var meetingId = e.Parameter as Guid? ?? AppServices.Workspace.SelectedMeetingId;
-        _ = ViewModel.LoadAsync(meetingId);
+        await ViewModel.LoadAsync(meetingId);
+        ApplyNoteTemplateSelection();
     }
 
     private void EmptyCta_Click(object sender, RoutedEventArgs e)
@@ -50,4 +56,52 @@ public sealed partial class SummaryPage : Page
     }
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+
+    public static InfoBarSeverity DraftSeverity(bool isError) =>
+        isError ? InfoBarSeverity.Error : InfoBarSeverity.Success;
+
+    private void ApplyNoteTemplateSelection()
+    {
+        _applyingNoteTemplate = true;
+        try
+        {
+            var id = string.IsNullOrWhiteSpace(ViewModel.SelectedNoteTemplateId)
+                ? NoteTemplateCatalog.AutoId
+                : ViewModel.SelectedNoteTemplateId;
+            CmbNoteTemplate.SelectedItem = ViewModel.NoteTemplates.FirstOrDefault(item => item.Id == id)
+                ?? ViewModel.NoteTemplates.FirstOrDefault();
+        }
+        finally
+        {
+            _applyingNoteTemplate = false;
+        }
+    }
+
+    private void NoteTemplate_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_applyingNoteTemplate || sender is not ComboBox { SelectedItem: NoteTemplateOption option })
+            return;
+
+        ViewModel.SelectedNoteTemplateId = option.Id;
+    }
+
+    private async void SaveCustomTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var existing = await AppServices.NoteTemplates.LoadAsync();
+        var edited = await CustomNoteTemplateDialog.ShowAsync(XamlRoot, existing);
+        if (edited is null)
+            return;
+
+        await ViewModel.SaveCustomTemplateAsync(edited);
+        ApplyNoteTemplateSelection();
+    }
+
+    private void NotesMode_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (!_notesModeReady)
+            return;
+
+        if (sender.SelectedItem is SelectorBarItem { Tag: "notes" })
+            AppServices.Workspace.RequestSessionTab(WorkspaceService.TabNotes, ViewModel.MeetingId);
+    }
 }
