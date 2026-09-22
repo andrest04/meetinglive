@@ -41,6 +41,12 @@ public static class AppPaths
 
     public static string SettingsFilePath { get; } = Path.Combine(RootDirectory, "settings.json");
 
+    /// <summary>Private chat threads. Not part of the Documents library.</summary>
+    public static string ChatThreadsFilePath { get; } = Path.Combine(RootDirectory, "chat-threads.json");
+
+    /// <summary>User-saved chat recipes only. Built-in recipes stay in code and are not written here.</summary>
+    public static string ChatRecipesFilePath { get; } = Path.Combine(RootDirectory, "chat-recipes.json");
+
     /// <summary>DPAPI-protected SuperGrok OAuth / xAI API-key blob. JWTs can exceed PasswordVault's
     /// 512-character limit, so this is a CurrentUser-encrypted file rather than Credential Locker.</summary>
     public static string XaiCredentialsFilePath { get; } = Path.Combine(RootDirectory, "xai-credentials.bin");
