@@ -51,6 +51,9 @@ public static class AppPaths
     /// <summary>Nested Library folders. Lives next to meetings, not as directories on disk.</summary>
     public static string FoldersFilePath { get; } = Path.Combine(UserDataDirectory, "folders.json");
 
+    /// <summary>The one user-saved note template. App data, not the Documents library.</summary>
+    public static string CustomNoteTemplateFilePath { get; } = Path.Combine(RootDirectory, "custom-note-template.json");
+
     internal static string LegacyMeetingsDirectory { get; } = Path.Combine(RootDirectory, "Meetings");
 
     internal static string LegacyRecordingsDirectory { get; } = Path.Combine(RootDirectory, "Recordings");
