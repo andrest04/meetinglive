@@ -29,13 +29,25 @@ public sealed partial class UiLanguageSectionViewModel : SettingsSectionViewMode
         _selectedOption = Options[0];
     }
 
-    /// <summary>Selects whichever option matches <see cref="AppSettings.UiLanguage"/>, defaulting
-    /// to English (the neutral resource language) when unset or unrecognized.</summary>
+    /// <summary>
+    /// Selects whichever option matches <see cref="AppSettings.UiLanguage"/>. When that setting is
+    /// unset (no override has ever been persisted), reflects the language the WinUI <c>.resw</c>
+    /// resource system is <em>actually</em> resolving right now — the first entry of
+    /// <c>ApplicationLanguages.Languages</c>, which already accounts for the OS's ranked preferred
+    /// languages against what this app supports — instead of assuming English, so the picker never
+    /// shows a selection that lies about the effective UI language. Falls back to
+    /// <c>Options[0]</c> only when nothing matches (e.g. the OS reports no effective language, or it
+    /// reports one this app doesn't offer as a picker option).
+    /// </summary>
     public void ApplyLoadedSettings(AppSettings settings)
     {
-        SelectedOption = Options.FirstOrDefault(
-            o => string.Equals(o.LanguageTag, settings.UiLanguage, StringComparison.OrdinalIgnoreCase))
-            ?? Options[0];
+        string? effectiveTag = string.IsNullOrWhiteSpace(settings.UiLanguage)
+            ? ApplicationLanguages.Languages.FirstOrDefault()
+            : settings.UiLanguage;
+
+        string? matchedTag = UiLanguageResolver.MatchPrimarySubtag(effectiveTag, Options.Select(o => o.LanguageTag));
+
+        SelectedOption = Options.FirstOrDefault(o => o.LanguageTag == matchedTag) ?? Options[0];
     }
 
     /// <summary>

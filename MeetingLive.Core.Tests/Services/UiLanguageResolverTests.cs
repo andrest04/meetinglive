@@ -36,4 +36,43 @@ public class UiLanguageResolverTests
     {
         Assert.Null(UiLanguageResolver.ResolveCulture("xx-99-INVALID!"));
     }
+
+    [Fact]
+    public void MatchPrimarySubtag_WhenCandidateHasRegion_MatchesAvailablePrimaryOnly()
+    {
+        var match = UiLanguageResolver.MatchPrimarySubtag("es-ES", ["en-US", "es"]);
+
+        Assert.Equal("es", match);
+    }
+
+    [Fact]
+    public void MatchPrimarySubtag_WhenAvailableHasRegion_MatchesCandidatePrimaryOnly()
+    {
+        var match = UiLanguageResolver.MatchPrimarySubtag("en-GB", ["en-US", "es"]);
+
+        Assert.Equal("en-US", match);
+    }
+
+    [Fact]
+    public void MatchPrimarySubtag_IsCaseInsensitive()
+    {
+        var match = UiLanguageResolver.MatchPrimarySubtag("ES-es", ["en-US", "es"]);
+
+        Assert.Equal("es", match);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void MatchPrimarySubtag_WhenCandidateNullOrBlank_ReturnsNull(string? candidateTag)
+    {
+        Assert.Null(UiLanguageResolver.MatchPrimarySubtag(candidateTag, ["en-US", "es"]));
+    }
+
+    [Fact]
+    public void MatchPrimarySubtag_WhenNoMatch_ReturnsNull()
+    {
+        Assert.Null(UiLanguageResolver.MatchPrimarySubtag("fr-FR", ["en-US", "es"]));
+    }
 }

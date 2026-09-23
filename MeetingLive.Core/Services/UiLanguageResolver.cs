@@ -40,4 +40,26 @@ public static class UiLanguageResolver
             return null;
         }
     }
+
+    /// <summary>
+    /// Picks whichever of <paramref name="availableTags"/> shares the same primary BCP-47 subtag as
+    /// <paramref name="candidateTag"/> (e.g. "es-ES" matches "es", "en-GB" matches "en-US"), case-insensitively.
+    /// Returns null when <paramref name="candidateTag"/> is null/empty or nothing matches.
+    /// </summary>
+    public static string? MatchPrimarySubtag(string? candidateTag, IEnumerable<string> availableTags)
+    {
+        if (string.IsNullOrWhiteSpace(candidateTag))
+            return null;
+
+        string candidatePrimary = candidateTag.Split('-')[0];
+
+        foreach (string availableTag in availableTags)
+        {
+            string availablePrimary = availableTag.Split('-')[0];
+            if (string.Equals(candidatePrimary, availablePrimary, StringComparison.OrdinalIgnoreCase))
+                return availableTag;
+        }
+
+        return null;
+    }
 }
