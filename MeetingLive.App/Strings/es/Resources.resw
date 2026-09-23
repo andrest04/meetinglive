@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppTitleBar.Title" xml:space="preserve"><value>MeetingLive</value></data>
+  <data name="Nav_Record.Content" xml:space="preserve"><value>Grabar</value></data>
+  <data name="Nav_Transcript.Content" xml:space="preserve"><value>Transcripción</value></data>
+  <data name="Nav_Summary.Content" xml:space="preserve"><value>Resumen</value></data>
+  <data name="Nav_History.Content" xml:space="preserve"><value>Biblioteca</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Nav_ResizePane" xml:space="preserve"><value>Cambiar el tamaño del panel de navegación</value></data>
+  <data name="CallPrompt_Title" xml:space="preserve"><value>Hay una llamada en curso</value></data>
+  <data name="CallPrompt_Body" xml:space="preserve"><value>Toma notas en MeetingLive para no perder nada.</value></data>
+  <data name="CallPrompt_TakeNotes" xml:space="preserve"><value>Tomar notas</value></data>
+  <data name="SessionPage_Back.AutomationProperties.Name" xml:space="preserve"><value>Atrás</value></data>
+  <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcripción</value></data>
+  <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Resumen</value></data>
+  <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notas</value></data>
+  <data name="SessionPage_TabAsk.Text" xml:space="preserve"><value>Preguntar</value></data>
+  <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Abre una reunión desde la Biblioteca, o graba una nueva.</value></data>
+  <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
+  <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="SessionPage_Rename.ToolTipService.ToolTip" xml:space="preserve"><value>Renombrar título</value></data>
+  <data name="SessionPage_SuggestTitle.AutomationProperties.Name" xml:space="preserve"><value>Sugerir título</value></data>
+  <data name="SessionPage_SuggestTitle.ToolTipService.ToolTip" xml:space="preserve"><value>Generar título con IA</value></data>
+  <data name="SessionRename_Title" xml:space="preserve"><value>Renombrar reunión</value></data>
+  <data name="SessionRename_Primary" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="SessionRename_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="SessionRename_Name.Header" xml:space="preserve"><value>Título</value></data>
+  <data name="SessionRename_Name.PlaceholderText" xml:space="preserve"><value>Título de la reunión</value></data>
+  <data name="SessionSuggestTitle_ErrorTitle" xml:space="preserve"><value>No se pudo sugerir un título</value></data>
+  <data name="SessionSuggestTitle_Empty" xml:space="preserve"><value>El modelo no devolvió un título utilizable.</value></data>
+  <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Tus notas</value></data>
+  <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Agrega tus notas para esta reunión</value></data>
+  <data name="RecordPage_Title.Text" xml:space="preserve"><value>Grabar reunión</value></data>
+  <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Título</value></data>
+  <data name="RecordPage_Destination.Header" xml:space="preserve"><value>Guardar en</value></data>
+  <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Transcripción en vivo</value></data>
+  <data name="RecordPage_SavedTranscript" xml:space="preserve"><value>Transcripción</value></data>
+  <data name="RecordPage_LiveTranscriptHint.Text" xml:space="preserve"><value>Solo es una vista previa en vivo. La transcripción que se guarda se genera a partir de la grabación después de detenerla.</value></data>
+  <data name="RecordPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
+  <data name="RecordPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
+  <data name="RecordPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcripción copiada al portapapeles.</value></data>
+  <data name="RecordPage_LastRecording.Text" xml:space="preserve"><value>Última grabación procesada</value></data>
+  <data name="RecordPage_ViewTranscript.Content" xml:space="preserve"><value>Ver transcripción</value></data>
+  <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>Ver resumen</value></data>
+  <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
+  <data name="RecordPage_MicLevel.Text" xml:space="preserve"><value>Nivel del micrófono</value></data>
+  <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
+  <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancelar transcripción o resumen</value></data>
+  <data name="Record_Record" xml:space="preserve"><value>Grabar</value></data>
+  <data name="Record_Stop" xml:space="preserve"><value>Detener</value></data>
+  <data name="Record_Pause" xml:space="preserve"><value>Pausar</value></data>
+  <data name="Record_Resume" xml:space="preserve"><value>Reanudar</value></data>
+  <data name="Record_Discard" xml:space="preserve"><value>Descartar</value></data>
+  <data name="Record_Highlight" xml:space="preserve"><value>Destacar</value></data>
+  <data name="RecordPage_HighlightTooltip" xml:space="preserve"><value>Destacar este momento en la transcripción</value></data>
+  <data name="RecordPage_Highlighted" xml:space="preserve"><value>Destacado {0}</value></data>
+  <data name="RecordPage_SessionNotes.Header" xml:space="preserve"><value>Notas</value></data>
+  <data name="RecordPage_SessionNotes.PlaceholderText" xml:space="preserve"><value>Opcional: escribe con tus propias palabras</value></data>
+  <data name="Record_Import" xml:space="preserve"><value>Importar audio</value></data>
+  <data name="RecordDiscard_Title" xml:space="preserve"><value>¿Descartar esta grabación?</value></data>
+  <data name="RecordDiscard_Content" xml:space="preserve"><value>El audio se elimina. No se guarda nada.</value></data>
+  <data name="RecordDiscard_Primary" xml:space="preserve"><value>Descartar</value></data>
+  <data name="RecordDiscard_Cancel" xml:space="preserve"><value>Seguir grabando</value></data>
+  <data name="Status_Paused" xml:space="preserve"><value>En pausa. La interrupción no se graba.</value></data>
+  <data name="Status_RecordingDiscarded" xml:space="preserve"><value>Grabación descartada.</value></data>
+  <data name="TranscriptPage_Title.Text" xml:space="preserve"><value>Transcripción</value></data>
+  <data name="TranscriptPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
+  <data name="TranscriptPage_OpenLocation.Content" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
+  <data name="TranscriptPage_Empty.Text" xml:space="preserve"><value>Todavía no hay transcripción. Graba o importa una reunión primero.</value></data>
+  <data name="TranscriptPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
+  <data name="TranscriptPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
+  <data name="TranscriptPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcripción copiada al portapapeles.</value></data>
+  <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Resumen</value></data>
+  <data name="SummaryPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
+  <data name="SummaryPage_OpenLocation.Content" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
+  <data name="SummaryPage_Generate.Text" xml:space="preserve"><value>Generar resumen</value></data>
+  <data name="SummaryPage_Regenerate.Content" xml:space="preserve"><value>Regenerar resumen</value></data>
+  <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>Todavía no hay resumen. Graba o importa una reunión, o genera uno a partir de su transcripción.</value></data>
+  <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
+  <data name="SummaryPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
+  <data name="SummaryPage_CopyConfirmation.Message" xml:space="preserve"><value>Resumen copiado al portapapeles.</value></data>
+  <data name="SummaryRegenerate_Title" xml:space="preserve"><value>¿Reemplazar este resumen?</value></data>
+  <data name="SummaryRegenerate_Content" xml:space="preserve"><value>Regenerar sobrescribirá el resumen y los elementos de acción de "{0}".</value></data>
+  <data name="SummaryRegenerate_Primary" xml:space="preserve"><value>Regenerar</value></data>
+  <data name="SummaryRegenerate_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="SummaryPage_ActionItems.Text" xml:space="preserve"><value>Elementos de acción</value></data>
+  <data name="HistoryPage_Title.Text" xml:space="preserve"><value>Biblioteca</value></data>
+  <data name="HistoryPage_Empty.Text" xml:space="preserve"><value>Todavía no hay reuniones grabadas.</value></data>
+  <data name="HistoryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
+  <data name="HistoryPage_Summary.Content" xml:space="preserve"><value>Resumen</value></data>
+  <data name="HistoryPage_Delete.Content" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="History_NoContent" xml:space="preserve"><value>Todavía no hay contenido</value></data>
+  <data name="HistoryDelete_Title" xml:space="preserve"><value>¿Eliminar esta reunión?</value></data>
+  <data name="HistoryDelete_Content" xml:space="preserve"><value>Esto elimina permanentemente "{0}" y su grabación.</value></data>
+  <data name="HistoryDelete_Primary" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="HistoryDelete_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Modelos de resumen</value></data>
+  <data name="Settings_SummaryModels.Description" xml:space="preserve"><value>Se ejecuta completamente en este PC: sin cuenta, sin servidor, sin costo. Descarga los modelos que quieras usar y elige uno como activo; elimina los que ya no necesites para liberar espacio en disco.</value></data>
+  <data name="Settings_Active.Content" xml:space="preserve"><value>Activo</value></data>
+  <data name="Settings_Download.Content" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Settings_Delete.Content" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Settings_SummaryProvider.Text" xml:space="preserve"><value>Proveedor de resumen</value></data>
+  <data name="Settings_SummaryProviderCard.Header" xml:space="preserve"><value>Elige dónde se generan los resúmenes</value></data>
+  <data name="Settings_SummaryProviderCard.Description" xml:space="preserve"><value>Local se ejecuta completamente en este PC de forma gratuita. Claude Code y Codex usan una CLI ya instalada. Grok (xAI) inicia sesión con SuperGrok o una clave de API.</value></data>
+  <data name="Settings_ProviderLocal.Text" xml:space="preserve"><value>Local (en este dispositivo)</value></data>
+  <data name="Settings_ProviderClaude.Text" xml:space="preserve"><value>CLI de Claude Code</value></data>
+  <data name="Settings_ProviderCodex.Text" xml:space="preserve"><value>CLI de Codex</value></data>
+  <data name="Settings_ProviderXai.Text" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Settings_Microphone.Text" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="Settings_RecordingDevice.Header" xml:space="preserve"><value>Dispositivo de grabación</value></data>
+  <data name="Settings_RecordingDevice.Description" xml:space="preserve"><value>El micrófono físico desde el que MeetingLive graba tu voz. El predeterminado del sistema sigue el que Windows use actualmente.</value></data>
+  <data name="Settings_MicLevel.Text" xml:space="preserve"><value>Nivel del micrófono</value></data>
+  <data name="Settings_MeetingLanguage.Text" xml:space="preserve"><value>Idioma de la reunión</value></data>
+  <data name="Settings_TranscriptionLanguage.Header" xml:space="preserve"><value>Idioma de transcripción</value></data>
+  <data name="Settings_TranscriptionLanguage.Description" xml:space="preserve"><value>Fija el idioma de la reunión para que la transcripción no tenga que adivinar. La detección automática es adecuada cuando las reuniones mezclan idiomas o no estás seguro.</value></data>
+  <data name="Settings_SummaryLanguage.Header" xml:space="preserve"><value>Idioma del resumen</value></data>
+  <data name="Settings_SummaryLanguage.Description" xml:space="preserve"><value>Idioma del resumen escrito y de los elementos de acción. El valor predeterminado es español. Los encabezados de Markdown permanecen en inglés para que la aplicación pueda analizarlos.</value></data>
+  <data name="Settings_Transcription.Text" xml:space="preserve"><value>Transcripción</value></data>
+  <data name="Settings_NemotronCard.Header" xml:space="preserve"><value>Nemotron 3.5 ASR Streaming 0.6B</value></data>
+  <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>Modelo de ~0.74 GB; tiempo de ejecución adicional (CPU ~5 MB o CUDA ~106 MB). Binarios oficiales de NVIDIA: no hay nada más que instalar.</value></data>
+  <data name="Settings_DownloadEngine.Content" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Etiquetas de hablante</value></data>
+  <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Modelo Sortformer opcional (~0.14 GB). Usa GPU/CPU adicional durante la transcripción y etiqueta hasta cuatro voces como Hablante 1-4. Desactívalo para transcribir sin etiquetas de quién habló.</value></data>
+  <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Settings_DeleteSpeakers.Content" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Status_DownloadingSpeakerModel" xml:space="preserve"><value>Descargando el modelo de hablante Sortformer...</value></data>
+  <data name="Settings_Recording.Text" xml:space="preserve"><value>Grabación</value></data>
+  <data name="Settings_LiveTranscription.Header" xml:space="preserve"><value>Transcripción en vivo durante la grabación</value></data>
+
+  <data name="Settings_LiveTranscription.Description" xml:space="preserve"><value>Subtítulos en pantalla con Nemotron mientras grabas. La transcripción guardada siempre usa Nemotron después de detener la grabación. Desactivar esto solo omite la vista previa en vivo.</value></data>
+  <data name="Settings_Calendar.Text" xml:space="preserve"><value>Calendario</value></data>
+  <data name="Settings_CalendarNotifications.Header" xml:space="preserve"><value>Notificar un minuto antes de una reunión</value></data>
+  <data name="Settings_CalendarNotifications.Description" xml:space="preserve"><value>Muestra una notificación cuando una reunión con dos o más personas está a punto de comenzar. Permanece en silencio mientras ya estás grabando.</value></data>
+  <data name="Settings_Calendars.Header" xml:space="preserve"><value>Calendarios</value></data>
+  <data name="Settings_Calendars.Description" xml:space="preserve"><value>Desactiva un calendario para ocultarlo de Próximamente y de las notificaciones.</value></data>
+  <data name="CalendarReminder_Body" xml:space="preserve"><value>Esta reunión está a punto de comenzar.</value></data>
+  <data name="Settings_Data.Text" xml:space="preserve"><value>Datos</value></data>
+  <data name="Settings_MeetingsLocation.Header" xml:space="preserve"><value>Reuniones</value></data>
+  <data name="Settings_AppDataLocation.Header" xml:space="preserve"><value>Datos de la aplicación</value></data>
+  <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Abrir carpeta</value></data>
+  <data name="Settings_About.Header" xml:space="preserve"><value>MeetingLive</value></data>
+  <data name="Setup_Title.Title" xml:space="preserve"><value>Configurar generación de resúmenes</value></data>
+  <data name="Setup_Title.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Setup_ChooseEngine.Text" xml:space="preserve"><value>Elige cómo generar los resúmenes</value></data>
+  <data name="Setup_ChooseEngineHint.Text" xml:space="preserve"><value>Elige el motor que MeetingLive debe usar para convertir una transcripción en un resumen y elementos de acción.</value></data>
+  <data name="Setup_ClaudeName.Text" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Setup_ClaudeHint.Text" xml:space="preserve"><value>Usa la CLI de Claude Code ya instalada en este PC.</value></data>
+  <data name="Setup_CodexName.Text" xml:space="preserve"><value>Codex</value></data>
+  <data name="Setup_CodexHint.Text" xml:space="preserve"><value>Usa la CLI de Codex ya instalada en este PC.</value></data>
+  <data name="Setup_LocalName.Text" xml:space="preserve"><value>Modelos locales</value></data>
+  <data name="Setup_LocalHint.Text" xml:space="preserve"><value>Se ejecuta completamente en este PC: sin cuenta, sin servidor, sin costo.</value></data>
+  <data name="Setup_XaiName.Text" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Setup_XaiHint.Text" xml:space="preserve"><value>Inicia sesión con SuperGrok o pega una clave de API de xAI.</value></data>
+  <data name="Setup_CheckAgain.Content" xml:space="preserve"><value>Comprobar de nuevo</value></data>
+  <data name="Setup_Back.Content" xml:space="preserve"><value>Atrás</value></data>
+  <data name="Setup_DetectingHardware.Text" xml:space="preserve"><value>Detectando hardware...</value></data>
+  <data name="Setup_ChooseModel.Text" xml:space="preserve"><value>Elige un modelo para generar resúmenes</value></data>
+  <data name="Setup_ChooseModelHint.Text" xml:space="preserve"><value>Se ejecuta completamente en este PC: sin cuenta, sin servidor, sin costo. Los modelos más grandes son más lentos pero producen mejores resúmenes.</value></data>
+  <data name="Setup_DownloadModel.Content" xml:space="preserve"><value>Descargar y usar este modelo</value></data>
+  <data name="Setup_Done.Title" xml:space="preserve"><value>Listo</value></data>
+  <data name="Setup_Done.Message" xml:space="preserve"><value>El modelo está listo para usarse.</value></data>
+  <data name="EngineSetup.Title" xml:space="preserve"><value>Descargar motor de transcripción</value></data>
+  <data name="EngineSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="EngineSetup_Hint.Text" xml:space="preserve"><value>MeetingLive necesita NVIDIA Nemotron 3.5 ASR Streaming (alrededor de 0.74 GB) más un pequeño tiempo de ejecución oficial de NVIDIA. No se instala nada más: sin CLI de Hugging Face, sin compilación de C++.</value></data>
+  <data name="EngineSetup_Failed.Title" xml:space="preserve"><value>Error al descargar</value></data>
+  <data name="CliSetup.PrimaryButtonText" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="CliSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="CliSetup_NotFound.Title" xml:space="preserve"><value>No se encontró en el PATH</value></data>
+  <data name="ErrorPrefix" xml:space="preserve"><value>Error</value></data>
+  <data name="Status_ReadyToRecord" xml:space="preserve"><value>Listo para grabar.</value></data>
+  <data name="Status_PreparingEngine" xml:space="preserve"><value>Preparando el motor de transcripción...</value></data>
+  <data name="Status_LoadingModel" xml:space="preserve"><value>Cargando el modelo de transcripción...</value></data>
+  <data name="Status_Recording" xml:space="preserve"><value>Grabando... micrófono + audio del sistema.</value></data>
+  <data name="Status_Importing" xml:space="preserve"><value>Importando audio...</value></data>
+  <data name="Status_TranscriptReady" xml:space="preserve"><value>Transcripción lista. Preparando resumen...</value></data>
+
+  <data name="Status_PolishingTranscript" xml:space="preserve"><value>Puliendo la transcripción...</value></data>
+  <data name="Status_Transcribing" xml:space="preserve"><value>Transcribiendo audio...</value></data>
+  <data name="Status_TranscribingPercent" xml:space="preserve"><value>Transcribiendo audio... {0}%</value></data>
+
+  <data name="Status_GeneratingSummary" xml:space="preserve"><value>Generando resumen...</value></data>
+  <data name="Status_DoneWithSummary" xml:space="preserve"><value>Listo. Transcripción y resumen disponibles.</value></data>
+  <data name="Status_DoneNoSummary" xml:space="preserve"><value>Listo. Transcripción disponible (sin resumen).</value></data>
+  <data name="Status_SummaryGenerated" xml:space="preserve"><value>Resumen generado.</value></data>
+  <data name="Status_SetupCancelled" xml:space="preserve"><value>Configuración cancelada.</value></data>
+  <data name="Status_ProcessingCancelled" xml:space="preserve"><value>Cancelado.</value></data>
+  <data name="Status_CancelledTranscriptSaved" xml:space="preserve"><value>Cancelado. Transcripción guardada (sin resumen).</value></data>
+  <data name="Status_PreparingDownload" xml:space="preserve"><value>Preparando descarga...</value></data>
+  <data name="Status_DownloadFailed" xml:space="preserve"><value>Error al descargar.</value></data>
+  <data name="Status_StartingDownload" xml:space="preserve"><value>Iniciando descarga...</value></data>
+  <data name="Status_CliOnPath" xml:space="preserve"><value>Detectado en el PATH.</value></data>
+  <data name="Status_CliMissing" xml:space="preserve"><value>No se encontró en el PATH: instálalo antes de grabar.</value></data>
+  <data name="Error_StartRecording" xml:space="preserve"><value>Error: no se pudo iniciar la grabación ({0}).</value></data>
+  <data name="Error_ImportAudio" xml:space="preserve"><value>Error: no se pudo importar ese audio ({0}).</value></data>
+  <data name="Error_StopRecording" xml:space="preserve"><value>Error al detener la grabación: {0}</value></data>
+  <data name="Error_ProcessRecording" xml:space="preserve"><value>Error al procesar la grabación: {0}</value></data>
+  <data name="Error_GenerateSummary" xml:space="preserve"><value>Error al generar el resumen: {0}</value></data>
+  <data name="Error_CliNotInstalled" xml:space="preserve"><value>{0} no está instalado. Instálalo, o elige otro motor de resumen en Configuración.</value></data>
+  <data name="Error_CliNotSignedIn" xml:space="preserve"><value>Tu sesión de {0} expiró. Inicia sesión de nuevo en este PC y luego genera el resumen desde la sesión.</value></data>
+  <data name="Error_CliSubscriptionInactive" xml:space="preserve"><value>{0} no pudo ejecutar esta solicitud. Es posible que la suscripción de esta cuenta haya terminado. Renuévala, o cambia de motor de resumen en Configuración.</value></data>
+  <data name="Error_CliTimedOut" xml:space="preserve"><value>{0} tardó demasiado y se detuvo. Inténtalo de nuevo, o cambia de motor en Configuración.</value></data>
+  <data name="Error_CliEmptyOutput" xml:space="preserve"><value>{0} no devolvió nada. Inténtalo de nuevo, o cambia de motor en Configuración.</value></data>
+  <data name="Error_CliUnknown" xml:space="preserve"><value>{0} no pudo terminar el resumen.</value></data>
+  <data name="Status_TranscriptSavedSummaryFailed" xml:space="preserve"><value>Transcripción guardada. El resumen falló: {0}</value></data>
+  <data name="Error_SaveActionItem" xml:space="preserve"><value>Error al guardar el elemento de acción: {0}</value></data>
+  <data name="Error_DownloadModel" xml:space="preserve"><value>Error al descargar el modelo: {0}</value></data>
+  <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Error al descargar: {0}</value></data>
+  <data name="Error_EngineNotReady" xml:space="preserve"><value>La descarga terminó, pero el motor de transcripción todavía no está listo.</value></data>
+  <data name="MeetingTitleFormat" xml:space="preserve"><value>Reunión {0}</value></data>
+  <data name="MeetingTitleDateFormat" xml:space="preserve"><value>d MMM, HH:mm</value></data>
+  <data name="NoSummariesYet" xml:space="preserve"><value>Todavía no hay resúmenes</value></data>
+  <data name="NoTranscriptsYet" xml:space="preserve"><value>Todavía no hay transcripciones</value></data>
+  <data name="Microphone_SystemDefault" xml:space="preserve"><value>Predeterminado del sistema</value></data>
+  <data name="ComboMicrophoneDevice.PlaceholderText" xml:space="preserve"><value>Predeterminado del sistema</value></data>
+  <data name="Fit_Recommended" xml:space="preserve"><value>Recomendado</value></data>
+  <data name="Fit_MayBeSlow" xml:space="preserve"><value>Puede ser lento</value></data>
+  <data name="Fit_NotRecommended" xml:space="preserve"><value>No recomendado</value></data>
+  <data name="Model_Downloaded" xml:space="preserve"><value>{0} (descargado)</value></data>
+  <data name="Model_SpeedQuality" xml:space="preserve"><value>{0} · Calidad {1} · {2:0.#} GB de descarga</value></data>
+  <data name="Hardware_WithGpu" xml:space="preserve"><value>Detectado: {0} GB de RAM, GPU {1} ({2} GB de VRAM)</value></data>
+  <data name="Hardware_NoGpu" xml:space="preserve"><value>Detectado: {0} GB de RAM, sin GPU dedicada</value></data>
+  <data name="Download_ModelProgress" xml:space="preserve"><value>Descargando {0} ({1:0}%)...</value></data>
+  <data name="Cli_SetupTitle" xml:space="preserve"><value>Configurar la CLI de {0}</value></data>
+  <data name="Cli_NotFound" xml:space="preserve"><value>MeetingLive no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado y con la sesión iniciada, selecciona Reintentar.</value></data>
+  <data name="Cli_NotFoundCheckAgain" xml:space="preserve"><value>MeetingLive no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado, selecciona "Comprobar de nuevo".</value></data>
+  <data name="Cli_StillMissing" xml:space="preserve"><value>Sigue sin encontrarse en el PATH como "{0}". Instálalo y vuelve a intentarlo.</value></data>
+  <data name="Cli_ClaudeHint" xml:space="preserve"><value>Instálalo desde https://claude.com/claude-code y luego ejecuta "claude" una vez desde una terminal para iniciar sesión.</value></data>
+  <data name="Cli_CodexHint" xml:space="preserve"><value>Instálalo con "npm install -g @openai/codex" (consulta https://github.com/openai/codex) y luego ejecuta "codex" una vez desde una terminal para iniciar sesión.</value></data>
+  <data name="Cli_ClaudeName" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Cli_CodexName" xml:space="preserve"><value>Codex</value></data>
+  <data name="MigrationFailed_Title" xml:space="preserve"><value>Error al migrar el historial de reuniones</value></data>
+  <data name="MigrationFailed_Content" xml:space="preserve"><value>MeetingLive no pudo migrar tu historial de reuniones existente al nuevo formato. Tus datos originales quedaron intactos.
+
+{0}</value></data>
+  <data name="Dialog_OK" xml:space="preserve"><value>Aceptar</value></data>
+  <data name="Library_Inbox" xml:space="preserve"><value>Bandeja de entrada</value></data>
+  <data name="Library_NewFolder.Content" xml:space="preserve"><value>Nueva carpeta</value></data>
+  <data name="Library_RenameFolder.Content" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="LibraryContext_Rename" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="LibraryContext_Personality" xml:space="preserve"><value>Personalidad</value></data>
+  <data name="Library_DeleteFolder.Content" xml:space="preserve"><value>Eliminar carpeta</value></data>
+  <data name="Library_Move.Content" xml:space="preserve"><value>Mover</value></data>
+  <data name="Library_Search.PlaceholderText" xml:space="preserve"><value>Buscar reuniones</value></data>
+  <data name="Library_FolderNote.Header" xml:space="preserve"><value>Notas de la carpeta</value></data>
+  <data name="Library_FolderNote.PlaceholderText" xml:space="preserve"><value>Notas para esta carpeta</value></data>
+  <data name="Library_FolderEmpty.Text" xml:space="preserve"><value>Esta carpeta está vacía.</value></data>
+  <data name="Library_InboxEmpty.Text" xml:space="preserve"><value>La bandeja de entrada está vacía. Las nuevas grabaciones llegan aquí.</value></data>
+  <data name="LibraryFolderName.Header" xml:space="preserve"><value>Nombre</value></data>
+  <data name="LibraryFolderName.PlaceholderText" xml:space="preserve"><value>Nombre de la carpeta</value></data>
+  <data name="LibraryNewFolder_Title" xml:space="preserve"><value>Nueva carpeta</value></data>
+  <data name="LibraryNewFolder_TitleIn" xml:space="preserve"><value>Nueva carpeta en {0}</value></data>
+  <data name="LibraryNewFolder_Primary" xml:space="preserve"><value>Crear</value></data>
+  <data name="LibraryNewFolder_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="LibraryRenameFolder_Title" xml:space="preserve"><value>Renombrar carpeta</value></data>
+  <data name="LibraryRenameFolder_Primary" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="LibraryRenameFolder_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="LibraryDeleteFolder_Title" xml:space="preserve"><value>¿Eliminar esta carpeta?</value></data>
+  <data name="LibraryDeleteFolder_Content" xml:space="preserve"><value>Esto elimina la carpeta "{0}". Las reuniones que contiene no se eliminan.</value></data>
+  <data name="LibraryDeleteFolder_Primary" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="LibraryDeleteFolder_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="LibraryDeleteFolder_NotEmpty" xml:space="preserve"><value>Esta carpeta todavía tiene subcarpetas o reuniones. Vacíala antes de eliminarla.</value></data>
+  <data name="LibraryMove_Title" xml:space="preserve"><value>Mover reunión</value></data>
+  <data name="LibraryMove_Primary" xml:space="preserve"><value>Mover</value></data>
+  <data name="LibraryMove_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="LibraryPersonality_Title" xml:space="preserve"><value>Personalidad de la carpeta</value></data>
+  <data name="LibraryPersonality_Primary" xml:space="preserve"><value>Guardar</value></data>
+  <data name="LibraryPersonality_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="LibraryPersonality_ColorHeader.Text" xml:space="preserve"><value>Color</value></data>
+  <data name="LibraryPersonality_IconHeader.Text" xml:space="preserve"><value>Ícono</value></data>
+  <data name="TranscriptPage_Notes.Header" xml:space="preserve"><value>Tus notas</value></data>
+  <data name="TranscriptPage_Notes.PlaceholderText" xml:space="preserve"><value>Agrega tus notas para esta reunión</value></data>
+
+  <data name="RecordingSetup.Title" xml:space="preserve"><value>Configurar grabación</value></data>
+  <data name="RecordingSetup.PrimaryButtonText" xml:space="preserve"><value>Configurar</value></data>
+  <data name="RecordingSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="RecordingSetup_Headline.Text" xml:space="preserve"><value>Instala los componentes necesarios antes de grabar. Nada se descarga después de presionar Grabar o Detener.</value></data>
+  <data name="RecordingSetup_Live.Header" xml:space="preserve"><value>Vista previa en vivo (Nemo)</value></data>
+  <data name="RecordingSetup_Engine.Header" xml:space="preserve"><value>Transcripción (Nemotron)</value></data>
+  <data name="RecordingSetup_Summary.Header" xml:space="preserve"><value>Resumen</value></data>
+  <data name="RecordingSetup_Ready" xml:space="preserve"><value>Listo</value></data>
+  <data name="RecordingSetup_NeedsSetup" xml:space="preserve"><value>Necesita configuración</value></data>
+  <data name="RecordingSetup_NotNeeded" xml:space="preserve"><value>No es necesario</value></data>
+  <data name="RecordingSetup_LiveDetail" xml:space="preserve"><value>Subtítulos en pantalla mientras grabas.</value></data>
+  <data name="RecordingSetup_LiveNotNeededDetail" xml:space="preserve"><value>La vista previa en vivo está desactivada. La transcripción guardada sigue usando Nemotron después de detener la grabación.</value></data>
+  <data name="RecordingSetup_EngineDetail" xml:space="preserve"><value>Obligatorio. Transcribe la grabación después de detenerla.</value></data>
+  <data name="RecordingSetup_SummaryNotChosen" xml:space="preserve"><value>No elegido</value></data>
+  <data name="RecordingSetup_SummaryLocal" xml:space="preserve"><value>Local</value></data>
+  <data name="RecordingSetup_SummaryLocalModel" xml:space="preserve"><value>Local: {0}</value></data>
+  <data name="RecordingSetup_SetUp" xml:space="preserve"><value>Configurar</value></data>
+  <data name="RecordingSetup_Done" xml:space="preserve"><value>Listo</value></data>
+  <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Configurar para grabar</value></data>
+  <data name="Status_NeedsSetup" xml:space="preserve"><value>Configura la grabación antes de comenzar.</value></data>
+
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: no se generó ninguna transcripción.</value></data>
+
+  <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Sesión iniciada con SuperGrok</value></data>
+  <data name="Xai_StatusApiKey" xml:space="preserve"><value>Clave de API guardada</value></data>
+  <data name="Xai_StatusSignedOut" xml:space="preserve"><value>Sesión no iniciada</value></data>
+  <data name="Xai_StatusError" xml:space="preserve"><value>{0}</value></data>
+  <data name="Xai_StatusErrorTitle" xml:space="preserve"><value>No se pudo conectar con Grok</value></data>
+  <data name="Xai_StatusSignedOutDetail" xml:space="preserve"><value>Inicia sesión con SuperGrok, o pega una clave de API abajo.</value></data>
+  <data name="Xai_StatusLoadingModels" xml:space="preserve"><value>Cargando tus modelos de Grok…</value></data>
+  <data name="Xai_StatusReady" xml:space="preserve"><value>Listo. Usando {0}.</value></data>
+  <data name="Xai_FeedbackSignedIn" xml:space="preserve"><value>Sesión iniciada con SuperGrok.</value></data>
+  <data name="Xai_FeedbackModel" xml:space="preserve"><value>Guardado. Usando {0}.</value></data>
+  <data name="Xai_FeedbackApiKey" xml:space="preserve"><value>Clave de API guardada.</value></data>
+  <data name="Xai_FeedbackSignedOut" xml:space="preserve"><value>Sesión cerrada en Grok (xAI).</value></data>
+  <data name="Settings_XaiAccount.Header" xml:space="preserve"><value>Grok (xAI)</value></data>
+  <data name="Settings_XaiAccount.Description" xml:space="preserve"><value>Inicia sesión con SuperGrok (código de dispositivo) o pega una clave de API de console.x.ai. Guardar una reemplaza a la otra.</value></data>
+  <data name="Settings_XaiStatus.Header" xml:space="preserve"><value>Cuenta</value></data>
+  <data name="Settings_XaiSignIn.Content" xml:space="preserve"><value>Iniciar sesión con SuperGrok</value></data>
+  <data name="Settings_XaiSignOut.Content" xml:space="preserve"><value>Cerrar sesión</value></data>
+  <data name="Settings_XaiApiKey.Header" xml:space="preserve"><value>Clave de API</value></data>
+  <data name="Settings_XaiApiKey.Description" xml:space="preserve"><value>Opcional. Para quienes prefieran una clave de console.x.ai.</value></data>
+  <data name="Settings_XaiApiKeyBox.PlaceholderText" xml:space="preserve"><value>Clave de API de xAI</value></data>
+  <data name="Settings_XaiSaveApiKey.Content" xml:space="preserve"><value>Guardar</value></data>
+  <data name="Settings_XaiModel.Header" xml:space="preserve"><value>Modelo</value></data>
+  <data name="Settings_XaiEffort.Header" xml:space="preserve"><value>Esfuerzo</value></data>
+  <data name="Settings_XaiEffort.Description" xml:space="preserve"><value>Qué tanto se esfuerza Grok en pensar. Bajo es más rápido; alto es más lento y minucioso.</value></data>
+  <data name="Settings_ClaudeOptions.Header" xml:space="preserve"><value>Claude Code</value></data>
+  <data name="Settings_ClaudeOptions.Description" xml:space="preserve"><value>Alias de modelo y esfuerzo que se pasan a la CLI de Claude.</value></data>
+  <data name="Settings_ClaudeModel.Header" xml:space="preserve"><value>Modelo</value></data>
+  <data name="Settings_ClaudeEffort.Header" xml:space="preserve"><value>Esfuerzo</value></data>
+  <data name="Settings_ClaudeEffort.Description" xml:space="preserve"><value>low, medium, high, xhigh o max.</value></data>
+  <data name="Settings_CodexOptions.Header" xml:space="preserve"><value>Codex</value></data>
+  <data name="Settings_CodexOptions.Description" xml:space="preserve"><value>Modelo y esfuerzo de razonamiento que se pasan a la CLI de Codex.</value></data>
+  <data name="Settings_CodexModel.Header" xml:space="preserve"><value>Modelo</value></data>
+  <data name="Settings_CodexEffort.Header" xml:space="preserve"><value>Esfuerzo</value></data>
+  <data name="Settings_CodexEffort.Description" xml:space="preserve"><value>low, medium, high o xhigh.</value></data>
+  <data name="ComboXaiModel.PlaceholderText" xml:space="preserve"><value>Elige un modelo de Grok</value></data>
+  <data name="XaiAuth.Title" xml:space="preserve"><value>Iniciar sesión en Grok (xAI)</value></data>
+  <data name="XaiAuth.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="XaiAuth_Headline.Text" xml:space="preserve"><value>Usa SuperGrok (abre un navegador) o pega una clave de API de console.x.ai. Guardar una reemplaza a la otra.</value></data>
+  <data name="XaiAuth_SuperGrokHeader.Text" xml:space="preserve"><value>SuperGrok</value></data>
+  <data name="XaiAuth_SuperGrokHint.Text" xml:space="preserve"><value>MeetingLive muestra un código breve y abre xAI. Apruébalo en el navegador y esta ventana se cerrará automáticamente.</value></data>
+  <data name="XaiAuth_SuperGrok.Content" xml:space="preserve"><value>Iniciar sesión con SuperGrok</value></data>
+  <data name="XaiAuth_UserCodeLabel.Text" xml:space="preserve"><value>Ingresa este código si el navegador no lo completa automáticamente:</value></data>
+  <data name="XaiAuth_Waiting.Text" xml:space="preserve"><value>Esperando a que termines de iniciar sesión en el navegador…</value></data>
+  <data name="XaiAuth_ApiKeyHeader.Text" xml:space="preserve"><value>Clave de API</value></data>
+  <data name="XaiAuth_ApiKeyHint.Text" xml:space="preserve"><value>Crea una clave en console.x.ai. Esto se factura por separado de SuperGrok.</value></data>
+  <data name="XaiAuth_ApiKey.PlaceholderText" xml:space="preserve"><value>Clave de API de xAI</value></data>
+  <data name="XaiAuth_SaveApiKey.Content" xml:space="preserve"><value>Guardar clave de API</value></data>
+  <data name="XaiAuth_ApiKeyRequired" xml:space="preserve"><value>Pega primero una clave de API.</value></data>
+
+  <data name="Settings_TypeSafe.Text" xml:space="preserve"><value>TypeSafe (Jev)</value></data>
+  <data name="Settings_TypeSafeEnabled.Header" xml:space="preserve"><value>Verificar elementos de acción con Jev</value></data>
+  <data name="Settings_TypeSafeEnabled.Description" xml:space="preserve"><value>Envía la transcripción a TypeSafe para verificar los elementos de acción. Desactivado de forma predeterminada hasta que guardes una clave.</value></data>
+  <data name="Settings_TypeSafeApiKey.Header" xml:space="preserve"><value>Clave de API</value></data>
+  <data name="Settings_TypeSafeApiKey.Description" xml:space="preserve"><value>Se almacena en este PC con el cifrado de Windows. Nunca se escribe en settings.json.</value></data>
+  <data name="Settings_TypeSafeApiKeyBox.PlaceholderText" xml:space="preserve"><value>Clave de API de TypeSafe</value></data>
+  <data name="Settings_TypeSafeSaveApiKey.Content" xml:space="preserve"><value>Guardar</value></data>
+  <data name="Settings_TypeSafeClearApiKey.Content" xml:space="preserve"><value>Borrar</value></data>
+  <data name="TypeSafe_StatusNotConfigured" xml:space="preserve"><value>No configurado</value></data>
+  <data name="TypeSafe_StatusApiKeySaved" xml:space="preserve"><value>Clave de API guardada</value></data>
+  <data name="TypeSafe_StatusReady" xml:space="preserve"><value>Listo. Usando Jev.</value></data>
+  <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>No se pudo conectar con TypeSafe</value></data>
+  <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>Clave de API guardada.</value></data>
+  <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>Se borró la clave de API de TypeSafe.</value></data>
+  <data name="TypeSafe_CheckFailed" xml:space="preserve"><value>TypeSafe no pudo completar esa solicitud.</value></data>
+  <data name="Status_JevFailed" xml:space="preserve"><value>Resumen guardado. Se omitió la verificación de Jev ({0}).</value></data>
+  <data name="Status_JevChecking" xml:space="preserve"><value>Verificando con Jev...</value></data>
+  <data name="Status_JevRechecked" xml:space="preserve"><value>Verificación de Jev actualizada.</value></data>
+  <data name="SummaryPage_RecheckJev.Text" xml:space="preserve"><value>Volver a verificar con Jev</value></data>
+  <data name="Jev_VerdictVerified" xml:space="preserve"><value>Verificado</value></data>
+  <data name="Jev_VerdictConflicts" xml:space="preserve"><value>Contradice la transcripción</value></data>
+  <data name="Jev_VerdictNeedsReview" xml:space="preserve"><value>Necesita revisión</value></data>
+  <data name="Jev_UrgencyRoutine" xml:space="preserve"><value>Rutinario</value></data>
+  <data name="Jev_UrgencyTimeSensitive" xml:space="preserve"><value>Urgente por tiempo</value></data>
+  <data name="Jev_UrgencyBlocking" xml:space="preserve"><value>Bloqueante</value></data>
+  <data name="Jev_FileInFolder" xml:space="preserve"><value>Archivar en {0}</value></data>
+  <data name="Jev_WarningPii" xml:space="preserve"><value>Esta transcripción puede contener credenciales u otros datos confidenciales.</value></data>
+  <data name="Jev_WarningUnfaithful" xml:space="preserve"><value>Es posible que el resumen no coincida con la transcripción.</value></data>
+  <data name="Jev_WarningPiiAndUnfaithful" xml:space="preserve"><value>Esta transcripción puede contener datos confidenciales, y es posible que el resumen no coincida con la transcripción.</value></data>
+  <data name="Jev_MeetingType_standup" xml:space="preserve"><value>Reunión diaria</value></data>
+  <data name="Jev_MeetingType_one_on_one" xml:space="preserve"><value>Uno a uno</value></data>
+  <data name="Jev_MeetingType_interview" xml:space="preserve"><value>Entrevista</value></data>
+  <data name="Jev_MeetingType_planning" xml:space="preserve"><value>Planificación</value></data>
+  <data name="Jev_MeetingType_review" xml:space="preserve"><value>Revisión</value></data>
+  <data name="Jev_MeetingType_lecture" xml:space="preserve"><value>Clase</value></data>
+  <data name="Jev_MeetingType_sales" xml:space="preserve"><value>Ventas</value></data>
+  <data name="Jev_MeetingType_support" xml:space="preserve"><value>Soporte</value></data>
+  <data name="Jev_MeetingType_other" xml:space="preserve"><value>Otro</value></data>
+  <data name="AskPage_Topic.Header" xml:space="preserve"><value>Tema (opcional)</value></data>
+  <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>p. ej. Agile</value></data>
+  <data name="AskPage_Do.Text" xml:space="preserve"><value>Qué necesito hacer</value></data>
+  <data name="AskPage_EmptyTranscript" xml:space="preserve"><value>Esta reunión todavía no tiene transcripción para preguntar.</value></data>
+  <data name="AskPage_NoApiKey" xml:space="preserve"><value>Guarda una clave de API de TypeSafe en Configuración para preguntarle a esta reunión.</value></data>
+  <data name="AskPage_NothingAsked" xml:space="preserve"><value>No se te pidió nada</value></data>
+  <data name="AskPage_TopicAbsent" xml:space="preserve"><value>Esta reunión no trató {0}</value></data>
+  <data name="AskPage_FromTranscript.Text" xml:space="preserve"><value>De la transcripción</value></data>
+  <data name="AskPage_StatusFinding" xml:space="preserve"><value>Buscando lo que necesitas hacer...</value></data>
+  <data name="AskPage_StatusWriting" xml:space="preserve"><value>Escribiendo tu lista de tareas...</value></data>
+  <data name="AskPage_Copied" xml:space="preserve"><value>Copiado.</value></data>
+  <data name="RecordPage_LiveQuestionNotice.Title" xml:space="preserve"><value>Pregunta detectada</value></data>
+  <data name="RecordPage_LiveQuestionNotice.AutomationProperties.Name" xml:space="preserve"><value>Pregunta detectada</value></data>
+  <data name="RecordPage_LiveAnswer.Content" xml:space="preserve"><value>Responder</value></data>
+  <data name="RecordPage_LiveAnswer.AutomationProperties.Name" xml:space="preserve"><value>Responder la pregunta detectada</value></data>
+  <data name="RecordPage_LiveAnswerTooltip" xml:space="preserve"><value>Responder (Ctrl+Enter)</value></data>
+  <data name="RecordPage_LiveAnswerDismiss.Content" xml:space="preserve"><value>Descartar</value></data>
+  <data name="RecordPage_LiveAnswerDismiss.AutomationProperties.Name" xml:space="preserve"><value>Descartar la pregunta detectada</value></data>
+  <data name="RecordPage_LiveAnswerProvider.Header" xml:space="preserve"><value>Responder con</value></data>
+  <data name="RecordPage_LiveAnswerProvider.AutomationProperties.Name" xml:space="preserve"><value>Proveedor de respuesta en vivo</value></data>
+  <data name="RecordPage_LiveAsk.Header" xml:space="preserve"><value>Preguntar</value></data>
+  <data name="RecordPage_LiveAsk.PlaceholderText" xml:space="preserve"><value>Escribe una pregunta y presiona Ctrl+Enter</value></data>
+  <data name="RecordPage_LiveAsk.AutomationProperties.Name" xml:space="preserve"><value>Escribir una pregunta</value></data>
+  <data name="RecordPage_LiveAskTooltip" xml:space="preserve"><value>Presiona Ctrl+Enter para preguntar</value></data>
+  <data name="RecordPage_LiveAnswerProgress.AutomationProperties.Name" xml:space="preserve"><value>Respondiendo</value></data>
+  <data name="RecordPage_LiveAnswerError.Title" xml:space="preserve"><value>No se pudo responder</value></data>
+  <data name="RecordPage_LiveAnswerError.AutomationProperties.Name" xml:space="preserve"><value>Error de respuesta en vivo</value></data>
+  <data name="RecordPage_LiveAnswerEmpty" xml:space="preserve"><value>La respuesta llegó vacía.</value></data>
+  <data name="RecordPage_LiveAnswerHeading.Text" xml:space="preserve"><value>Respuesta</value></data>
+  <data name="RecordPage_LiveAnswerText.AutomationProperties.Name" xml:space="preserve"><value>Respuesta en vivo</value></data>
+  <data name="ComingUp_Heading.Text" xml:space="preserve"><value>Próximamente</value></data>
+  <data name="ComingUp_Heading.AutomationProperties.Name" xml:space="preserve"><value>Próximamente</value></data>
+  <data name="ComingUp_Previous.Content" xml:space="preserve"><value>Anterior</value></data>
+  <data name="ComingUp_Previous.AutomationProperties.Name" xml:space="preserve"><value>Reuniones anteriores</value></data>
+  <data name="ComingUp_Next.Content" xml:space="preserve"><value>Siguiente</value></data>
+  <data name="ComingUp_Next.AutomationProperties.Name" xml:space="preserve"><value>Próximas reuniones</value></data>
+  <data name="ComingUp_Empty" xml:space="preserve"><value>No hay nada próximamente.</value></data>
+  <data name="ComingUp_AccessDenied" xml:space="preserve"><value>Windows denegó el acceso al calendario. Permite que MeetingLive lea el calendario y vuelve a abrir Grabar.</value></data>
+  <data name="ComingUp_NoPackageIdentity" xml:space="preserve"><value>MeetingLive no puede leer el calendario de Windows porque este inicio no tiene identidad de paquete.</value></data>
+  <data name="ComingUp_TimeRange" xml:space="preserve"><value>{0:t} – {1:t}</value></data>
+  <data name="ComingUp_TimeRangeOtherDay" xml:space="preserve"><value>{0:ddd, MMM d} {1:t} – {2:t}</value></data>
+  <data name="RecordPage_BriefHeading.Text" xml:space="preserve"><value>Informe previo</value></data>
+  <data name="RecordPage_BriefHeading.AutomationProperties.Name" xml:space="preserve"><value>Informe previo a la reunión</value></data>
+  <data name="RecordPage_BriefText.AutomationProperties.Name" xml:space="preserve"><value>Informe previo a la reunión</value></data>
+  <data name="RecordPage_BriefFailed.Title" xml:space="preserve"><value>No se pudo preparar el informe</value></data>
+  <data name="RecordPage_BriefFailed.AutomationProperties.Name" xml:space="preserve"><value>Error del informe</value></data>
+  <data name="RecordPage_BriefFailedFormat" xml:space="preserve"><value>La nota está abierta. No se pudo preparar el informe: {0}</value></data>
+  <data name="RecordPage_NoteTemplate.Header" xml:space="preserve"><value>Plantilla</value></data>
+  <data name="RecordPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Plantilla de notas</value></data>
+  <data name="RecordPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
+  <data name="RecordPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
+  <data name="NoteTemplate_Auto" xml:space="preserve"><value>Automático</value></data>
+  <data name="NoteTemplate_OneOnOne" xml:space="preserve"><value>1:1</value></data>
+  <data name="NoteTemplate_Standup" xml:space="preserve"><value>Reunión diaria</value></data>
+  <data name="NoteTemplate_Sales" xml:space="preserve"><value>Ventas</value></data>
+  <data name="NoteTemplate_UserInterview" xml:space="preserve"><value>Entrevista de usuario</value></data>
+  <data name="CustomTemplate_Title" xml:space="preserve"><value>Plantilla personalizada</value></data>
+  <data name="CustomTemplate_Name.Header" xml:space="preserve"><value>Nombre</value></data>
+  <data name="CustomTemplate_Name.PlaceholderText" xml:space="preserve"><value>Nombra esta plantilla</value></data>
+  <data name="CustomTemplate_Name.AutomationProperties.Name" xml:space="preserve"><value>Nombre de la plantilla</value></data>
+  <data name="CustomTemplate_Instructions.Header" xml:space="preserve"><value>Instrucciones</value></data>
+  <data name="CustomTemplate_Instructions.PlaceholderText" xml:space="preserve"><value>Qué deben incluir las notas mejoradas</value></data>
+  <data name="CustomTemplate_Instructions.AutomationProperties.Name" xml:space="preserve"><value>Instrucciones de la plantilla</value></data>
+  <data name="CustomTemplate_Save" xml:space="preserve"><value>Guardar</value></data>
+  <data name="CustomTemplate_Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="NotesMode_MyNotes.Text" xml:space="preserve"><value>Mis notas</value></data>
+  <data name="NotesMode_MyNotes.AutomationProperties.Name" xml:space="preserve"><value>Mis notas</value></data>
+  <data name="NotesMode_Enhanced.Text" xml:space="preserve"><value>Mejoradas</value></data>
+  <data name="NotesMode_Enhanced.AutomationProperties.Name" xml:space="preserve"><value>Mejoradas</value></data>
+  <data name="SummaryPage_NoteTemplate.Header" xml:space="preserve"><value>Plantilla</value></data>
+  <data name="SummaryPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Plantilla de notas</value></data>
+  <data name="SummaryPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
+  <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
+  <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>Listar acciones</value></data>
+  <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copiar elementos de acción</value></data>
+  <data name="SummaryPage_FollowUp.Content" xml:space="preserve"><value>Redactar correo de seguimiento</value></data>
+  <data name="SummaryPage_FollowUp.AutomationProperties.Name" xml:space="preserve"><value>Redactar correo de seguimiento</value></data>
+  <data name="SummaryPage_ProjectPlan.Content" xml:space="preserve"><value>Redactar plan de proyecto</value></data>
+  <data name="SummaryPage_ProjectPlan.AutomationProperties.Name" xml:space="preserve"><value>Redactar plan de proyecto</value></data>
+  <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>No se pudo crear el borrador</value></data>
+  <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Estado del borrador</value></data>
+  <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No hay elementos de acción para copiar.</value></data>
+  <data name="SummaryPage_ActionsCopied" xml:space="preserve"><value>Elementos de acción copiados al portapapeles.</value></data>
+  <data name="SummaryPage_FollowUpCopied" xml:space="preserve"><value>Seguimiento copiado al portapapeles.</value></data>
+  <data name="SummaryPage_ProjectPlanCopied" xml:space="preserve"><value>Plan de proyecto copiado al portapapeles.</value></data>
+  <data name="SummaryPage_DraftEmpty" xml:space="preserve"><value>El borrador llegó vacío. El resumen no se modificó.</value></data>
+  <data name="Chat_Bar.AutomationProperties.Name" xml:space="preserve"><value>Chat de la reunión</value></data>
+  <data name="Chat_Composer.PlaceholderText" xml:space="preserve"><value>Pregunta sobre tus reuniones</value></data>
+  <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Mensaje</value></data>
+  <data name="Chat_Send.AutomationProperties.Name" xml:space="preserve"><value>Enviar</value></data>
+  <data name="Chat_Send.ToolTipService.ToolTip" xml:space="preserve"><value>Enviar (Enter)</value></data>
+  <data name="Chat_Recipes.AutomationProperties.Name" xml:space="preserve"><value>Recetas</value></data>
+  <data name="Chat_Recipes.ToolTipService.ToolTip" xml:space="preserve"><value>Recetas</value></data>
+  <data name="Chat_History.AutomationProperties.Name" xml:space="preserve"><value>Historial de chat</value></data>
+  <data name="Chat_History.ToolTipService.ToolTip" xml:space="preserve"><value>Historial de chat</value></data>
+  <data name="Chat_New.AutomationProperties.Name" xml:space="preserve"><value>Nuevo chat</value></data>
+  <data name="Chat_New.ToolTipService.ToolTip" xml:space="preserve"><value>Nuevo chat</value></data>
+  <data name="Chat_Provider.Header" xml:space="preserve"><value>Responder con</value></data>
+  <data name="Chat_Provider.AutomationProperties.Name" xml:space="preserve"><value>Proveedor de chat</value></data>
+  <data name="Chat_Transcript.AutomationProperties.Name" xml:space="preserve"><value>Mensajes de chat</value></data>
+  <data name="Chat_Sending.AutomationProperties.Name" xml:space="preserve"><value>Enviando</value></data>
+  <data name="Chat_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copiar</value></data>
+  <data name="Chat_Copy.ToolTipService.ToolTip" xml:space="preserve"><value>Copiar</value></data>
+  <data name="Chat_Error.Title" xml:space="preserve"><value>No se pudo responder</value></data>
+  <data name="Chat_Error.AutomationProperties.Name" xml:space="preserve"><value>Error de chat</value></data>
+  <data name="Chat_SendFailed" xml:space="preserve"><value>No se pudo responder. {0}</value></data>
+  <data name="Chat_EmptyAnswer" xml:space="preserve"><value>La respuesta llegó vacía.</value></data>
+  <data name="Chat_CopyFailed" xml:space="preserve"><value>No se pudo copiar. {0}</value></data>
+  <data name="Chat_UiMarshalFailed" xml:space="preserve"><value>No se pudo mostrar la respuesta en la ventana.</value></data>
+  <data name="Chat_ScopeLive" xml:space="preserve"><value>En vivo</value></data>
+  <data name="Chat_ScopeMeeting" xml:space="preserve"><value>Reunión</value></data>
+  <data name="Chat_ScopeMeetingNamed" xml:space="preserve"><value>Reunión: {0}</value></data>
+  <data name="Chat_ScopeFolder" xml:space="preserve"><value>Carpeta</value></data>
+  <data name="Chat_ScopeFolderNamed" xml:space="preserve"><value>Carpeta: {0}</value></data>
+  <data name="Chat_ScopeAll" xml:space="preserve"><value>Todas las reuniones</value></data>
+  <data name="Chat_ScopeMismatch.Text" xml:space="preserve"><value>Este chat es de otro ámbito. Al enviar se iniciará un nuevo chat.</value></data>
+  <data name="Chat_RoleUser" xml:space="preserve"><value>Tú</value></data>
+  <data name="Chat_RoleAssistant" xml:space="preserve"><value>Asistente</value></data>
+  <data name="Chat_Untitled" xml:space="preserve"><value>Chat sin título</value></data>
+  <data name="Chat_ThreadUpdated" xml:space="preserve"><value>Actualizado {0}</value></data>
+  <data name="Chat_HistoryEmpty.Text" xml:space="preserve"><value>Todavía no hay chats.</value></data>
+  <data name="Chat_NoRecipes.Text" xml:space="preserve"><value>No hay recetas para este ámbito.</value></data>
+  <data name="Chat_CreateRecipe.Content" xml:space="preserve"><value>Nueva receta</value></data>
+  <data name="Chat_CreateRecipe.AutomationProperties.Name" xml:space="preserve"><value>Nueva receta</value></data>
+  <data name="Chat_CreateRecipeTitle" xml:space="preserve"><value>Nueva receta</value></data>
+  <data name="Chat_CreateRecipePrimary" xml:space="preserve"><value>Guardar</value></data>
+  <data name="Chat_CreateRecipeCancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Chat_RecipeName.Header" xml:space="preserve"><value>Nombre</value></data>
+  <data name="Chat_RecipeName.PlaceholderText" xml:space="preserve"><value>Nombre de la receta</value></data>
+  <data name="Chat_RecipePrompt.Header" xml:space="preserve"><value>Instrucción</value></data>
+  <data name="Chat_RecipePrompt.PlaceholderText" xml:space="preserve"><value>¿Qué debería preguntar esta receta?</value></data>
+  <data name="Chat_RecipeAvailability.Header" xml:space="preserve"><value>Disponible para</value></data>
+  <data name="Chat_RecipeSingle" xml:space="preserve"><value>Esta reunión</value></data>
+  <data name="Chat_RecipeMultiple" xml:space="preserve"><value>Varias reuniones</value></data>
+  <data name="Chat_DeleteRecipe.AutomationProperties.Name" xml:space="preserve"><value>Eliminar receta</value></data>
+  <data name="Chat_DeleteRecipe.ToolTipService.ToolTip" xml:space="preserve"><value>Eliminar receta</value></data>
+  <data name="Chat_DeleteRecipeTitle" xml:space="preserve"><value>¿Eliminar receta?</value></data>
+  <data name="Chat_DeleteRecipeContent" xml:space="preserve"><value>¿Eliminar "{0}"? Las recetas integradas se conservan.</value></data>
+  <data name="Chat_DeleteRecipePrimary" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Chat_DeleteRecipeCancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Chat_DeleteThread.AutomationProperties.Name" xml:space="preserve"><value>Eliminar chat</value></data>
+  <data name="Chat_DeleteThread.ToolTipService.ToolTip" xml:space="preserve"><value>Eliminar chat</value></data>
+  <data name="Chat_DeleteThreadTitle" xml:space="preserve"><value>¿Eliminar chat?</value></data>
+  <data name="Chat_DeleteThreadContent" xml:space="preserve"><value>¿Eliminar "{0}"? Esto no se puede deshacer.</value></data>
+  <data name="Chat_DeleteThreadPrimary" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Chat_DeleteThreadCancel" xml:space="preserve"><value>Cancelar</value></data>
+</root>
