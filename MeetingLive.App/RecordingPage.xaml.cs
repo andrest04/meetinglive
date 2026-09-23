@@ -69,7 +69,10 @@ public sealed partial class RecordingPage : Page
         AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
     }
 
-    private async void DiscardRecording_Click(object sender, RoutedEventArgs e)
+    private async void DiscardRecording_Click(object sender, RoutedEventArgs e) =>
+        await ConfirmAndDiscardRecordingAsync();
+
+    private async Task ConfirmAndDiscardRecordingAsync()
     {
         var dialog = AppDialogFactory.CreateConfirm(
             XamlRoot,
@@ -84,6 +87,26 @@ public sealed partial class RecordingPage : Page
 
         if (ViewModel.DiscardRecordingCommand.CanExecute(null))
             await ViewModel.DiscardRecordingCommand.ExecuteAsync(null);
+    }
+
+    private void ToggleRecording_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (ViewModel.ToggleRecordingCommand.CanExecute(null))
+            _ = ViewModel.ToggleRecordingCommand.ExecuteAsync(null);
+    }
+
+    private void TogglePause_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (ViewModel.TogglePauseCommand.CanExecute(null))
+            ViewModel.TogglePauseCommand.Execute(null);
+    }
+
+    private async void DiscardRecording_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await ConfirmAndDiscardRecordingAsync();
     }
 
     private void DestinationComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

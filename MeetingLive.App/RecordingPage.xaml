@@ -24,21 +24,21 @@
     <Grid Padding="24" RowSpacing="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" x:Uid="RecordPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
+        <ScrollViewer Grid.Row="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="20">
 
-        <Grid Grid.Row="1" ColumnSpacing="12">
+        <TextBlock x:Uid="RecordPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
+
+        <Grid ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="Auto" MinWidth="220" />
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0" x:Uid="RecordPage_MeetingTitle"
                      Text="{x:Bind ViewModel.MeetingTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -60,7 +60,7 @@
             </ComboBox>
         </Grid>
 
-        <StackPanel Grid.Row="2" Spacing="8"
+        <StackPanel Spacing="8"
                     Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowComingUp), Mode=OneWay}"
                     AutomationProperties.AutomationId="ComingUpSection">
             <Grid>
@@ -130,7 +130,7 @@
             </ScrollViewer>
         </StackPanel>
 
-        <StackPanel Grid.Row="3" Spacing="8">
+        <StackPanel Spacing="8">
             <StackPanel Spacing="8"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMeetingBrief), Mode=OneWay}"
                         AutomationProperties.AutomationId="BriefSection">
@@ -150,7 +150,7 @@
                      AutomationProperties.AutomationId="InfoBriefError" />
         </StackPanel>
 
-        <Grid Grid.Row="4" Margin="0,8,0,4">
+        <Grid Margin="0,8,0,4">
             <Border MaxWidth="480"
                     HorizontalAlignment="Center"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -210,6 +210,11 @@
                         <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
                         <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
                     </StackPanel>
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control"
+                                             Key="R"
+                                             Invoked="ToggleRecording_AcceleratorInvoked" />
+                    </Button.KeyboardAccelerators>
                 </Button>
             </Grid>
             <Button Command="{x:Bind ViewModel.ImportAudioCommand}"
@@ -231,6 +236,11 @@
                         <FontIcon Glyph="{x:Bind local:RecordingPage.PauseGlyph(ViewModel.IsPaused), Mode=OneWay}" FontSize="16" />
                         <TextBlock Text="{x:Bind local:RecordingPage.PauseLabel(ViewModel.IsPaused), Mode=OneWay}" />
                     </StackPanel>
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control"
+                                             Key="P"
+                                             Invoked="TogglePause_AcceleratorInvoked" />
+                    </Button.KeyboardAccelerators>
                 </Button>
                 <Button Click="DiscardRecording_Click"
                         AutomationProperties.AutomationId="BtnDiscardRecording"
@@ -239,6 +249,11 @@
                         <FontIcon Glyph="&#xE74D;" FontSize="16" />
                         <TextBlock Text="{x:Bind local:RecordingPage.DiscardLabel()}" />
                     </StackPanel>
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Modifiers="Control,Shift"
+                                             Key="D"
+                                             Invoked="DiscardRecording_AcceleratorInvoked" />
+                    </Button.KeyboardAccelerators>
                 </Button>
             </StackPanel>
             <TextBlock x:Uid="RecordPage_ElapsedTime"
@@ -261,7 +276,7 @@
                         Command="{x:Bind ViewModel.CancelProcessingCommand}"
                         AutomationProperties.AutomationId="BtnCancelProcessing" />
             </StackPanel>
-            <StackPanel Spacing="4" Width="280" HorizontalAlignment="Center"
+            <StackPanel Spacing="4" MinWidth="280" HorizontalAlignment="Center"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}">
                 <TextBlock x:Uid="RecordPage_MicLevel"
                            Style="{StaticResource CaptionTextBlockStyle}"
@@ -283,19 +298,21 @@
             </StackPanel>
         </Grid>
 
-        <InfoBar Grid.Row="5"
-                 IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
+        <InfoBar IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
                  IsClosable="False"
                  Severity="{x:Bind local:RecordingPage.StatusSeverity(ViewModel.StatusText), Mode=OneWay}"
                  Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                  HorizontalAlignment="Stretch" />
 
-        <Grid Grid.Row="6" RowSpacing="8">
+        </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="{x:Bind local:RecordingPage.TranscriptRowHeight(ViewModel.ShowSessionNotes), Mode=OneWay}" />
+                <RowDefinition Height="{x:Bind local:RecordingPage.TranscriptRowHeight(ViewModel.ShowSessionNotes), Mode=OneWay}" MinHeight="160" />
                 <RowDefinition Height="{x:Bind local:RecordingPage.NotesRowHeight(ViewModel.ShowSessionNotes), Mode=OneWay}" />
             </Grid.RowDefinitions>
             <Grid ColumnSpacing="12">
@@ -364,7 +381,7 @@
                 </Grid>
                 <Grid ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="Auto" MinWidth="220" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="CmbLiveAnswerProvider"
@@ -502,7 +519,7 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="7"
+        <Border Grid.Row="2"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
