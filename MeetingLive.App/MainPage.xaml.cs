@@ -138,6 +138,13 @@ public sealed partial class MainPage : Page
             _ = Chat.SendCommand.ExecuteAsync(null);
     }
 
+    private void ChatSendAccelerator_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (Chat.SendCommand.CanExecute(null))
+            _ = Chat.SendCommand.ExecuteAsync(null);
+    }
+
     private void TxtMeetingChat_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressRecipeFlyout)

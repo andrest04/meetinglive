@@ -133,20 +133,31 @@
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        AutomationProperties.AutomationId="LblMeetingChatScope" />
-                            <ComboBox x:Name="CmbMeetingChatProvider"
-                                      Grid.Column="1"
-                                      x:Uid="Chat_Provider"
-                                      Width="180"
-                                      HorizontalAlignment="Right"
-                                      ItemsSource="{x:Bind Chat.Providers, Mode=OneTime}"
-                                      SelectionChanged="ChatProvider_SelectionChanged"
-                                      AutomationProperties.AutomationId="CmbMeetingChatProvider">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
-                                        <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
+                            <Button x:Name="BtnMeetingChatProvider"
+                                    Grid.Column="1"
+                                    x:Uid="Chat_Provider"
+                                    HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="BtnMeetingChatProvider">
+                                <FontIcon Glyph="&#xE713;" FontSize="16" />
+                                <Button.Flyout>
+                                    <Flyout x:Name="ChatProviderFlyout"
+                                            Placement="TopEdgeAlignedRight">
+                                        <Grid Width="220">
+                                            <ComboBox x:Name="CmbMeetingChatProvider"
+                                                      HorizontalAlignment="Stretch"
+                                                      ItemsSource="{x:Bind Chat.Providers, Mode=OneTime}"
+                                                      SelectionChanged="ChatProvider_SelectionChanged"
+                                                      AutomationProperties.AutomationId="CmbMeetingChatProvider">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
+                                                        <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </Grid>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
                         </Grid>
 
                         <Grid Grid.Row="4" ColumnSpacing="8">
@@ -164,6 +175,7 @@
                                      TextWrapping="Wrap"
                                      MaxHeight="96"
                                      MinHeight="32"
+                                     MinWidth="180"
                                      VerticalAlignment="Center"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      Text="{x:Bind Chat.Draft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -178,6 +190,12 @@
                                     VerticalAlignment="Bottom"
                                     AutomationProperties.AutomationId="BtnMeetingChatSend">
                                 <FontIcon Glyph="&#xE724;" FontSize="16" />
+                                <Button.KeyboardAccelerators>
+                                    <KeyboardAccelerator x:Name="ChatSendAccelerator"
+                                                         Modifiers="Control"
+                                                         Key="Enter"
+                                                         Invoked="ChatSendAccelerator_Invoked" />
+                                </Button.KeyboardAccelerators>
                             </Button>
                             <Button x:Name="BtnMeetingChatRecipes"
                                     Grid.Column="2"
