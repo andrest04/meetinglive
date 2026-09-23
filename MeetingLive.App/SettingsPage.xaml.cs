@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
+using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App;
@@ -32,6 +33,27 @@ public sealed partial class SettingsPage : Page
     {
         base.OnNavigatedFrom(e);
         ViewModel.StopLevelMeter();
+    }
+
+    private async void UiLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { SelectedItem: UiLanguageOption option })
+            return;
+
+        if (await ViewModel.UiLanguage.ApplyLanguageAsync(option))
+            await ShowLanguageRestartNoticeAsync();
+    }
+
+    // AppStrings.Loader is a process-lifetime Lazy<ResourceLoader> (see AppStrings.cs), so a
+    // language change never takes effect on already-loaded resw text without a restart.
+    private async Task ShowLanguageRestartNoticeAsync()
+    {
+        var dialog = AppDialogFactory.CreateError(
+            XamlRoot,
+            AppStrings.Get("SettingsLanguageRestart_Title"),
+            AppStrings.Get("SettingsLanguageRestart_Content"),
+            AppStrings.Get("Dialog_OK"));
+        await dialog.ShowAsync();
     }
 
     private void ModelRadioButton_Checked(object sender, RoutedEventArgs e)

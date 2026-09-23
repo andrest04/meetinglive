@@ -19,6 +19,8 @@ public partial class SettingsPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _isLoading;
 
+    public UiLanguageSectionViewModel UiLanguage { get; } = new();
+
     public LocalModelSectionViewModel LocalModel { get; } = new();
 
     public SummaryProviderSectionViewModel SummaryProvider { get; } = new();
@@ -57,6 +59,7 @@ public partial class SettingsPageViewModel : ObservableObject
             if (!_isPageVisible)
                 return;
 
+            UiLanguage.ApplyLoadedSettings(settings);
             LocalModel.ApplyLoadedModels(snapshot.Models, settings.SelectedSummaryModelId);
             await SummaryProvider.LoadAsync(settings);
             await TypeSafe.LoadAsync(settings);

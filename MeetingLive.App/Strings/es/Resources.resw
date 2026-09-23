@@ -108,6 +108,13 @@
   <data name="HistoryDelete_Primary" xml:space="preserve"><value>Eliminar</value></data>
   <data name="HistoryDelete_Cancel" xml:space="preserve"><value>Cancelar</value></data>
   <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Configuración</value></data>
+  <data name="Settings_Language.Text" xml:space="preserve"><value>Idioma</value></data>
+  <data name="Settings_LanguagePicker.Header" xml:space="preserve"><value>Idioma de la aplicación</value></data>
+  <data name="Settings_LanguagePicker.Description" xml:space="preserve"><value>Cambia el idioma de las pantallas propias de MeetingLive. Reinicia la aplicación para completar el cambio.</value></data>
+  <data name="Settings_LanguageEnglish" xml:space="preserve"><value>English</value></data>
+  <data name="Settings_LanguageSpanish" xml:space="preserve"><value>Español</value></data>
+  <data name="SettingsLanguageRestart_Title" xml:space="preserve"><value>Reinicio necesario</value></data>
+  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>Reinicia MeetingLive para completar el cambio de idioma.</value></data>
   <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Modelos de resumen</value></data>
   <data name="Settings_SummaryModels.Description" xml:space="preserve"><value>Se ejecuta completamente en este PC: sin cuenta, sin servidor, sin costo. Descarga los modelos que quieras usar y elige uno como activo; elimina los que ya no necesites para liberar espacio en disco.</value></data>
   <data name="Settings_Active.Content" xml:space="preserve"><value>Activo</value></data>

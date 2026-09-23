@@ -152,6 +152,12 @@ public sealed class AppSettings
         return set.Count == 0 ? NoDisabledCalendars : set;
     }
 
+    /// <summary>The BCP-47 UI language tag the user chose in Settings for the app's own display
+    /// language (e.g. "en-US", "es") — independent of <see cref="TranscriptionLanguage"/> and
+    /// <see cref="SummaryLanguage"/>, which control the meeting/summary content language, not the
+    /// app chrome. Null means follow the system default (no override).</summary>
+    public string? UiLanguage { get; set; }
+
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
     public double? NavigationPaneLength { get; set; }
 

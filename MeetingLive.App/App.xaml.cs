@@ -1,11 +1,14 @@
+using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Windows.Globalization;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -79,6 +82,8 @@ public partial class App : Application
     /// <param name="args">Details about the launch request and process.</param>
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        await ApplyPersistedUiLanguageAsync();
+
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
@@ -112,6 +117,48 @@ public partial class App : Application
 
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);
+    }
+
+    /// <summary>
+    /// Re-applies the persisted Settings-page language choice (<see cref="AppSettings.UiLanguage"/>)
+    /// before the first window or resource use, and syncs <see cref="CultureInfo.CurrentUICulture"/>/
+    /// <see cref="CultureInfo.CurrentCulture"/> to match. <c>Windows.Globalization.ApplicationLanguages</c>
+    /// (which the WinUI <c>.resw</c> resource system follows) and <see cref="CultureInfo"/> (which
+    /// <see cref="MeetingLive.Core.Strings.CoreStrings"/> and <c>AppStrings.Format</c>'s date
+    /// formatting follow) are independent systems that do not sync each other. The persisted
+    /// setting — not whatever <c>PrimaryLanguageOverride</c> already holds — is treated as the
+    /// source of truth, matching how every other user preference in this app round-trips through
+    /// <see cref="AppSettingsService"/> rather than relying solely on a platform API's own state.
+    /// </summary>
+    private static async Task ApplyPersistedUiLanguageAsync()
+    {
+        AppSettings settings;
+        try
+        {
+            settings = await AppServices.Settings.LoadAsync();
+        }
+        catch (Exception)
+        {
+            // Best effort — fall back to whatever the OS/ApplicationLanguages already resolved.
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.UiLanguage))
+            return;
+
+        // Re-assert the WinRT override every launch: cheap and idempotent, and guards against the
+        // package-scoped override state ever drifting from our own persisted settings.json.
+        ApplicationLanguages.PrimaryLanguageOverride = settings.UiLanguage;
+
+        if (UiLanguageResolver.ResolveCulture(settings.UiLanguage) is not { } culture)
+            return;
+
+        CultureInfo.CurrentUICulture = culture;
+        CultureInfo.CurrentCulture = culture;
+        // New threads (thread-pool tasks that call CoreStrings/AppStrings off the UI thread)
+        // inherit these, not just the thread OnLaunched happens to run on.
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        CultureInfo.DefaultThreadCurrentCulture = culture;
     }
 
     private static async Task ShowMigrationFailureDialogAsync(Exception ex)
