@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.Windows.AppLifecycle;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
@@ -41,19 +42,32 @@ public sealed partial class SettingsPage : Page
             return;
 
         if (await ViewModel.UiLanguage.ApplyLanguageAsync(option))
-            await ShowLanguageRestartNoticeAsync();
+            await ShowLanguageRestartPromptAsync();
     }
 
     // AppStrings.Loader is a process-lifetime Lazy<ResourceLoader> (see AppStrings.cs), so a
-    // language change never takes effect on already-loaded resw text without a restart.
-    private async Task ShowLanguageRestartNoticeAsync()
+    // language change never takes effect on already-loaded resw text without a restart. Offer to
+    // restart immediately instead of only telling the user to do it themselves.
+    private async Task ShowLanguageRestartPromptAsync()
     {
-        var dialog = AppDialogFactory.CreateError(
+        var dialog = AppDialogFactory.CreateConfirm(
             XamlRoot,
             AppStrings.Get("SettingsLanguageRestart_Title"),
             AppStrings.Get("SettingsLanguageRestart_Content"),
-            AppStrings.Get("Dialog_OK"));
-        await dialog.ShowAsync();
+            AppStrings.Get("SettingsLanguageRestart_RestartNow"),
+            AppStrings.Get("SettingsLanguageRestart_Later"),
+            ContentDialogButton.Primary);
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        // AppInstance.Restart is the official Windows App SDK API for a packaged app to terminate
+        // and relaunch itself with a fresh process/activation — unlike Process.Start or
+        // Environment.Exit, which don't correctly restart a packaged MSIX app's identity. On
+        // success this call tears the process down and never returns. A returned failure reason
+        // (e.g. a restart is already pending, or the current user can't be restarted) means the
+        // restart could not be initiated; leave the app running rather than crash the settings page.
+        _ = AppInstance.Restart(string.Empty);
     }
 
     private void ModelRadioButton_Checked(object sender, RoutedEventArgs e)

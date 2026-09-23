@@ -114,7 +114,9 @@
   <data name="Settings_LanguageEnglish" xml:space="preserve"><value>English</value></data>
   <data name="Settings_LanguageSpanish" xml:space="preserve"><value>Español</value></data>
   <data name="SettingsLanguageRestart_Title" xml:space="preserve"><value>Reinicio necesario</value></data>
-  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>Reinicia MeetingLive para completar el cambio de idioma.</value></data>
+  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>El idioma se aplicará al reiniciar MeetingLive. ¿Deseas reiniciar ahora?</value></data>
+  <data name="SettingsLanguageRestart_RestartNow" xml:space="preserve"><value>Reiniciar ahora</value></data>
+  <data name="SettingsLanguageRestart_Later" xml:space="preserve"><value>Más tarde</value></data>
   <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Modelos de resumen</value></data>
   <data name="Settings_SummaryModels.Description" xml:space="preserve"><value>Se ejecuta completamente en este PC: sin cuenta, sin servidor, sin costo. Descarga los modelos que quieras usar y elige uno como activo; elimina los que ya no necesites para liberar espacio en disco.</value></data>
   <data name="Settings_Active.Content" xml:space="preserve"><value>Activo</value></data>

@@ -114,7 +114,9 @@
   <data name="Settings_LanguageEnglish" xml:space="preserve"><value>English</value></data>
   <data name="Settings_LanguageSpanish" xml:space="preserve"><value>Español</value></data>
   <data name="SettingsLanguageRestart_Title" xml:space="preserve"><value>Restart required</value></data>
-  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>Restart MeetingLive to finish switching the language.</value></data>
+  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>The language will apply once MeetingLive restarts. Restart now?</value></data>
+  <data name="SettingsLanguageRestart_RestartNow" xml:space="preserve"><value>Restart now</value></data>
+  <data name="SettingsLanguageRestart_Later" xml:space="preserve"><value>Later</value></data>
   <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Summary models</value></data>
   <data name="Settings_SummaryModels.Description" xml:space="preserve"><value>Runs entirely on this PC — no account, no server, no cost. Download the models you want to use and pick one as active; delete any you no longer need to reclaim disk space.</value></data>
   <data name="Settings_Active.Content" xml:space="preserve"><value>Active</value></data>
