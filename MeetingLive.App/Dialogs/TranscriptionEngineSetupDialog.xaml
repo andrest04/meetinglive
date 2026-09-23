@@ -9,21 +9,23 @@
     x:Uid="EngineSetup"
     DefaultButton="Close">
 
-    <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
-        <TextBlock x:Uid="EngineSetup_Hint"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource CaptionTextBlockStyle}"
-                   Opacity="0.7" />
-        <ProgressBar IsIndeterminate="False"
-                     Value="{x:Bind ViewModel.DownloadProgressPercent, Mode=OneWay}"
-                     Maximum="100"
-                     AutomationProperties.AutomationId="ProgressTranscriptionEngineDownload" />
-        <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                   TextWrapping="Wrap"
-                   AutomationProperties.AutomationId="TxtTranscriptionEngineStatus" />
-        <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
-                 Severity="Error"
-                 x:Uid="EngineSetup_Failed"
-                 Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
-    </StackPanel>
+    <ScrollViewer MaxHeight="480" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16" MinWidth="420" MaxWidth="420">
+            <TextBlock x:Uid="EngineSetup_Hint"
+                       TextWrapping="Wrap"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Opacity="0.7" />
+            <ProgressBar IsIndeterminate="False"
+                         Value="{x:Bind ViewModel.DownloadProgressPercent, Mode=OneWay}"
+                         Maximum="100"
+                         AutomationProperties.AutomationId="ProgressTranscriptionEngineDownload" />
+            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                       TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="TxtTranscriptionEngineStatus" />
+            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     Severity="Error"
+                     x:Uid="EngineSetup_Failed"
+                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
+        </StackPanel>
+    </ScrollViewer>
 </ContentDialog>
