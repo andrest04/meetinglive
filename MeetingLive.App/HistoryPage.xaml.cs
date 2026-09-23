@@ -234,6 +234,8 @@ public sealed partial class HistoryPage : Page
         AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
     }
 
+    public static string FoldersToggleLabel() => AppStrings.Get("Chat_ScopeFolder");
+
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
