@@ -503,7 +503,8 @@
   <data name="Chat_New.AutomationProperties.Name" xml:space="preserve"><value>New chat</value></data>
   <data name="Chat_New.ToolTipService.ToolTip" xml:space="preserve"><value>New chat</value></data>
   <data name="Chat_Provider.Header" xml:space="preserve"><value>Answer with</value></data>
-  <data name="Chat_Provider.AutomationProperties.Name" xml:space="preserve"><value>Chat provider</value></data>
+  <data name="Chat_ProviderButton.AutomationProperties.Name" xml:space="preserve"><value>Chat provider</value></data>
+  <data name="Chat_ProviderButton.ToolTipService.ToolTip" xml:space="preserve"><value>Chat provider</value></data>
   <data name="Chat_Transcript.AutomationProperties.Name" xml:space="preserve"><value>Chat messages</value></data>
   <data name="Chat_Sending.AutomationProperties.Name" xml:space="preserve"><value>Sending</value></data>
   <data name="Chat_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copy</value></data>

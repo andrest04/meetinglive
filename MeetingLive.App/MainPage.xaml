@@ -135,7 +135,7 @@
                                        AutomationProperties.AutomationId="LblMeetingChatScope" />
                             <Button x:Name="BtnMeetingChatProvider"
                                     Grid.Column="1"
-                                    x:Uid="Chat_Provider"
+                                    x:Uid="Chat_ProviderButton"
                                     HorizontalAlignment="Right"
                                     AutomationProperties.AutomationId="BtnMeetingChatProvider">
                                 <FontIcon Glyph="&#xE713;" FontSize="16" />
@@ -144,6 +144,7 @@
                                             Placement="TopEdgeAlignedRight">
                                         <Grid Width="220">
                                             <ComboBox x:Name="CmbMeetingChatProvider"
+                                                      x:Uid="Chat_Provider"
                                                       HorizontalAlignment="Stretch"
                                                       ItemsSource="{x:Bind Chat.Providers, Mode=OneTime}"
                                                       SelectionChanged="ChatProvider_SelectionChanged"
