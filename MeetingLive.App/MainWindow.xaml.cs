@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
 
@@ -31,6 +32,17 @@ public sealed partial class MainWindow : Window
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         var scale = GetDpiForWindow(hwnd) / 96.0;
         AppWindow.Resize(new SizeInt32((int)(1180 * scale), (int)(760 * scale)));
+
+        // Enforce a minimum window size so fixed-width content (e.g. HistoryPage's
+        // 260+280px sidebars) can never be squeezed below a usable layout.
+        if (AppWindow.Presenter is not OverlappedPresenter presenter)
+        {
+            AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+            presenter = (OverlappedPresenter)AppWindow.Presenter;
+        }
+
+        presenter.PreferredMinimumWidth = (int)(960 * scale);
+        presenter.PreferredMinimumHeight = (int)(680 * scale);
 
         // Navigate the root frame to the main page on startup.
         RootFrame.Navigate(typeof(MainPage));
