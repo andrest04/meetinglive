@@ -1,5 +1,6 @@
 using System.Globalization;
 using MeetingLive.Core.Services;
+using MeetingLive.Core.Strings;
 using MeetingLive.Core.Tests.TestHelpers;
 
 namespace MeetingLive.Core.Tests.Services;
@@ -81,13 +82,13 @@ public class ClaudeCodeCliSummaryProviderTests
     }
 
     [Theory]
-    [InlineData("not logged in", CliFailureKind.NotSignedIn, "session expired")]
-    [InlineData("subscription expired", CliFailureKind.SubscriptionInactive, "subscription")]
-    [InlineData("command not found", CliFailureKind.NotInstalled, "not installed")]
-    [InlineData("request timed out", CliFailureKind.TimedOut, "took too long")]
-    [InlineData("model crashed mysteriously", CliFailureKind.Unknown, "could not finish")]
+    [InlineData("not logged in", CliFailureKind.NotSignedIn, "CliFailureNotSignedIn")]
+    [InlineData("subscription expired", CliFailureKind.SubscriptionInactive, "CliFailureSubscriptionInactive")]
+    [InlineData("command not found", CliFailureKind.NotInstalled, "CliFailureNotInstalled")]
+    [InlineData("request timed out", CliFailureKind.TimedOut, "CliFailureTimedOut")]
+    [InlineData("model crashed mysteriously", CliFailureKind.Unknown, "CliFailureUnknown")]
     public async Task SummarizeAsync_WhenCliFails_ThrowsClassifiedCliToolException(
-        string stderr, CliFailureKind expectedKind, string expectedPhrase)
+        string stderr, CliFailureKind expectedKind, string expectedMessageKey)
     {
         var runner = new FakeCliProcessRunner((_, _, _) =>
             new CliProcessResult(1, string.Empty, stderr));
@@ -98,7 +99,10 @@ public class ClaudeCodeCliSummaryProviderTests
 
         Assert.Equal(expectedKind, exception.Kind);
         Assert.Equal(CliFailureMapper.ClaudeCodeDisplayName, exception.ProviderDisplayName);
-        Assert.Contains(expectedPhrase, exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            CoreStrings.Format(expectedMessageKey, CliFailureMapper.ClaudeCodeDisplayName),
+            exception.Message,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("exited with code", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 

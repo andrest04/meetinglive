@@ -1,4 +1,5 @@
 using MeetingLive.Core.Services;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Tests.Services;
 
@@ -68,7 +69,7 @@ public class CliFailureMapperTests
 
         Assert.Equal(CliFailureKind.NotSignedIn, exception.Kind);
         Assert.Equal("Claude Code", exception.ProviderDisplayName);
-        Assert.Contains("session expired", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(CoreStrings.Format("CliFailureNotSignedIn", "Claude Code"), exception.Message);
         Assert.DoesNotContain("exited with code", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("not logged in", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -84,7 +85,7 @@ public class CliFailureMapperTests
 
         Assert.Equal(CliFailureKind.Unknown, exception.Kind);
         Assert.Equal("Codex", exception.ProviderDisplayName);
-        Assert.StartsWith("Codex could not finish the summary.", exception.Message);
+        Assert.StartsWith(CoreStrings.Format("CliFailureUnknown", "Codex"), exception.Message);
         Assert.DoesNotContain("exited with code", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sk-secret", exception.Message);
         Assert.Contains("[redacted]", exception.Message);
@@ -97,7 +98,7 @@ public class CliFailureMapperTests
         var wrapped = CliFailureMapper.Wrap("Claude Code", new TimeoutException("'claude' did not exit within 00:05:00."));
 
         Assert.Equal(CliFailureKind.TimedOut, wrapped.Kind);
-        Assert.Contains("took too long", wrapped.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(CoreStrings.Format("CliFailureTimedOut", "Claude Code"), wrapped.Message);
         Assert.IsType<TimeoutException>(wrapped.InnerException);
     }
 }

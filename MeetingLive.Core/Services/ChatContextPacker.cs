@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Services;
 
@@ -18,13 +19,13 @@ public static class ChatContextPacker
     public const int NotesMaxChars = 400;
     public const int MeetingCap = 12;
 
-    public const string LiveTranscriptEmptyMessage = "The live transcript is empty.";
-    public const string MeetingNotFoundMessage = "The meeting was not found.";
-    public const string TranscriptEmptyMessage = "The transcript is empty.";
-    public const string FolderNotSelectedMessage = "No folder was selected.";
-    public const string FolderNotFoundMessage = "The folder was not found.";
-    public const string NoMeetingsInFolderMessage = "No meetings in this folder.";
-    public const string NoMeetingsSavedMessage = "No meetings are saved.";
+    public static string LiveTranscriptEmptyMessage => CoreStrings.Get("ChatLiveTranscriptEmpty");
+    public static string MeetingNotFoundMessage => CoreStrings.Get("ChatMeetingNotFound");
+    public static string TranscriptEmptyMessage => CoreStrings.Get("ChatTranscriptEmpty");
+    public static string FolderNotSelectedMessage => CoreStrings.Get("ChatFolderNotSelected");
+    public static string FolderNotFoundMessage => CoreStrings.Get("ChatFolderNotFound");
+    public static string NoMeetingsInFolderMessage => CoreStrings.Get("ChatNoMeetingsInFolder");
+    public static string NoMeetingsSavedMessage => CoreStrings.Get("ChatNoMeetingsSaved");
 
     public static string Pack(
         ChatScopeKind scopeKind,

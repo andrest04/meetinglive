@@ -1,3 +1,5 @@
+using MeetingLive.Core.Strings;
+
 namespace MeetingLive.Core.Models;
 
 /// <summary>One entry in the curated meeting-language catalog. <see cref="Code"/> doubles as the
@@ -14,16 +16,16 @@ public static class TranscriptionLanguageCatalog
 {
     public static readonly IReadOnlyList<TranscriptionLanguageOption> Languages =
     [
-        new TranscriptionLanguageOption("auto", "Auto (detect)"),
-        new TranscriptionLanguageOption("en", "English"),
-        new TranscriptionLanguageOption("es", "Spanish"),
-        new TranscriptionLanguageOption("pt", "Portuguese"),
-        new TranscriptionLanguageOption("fr", "French"),
-        new TranscriptionLanguageOption("de", "German"),
-        new TranscriptionLanguageOption("it", "Italian"),
-        new TranscriptionLanguageOption("nl", "Dutch"),
-        new TranscriptionLanguageOption("ja", "Japanese"),
-        new TranscriptionLanguageOption("zh", "Chinese"),
+        new TranscriptionLanguageOption("auto", CoreStrings.Get("LanguageAutoDetect")),
+        new TranscriptionLanguageOption("en", CoreStrings.Get("LanguageEnglish")),
+        new TranscriptionLanguageOption("es", CoreStrings.Get("LanguageSpanish")),
+        new TranscriptionLanguageOption("pt", CoreStrings.Get("LanguagePortuguese")),
+        new TranscriptionLanguageOption("fr", CoreStrings.Get("LanguageFrench")),
+        new TranscriptionLanguageOption("de", CoreStrings.Get("LanguageGerman")),
+        new TranscriptionLanguageOption("it", CoreStrings.Get("LanguageItalian")),
+        new TranscriptionLanguageOption("nl", CoreStrings.Get("LanguageDutch")),
+        new TranscriptionLanguageOption("ja", CoreStrings.Get("LanguageJapanese")),
+        new TranscriptionLanguageOption("zh", CoreStrings.Get("LanguageChinese")),
     ];
 }
 
@@ -33,7 +35,7 @@ public static class SummaryLanguageCatalog
 {
     public static readonly IReadOnlyList<TranscriptionLanguageOption> Languages =
     [
-        new TranscriptionLanguageOption("es", "Spanish"),
-        new TranscriptionLanguageOption("en", "English"),
+        new TranscriptionLanguageOption("es", CoreStrings.Get("LanguageSpanish")),
+        new TranscriptionLanguageOption("en", CoreStrings.Get("LanguageEnglish")),
     ];
 }

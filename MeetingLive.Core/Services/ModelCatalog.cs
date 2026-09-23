@@ -1,4 +1,5 @@
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Services;
 
@@ -20,35 +21,35 @@ public static class ModelCatalog
             DownloadUrl: "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             FileSizeGb: 0.81,
             MinRamGb: 4,
-            Speed: "Very fast",
-            Quality: "Good",
-            UseCase: "Modest PCs / laptops without a GPU"),
+            Speed: CoreStrings.Get("ModelSpeedVeryFast"),
+            Quality: CoreStrings.Get("ModelQualityGood"),
+            UseCase: CoreStrings.Get("ModelUseCaseModestPcs")),
         new SummaryModelInfo(
             FileName: "gemma-4-E2B-it-Q4_K_M.gguf",
             DisplayName: "Gemma 4 E2B Instruct",
             DownloadUrl: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
             FileSizeGb: 3.11,
             MinRamGb: 6,
-            Speed: "Fast",
-            Quality: "Very good",
-            UseCase: "Recommended default balance"),
+            Speed: CoreStrings.Get("ModelSpeedFast"),
+            Quality: CoreStrings.Get("ModelQualityVeryGood"),
+            UseCase: CoreStrings.Get("ModelUseCaseRecommendedDefault")),
         new SummaryModelInfo(
             FileName: "gemma-4-E4B-it-Q4_K_M.gguf",
             DisplayName: "Gemma 4 E4B Instruct",
             DownloadUrl: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf",
             FileSizeGb: 4.98,
             MinRamGb: 8,
-            Speed: "Medium",
-            Quality: "Excellent",
-            UseCase: "PC with 16GB+ RAM or a dedicated GPU"),
+            Speed: CoreStrings.Get("ModelSpeedMedium"),
+            Quality: CoreStrings.Get("ModelQualityExcellent"),
+            UseCase: CoreStrings.Get("ModelUseCasePc16GbOrGpu")),
         new SummaryModelInfo(
             FileName: "gemma-4-12b-it-Q4_K_M.gguf",
             DisplayName: "Gemma 4 12B Instruct",
             DownloadUrl: "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf",
             FileSizeGb: 7.12,
             MinRamGb: 16,
-            Speed: "Slow without GPU",
-            Quality: "Excellent",
-            UseCase: "GPU only (8GB+ VRAM), current state of the art in its class"),
+            Speed: CoreStrings.Get("ModelSpeedSlowWithoutGpu"),
+            Quality: CoreStrings.Get("ModelQualityExcellent"),
+            UseCase: CoreStrings.Get("ModelUseCaseGpuOnly")),
     ];
 }

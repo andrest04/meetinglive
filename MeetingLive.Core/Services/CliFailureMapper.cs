@@ -1,6 +1,6 @@
 using System.ComponentModel;
-using System.Globalization;
 using System.Text.RegularExpressions;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Services;
 
@@ -88,30 +88,12 @@ public static class CliFailureMapper
 
     public static string BuildMessage(CliFailureKind kind, string providerDisplayName) => kind switch
     {
-        CliFailureKind.NotInstalled => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} is not installed. Install it, or pick another summary engine in Settings.",
-            providerDisplayName),
-        CliFailureKind.NotSignedIn => string.Format(
-            CultureInfo.InvariantCulture,
-            "Your {0} session expired. Sign in again on this PC, then generate the summary from the session.",
-            providerDisplayName),
-        CliFailureKind.SubscriptionInactive => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} could not run this request. The subscription on this account may have ended. Renew it, or switch summary engine in Settings.",
-            providerDisplayName),
-        CliFailureKind.TimedOut => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} took too long and was stopped. Try again, or switch engine in Settings.",
-            providerDisplayName),
-        CliFailureKind.EmptyOutput => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} returned nothing. Try again, or switch engine in Settings.",
-            providerDisplayName),
-        _ => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} could not finish the summary.",
-            providerDisplayName),
+        CliFailureKind.NotInstalled => CoreStrings.Format("CliFailureNotInstalled", providerDisplayName),
+        CliFailureKind.NotSignedIn => CoreStrings.Format("CliFailureNotSignedIn", providerDisplayName),
+        CliFailureKind.SubscriptionInactive => CoreStrings.Format("CliFailureSubscriptionInactive", providerDisplayName),
+        CliFailureKind.TimedOut => CoreStrings.Format("CliFailureTimedOut", providerDisplayName),
+        CliFailureKind.EmptyOutput => CoreStrings.Format("CliFailureEmptyOutput", providerDisplayName),
+        _ => CoreStrings.Format("CliFailureUnknown", providerDisplayName),
     };
 
     public static string? SanitizeSnippet(string? text, int maxLength = SnippetMaxChars)

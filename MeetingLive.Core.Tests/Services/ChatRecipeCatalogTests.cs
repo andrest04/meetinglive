@@ -1,5 +1,6 @@
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Tests.Services;
 
@@ -13,13 +14,13 @@ public class ChatRecipeCatalogTests
 
         Assert.Equal(
             [
-                "What's been discussed",
-                "Action items",
-                "Follow-up email",
-                "What should I do next",
-                "Top feature requests",
-                "Recurring themes",
-                "Weekly update",
+                CoreStrings.Get("RecipeDiscussedName"),
+                CoreStrings.Get("RecipeActionItemsName"),
+                CoreStrings.Get("RecipeFollowUpEmailName"),
+                CoreStrings.Get("RecipeNextStepsName"),
+                CoreStrings.Get("RecipeFeatureRequestsName"),
+                CoreStrings.Get("RecipeRecurringThemesName"),
+                CoreStrings.Get("RecipeWeeklyUpdateName"),
             ],
             builtIns.Select(recipe => recipe.Name).ToList());
         Assert.All(builtIns.Take(4), recipe => Assert.Equal(ChatRecipe.SingleAvailability, recipe.Availability));

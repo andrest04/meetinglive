@@ -1,4 +1,5 @@
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Services;
 
@@ -20,19 +21,19 @@ public static class ChatRecipeCatalog
 
     public static IReadOnlyList<ChatRecipe> BuiltIns { get; } =
     [
-        Recipe(DiscussedId, "What's been discussed", ChatRecipe.SingleAvailability,
+        Recipe(DiscussedId, CoreStrings.Get("RecipeDiscussedName"), ChatRecipe.SingleAvailability,
             "Give a short recap of what has been discussed so far."),
-        Recipe(ActionItemsId, "Action items", ChatRecipe.SingleAvailability,
+        Recipe(ActionItemsId, CoreStrings.Get("RecipeActionItemsName"), ChatRecipe.SingleAvailability,
             "Extract owners and next steps. If the owner is not in the context, say unassigned."),
-        Recipe(FollowUpEmailId, "Follow-up email", ChatRecipe.SingleAvailability,
+        Recipe(FollowUpEmailId, CoreStrings.Get("RecipeFollowUpEmailName"), ChatRecipe.SingleAvailability,
             "Draft a concise follow-up email. Do not send it."),
-        Recipe(NextStepsId, "What should I do next", ChatRecipe.SingleAvailability,
+        Recipe(NextStepsId, CoreStrings.Get("RecipeNextStepsName"), ChatRecipe.SingleAvailability,
             "List my next steps from this meeting."),
-        Recipe(FeatureRequestsId, "Top feature requests", ChatRecipe.MultipleAvailability,
+        Recipe(FeatureRequestsId, CoreStrings.Get("RecipeFeatureRequestsName"), ChatRecipe.MultipleAvailability,
             "Group product feedback into themes."),
-        Recipe(RecurringThemesId, "Recurring themes", ChatRecipe.MultipleAvailability,
+        Recipe(RecurringThemesId, CoreStrings.Get("RecipeRecurringThemesName"), ChatRecipe.MultipleAvailability,
             "Identify patterns across the packed meetings."),
-        Recipe(WeeklyUpdateId, "Weekly update", ChatRecipe.MultipleAvailability,
+        Recipe(WeeklyUpdateId, CoreStrings.Get("RecipeWeeklyUpdateName"), ChatRecipe.MultipleAvailability,
             "Write bullets of decisions, blockers, and next steps. Draft only. Do not send it."),
     ];
 

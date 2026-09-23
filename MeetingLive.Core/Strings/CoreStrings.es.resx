@@ -61,4 +61,127 @@
   <data name="Sample_Greeting" xml:space="preserve">
     <value>Hola</value>
   </data>
+  <data name="CliFailureNotInstalled" xml:space="preserve">
+    <value>{0} no está instalado. Instálalo o elige otro motor de resumen en Configuración.</value>
+  </data>
+  <data name="CliFailureNotSignedIn" xml:space="preserve">
+    <value>Tu sesión de {0} expiró. Inicia sesión de nuevo en este equipo y luego genera el resumen desde la sesión.</value>
+  </data>
+  <data name="CliFailureSubscriptionInactive" xml:space="preserve">
+    <value>{0} no pudo completar esta solicitud. Es posible que la suscripción de esta cuenta haya finalizado. Renuévala o cambia de motor de resumen en Configuración.</value>
+  </data>
+  <data name="CliFailureTimedOut" xml:space="preserve">
+    <value>{0} tardó demasiado y se detuvo. Inténtalo de nuevo o cambia de motor en Configuración.</value>
+  </data>
+  <data name="CliFailureEmptyOutput" xml:space="preserve">
+    <value>{0} no devolvió ningún resultado. Inténtalo de nuevo o cambia de motor en Configuración.</value>
+  </data>
+  <data name="CliFailureUnknown" xml:space="preserve">
+    <value>{0} no pudo terminar el resumen.</value>
+  </data>
+  <data name="ChatLiveTranscriptEmpty" xml:space="preserve">
+    <value>La transcripción en vivo está vacía.</value>
+  </data>
+  <data name="ChatMeetingNotFound" xml:space="preserve">
+    <value>No se encontró la reunión.</value>
+  </data>
+  <data name="ChatTranscriptEmpty" xml:space="preserve">
+    <value>La transcripción está vacía.</value>
+  </data>
+  <data name="ChatFolderNotSelected" xml:space="preserve">
+    <value>No se seleccionó ninguna carpeta.</value>
+  </data>
+  <data name="ChatFolderNotFound" xml:space="preserve">
+    <value>No se encontró la carpeta.</value>
+  </data>
+  <data name="ChatNoMeetingsInFolder" xml:space="preserve">
+    <value>No hay reuniones en esta carpeta.</value>
+  </data>
+  <data name="ChatNoMeetingsSaved" xml:space="preserve">
+    <value>No hay reuniones guardadas.</value>
+  </data>
+  <data name="RecipeDiscussedName" xml:space="preserve">
+    <value>Qué se ha hablado</value>
+  </data>
+  <data name="RecipeActionItemsName" xml:space="preserve">
+    <value>Tareas pendientes</value>
+  </data>
+  <data name="RecipeFollowUpEmailName" xml:space="preserve">
+    <value>Correo de seguimiento</value>
+  </data>
+  <data name="RecipeNextStepsName" xml:space="preserve">
+    <value>Qué debo hacer a continuación</value>
+  </data>
+  <data name="RecipeFeatureRequestsName" xml:space="preserve">
+    <value>Principales solicitudes de funciones</value>
+  </data>
+  <data name="RecipeRecurringThemesName" xml:space="preserve">
+    <value>Temas recurrentes</value>
+  </data>
+  <data name="RecipeWeeklyUpdateName" xml:space="preserve">
+    <value>Actualización semanal</value>
+  </data>
+  <data name="ModelSpeedVeryFast" xml:space="preserve">
+    <value>Muy rápido</value>
+  </data>
+  <data name="ModelSpeedFast" xml:space="preserve">
+    <value>Rápido</value>
+  </data>
+  <data name="ModelSpeedMedium" xml:space="preserve">
+    <value>Medio</value>
+  </data>
+  <data name="ModelSpeedSlowWithoutGpu" xml:space="preserve">
+    <value>Lento sin GPU</value>
+  </data>
+  <data name="ModelQualityGood" xml:space="preserve">
+    <value>Buena</value>
+  </data>
+  <data name="ModelQualityVeryGood" xml:space="preserve">
+    <value>Muy buena</value>
+  </data>
+  <data name="ModelQualityExcellent" xml:space="preserve">
+    <value>Excelente</value>
+  </data>
+  <data name="ModelUseCaseModestPcs" xml:space="preserve">
+    <value>Equipos modestos o portátiles sin GPU</value>
+  </data>
+  <data name="ModelUseCaseRecommendedDefault" xml:space="preserve">
+    <value>Equilibrio predeterminado recomendado</value>
+  </data>
+  <data name="ModelUseCasePc16GbOrGpu" xml:space="preserve">
+    <value>Equipo con 16 GB o más de RAM, o con GPU dedicada</value>
+  </data>
+  <data name="ModelUseCaseGpuOnly" xml:space="preserve">
+    <value>Solo con GPU (8 GB o más de VRAM), lo más avanzado en su categoría</value>
+  </data>
+  <data name="LanguageAutoDetect" xml:space="preserve">
+    <value>Automático (detectar)</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>Inglés</value>
+  </data>
+  <data name="LanguageSpanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="LanguagePortuguese" xml:space="preserve">
+    <value>Portugués</value>
+  </data>
+  <data name="LanguageFrench" xml:space="preserve">
+    <value>Francés</value>
+  </data>
+  <data name="LanguageGerman" xml:space="preserve">
+    <value>Alemán</value>
+  </data>
+  <data name="LanguageItalian" xml:space="preserve">
+    <value>Italiano</value>
+  </data>
+  <data name="LanguageDutch" xml:space="preserve">
+    <value>Neerlandés</value>
+  </data>
+  <data name="LanguageJapanese" xml:space="preserve">
+    <value>Japonés</value>
+  </data>
+  <data name="LanguageChinese" xml:space="preserve">
+    <value>Chino</value>
+  </data>
 </root>

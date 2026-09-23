@@ -1,5 +1,6 @@
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
+using MeetingLive.Core.Strings;
 
 namespace MeetingLive.Core.Tests.Services;
 
@@ -43,7 +44,7 @@ public class ChatRecipeListTests
         var listed = ChatRecipeList.ForScope(ChatScopeKind.Meeting, [collision]);
 
         var discussed = Assert.Single(listed, recipe => recipe.Id == ChatRecipeCatalog.DiscussedId);
-        Assert.Equal("What's been discussed", discussed.Name);
+        Assert.Equal(CoreStrings.Get("RecipeDiscussedName"), discussed.Name);
         Assert.NotEqual("Replaced", discussed.Name);
     }
 
