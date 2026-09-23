@@ -39,7 +39,7 @@
                           Visibility="{x:Bind local:AskPage.BoolToVisibility(ViewModel.IsAsking), Mode=OneWay}" />
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                        VerticalAlignment="Center"
-                       Opacity="0.7"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        TextWrapping="Wrap" />
         </StackPanel>
 
@@ -77,7 +77,7 @@
             <TextBlock Grid.Row="1"
                        x:Uid="AskPage_FromTranscript"
                        Style="{StaticResource CaptionTextBlockStyle}"
-                       Opacity="0.7"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,8,0,0"
                        Visibility="{x:Bind local:AskPage.BoolToVisibility(ViewModel.HasHits), Mode=OneWay}" />
 
@@ -99,7 +99,7 @@
                             <TextBlock Text="{x:Bind Text, Mode=OneWay}" TextWrapping="Wrap" />
                             <TextBlock Text="{x:Bind ScorePercent, Mode=OneWay}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                       Opacity="0.7" />
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>

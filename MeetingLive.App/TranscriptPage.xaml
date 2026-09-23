@@ -21,7 +21,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.Title, Mode=OneWay}"
-                       Style="{StaticResource BodyStrongTextBlockStyle}" Opacity="0.8" VerticalAlignment="Center" />
+                       Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.HasContent), Mode=OneWay}">
                 <Button x:Uid="TranscriptPage_Copy" Command="{x:Bind ViewModel.CopyToClipboardCommand}"
@@ -45,7 +45,7 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
                 <TextBlock x:Uid="TranscriptPage_Empty"
-                           Opacity="0.7" HorizontalAlignment="Center" TextAlignment="Center" />
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" TextAlignment="Center" />
                 <Button x:Uid="TranscriptPage_EmptyCta"
                         Style="{StaticResource AccentButtonStyle}"
                         HorizontalAlignment="Center"
