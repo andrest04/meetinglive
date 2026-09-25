@@ -270,11 +270,6 @@ public sealed partial class RecordingPage : Page
     public static Visibility NonEmptyVisibility(string? text) =>
         string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
 
-    public static GridLength TranscriptRowHeight(bool showNotes) => new(1, GridUnitType.Star);
-
-    public static GridLength NotesRowHeight(bool showNotes) =>
-        showNotes ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
-
     private void ApplyNoteTemplateSelection()
     {
         _applyingNoteTemplate = true;
