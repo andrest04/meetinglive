@@ -17,6 +17,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -49,13 +50,43 @@
             </StackPanel>
         </Grid>
 
-        <InfoBar Grid.Row="2"
+        <StackPanel Grid.Row="2" Spacing="4"
+                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasRelatedMeetings), Mode=OneWay}">
+            <TextBlock x:Uid="SummaryPage_RelatedMeetings" Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <ListView ItemsSource="{x:Bind ViewModel.RelatedMeetingItems, Mode=OneWay}"
+                      SelectionMode="None"
+                      IsItemClickEnabled="True"
+                      ItemClick="RelatedMeeting_ItemClick"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.HorizontalScrollMode="Enabled"
+                      ScrollViewer.VerticalScrollMode="Disabled"
+                      AutomationProperties.AutomationId="ListRelatedMeetings">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsStackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:RelatedMeetingItem">
+                        <StackPanel Margin="0,0,16,0">
+                            <TextBlock Text="{x:Bind Title, Mode=OneTime}" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                            <TextBlock Text="{x:Bind DateLabel, Mode=OneTime}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
+
+        <InfoBar Grid.Row="3"
                  x:Uid="SummaryPage_CopyConfirmation"
                  Severity="Success"
                  IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
                  AutomationProperties.AutomationId="InfoCopySummary" />
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="12"
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
             <Button Command="{x:Bind ViewModel.GenerateSummaryCommand}"
                     Style="{StaticResource AccentButtonStyle}"
@@ -77,7 +108,7 @@
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <StackPanel Grid.Row="4" Spacing="8"
+        <StackPanel Grid.Row="5" Spacing="8"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowNoteTemplate), Mode=OneWay}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -122,7 +153,7 @@
                      AutomationProperties.AutomationId="InfoDraftStatus" />
         </StackPanel>
 
-        <Grid Grid.Row="5">
+        <Grid Grid.Row="6">
             <TextBox x:Uid="SummaryPage_Notes"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"

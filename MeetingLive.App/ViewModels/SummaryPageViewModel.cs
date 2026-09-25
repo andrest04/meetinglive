@@ -74,6 +74,13 @@ public partial class SummaryPageViewModel : ObservableObject
 
     public ObservableCollection<NoteTemplateOption> NoteTemplates { get; } = [];
 
+    /// <summary>Other meetings sharing this one's calendar series or exact title — same
+    /// deterministic match <c>RecordingPageViewModel</c> uses for the pre-meeting brief, just
+    /// surfaced here so past occurrences stay one click away instead of only feeding a prompt.</summary>
+    public ObservableCollection<RelatedMeetingItem> RelatedMeetingItems { get; } = [];
+
+    public bool HasRelatedMeetings => RelatedMeetingItems.Count > 0;
+
     public Guid? MeetingId => _record?.Id;
 
     /// <summary>Chrome that only makes sense while looking at the summary side of the tab —
@@ -145,6 +152,7 @@ public partial class SummaryPageViewModel : ObservableObject
                 ? NoteTemplateCatalog.AutoId
                 : _record.NoteTemplateId;
             await LoadNoteTemplatesAsync();
+            await LoadRelatedMeetingsAsync();
             LoadActionItems();
         }
         finally
@@ -293,6 +301,29 @@ public partial class SummaryPageViewModel : ObservableObject
     {
         await AppServices.NoteTemplates.SaveAsync(template);
         await LoadNoteTemplatesAsync(NoteTemplateCatalog.CustomId);
+    }
+
+    private const int MaxRelatedMeetings = 5;
+
+    private async Task LoadRelatedMeetingsAsync()
+    {
+        RelatedMeetingItems.Clear();
+        if (_record is not null)
+        {
+            var candidates = await _meetings.GetAllAsync();
+            var related = MeetingLive.Core.Services.RelatedMeetings.Find(_record, candidates);
+            foreach (var meeting in related.Take(MaxRelatedMeetings))
+                RelatedMeetingItems.Add(RelatedMeetingItem.From(meeting));
+        }
+
+        OnPropertyChanged(nameof(HasRelatedMeetings));
+    }
+
+    [RelayCommand]
+    private void OpenRelatedMeeting(Guid id)
+    {
+        AppServices.Workspace.SelectMeeting(id);
+        AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
     }
 
     private bool CanDraft() => HasSummary && !IsGenerating && !IsDrafting;

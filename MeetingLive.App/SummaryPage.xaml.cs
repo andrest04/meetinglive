@@ -42,6 +42,12 @@ public sealed partial class SummaryPage : Page
         AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
     }
 
+    private void RelatedMeeting_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is RelatedMeetingItem item && ViewModel.OpenRelatedMeetingCommand.CanExecute(item.Id))
+            ViewModel.OpenRelatedMeetingCommand.Execute(item.Id);
+    }
+
     private async Task<bool> ConfirmRegenerateAsync()
     {
         var dialog = AppDialogFactory.CreateConfirm(

@@ -90,6 +90,7 @@
   <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
   <data name="SummaryPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
   <data name="SummaryPage_CopyConfirmation.Message" xml:space="preserve"><value>Resumen copiado al portapapeles.</value></data>
+  <data name="SummaryPage_RelatedMeetings.Text" xml:space="preserve"><value>Reuniones relacionadas</value></data>
   <data name="SummaryRegenerate_Title" xml:space="preserve"><value>¿Reemplazar este resumen?</value></data>
   <data name="SummaryRegenerate_Content" xml:space="preserve"><value>Regenerar sobrescribirá el resumen y los elementos de acción de "{0}".</value></data>
   <data name="SummaryRegenerate_Primary" xml:space="preserve"><value>Regenerar</value></data>
