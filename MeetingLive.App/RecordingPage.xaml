@@ -31,6 +31,36 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- AdaptiveTrigger measures the window, not the page. The nav pane expands at 1008 and takes ~280+, so the side-by-side layout
+             starts at 1100 to keep the transcript wide enough; below that everything stacks. -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="WideState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="SidePanel.(Grid.Row)" Value="0" />
+                        <Setter Target="SidePanel.(Grid.Column)" Value="1" />
+                        <Setter Target="SidePanel.Width" Value="320" />
+                        <Setter Target="SidePanel.Margin" Value="16,0,0,0" />
+                        <Setter Target="SidePanelFirstRow.Height" Value="*" />
+                        <Setter Target="SessionNotesPanel.(Grid.Row)" Value="0" />
+                        <Setter Target="LiveAnswerHost.(Grid.Row)" Value="1" />
+                        <Setter Target="LiveAnswerHost.Margin" Value="0,8,0,0" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowState">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="TxtRecordingNotes.MaxHeight" Value="200" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <StackPanel Grid.Row="0" Spacing="12">
 
         <StackPanel Spacing="20"
@@ -397,208 +427,246 @@
 
         </StackPanel>
 
-        <Grid Grid.Row="1" RowSpacing="8">
+        <!-- Row 1 holds two regions: the transcript column (transcript + docked ask row) and the side panel (answer + notes).
+             Narrow: the side panel is a second row under the transcript column. Wide (see LayoutStates): it becomes a fixed-width
+             right column. The elements are moved with Grid.Row/Column setters, never duplicated. -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" MinHeight="160" />
+                <RowDefinition Height="*" MinHeight="260" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
-                           Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
-                           Style="{StaticResource BodyStrongTextBlockStyle}"
-                           VerticalAlignment="Center" />
-                <!-- While recording, Copy lives in the compact control bar; this one serves the saved transcript. -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                            Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
-                    <Button x:Uid="RecordPage_Copy"
-                            Command="{x:Bind ViewModel.CopyToClipboardCommand}"
-                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
-                            AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
-                </StackPanel>
-            </Grid>
-            <StackPanel Grid.Row="1" Spacing="8"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
-                <Grid ColumnSpacing="8"
-                      Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasArmedQuestion), Mode=OneWay}">
+
+            <Grid Grid.Row="0" Grid.Column="0" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="160" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <InfoBar Grid.Column="0"
-                             x:Uid="RecordPage_LiveQuestionNotice"
-                             IsOpen="True"
-                             IsClosable="False"
-                             Severity="Informational"
-                             Message="{x:Bind ViewModel.ArmedQuestion, Mode=OneWay}"
-                             VerticalAlignment="Center"
-                             AutomationProperties.AutomationId="InfoLiveQuestion" />
-                    <Button Grid.Column="1"
-                            x:Name="BtnLiveAnswer"
-                            x:Uid="RecordPage_LiveAnswer"
-                            Command="{x:Bind ViewModel.ConfirmLiveAnswerCommand}"
-                            Style="{StaticResource AccentButtonStyle}"
-                            VerticalAlignment="Center"
-                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAnswerTooltip()}"
-                            AutomationProperties.AutomationId="BtnLiveAnswer">
-                        <Button.KeyboardAccelerators>
-                            <KeyboardAccelerator x:Name="LiveAnswerAccelerator"
-                                                 Modifiers="Control"
-                                                 Key="Enter"
-                                                 Invoked="LiveAnswer_AcceleratorInvoked" />
-                        </Button.KeyboardAccelerators>
-                    </Button>
-                    <Button Grid.Column="2"
-                            x:Uid="RecordPage_LiveAnswerDismiss"
-                            Command="{x:Bind ViewModel.DismissArmedQuestionCommand}"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="BtnLiveAnswerDismiss" />
+                    <TextBlock Grid.Column="0"
+                               Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               VerticalAlignment="Center" />
+                    <!-- While recording, Copy lives in the compact control bar; this one serves the saved transcript. -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                        <Button x:Uid="RecordPage_Copy"
+                                Command="{x:Bind ViewModel.CopyToClipboardCommand}"
+                                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
+                                AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
+                    </StackPanel>
                 </Grid>
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="220" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="CmbLiveAnswerProvider"
-                              x:Uid="RecordPage_LiveAnswerProvider"
-                              ItemsSource="{x:Bind ViewModel.LiveAnswerProviders, Mode=OneWay}"
-                              SelectionChanged="LiveAnswerProvider_SelectionChanged"
-                              HorizontalAlignment="Stretch"
-                              AutomationProperties.AutomationId="CmbLiveAnswerProvider">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
-                                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBox x:Name="TxtLiveAsk"
-                             Grid.Column="1"
-                             x:Uid="RecordPage_LiveAsk"
-                             AcceptsReturn="False"
-                             Text="{x:Bind ViewModel.LiveAskText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAskTooltip()}"
-                             AutomationProperties.AutomationId="TxtLiveAsk">
-                        <TextBox.KeyboardAccelerators>
-                            <KeyboardAccelerator x:Name="LiveAskAccelerator"
-                                                 Modifiers="Control"
-                                                 Key="Enter"
-                                                 Invoked="LiveAsk_AcceleratorInvoked" />
-                        </TextBox.KeyboardAccelerators>
-                    </TextBox>
-                </Grid>
-                <ProgressRing x:Uid="RecordPage_LiveAnswerProgress"
-                              IsActive="{x:Bind ViewModel.IsAnswering, Mode=OneWay}"
-                              Width="20"
-                              Height="20"
-                              HorizontalAlignment="Left"
-                              Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsAnswering), Mode=OneWay}"
-                              AutomationProperties.AutomationId="ProgressLiveAnswer" />
-                <InfoBar x:Uid="RecordPage_LiveAnswerError"
-                         IsOpen="{x:Bind ViewModel.HasLiveAnswerError, Mode=OneWay}"
-                         IsClosable="False"
-                         Severity="Error"
-                         Message="{x:Bind ViewModel.LiveAnswerError, Mode=OneWay}"
-                         AutomationProperties.AutomationId="InfoLiveAnswerError" />
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                <InfoBar Grid.Row="1"
+                         x:Uid="RecordPage_CopyConfirmation"
+                         Severity="Success"
+                         IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
+                         AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
+                <Border Grid.Row="2"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="{ThemeResource ControlCornerRadius}"
                         Padding="16"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLiveAnswer), Mode=OneWay}">
-                    <StackPanel Spacing="8">
-                        <TextBlock x:Uid="RecordPage_LiveAnswerHeading"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <ScrollViewer MaxHeight="160"
-                                      VerticalScrollBarVisibility="Auto"
-                                      HorizontalScrollBarVisibility="Disabled">
-                            <TextBlock x:Uid="RecordPage_LiveAnswerText"
-                                       Text="{x:Bind ViewModel.LiveAnswerText, Mode=OneWay}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch">
+                    <ScrollViewer x:Name="LiveTranscriptScroll"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  ViewChanged="LiveTranscriptScroll_ViewChanged">
+                        <Grid>
+                            <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap"
+                                       VerticalAlignment="Top"
+                                        Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}" />
+                            <TextBlock x:Name="LiveTranscriptBlock"
                                        IsTextSelectionEnabled="True"
-                                       AutomationProperties.AutomationId="TxtLiveAnswer" />
-                        </ScrollViewer>
-                    </StackPanel>
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Top"
+                                       LostFocus="LiveTranscriptBlock_LostFocus"
+                                       AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
+                        </Grid>
+                    </ScrollViewer>
                 </Border>
-            </StackPanel>
-            <InfoBar Grid.Row="2"
-                     x:Uid="RecordPage_CopyConfirmation"
-                     Severity="Success"
-                     IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
-                     AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
-            <Border Grid.Row="3"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="{ThemeResource ControlCornerRadius}"
-                    Padding="16"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch">
-                <ScrollViewer x:Name="LiveTranscriptScroll"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              ViewChanged="LiveTranscriptScroll_ViewChanged">
-                    <Grid>
-                        <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   TextWrapping="Wrap"
-                                   VerticalAlignment="Top"
-                                    Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}" />
-                        <TextBlock x:Name="LiveTranscriptBlock"
-                                   IsTextSelectionEnabled="True"
-                                   TextWrapping="Wrap"
-                                   VerticalAlignment="Top"
-                                   LostFocus="LiveTranscriptBlock_LostFocus"
-                                   AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
+
+                <!-- Live-ask dock: chat-composer row under the transcript. The answer card lives in the side panel so it never resizes the transcript. -->
+                <StackPanel Grid.Row="3" Spacing="8"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                    <Grid ColumnSpacing="8"
+                          Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasArmedQuestion), Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <InfoBar Grid.Column="0"
+                                 x:Uid="RecordPage_LiveQuestionNotice"
+                                 IsOpen="True"
+                                 IsClosable="False"
+                                 Severity="Informational"
+                                 Message="{x:Bind ViewModel.ArmedQuestion, Mode=OneWay}"
+                                 VerticalAlignment="Center"
+                                 AutomationProperties.AutomationId="InfoLiveQuestion" />
+                        <Button Grid.Column="1"
+                                x:Name="BtnLiveAnswer"
+                                x:Uid="RecordPage_LiveAnswer"
+                                Command="{x:Bind ViewModel.ConfirmLiveAnswerCommand}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAnswerTooltip()}"
+                                AutomationProperties.AutomationId="BtnLiveAnswer">
+                            <Button.KeyboardAccelerators>
+                                <KeyboardAccelerator x:Name="LiveAnswerAccelerator"
+                                                     Modifiers="Control"
+                                                     Key="Enter"
+                                                     Invoked="LiveAnswer_AcceleratorInvoked" />
+                            </Button.KeyboardAccelerators>
+                        </Button>
+                        <Button Grid.Column="2"
+                                x:Uid="RecordPage_LiveAnswerDismiss"
+                                Command="{x:Bind ViewModel.DismissArmedQuestionCommand}"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="BtnLiveAnswerDismiss" />
                     </Grid>
-                </ScrollViewer>
-            </Border>
-            <Grid Grid.Row="4" RowSpacing="8"
+                    <InfoBar x:Uid="RecordPage_LiveAnswerError"
+                             IsOpen="{x:Bind ViewModel.HasLiveAnswerError, Mode=OneWay}"
+                             IsClosable="False"
+                             Severity="Error"
+                             Message="{x:Bind ViewModel.LiveAnswerError, Mode=OneWay}"
+                             AutomationProperties.AutomationId="InfoLiveAnswerError" />
+                    <!-- Provider and question share one row with no visible headers; names and hints come from the same resources the x:Uid versions used. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CmbLiveAnswerProvider"
+                                  MinWidth="140"
+                                  Margin="0,0,8,0"
+                                  ItemsSource="{x:Bind ViewModel.LiveAnswerProviders, Mode=OneWay}"
+                                  SelectionChanged="LiveAnswerProvider_SelectionChanged"
+                                  ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAnswerProviderTooltip()}"
+                                  AutomationProperties.Name="{x:Bind local:RecordingPage.LiveAnswerProviderName()}"
+                                  AutomationProperties.AutomationId="CmbLiveAnswerProvider">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
+                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBox x:Name="TxtLiveAsk"
+                                 Grid.Column="1"
+                                 AcceptsReturn="False"
+                                 PlaceholderText="{x:Bind local:RecordingPage.LiveAskPlaceholder()}"
+                                 Text="{x:Bind ViewModel.LiveAskText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAskTooltip()}"
+                                 AutomationProperties.Name="{x:Bind local:RecordingPage.LiveAskName()}"
+                                 AutomationProperties.AutomationId="TxtLiveAsk">
+                            <TextBox.KeyboardAccelerators>
+                                <KeyboardAccelerator x:Name="LiveAskAccelerator"
+                                                     Modifiers="Control"
+                                                     Key="Enter"
+                                                     Invoked="LiveAsk_AcceleratorInvoked" />
+                            </TextBox.KeyboardAccelerators>
+                        </TextBox>
+                        <ProgressRing Grid.Column="2"
+                                      x:Uid="RecordPage_LiveAnswerProgress"
+                                      IsActive="{x:Bind ViewModel.IsAnswering, Mode=OneWay}"
+                                      Width="20"
+                                      Height="20"
+                                      Margin="8,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsAnswering), Mode=OneWay}"
+                                      AutomationProperties.AutomationId="ProgressLiveAnswer" />
+                    </Grid>
+                </StackPanel>
+            </Grid>
+
+            <!-- Side panel: live answer card + session notes. Only visible while notes are (recording, processing, or a coming-up note). -->
+            <Grid x:Name="SidePanel"
+                  Grid.Row="1"
+                  Grid.Column="0"
+                  Margin="0,8,0,0"
                   Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSessionNotes), Mode=OneWay}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition x:Name="SidePanelFirstRow" Height="Auto" />
+                    <RowDefinition x:Name="SidePanelSecondRow" Height="Auto" />
                 </Grid.RowDefinitions>
-                <Grid ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="CmbNoteTemplate"
-                              x:Uid="RecordPage_NoteTemplate"
-                              ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
-                              SelectionChanged="NoteTemplate_SelectionChanged"
-                              HorizontalAlignment="Stretch"
-                              AutomationProperties.AutomationId="CmbNoteTemplate">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:NoteTemplateOption">
-                                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <Button Grid.Column="1"
-                            x:Uid="RecordPage_SaveCustomTemplate"
-                            Click="SaveCustomTemplate_Click"
-                            VerticalAlignment="Bottom"
-                            AutomationProperties.AutomationId="BtnSaveCustomTemplate" />
+                <StackPanel x:Name="LiveAnswerHost"
+                            Grid.Row="0"
+                            Margin="0,0,0,8"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{ThemeResource ControlCornerRadius}"
+                            Padding="16"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLiveAnswer), Mode=OneWay}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Uid="RecordPage_LiveAnswerHeading"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <ScrollViewer MaxHeight="160"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <TextBlock x:Uid="RecordPage_LiveAnswerText"
+                                           Text="{x:Bind ViewModel.LiveAnswerText, Mode=OneWay}"
+                                           TextWrapping="Wrap"
+                                           IsTextSelectionEnabled="True"
+                                           AutomationProperties.AutomationId="TxtLiveAnswer" />
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <Grid x:Name="SessionNotesPanel" Grid.Row="1" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CmbNoteTemplate"
+                                  x:Uid="RecordPage_NoteTemplate"
+                                  ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
+                                  SelectionChanged="NoteTemplate_SelectionChanged"
+                                  HorizontalAlignment="Stretch"
+                                  AutomationProperties.AutomationId="CmbNoteTemplate">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:NoteTemplateOption">
+                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1"
+                                x:Uid="RecordPage_SaveCustomTemplate"
+                                Click="SaveCustomTemplate_Click"
+                                VerticalAlignment="Bottom"
+                                AutomationProperties.AutomationId="BtnSaveCustomTemplate" />
+                    </Grid>
+                    <TextBox x:Name="TxtRecordingNotes"
+                             Grid.Row="1"
+                             x:Uid="RecordPage_SessionNotes"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             MinHeight="96"
+                             VerticalAlignment="Stretch"
+                             Text="{x:Bind ViewModel.SessionNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             LostFocus="Notes_LostFocus"
+                             AutomationProperties.AutomationId="TxtRecordingNotes" />
                 </Grid>
-                <TextBox Grid.Row="1"
-                         x:Uid="RecordPage_SessionNotes"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         MinHeight="96"
-                         MaxHeight="200"
-                         VerticalAlignment="Stretch"
-                         Text="{x:Bind ViewModel.SessionNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         LostFocus="Notes_LostFocus"
-                         AutomationProperties.AutomationId="TxtRecordingNotes" />
             </Grid>
         </Grid>
 

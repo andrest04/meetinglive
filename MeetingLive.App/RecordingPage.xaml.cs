@@ -244,6 +244,15 @@ public sealed partial class RecordingPage : Page
 
     public static string LiveAskTooltip() => AppStrings.Get("RecordPage_LiveAskTooltip");
 
+    // The live-ask row shows no visible headers, so these reuse the x:Uid resources (name, hint) without applying their Header.
+    public static string LiveAskName() => AppStrings.Get("RecordPage_LiveAsk.AutomationProperties.Name");
+
+    public static string LiveAskPlaceholder() => AppStrings.Get("RecordPage_LiveAsk.PlaceholderText");
+
+    public static string LiveAnswerProviderName() => AppStrings.Get("RecordPage_LiveAnswerProvider.AutomationProperties.Name");
+
+    public static string LiveAnswerProviderTooltip() => AppStrings.Get("RecordPage_LiveAnswerProvider.Header");
+
     public static string LiveAnswerTooltip() => AppStrings.Get("RecordPage_LiveAnswerTooltip");
 
     public static InfoBarSeverity StatusSeverity(string statusText) =>
