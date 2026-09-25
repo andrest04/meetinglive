@@ -42,6 +42,11 @@ public sealed class MeetingJevService(TypeSafeApiClient api, ITypeSafeCredential
         {
             var analyzer = new MeetingJevAnalyzer(api, credentials.ApiKey);
             var analysis = await analyzer.AnalyzeAsync(request, cancellationToken);
+
+            record.ActionItems = MeetingJevPresentation.FilterOutContradicted(record.ActionItems, analysis.ActionItems);
+            if (MeetingJevPresentation.TryGetSuggestedFolderId(analysis, record.FolderId, out var suggestedFolderId))
+                record.FolderId = suggestedFolderId;
+
             record.JevAnalysis = analysis;
             return analysis;
         }

@@ -1,6 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using MeetingLive.Core.Models;
-using MeetingLive.Core.Services;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -14,11 +13,10 @@ public sealed partial class ActionItemViewModel : ObservableObject
 {
     private readonly ActionItem _model;
 
-    public ActionItemViewModel(ActionItem model, ActionItemVerdict? verdict = null)
+    public ActionItemViewModel(ActionItem model)
     {
         _model = model;
         _isDone = model.IsDone;
-        ApplyVerdict(verdict);
     }
 
     public string Text => _model.Text;
@@ -26,24 +24,5 @@ public sealed partial class ActionItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDone;
 
-    [ObservableProperty]
-    private string _verdictCaption = string.Empty;
-
-    public bool ShowVerdictCaption => !string.IsNullOrEmpty(VerdictCaption);
-
     partial void OnIsDoneChanged(bool value) => _model.IsDone = value;
-
-    partial void OnVerdictCaptionChanged(string value) =>
-        OnPropertyChanged(nameof(ShowVerdictCaption));
-
-    public void ApplyVerdict(ActionItemVerdict? verdict)
-    {
-        VerdictCaption = ActionItemVerdictDisplay.CaptionKind(verdict) switch
-        {
-            ActionItemVerdictCaptionKind.Verified => AppStrings.Get("Jev_VerdictVerified"),
-            ActionItemVerdictCaptionKind.Conflicts => AppStrings.Get("Jev_VerdictConflicts"),
-            ActionItemVerdictCaptionKind.NeedsReview => AppStrings.Get("Jev_VerdictNeedsReview"),
-            _ => string.Empty,
-        };
-    }
 }

@@ -381,30 +381,6 @@
   <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>No se pudo conectar con TypeSafe</value></data>
   <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>Clave de API guardada.</value></data>
   <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>Se borró la clave de API de TypeSafe.</value></data>
-  <data name="TypeSafe_CheckFailed" xml:space="preserve"><value>TypeSafe no pudo completar esa solicitud.</value></data>
-  <data name="Status_JevFailed" xml:space="preserve"><value>Resumen guardado. Se omitió la verificación de Jev ({0}).</value></data>
-  <data name="Status_JevChecking" xml:space="preserve"><value>Verificando con Jev...</value></data>
-  <data name="Status_JevRechecked" xml:space="preserve"><value>Verificación de Jev actualizada.</value></data>
-  <data name="SummaryPage_RecheckJev.Text" xml:space="preserve"><value>Volver a verificar con Jev</value></data>
-  <data name="Jev_VerdictVerified" xml:space="preserve"><value>Verificado</value></data>
-  <data name="Jev_VerdictConflicts" xml:space="preserve"><value>Contradice la transcripción</value></data>
-  <data name="Jev_VerdictNeedsReview" xml:space="preserve"><value>Necesita revisión</value></data>
-  <data name="Jev_UrgencyRoutine" xml:space="preserve"><value>Rutinario</value></data>
-  <data name="Jev_UrgencyTimeSensitive" xml:space="preserve"><value>Urgente por tiempo</value></data>
-  <data name="Jev_UrgencyBlocking" xml:space="preserve"><value>Bloqueante</value></data>
-  <data name="Jev_FileInFolder" xml:space="preserve"><value>Archivar en {0}</value></data>
-  <data name="Jev_WarningPii" xml:space="preserve"><value>Esta transcripción puede contener credenciales u otros datos confidenciales.</value></data>
-  <data name="Jev_WarningUnfaithful" xml:space="preserve"><value>Es posible que el resumen no coincida con la transcripción.</value></data>
-  <data name="Jev_WarningPiiAndUnfaithful" xml:space="preserve"><value>Esta transcripción puede contener datos confidenciales, y es posible que el resumen no coincida con la transcripción.</value></data>
-  <data name="Jev_MeetingType_standup" xml:space="preserve"><value>Reunión diaria</value></data>
-  <data name="Jev_MeetingType_one_on_one" xml:space="preserve"><value>Uno a uno</value></data>
-  <data name="Jev_MeetingType_interview" xml:space="preserve"><value>Entrevista</value></data>
-  <data name="Jev_MeetingType_planning" xml:space="preserve"><value>Planificación</value></data>
-  <data name="Jev_MeetingType_review" xml:space="preserve"><value>Revisión</value></data>
-  <data name="Jev_MeetingType_lecture" xml:space="preserve"><value>Clase</value></data>
-  <data name="Jev_MeetingType_sales" xml:space="preserve"><value>Ventas</value></data>
-  <data name="Jev_MeetingType_support" xml:space="preserve"><value>Soporte</value></data>
-  <data name="Jev_MeetingType_other" xml:space="preserve"><value>Otro</value></data>
   <data name="AskPage_Topic.Header" xml:space="preserve"><value>Tema (opcional)</value></data>
   <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>p. ej. Agile</value></data>
   <data name="AskPage_Do.Text" xml:space="preserve"><value>Qué necesito hacer</value></data>

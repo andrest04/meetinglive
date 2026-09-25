@@ -132,19 +132,16 @@ public sealed class RecordingPipelineOrchestrator(
             if (!string.Equals(saveTitle, title, StringComparison.Ordinal))
                 AppServices.Workspace.NotifyMeetingChanged(meetingId);
 
-            var doneMessage = AppStrings.Get("Status_DoneWithSummary");
             try
             {
-                var jevStatus = await MeetingJevRunner.TryAnalyzeAndSaveAsync(record, meetings, cancellationToken);
-                if (jevStatus is not null)
-                    doneMessage = jevStatus;
+                await MeetingJevRunner.TryAnalyzeAndSaveAsync(record, meetings, cancellationToken);
             }
             catch (OperationCanceledException)
             {
                 // Summary is already saved; do not take the summary-failed path.
             }
 
-            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, doneMessage));
+            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, AppStrings.Get("Status_DoneWithSummary")));
         }
         catch (OperationCanceledException)
         {

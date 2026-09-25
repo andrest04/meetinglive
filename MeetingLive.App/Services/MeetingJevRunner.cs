@@ -4,12 +4,15 @@ using MeetingLive.Core.Services;
 namespace MeetingLive_App.Services;
 
 /// <summary>
-/// App-layer Jev run after a summary. Failures never wipe transcript or summary;
-/// the caller shows <c>Status_JevFailed</c> when a check was attempted and skipped.
+/// App-layer Jev run after a summary. Entirely silent by design: it only ever edits the
+/// record (dropping contradicted action items, filing a suggested folder — see
+/// <see cref="MeetingJevPresentation"/>) before saving it, and never surfaces its own
+/// status. Any failure (settings, credentials, network) leaves the transcript and summary
+/// untouched.
 /// </summary>
 internal static class MeetingJevRunner
 {
-    public static async Task<string?> TryAnalyzeAndSaveAsync(
+    public static async Task TryAnalyzeAndSaveAsync(
         MeetingRecord record,
         IMeetingRepository meetings,
         CancellationToken cancellationToken)
@@ -22,20 +25,24 @@ internal static class MeetingJevRunner
         {
             settings = await AppServices.Settings.LoadAsync();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException)
         {
-            return AppStrings.Format("Status_JevFailed", CliFailureUserMessage.Format(ex));
+            throw;
+        }
+        catch (Exception)
+        {
+            return;
         }
 
         if (!settings.TypeSafeEnabled)
-            return null;
+            return;
 
         var credentials = AppServices.TypeSafeCredentials.Load();
         if (credentials is null || string.IsNullOrWhiteSpace(credentials.ApiKey))
-            return null;
+            return;
 
         if (string.IsNullOrWhiteSpace(record.Transcript))
-            return null;
+            return;
 
         try
         {
@@ -50,22 +57,18 @@ internal static class MeetingJevRunner
             if (analysis is not null)
             {
                 await meetings.SaveAsync(record, cancellationToken);
-                return null;
+                AppServices.Workspace.NotifyMeetingChanged(record.Id);
             }
-
-            return AppStrings.Format("Status_JevFailed", AppStrings.Get("TypeSafe_CheckFailed"));
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (TypeSafeException ex)
+        catch (TypeSafeException)
         {
-            return AppStrings.Format("Status_JevFailed", ex.Message);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return AppStrings.Format("Status_JevFailed", CliFailureUserMessage.Format(ex));
         }
     }
 }

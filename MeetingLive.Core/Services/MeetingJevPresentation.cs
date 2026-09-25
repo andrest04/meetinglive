@@ -2,30 +2,33 @@ using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
 
-/// <summary>Confidence gates for the Summary-page Jev strip. Raw probabilities stay on the model.</summary>
+/// <summary>
+/// Confidence gates that turn a Jev analysis into silent record edits — no UI reads these
+/// verdicts directly; they only ever mutate the record before it is shown or saved.
+/// </summary>
 public static class MeetingJevPresentation
 {
-    public const double PiiWarningThreshold = 0.7;
-    public const double UnfaithfulThreshold = 0.4;
-
-    public static bool ShowMeetingType(MeetingJevAnalysis analysis) =>
-        !string.IsNullOrWhiteSpace(analysis.MeetingType) &&
-        analysis.MeetingTypeConfidence >= MeetingJevAnalyzer.AutoAcceptConfidence;
-
-    public static int? UrgencyLabelScore(MeetingJevAnalysis analysis)
+    /// <summary>Drops action items Jev contradicts with high confidence. Leaves the list
+    /// untouched (same reference) when there is nothing to remove.</summary>
+    public static IReadOnlyList<ActionItem> FilterOutContradicted(
+        IReadOnlyList<ActionItem> actionItems,
+        IReadOnlyList<ActionItemVerdict> verdicts)
     {
-        if (analysis.UrgencyConfidence is not { } confidence ||
-            confidence < MeetingJevAnalyzer.AutoAcceptConfidence)
-            return null;
+        if (actionItems.Count == 0 || verdicts.Count == 0)
+            return actionItems;
 
-        return (int)Math.Clamp(Math.Round(analysis.UrgencyScore, MidpointRounding.AwayFromZero), 0, 2);
+        var contradicted = verdicts
+            .Where(verdict =>
+                verdict.Confidence >= MeetingJevAnalyzer.AutoAcceptConfidence &&
+                string.Equals(verdict.Relation, "contradicts", StringComparison.OrdinalIgnoreCase))
+            .Select(verdict => verdict.Text)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (contradicted.Count == 0)
+            return actionItems;
+
+        return actionItems.Where(item => !contradicted.Contains(item.Text)).ToList();
     }
-
-    public static bool ShowPiiWarning(MeetingJevAnalysis analysis) =>
-        analysis.PiiRisk >= PiiWarningThreshold;
-
-    public static bool ShowFaithfulWarning(MeetingJevAnalysis analysis) =>
-        analysis.SummaryFaithful is { } faithful && faithful < UnfaithfulThreshold;
 
     public static bool TryGetSuggestedFolderId(
         MeetingJevAnalysis analysis,

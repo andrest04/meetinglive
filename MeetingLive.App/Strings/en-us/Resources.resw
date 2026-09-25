@@ -381,30 +381,6 @@
   <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>Could not reach TypeSafe</value></data>
   <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>API key saved.</value></data>
   <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>TypeSafe API key cleared.</value></data>
-  <data name="TypeSafe_CheckFailed" xml:space="preserve"><value>TypeSafe could not complete that request.</value></data>
-  <data name="Status_JevFailed" xml:space="preserve"><value>Summary saved. Jev check skipped ({0}).</value></data>
-  <data name="Status_JevChecking" xml:space="preserve"><value>Checking with Jev...</value></data>
-  <data name="Status_JevRechecked" xml:space="preserve"><value>Jev check updated.</value></data>
-  <data name="SummaryPage_RecheckJev.Text" xml:space="preserve"><value>Recheck with Jev</value></data>
-  <data name="Jev_VerdictVerified" xml:space="preserve"><value>Verified</value></data>
-  <data name="Jev_VerdictConflicts" xml:space="preserve"><value>Conflicts with transcript</value></data>
-  <data name="Jev_VerdictNeedsReview" xml:space="preserve"><value>Needs review</value></data>
-  <data name="Jev_UrgencyRoutine" xml:space="preserve"><value>Routine</value></data>
-  <data name="Jev_UrgencyTimeSensitive" xml:space="preserve"><value>Time-sensitive</value></data>
-  <data name="Jev_UrgencyBlocking" xml:space="preserve"><value>Blocking</value></data>
-  <data name="Jev_FileInFolder" xml:space="preserve"><value>File in {0}</value></data>
-  <data name="Jev_WarningPii" xml:space="preserve"><value>This transcript may contain credentials or other secrets.</value></data>
-  <data name="Jev_WarningUnfaithful" xml:space="preserve"><value>The summary may not match the transcript.</value></data>
-  <data name="Jev_WarningPiiAndUnfaithful" xml:space="preserve"><value>This transcript may contain secrets, and the summary may not match the transcript.</value></data>
-  <data name="Jev_MeetingType_standup" xml:space="preserve"><value>Stand-up</value></data>
-  <data name="Jev_MeetingType_one_on_one" xml:space="preserve"><value>One-on-one</value></data>
-  <data name="Jev_MeetingType_interview" xml:space="preserve"><value>Interview</value></data>
-  <data name="Jev_MeetingType_planning" xml:space="preserve"><value>Planning</value></data>
-  <data name="Jev_MeetingType_review" xml:space="preserve"><value>Review</value></data>
-  <data name="Jev_MeetingType_lecture" xml:space="preserve"><value>Lecture</value></data>
-  <data name="Jev_MeetingType_sales" xml:space="preserve"><value>Sales</value></data>
-  <data name="Jev_MeetingType_support" xml:space="preserve"><value>Support</value></data>
-  <data name="Jev_MeetingType_other" xml:space="preserve"><value>Other</value></data>
   <data name="AskPage_Topic.Header" xml:space="preserve"><value>Topic (optional)</value></data>
   <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>e.g. Agile</value></data>
   <data name="AskPage_Do.Text" xml:space="preserve"><value>What do I need to do</value></data>

@@ -6,69 +6,72 @@ namespace MeetingLive.Core.Tests.Services;
 public class MeetingJevPresentationTests
 {
     [Fact]
-    public void ShowMeetingType_WhenConfidenceAtLeastAutoAccept_IsTrue()
+    public void FilterOutContradicted_WhenVerdictContradictsWithHighConfidence_RemovesItem()
     {
-        var analysis = new MeetingJevAnalysis
+        var actionItems = new[]
         {
-            MeetingType = "standup",
-            MeetingTypeConfidence = MeetingJevAnalyzer.AutoAcceptConfidence,
+            new ActionItem { Text = "Ana files the bug" },
+            new ActionItem { Text = "Ship the patch" },
+        };
+        var verdicts = new[]
+        {
+            new ActionItemVerdict
+            {
+                Text = "Ana files the bug",
+                Relation = "contradicts",
+                Confidence = MeetingJevAnalyzer.AutoAcceptConfidence,
+            },
         };
 
-        Assert.True(MeetingJevPresentation.ShowMeetingType(analysis));
+        var result = MeetingJevPresentation.FilterOutContradicted(actionItems, verdicts);
+
+        Assert.Single(result);
+        Assert.Equal("Ship the patch", result[0].Text);
     }
 
     [Fact]
-    public void ShowMeetingType_WhenConfidenceLow_IsFalse()
+    public void FilterOutContradicted_WhenContradictionConfidenceLow_KeepsItem()
     {
-        var analysis = new MeetingJevAnalysis
+        var actionItems = new[] { new ActionItem { Text = "Ana files the bug" } };
+        var verdicts = new[]
         {
-            MeetingType = "standup",
-            MeetingTypeConfidence = 0.5,
+            new ActionItemVerdict { Text = "Ana files the bug", Relation = "contradicts", Confidence = 0.5 },
         };
 
-        Assert.False(MeetingJevPresentation.ShowMeetingType(analysis));
+        var result = MeetingJevPresentation.FilterOutContradicted(actionItems, verdicts);
+
+        Assert.Same(actionItems, result);
     }
 
     [Theory]
-    [InlineData(0.2, 0)]
-    [InlineData(1.0, 1)]
-    [InlineData(1.6, 2)]
-    public void UrgencyLabelScore_WhenConfident_RoundsToBucket(double score, int expected)
+    [InlineData("supports")]
+    [InlineData("says_nothing")]
+    public void FilterOutContradicted_WhenVerdictNotContradicts_KeepsItem(string relation)
     {
-        var analysis = new MeetingJevAnalysis
+        var actionItems = new[] { new ActionItem { Text = "Ana files the bug" } };
+        var verdicts = new[]
         {
-            UrgencyScore = score,
-            UrgencyConfidence = MeetingJevAnalyzer.AutoAcceptConfidence,
+            new ActionItemVerdict
+            {
+                Text = "Ana files the bug",
+                Relation = relation,
+                Confidence = MeetingJevAnalyzer.AutoAcceptConfidence,
+            },
         };
 
-        Assert.Equal(expected, MeetingJevPresentation.UrgencyLabelScore(analysis));
+        var result = MeetingJevPresentation.FilterOutContradicted(actionItems, verdicts);
+
+        Assert.Same(actionItems, result);
     }
 
     [Fact]
-    public void UrgencyLabelScore_WhenConfidenceLow_IsNull()
+    public void FilterOutContradicted_WhenNoVerdicts_ReturnsSameList()
     {
-        var analysis = new MeetingJevAnalysis
-        {
-            UrgencyScore = 2,
-            UrgencyConfidence = 0.4,
-        };
+        var actionItems = new[] { new ActionItem { Text = "Ana files the bug" } };
 
-        Assert.Null(MeetingJevPresentation.UrgencyLabelScore(analysis));
-    }
+        var result = MeetingJevPresentation.FilterOutContradicted(actionItems, []);
 
-    [Fact]
-    public void ShowPiiWarning_WhenAtLeastThreshold_IsTrue()
-    {
-        Assert.True(MeetingJevPresentation.ShowPiiWarning(new MeetingJevAnalysis { PiiRisk = 0.7 }));
-        Assert.False(MeetingJevPresentation.ShowPiiWarning(new MeetingJevAnalysis { PiiRisk = 0.69 }));
-    }
-
-    [Fact]
-    public void ShowFaithfulWarning_WhenPresentAndLow_IsTrue()
-    {
-        Assert.True(MeetingJevPresentation.ShowFaithfulWarning(new MeetingJevAnalysis { SummaryFaithful = 0.39 }));
-        Assert.False(MeetingJevPresentation.ShowFaithfulWarning(new MeetingJevAnalysis { SummaryFaithful = 0.4 }));
-        Assert.False(MeetingJevPresentation.ShowFaithfulWarning(new MeetingJevAnalysis { SummaryFaithful = null }));
+        Assert.Same(actionItems, result);
     }
 
     [Fact]
