@@ -37,6 +37,11 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     [ObservableProperty]
     private bool _isVisible = true;
 
+    /// <summary>Collapsed by default so the chat doesn't sit open across the whole app; the
+    /// scope label and provider picker stay reachable in the collapsed header.</summary>
+    [ObservableProperty]
+    private bool _isExpanded;
+
     [ObservableProperty]
     private bool _isSending;
 
@@ -83,6 +88,11 @@ public sealed partial class MeetingChatViewModel : ObservableObject
 
     public bool PrefersMultipleRecipes =>
         _decision.Kind is ChatScopeKind.Folder or ChatScopeKind.AllMeetings;
+
+    /// <summary>"What do I need to do" only makes sense for one specific meeting.</summary>
+    public bool ShowPersonalTasksRecipe => _decision.Kind == ChatScopeKind.Meeting;
+
+    public Guid? CurrentMeetingId => _decision.MeetingId;
 
     public async Task InitializeAsync()
     {
@@ -377,10 +387,18 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         if (generation != _scopeGeneration)
             return;
 
+        var scopeChanged = decision.Kind != _decision.Kind
+            || decision.FolderId != _decision.FolderId
+            || decision.MeetingId != _decision.MeetingId;
+
         _decision = decision;
         IsVisible = decision.IsVisible;
+        if (scopeChanged)
+            IsExpanded = false;
         ScopeLabel = label;
         OnPropertyChanged(nameof(PrefersMultipleRecipes));
+        OnPropertyChanged(nameof(ShowPersonalTasksRecipe));
+        OnPropertyChanged(nameof(CurrentMeetingId));
         if (!IsSending)
             UpdateMismatch();
         await RefreshRecipesAsync();

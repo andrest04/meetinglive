@@ -8,7 +8,7 @@ using MeetingLive_App.ViewModels;
 namespace MeetingLive_App;
 
 /// <summary>
-/// Opened meeting: SelectorBar tabs (Transcript / Summary / Notes) hosted in an inner
+/// Opened meeting: SelectorBar tabs (Transcript / Summary) hosted in an inner
 /// <c>SessionFrame</c>. Shell navigation stays on Library while this page is showing.
 /// </summary>
 public sealed partial class SessionPage : Page
@@ -136,8 +136,6 @@ public sealed partial class SessionPage : Page
         var pageType = tab switch
         {
             WorkspaceService.TabSummary => typeof(SummaryPage),
-            WorkspaceService.TabAsk => typeof(AskPage),
-            WorkspaceService.TabNotes => typeof(NotesPage),
             _ => typeof(TranscriptPage),
         };
 
@@ -155,16 +153,12 @@ public sealed partial class SessionPage : Page
     private SelectorBarItem ItemFromTab(string tab) => tab switch
     {
         WorkspaceService.TabSummary => TabSummaryItem,
-        WorkspaceService.TabAsk => TabAskItem,
-        WorkspaceService.TabNotes => TabNotesItem,
         _ => TabTranscriptItem,
     };
 
     private static string TabFromItem(SelectorBarItem? item) => (item?.Tag as string) switch
     {
         WorkspaceService.TabSummary => WorkspaceService.TabSummary,
-        WorkspaceService.TabAsk => WorkspaceService.TabAsk,
-        WorkspaceService.TabNotes => WorkspaceService.TabNotes,
         _ => WorkspaceService.TabTranscript,
     };
 

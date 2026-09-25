@@ -1,17 +1,19 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 
-namespace MeetingLive_App;
+namespace MeetingLive_App.Dialogs;
 
-/// <summary>Finds personal tasks in the opened meeting, then writes a checklist.</summary>
-public sealed partial class AskPage : Page
+/// <summary>
+/// Finds personal tasks in the opened meeting, then writes a checklist. Opened from the meeting
+/// chat's recipe list (Meeting scope only) instead of a dedicated session tab.
+/// </summary>
+public sealed partial class PersonalTasksDialog : ContentDialog
 {
-    public AskPageViewModel ViewModel { get; } = new();
+    public PersonalTasksDialogViewModel ViewModel { get; } = new();
 
-    public AskPage()
+    public PersonalTasksDialog()
     {
         InitializeComponent();
         Loaded += (_, _) =>
@@ -22,11 +24,11 @@ public sealed partial class AskPage : Page
         };
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    public static async Task ShowAsync(XamlRoot xamlRoot, Guid? meetingId)
     {
-        base.OnNavigatedTo(e);
-        var meetingId = e.Parameter as Guid? ?? AppServices.Workspace.SelectedMeetingId;
-        _ = ViewModel.LoadAsync(meetingId);
+        var dialog = new PersonalTasksDialog { XamlRoot = xamlRoot };
+        await dialog.ViewModel.LoadAsync(meetingId);
+        await dialog.ShowAsync();
     }
 
     private void Hits_ItemClick(object sender, ItemClickEventArgs e)

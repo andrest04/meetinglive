@@ -61,13 +61,28 @@ public partial class SummaryPageViewModel : ObservableObject
     [ObservableProperty]
     private bool _isDraftError;
 
+    [ObservableProperty]
+    private bool _hasMeeting;
+
+    [ObservableProperty]
+    private string _notes = string.Empty;
+
+    /// <summary>Which side of the merged Notes/Summary tab is showing — the raw notes editor,
+    /// or the generated summary and its actions (the default).</summary>
+    [ObservableProperty]
+    private bool _isShowingNotes;
+
     public ObservableCollection<NoteTemplateOption> NoteTemplates { get; } = [];
 
     public Guid? MeetingId => _record?.Id;
 
-    public bool ShowNoteTemplate => CanGenerateSummary || CanRegenerateSummary;
+    /// <summary>Chrome that only makes sense while looking at the summary side of the tab —
+    /// hidden while the raw notes editor is showing.</summary>
+    public bool ShowEnhancedChrome => !IsShowingNotes;
 
-    public bool ShowDraftActions => HasSummary;
+    public bool ShowNoteTemplate => (CanGenerateSummary || CanRegenerateSummary) && ShowEnhancedChrome;
+
+    public bool ShowDraftActions => HasSummary && ShowEnhancedChrome;
 
     public bool HasDraftMessage => !string.IsNullOrEmpty(DraftMessage);
 
@@ -98,7 +113,10 @@ public partial class SummaryPageViewModel : ObservableObject
     public bool IsEmpty => !IsLoading && !HasSummary && !CanGenerateSummary;
 
     /// <summary>Generate or regenerate chrome — precomputed so XAML doesn't nest x:Bind arguments.</summary>
-    public bool ShowSummaryActionBar => CanGenerateSummary || CanRegenerateSummary;
+    public bool ShowSummaryActionBar => (CanGenerateSummary || CanRegenerateSummary) && ShowEnhancedChrome;
+
+    /// <summary>Copy / open-location buttons in the title row — summary-specific, hidden while notes show.</summary>
+    public bool ShowSummaryHeaderActions => HasSummary && ShowEnhancedChrome;
 
     public async Task LoadAsync(Guid? meetingId)
     {
@@ -112,6 +130,9 @@ public partial class SummaryPageViewModel : ObservableObject
             if (_record is not null)
                 AppServices.Workspace.SelectMeeting(_record.Id);
 
+            HasMeeting = _record is not null;
+            Notes = _record?.Notes ?? string.Empty;
+            IsShowingNotes = false;
             Title = _record?.Title ?? AppStrings.Get("NoSummariesYet");
             Summary = _record?.Summary ?? string.Empty;
             HasSummary = !string.IsNullOrWhiteSpace(Summary);
@@ -134,7 +155,27 @@ public partial class SummaryPageViewModel : ObservableObject
             NotifyDraftCommands();
             OnPropertyChanged(nameof(ShowNoteTemplate));
             OnPropertyChanged(nameof(ShowDraftActions));
+            OnPropertyChanged(nameof(ShowSummaryHeaderActions));
         }
+    }
+
+    /// <summary>Reloads the meeting and writes <see cref="Notes"/>, so transcript, summary, and
+    /// folder filing are not wiped. Called on <c>LostFocus</c> and page <c>Unloaded</c>.</summary>
+    public async Task SaveNotesAsync()
+    {
+        if (_record?.Id is not { } id)
+            return;
+
+        var record = await _meetings.GetByIdAsync(id);
+        if (record is null)
+            return;
+
+        var notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes;
+        if (string.Equals(record.Notes, notes, StringComparison.Ordinal))
+            return;
+
+        record.Notes = notes;
+        await _meetings.SaveAsync(record);
     }
 
     private bool CanExecuteGenerateSummary() => CanGenerateSummary && !IsGenerating;
@@ -456,7 +497,21 @@ public partial class SummaryPageViewModel : ObservableObject
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
-    partial void OnHasSummaryChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
+    partial void OnHasSummaryChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowDraftActions));
+        OnPropertyChanged(nameof(ShowSummaryHeaderActions));
+    }
+
+    partial void OnIsShowingNotesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowEnhancedChrome));
+        OnPropertyChanged(nameof(ShowNoteTemplate));
+        OnPropertyChanged(nameof(ShowDraftActions));
+        OnPropertyChanged(nameof(ShowSummaryActionBar));
+        OnPropertyChanged(nameof(ShowSummaryHeaderActions));
+    }
 
     partial void OnCanGenerateSummaryChanged(bool value)
     {

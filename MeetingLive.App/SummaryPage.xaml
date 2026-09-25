@@ -22,7 +22,7 @@
 
         <SelectorBar x:Name="NotesModeBar"
                      SelectionChanged="NotesMode_SelectionChanged"
-                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
+                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}"
                      AutomationProperties.AutomationId="SelectorSummaryNotesMode">
             <SelectorBarItem x:Uid="NotesMode_MyNotes"
                              Tag="notes"
@@ -41,7 +41,7 @@
             <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.Title, Mode=OneWay}"
                        Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}">
+                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryHeaderActions), Mode=OneWay}">
                 <Button x:Uid="SummaryPage_Copy" Command="{x:Bind ViewModel.CopyToClipboardCommand}"
                         AutomationProperties.AutomationId="BtnCopySummary" />
                 <Button x:Uid="SummaryPage_OpenLocation" Command="{x:Bind ViewModel.OpenFileLocationCommand}"
@@ -123,43 +123,55 @@
         </StackPanel>
 
         <Grid Grid.Row="5">
-            <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
-                          HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
+            <TextBox x:Uid="SummaryPage_Notes"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     HorizontalAlignment="Stretch"
+                     VerticalAlignment="Stretch"
+                     Text="{x:Bind ViewModel.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     LostFocus="Notes_LostFocus"
+                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.IsShowingNotes), Mode=OneWay}"
+                     AutomationProperties.AutomationId="TxtMeetingNotes" />
 
-            <StackPanel Spacing="12"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
-                <TextBlock x:Uid="SummaryPage_Empty"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center" />
-                <Button x:Uid="SummaryPage_EmptyCta"
-                        Style="{StaticResource AccentButtonStyle}"
-                        HorizontalAlignment="Center"
-                        Click="EmptyCta_Click"
-                        AutomationProperties.AutomationId="BtnSummaryEmptyRecord" />
-            </StackPanel>
+            <Grid Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowEnhancedChrome), Mode=OneWay}">
+                <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-            <ScrollViewer Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
-                          HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="16">
-                    <md:MarkdownTextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
-                                          TextWrapping="WrapWholeWords"
-                                          Background="Transparent"
-                                          AutomationProperties.AutomationId="TxtSummaryContent" />
-
-                    <StackPanel Spacing="8"
-                                Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasActionItems), Mode=OneWay}">
-                        <TextBlock x:Uid="SummaryPage_ActionItems" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
-                                      AutomationProperties.AutomationId="ListActionItems">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ActionItemViewModel">
-                                    <CheckBox Content="{x:Bind Text, Mode=OneWay}" IsChecked="{x:Bind IsDone, Mode=TwoWay}" Margin="0,0,0,8" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                <StackPanel Spacing="12"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
+                    <TextBlock x:Uid="SummaryPage_Empty"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center" />
+                    <Button x:Uid="SummaryPage_EmptyCta"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Center"
+                            Click="EmptyCta_Click"
+                            AutomationProperties.AutomationId="BtnSummaryEmptyRecord" />
                 </StackPanel>
-            </ScrollViewer>
+
+                <ScrollViewer Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="16">
+                        <md:MarkdownTextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
+                                              TextWrapping="WrapWholeWords"
+                                              Background="Transparent"
+                                              AutomationProperties.AutomationId="TxtSummaryContent" />
+
+                        <StackPanel Spacing="8"
+                                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasActionItems), Mode=OneWay}">
+                            <TextBlock x:Uid="SummaryPage_ActionItems" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.ActionItems, Mode=OneWay}"
+                                          AutomationProperties.AutomationId="ListActionItems">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ActionItemViewModel">
+                                        <CheckBox Content="{x:Bind Text, Mode=OneWay}" IsChecked="{x:Bind IsDone, Mode=TwoWay}" Margin="0,0,0,8" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Grid>
     </Grid>
 </Page>

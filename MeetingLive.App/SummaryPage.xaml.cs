@@ -26,6 +26,7 @@ public sealed partial class SummaryPage : Page
             ViewModel.ConfirmRegenerateAsync = ConfirmRegenerateAsync;
         };
         Loaded += (_, _) => _notesModeReady = true;
+        Unloaded += (_, _) => _ = ViewModel.SaveNotesAsync();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -101,7 +102,18 @@ public sealed partial class SummaryPage : Page
         if (!_notesModeReady)
             return;
 
-        if (sender.SelectedItem is SelectorBarItem { Tag: "notes" })
-            AppServices.Workspace.RequestSessionTab(WorkspaceService.TabNotes, ViewModel.MeetingId);
+        var showingNotes = sender.SelectedItem is SelectorBarItem { Tag: "notes" };
+        if (showingNotes == ViewModel.IsShowingNotes)
+            return;
+
+        if (ViewModel.IsShowingNotes && !showingNotes)
+            _ = ViewModel.SaveNotesAsync();
+
+        ViewModel.IsShowingNotes = showingNotes;
+    }
+
+    private void Notes_LostFocus(object sender, RoutedEventArgs e)
+    {
+        _ = ViewModel.SaveNotesAsync();
     }
 }

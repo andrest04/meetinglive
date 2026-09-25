@@ -25,8 +25,6 @@
   <data name="SessionPage_Back.AutomationProperties.Name" xml:space="preserve"><value>Atrás</value></data>
   <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcripción</value></data>
   <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Resumen</value></data>
-  <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notas</value></data>
-  <data name="SessionPage_TabAsk.Text" xml:space="preserve"><value>Preguntar</value></data>
   <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Abre una reunión desde la Biblioteca, o graba una nueva.</value></data>
   <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
   <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Renombrar</value></data>
@@ -40,8 +38,8 @@
   <data name="SessionRename_Name.PlaceholderText" xml:space="preserve"><value>Título de la reunión</value></data>
   <data name="SessionSuggestTitle_ErrorTitle" xml:space="preserve"><value>No se pudo sugerir un título</value></data>
   <data name="SessionSuggestTitle_Empty" xml:space="preserve"><value>El modelo no devolvió un título utilizable.</value></data>
-  <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Tus notas</value></data>
-  <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Agrega tus notas para esta reunión</value></data>
+  <data name="SummaryPage_Notes.Header" xml:space="preserve"><value>Tus notas</value></data>
+  <data name="SummaryPage_Notes.PlaceholderText" xml:space="preserve"><value>Agrega tus notas para esta reunión</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Grabar reunión</value></data>
   <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Título</value></data>
   <data name="RecordPage_Destination.Header" xml:space="preserve"><value>Guardar en</value></data>
@@ -381,17 +379,19 @@
   <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>No se pudo conectar con TypeSafe</value></data>
   <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>Clave de API guardada.</value></data>
   <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>Se borró la clave de API de TypeSafe.</value></data>
-  <data name="AskPage_Topic.Header" xml:space="preserve"><value>Tema (opcional)</value></data>
-  <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>p. ej. Agile</value></data>
-  <data name="AskPage_Do.Text" xml:space="preserve"><value>Qué necesito hacer</value></data>
-  <data name="AskPage_EmptyTranscript" xml:space="preserve"><value>Esta reunión todavía no tiene transcripción para preguntar.</value></data>
-  <data name="AskPage_NoApiKey" xml:space="preserve"><value>Guarda una clave de API de TypeSafe en Configuración para preguntarle a esta reunión.</value></data>
-  <data name="AskPage_NothingAsked" xml:space="preserve"><value>No se te pidió nada</value></data>
-  <data name="AskPage_TopicAbsent" xml:space="preserve"><value>Esta reunión no trató {0}</value></data>
-  <data name="AskPage_FromTranscript.Text" xml:space="preserve"><value>De la transcripción</value></data>
-  <data name="AskPage_StatusFinding" xml:space="preserve"><value>Buscando lo que necesitas hacer...</value></data>
-  <data name="AskPage_StatusWriting" xml:space="preserve"><value>Escribiendo tu lista de tareas...</value></data>
-  <data name="AskPage_Copied" xml:space="preserve"><value>Copiado.</value></data>
+  <data name="PersonalTasks_Title.Title" xml:space="preserve"><value>Qué necesito hacer</value></data>
+  <data name="PersonalTasks_Title.CloseButtonText" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="PersonalTasks_Topic.Header" xml:space="preserve"><value>Tema (opcional)</value></data>
+  <data name="PersonalTasks_Topic.PlaceholderText" xml:space="preserve"><value>p. ej. Agile</value></data>
+  <data name="PersonalTasks_Do.Text" xml:space="preserve"><value>Qué necesito hacer</value></data>
+  <data name="PersonalTasks_EmptyTranscript" xml:space="preserve"><value>Esta reunión todavía no tiene transcripción para preguntar.</value></data>
+  <data name="PersonalTasks_NoApiKey" xml:space="preserve"><value>Guarda una clave de API de TypeSafe en Configuración para preguntarle a esta reunión.</value></data>
+  <data name="PersonalTasks_NothingAsked" xml:space="preserve"><value>No se te pidió nada</value></data>
+  <data name="PersonalTasks_TopicAbsent" xml:space="preserve"><value>Esta reunión no trató {0}</value></data>
+  <data name="PersonalTasks_FromTranscript.Text" xml:space="preserve"><value>De la transcripción</value></data>
+  <data name="PersonalTasks_StatusFinding" xml:space="preserve"><value>Buscando lo que necesitas hacer...</value></data>
+  <data name="PersonalTasks_StatusWriting" xml:space="preserve"><value>Escribiendo tu lista de tareas...</value></data>
+  <data name="PersonalTasks_Copied" xml:space="preserve"><value>Copiado.</value></data>
   <data name="RecordPage_LiveQuestionNotice.Title" xml:space="preserve"><value>Pregunta detectada</value></data>
   <data name="RecordPage_LiveQuestionNotice.AutomationProperties.Name" xml:space="preserve"><value>Pregunta detectada</value></data>
   <data name="RecordPage_LiveAnswer.Content" xml:space="preserve"><value>Responder</value></data>
@@ -472,6 +472,8 @@
   <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Mensaje</value></data>
   <data name="Chat_Send.AutomationProperties.Name" xml:space="preserve"><value>Enviar</value></data>
   <data name="Chat_Send.ToolTipService.ToolTip" xml:space="preserve"><value>Enviar (Enter)</value></data>
+  <data name="Chat_PersonalTasks.AutomationProperties.Name" xml:space="preserve"><value>Qué necesito hacer</value></data>
+  <data name="Chat_PersonalTasks.ToolTipService.ToolTip" xml:space="preserve"><value>Qué necesito hacer</value></data>
   <data name="Chat_Recipes.AutomationProperties.Name" xml:space="preserve"><value>Recetas</value></data>
   <data name="Chat_Recipes.ToolTipService.ToolTip" xml:space="preserve"><value>Recetas</value></data>
   <data name="Chat_History.AutomationProperties.Name" xml:space="preserve"><value>Historial de chat</value></data>

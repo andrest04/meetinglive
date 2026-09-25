@@ -25,8 +25,9 @@ public sealed class AskHitViewModel
 
 /// <summary>
 /// Jev picks request/commitment lines; the selected summary provider writes a personal checklist.
+/// Backs <see cref="Dialogs.PersonalTasksDialog"/>, opened from the meeting chat's recipe list.
 /// </summary>
-public partial class AskPageViewModel : ObservableObject
+public partial class PersonalTasksDialogViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private string _transcript = string.Empty;
@@ -128,13 +129,13 @@ public partial class AskPageViewModel : ObservableObject
         var apiKey = credentials?.ApiKey;
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            StatusText = AppStrings.Get("AskPage_NoApiKey");
+            StatusText = AppStrings.Get("PersonalTasks_NoApiKey");
             NotifyAskCanExecute();
             return;
         }
 
         IsAsking = true;
-        StatusText = AppStrings.Get("AskPage_StatusFinding");
+        StatusText = AppStrings.Get("PersonalTasks_StatusFinding");
         ClearResults();
         NotifyAskCanExecute();
         try
@@ -158,7 +159,7 @@ public partial class AskPageViewModel : ObservableObject
                 return;
             }
 
-            StatusText = AppStrings.Get("AskPage_StatusWriting");
+            StatusText = AppStrings.Get("PersonalTasks_StatusWriting");
             var settings = await AppServices.Settings.LoadAsync();
             var provider = await ResolveSummaryProviderAsync(settings.ResolveSummaryProviderKind());
             if (provider is null)
@@ -200,7 +201,7 @@ public partial class AskPageViewModel : ObservableObject
         var package = new DataPackage();
         package.SetText(hit.Text);
         Clipboard.SetContent(package);
-        StatusText = AppStrings.Get("AskPage_Copied");
+        StatusText = AppStrings.Get("PersonalTasks_Copied");
     }
 
     private async Task<ISummaryProvider?> ResolveSummaryProviderAsync(SummaryProviderKind providerKind) =>
@@ -246,8 +247,8 @@ public partial class AskPageViewModel : ObservableObject
         Hits.Clear();
         HasHits = false;
         VerdictMessage = topic is null
-            ? AppStrings.Get("AskPage_NothingAsked")
-            : AppStrings.Format("AskPage_TopicAbsent", topic);
+            ? AppStrings.Get("PersonalTasks_NothingAsked")
+            : AppStrings.Format("PersonalTasks_TopicAbsent", topic);
         VerdictSeverity = InfoBarSeverity.Informational;
         IsVerdictOpen = true;
         StatusText = string.Empty;
@@ -274,9 +275,9 @@ public partial class AskPageViewModel : ObservableObject
     private void ApplyEmptyStatus()
     {
         if (!HasTranscript)
-            StatusText = AppStrings.Get("AskPage_EmptyTranscript");
+            StatusText = AppStrings.Get("PersonalTasks_EmptyTranscript");
         else if (!_hasApiKey || !_typeSafeEnabled)
-            StatusText = AppStrings.Get("AskPage_NoApiKey");
+            StatusText = AppStrings.Get("PersonalTasks_NoApiKey");
         else
             StatusText = string.Empty;
     }

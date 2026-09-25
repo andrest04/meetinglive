@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using MeetingLive.Core.Models;
+using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
 using Windows.System;
@@ -158,6 +159,11 @@ public sealed partial class MainPage : Page
         }
 
         ChatRecipeFlyout.Hide();
+    }
+
+    private async void MeetingChatPersonalTasks_Click(object sender, RoutedEventArgs e)
+    {
+        await PersonalTasksDialog.ShowAsync(XamlRoot, Chat.CurrentMeetingId);
     }
 
     private void ChatRecipeFlyout_Opening(object sender, object e)

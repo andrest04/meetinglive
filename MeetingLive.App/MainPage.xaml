@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:MeetingLive_App"
     xmlns:vm="using:MeetingLive_App.ViewModels"
+    xmlns:icons="using:MeetingLive_App.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -54,18 +55,57 @@
 
                 <Frame x:Name="ContentFrame" />
 
-                <Border x:Name="BarMeetingChat"
-                        Grid.Row="1"
-                        x:Uid="Chat_Bar"
-                        Padding="12"
-                        Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
-                        BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                        BorderThickness="0,1,0,0"
-                        Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsVisible), Mode=OneWay}"
-                        AutomationProperties.AutomationId="BarMeetingChat">
-                    <Grid RowSpacing="8">
+                <Expander x:Name="BarMeetingChat"
+                          Grid.Row="1"
+                          x:Uid="Chat_Bar"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          ExpandDirection="Up"
+                          IsExpanded="{x:Bind Chat.IsExpanded, Mode=TwoWay}"
+                          Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsVisible), Mode=OneWay}"
+                          AutomationProperties.AutomationId="BarMeetingChat">
+                    <Expander.Header>
+                        <Grid ColumnSpacing="8" MinWidth="240">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblMeetingChatScope"
+                                       Text="{x:Bind Chat.ScopeLabel, Mode=OneWay}"
+                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       AutomationProperties.AutomationId="LblMeetingChatScope" />
+                            <Button x:Name="BtnMeetingChatProvider"
+                                    Grid.Column="1"
+                                    x:Uid="Chat_ProviderButton"
+                                    HorizontalAlignment="Right"
+                                    AutomationProperties.AutomationId="BtnMeetingChatProvider">
+                                <FontIcon Glyph="&#xE713;" FontSize="16" />
+                                <Button.Flyout>
+                                    <Flyout x:Name="ChatProviderFlyout"
+                                            Placement="TopEdgeAlignedRight">
+                                        <Grid Width="220">
+                                            <ComboBox x:Name="CmbMeetingChatProvider"
+                                                      x:Uid="Chat_Provider"
+                                                      HorizontalAlignment="Stretch"
+                                                      ItemsSource="{x:Bind Chat.Providers, Mode=OneTime}"
+                                                      SelectionChanged="ChatProvider_SelectionChanged"
+                                                      AutomationProperties.AutomationId="CmbMeetingChatProvider">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
+                                                        <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </Grid>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </Grid>
+                    </Expander.Header>
+                    <Grid RowSpacing="8" Padding="12">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -126,44 +166,6 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LblMeetingChatScope"
-                                       Text="{x:Bind Chat.ScopeLabel, Mode=OneWay}"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       AutomationProperties.AutomationId="LblMeetingChatScope" />
-                            <Button x:Name="BtnMeetingChatProvider"
-                                    Grid.Column="1"
-                                    x:Uid="Chat_ProviderButton"
-                                    HorizontalAlignment="Right"
-                                    AutomationProperties.AutomationId="BtnMeetingChatProvider">
-                                <FontIcon Glyph="&#xE713;" FontSize="16" />
-                                <Button.Flyout>
-                                    <Flyout x:Name="ChatProviderFlyout"
-                                            Placement="TopEdgeAlignedRight">
-                                        <Grid Width="220">
-                                            <ComboBox x:Name="CmbMeetingChatProvider"
-                                                      x:Uid="Chat_Provider"
-                                                      HorizontalAlignment="Stretch"
-                                                      ItemsSource="{x:Bind Chat.Providers, Mode=OneTime}"
-                                                      SelectionChanged="ChatProvider_SelectionChanged"
-                                                      AutomationProperties.AutomationId="CmbMeetingChatProvider">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
-                                                        <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </Grid>
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
-                        </Grid>
-
-                        <Grid Grid.Row="4" ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
@@ -198,8 +200,17 @@
                                                          Invoked="ChatSendAccelerator_Invoked" />
                                 </Button.KeyboardAccelerators>
                             </Button>
-                            <Button x:Name="BtnMeetingChatRecipes"
+                            <Button x:Name="BtnMeetingChatPersonalTasks"
                                     Grid.Column="2"
+                                    x:Uid="Chat_PersonalTasks"
+                                    VerticalAlignment="Bottom"
+                                    Click="MeetingChatPersonalTasks_Click"
+                                    Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.ShowPersonalTasksRecipe), Mode=OneWay}"
+                                    AutomationProperties.AutomationId="BtnMeetingChatPersonalTasks">
+                                <icons:TypeSafeIcon Width="16" Height="16" />
+                            </Button>
+                            <Button x:Name="BtnMeetingChatRecipes"
+                                    Grid.Column="3"
                                     x:Uid="Chat_Recipes"
                                     VerticalAlignment="Bottom"
                                     AutomationProperties.AutomationId="BtnMeetingChatRecipes">
@@ -263,7 +274,7 @@
                                 </Button.Flyout>
                             </Button>
                             <Button x:Name="BtnMeetingChatHistory"
-                                    Grid.Column="3"
+                                    Grid.Column="4"
                                     x:Uid="Chat_History"
                                     VerticalAlignment="Bottom"
                                     AutomationProperties.AutomationId="BtnMeetingChatHistory">
@@ -318,14 +329,14 @@
                                 </Button.Flyout>
                             </Button>
                             <Button x:Name="BtnMeetingChatNew"
-                                    Grid.Column="4"
+                                    Grid.Column="5"
                                     x:Uid="Chat_New"
                                     Command="{x:Bind Chat.NewChatCommand}"
                                     VerticalAlignment="Bottom"
                                     AutomationProperties.AutomationId="BtnMeetingChatNew">
                                 <FontIcon Glyph="&#xE710;" FontSize="16" />
                             </Button>
-                            <ProgressRing Grid.Column="5"
+                            <ProgressRing Grid.Column="6"
                                           x:Uid="Chat_Sending"
                                           Width="20"
                                           Height="20"
@@ -334,7 +345,7 @@
                                           Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsSending), Mode=OneWay}" />
                         </Grid>
                     </Grid>
-                </Border>
+                </Expander>
             </Grid>
         </NavigationView>
 

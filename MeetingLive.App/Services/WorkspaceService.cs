@@ -7,7 +7,7 @@ namespace MeetingLive_App.Services;
 /// App-lifetime workspace: the selected meeting, the last processed recording,
 /// and the only channel child pages use to request shell navigation.
 /// <see cref="MainPage"/> is the sole navigator of <c>ContentFrame</c>.
-/// Session tabs (Transcript / Summary / Ask / Notes) live on <c>SessionPage</c>'s inner frame.
+/// Session tabs (Transcript / Summary) live on <c>SessionPage</c>'s inner frame.
 /// </summary>
 public sealed class WorkspaceService
 {
@@ -18,8 +18,6 @@ public sealed class WorkspaceService
 
     public const string TabTranscript = "Transcript";
     public const string TabSummary = "Summary";
-    public const string TabAsk = "Ask";
-    public const string TabNotes = "Notes";
 
     public Guid? SelectedMeetingId { get; private set; }
 
@@ -49,7 +47,7 @@ public sealed class WorkspaceService
 
     public event EventHandler? CallPromptOffered;
 
-    /// <summary>Child pages ask SessionPage to switch Transcript / Summary / Ask / Notes. Not a shell destination.</summary>
+    /// <summary>Child pages ask SessionPage to switch Transcript / Summary. Not a shell destination.</summary>
     public event EventHandler<string>? SessionTabRequested;
 
     /// <summary>True while Record is capturing or processing, so the call prompt stays quiet
@@ -138,7 +136,7 @@ public sealed class WorkspaceService
     public void SetSessionTab(string tab)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tab);
-        if (tab is not (TabTranscript or TabSummary or TabAsk or TabNotes))
+        if (tab is not (TabTranscript or TabSummary))
             throw new ArgumentOutOfRangeException(nameof(tab), tab, "Unknown session tab.");
 
         SessionTab = tab;
@@ -166,8 +164,8 @@ public sealed class WorkspaceService
     public void NavigateTo(string tag)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tag);
-        if (tag is TabTranscript or TabSummary or TabAsk)
-            throw new ArgumentOutOfRangeException(nameof(tag), tag, "Transcript, Summary, and Ask are session tabs, not shell destinations.");
+        if (tag is TabTranscript or TabSummary)
+            throw new ArgumentOutOfRangeException(nameof(tag), tag, "Transcript and Summary are session tabs, not shell destinations.");
 
         if (tag is not (Recording or History or Settings or Session))
             throw new ArgumentOutOfRangeException(nameof(tag), tag, "Unknown workspace navigation tag.");

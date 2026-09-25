@@ -25,8 +25,6 @@
   <data name="SessionPage_Back.AutomationProperties.Name" xml:space="preserve"><value>Back</value></data>
   <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcript</value></data>
   <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Summary</value></data>
-  <data name="SessionPage_TabNotes.Text" xml:space="preserve"><value>Notes</value></data>
-  <data name="SessionPage_TabAsk.Text" xml:space="preserve"><value>Ask</value></data>
   <data name="SessionPage_Empty.Text" xml:space="preserve"><value>Open a meeting from Library, or record one.</value></data>
   <data name="SessionPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="SessionPage_Rename.AutomationProperties.Name" xml:space="preserve"><value>Rename</value></data>
@@ -40,8 +38,8 @@
   <data name="SessionRename_Name.PlaceholderText" xml:space="preserve"><value>Meeting title</value></data>
   <data name="SessionSuggestTitle_ErrorTitle" xml:space="preserve"><value>Could not suggest a title</value></data>
   <data name="SessionSuggestTitle_Empty" xml:space="preserve"><value>The model did not return a usable title.</value></data>
-  <data name="NotesPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
-  <data name="NotesPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
+  <data name="SummaryPage_Notes.Header" xml:space="preserve"><value>Your notes</value></data>
+  <data name="SummaryPage_Notes.PlaceholderText" xml:space="preserve"><value>Add your notes for this meeting</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Record meeting</value></data>
   <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Title</value></data>
   <data name="RecordPage_Destination.Header" xml:space="preserve"><value>Save to</value></data>
@@ -381,17 +379,19 @@
   <data name="TypeSafe_StatusErrorTitle" xml:space="preserve"><value>Could not reach TypeSafe</value></data>
   <data name="TypeSafe_FeedbackApiKey" xml:space="preserve"><value>API key saved.</value></data>
   <data name="TypeSafe_FeedbackCleared" xml:space="preserve"><value>TypeSafe API key cleared.</value></data>
-  <data name="AskPage_Topic.Header" xml:space="preserve"><value>Topic (optional)</value></data>
-  <data name="AskPage_Topic.PlaceholderText" xml:space="preserve"><value>e.g. Agile</value></data>
-  <data name="AskPage_Do.Text" xml:space="preserve"><value>What do I need to do</value></data>
-  <data name="AskPage_EmptyTranscript" xml:space="preserve"><value>This meeting has no transcript to ask yet.</value></data>
-  <data name="AskPage_NoApiKey" xml:space="preserve"><value>Save a TypeSafe API key in Settings to ask this meeting.</value></data>
-  <data name="AskPage_NothingAsked" xml:space="preserve"><value>Nothing was asked of you</value></data>
-  <data name="AskPage_TopicAbsent" xml:space="preserve"><value>This meeting did not cover {0}</value></data>
-  <data name="AskPage_FromTranscript.Text" xml:space="preserve"><value>From the transcript</value></data>
-  <data name="AskPage_StatusFinding" xml:space="preserve"><value>Finding what you need to do...</value></data>
-  <data name="AskPage_StatusWriting" xml:space="preserve"><value>Writing your checklist...</value></data>
-  <data name="AskPage_Copied" xml:space="preserve"><value>Copied.</value></data>
+  <data name="PersonalTasks_Title.Title" xml:space="preserve"><value>What do I need to do</value></data>
+  <data name="PersonalTasks_Title.CloseButtonText" xml:space="preserve"><value>Close</value></data>
+  <data name="PersonalTasks_Topic.Header" xml:space="preserve"><value>Topic (optional)</value></data>
+  <data name="PersonalTasks_Topic.PlaceholderText" xml:space="preserve"><value>e.g. Agile</value></data>
+  <data name="PersonalTasks_Do.Text" xml:space="preserve"><value>What do I need to do</value></data>
+  <data name="PersonalTasks_EmptyTranscript" xml:space="preserve"><value>This meeting has no transcript to ask yet.</value></data>
+  <data name="PersonalTasks_NoApiKey" xml:space="preserve"><value>Save a TypeSafe API key in Settings to ask this meeting.</value></data>
+  <data name="PersonalTasks_NothingAsked" xml:space="preserve"><value>Nothing was asked of you</value></data>
+  <data name="PersonalTasks_TopicAbsent" xml:space="preserve"><value>This meeting did not cover {0}</value></data>
+  <data name="PersonalTasks_FromTranscript.Text" xml:space="preserve"><value>From the transcript</value></data>
+  <data name="PersonalTasks_StatusFinding" xml:space="preserve"><value>Finding what you need to do...</value></data>
+  <data name="PersonalTasks_StatusWriting" xml:space="preserve"><value>Writing your checklist...</value></data>
+  <data name="PersonalTasks_Copied" xml:space="preserve"><value>Copied.</value></data>
   <data name="RecordPage_LiveQuestionNotice.Title" xml:space="preserve"><value>Question detected</value></data>
   <data name="RecordPage_LiveQuestionNotice.AutomationProperties.Name" xml:space="preserve"><value>Detected question</value></data>
   <data name="RecordPage_LiveAnswer.Content" xml:space="preserve"><value>Answer</value></data>
@@ -472,6 +472,8 @@
   <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Message</value></data>
   <data name="Chat_Send.AutomationProperties.Name" xml:space="preserve"><value>Send</value></data>
   <data name="Chat_Send.ToolTipService.ToolTip" xml:space="preserve"><value>Send (Enter)</value></data>
+  <data name="Chat_PersonalTasks.AutomationProperties.Name" xml:space="preserve"><value>What do I need to do</value></data>
+  <data name="Chat_PersonalTasks.ToolTipService.ToolTip" xml:space="preserve"><value>What do I need to do</value></data>
   <data name="Chat_Recipes.AutomationProperties.Name" xml:space="preserve"><value>Recipes</value></data>
   <data name="Chat_Recipes.ToolTipService.ToolTip" xml:space="preserve"><value>Recipes</value></data>
   <data name="Chat_History.AutomationProperties.Name" xml:space="preserve"><value>Chat history</value></data>
