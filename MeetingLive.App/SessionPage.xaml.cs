@@ -21,20 +21,12 @@ public sealed partial class SessionPage : Page
     public SessionPage()
     {
         InitializeComponent();
-        AppServices.Workspace.SessionTabRequested += OnSessionTabRequested;
-        Unloaded += (_, _) => AppServices.Workspace.SessionTabRequested -= OnSessionTabRequested;
         Loaded += (_, _) =>
         {
             ViewModel.EnsureSummaryModelAsync = () => SummaryModelResolver.ResolveAsync(XamlRoot);
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
             ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
         };
-    }
-
-    private void OnSessionTabRequested(object? sender, string tab)
-    {
-        SelectTab(tab);
-        NavigateInner(tab, AppServices.Workspace.SelectedMeetingId);
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)

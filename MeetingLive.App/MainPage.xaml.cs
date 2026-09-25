@@ -27,6 +27,7 @@ public sealed partial class MainPage : Page
     private bool _chatReady;
     private bool _suppressRecipeFlyout;
     private bool _recipeFlyoutFromSlash;
+    private bool _personalTasksDialogOpening;
     private double _paneDragStartX;
     private double _paneDragStartLength;
 
@@ -163,7 +164,18 @@ public sealed partial class MainPage : Page
 
     private async void MeetingChatPersonalTasks_Click(object sender, RoutedEventArgs e)
     {
-        await PersonalTasksDialog.ShowAsync(XamlRoot, Chat.CurrentMeetingId);
+        if (_personalTasksDialogOpening)
+            return;
+
+        _personalTasksDialogOpening = true;
+        try
+        {
+            await PersonalTasksDialog.ShowAsync(XamlRoot, Chat.CurrentMeetingId);
+        }
+        finally
+        {
+            _personalTasksDialogOpening = false;
+        }
     }
 
     private void ChatRecipeFlyout_Opening(object sender, object e)

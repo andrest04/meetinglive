@@ -47,9 +47,6 @@ public sealed class WorkspaceService
 
     public event EventHandler? CallPromptOffered;
 
-    /// <summary>Child pages ask SessionPage to switch Transcript / Summary. Not a shell destination.</summary>
-    public event EventHandler<string>? SessionTabRequested;
-
     /// <summary>True while Record is capturing or processing, so the call prompt stays quiet
     /// and meeting chat uses the live transcript instead of a saved meeting.</summary>
     private bool _isCaptureActive;
@@ -146,19 +143,6 @@ public sealed class WorkspaceService
     {
         SetSessionTab(tab);
         NavigateTo(Session);
-    }
-
-    /// <summary>
-    /// Switches the open meeting's inner tab without adding a shell destination.
-    /// SessionPage is the only listener.
-    /// </summary>
-    public void RequestSessionTab(string tab, Guid? meetingId = null)
-    {
-        if (meetingId is { } id)
-            SelectMeeting(id);
-
-        SetSessionTab(tab);
-        SessionTabRequested?.Invoke(this, tab);
     }
 
     public void NavigateTo(string tag)
