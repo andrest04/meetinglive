@@ -12,11 +12,21 @@ public interface IAudioCaptureService
     /// written to the WAV, converted to float32 in [-1, 1]. Only fired when there are subscribers.</summary>
     event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
 
-    /// <summary>Starts capturing mic + system loopback, mixed into a single 16kHz mono WAV file.
+    /// <summary>Starts capturing the microphone plus system loopback, mixed into a single 16 kHz mono WAV.
     /// <paramref name="microphoneDeviceId"/> is the <see cref="NAudio.CoreAudioApi.MMDevice.ID"/> of
     /// the microphone to record from; null/empty (or a device that no longer exists) falls back to
-    /// the OS default input device.</summary>
+    /// the OS default input device. This overload always opens a microphone. To skip it, or to
+    /// capture one process tree instead of system loopback, use
+    /// <see cref="Start(string, RecordingCaptureSources)"/>.</summary>
     void Start(string outputWavPath, string? microphoneDeviceId = null);
+
+    /// <summary>
+    /// Starts capture into a 16 kHz mono WAV using <paramref name="sources"/>.
+    /// <see cref="RecordingCaptureSources.CaptureMicrophone"/> false does not open a microphone.
+    /// A null or empty device id with capture enabled is the OS default, not "no microphone".
+    /// Output is system loopback or one process tree, never both.
+    /// </summary>
+    void Start(string outputWavPath, RecordingCaptureSources sources);
 
     /// <summary>Stops capture and flushes the WAV file to disk. Prefer
     /// <see cref="StopAsync"/> from UI code — this sync overload waits for the pump thread.</summary>

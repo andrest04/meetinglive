@@ -7,9 +7,8 @@ using MeetingLive.Core.Models;
 namespace MeetingLive.Core.Services;
 
 /// <summary>
-/// Captures microphone + system-audio (WASAPI loopback) simultaneously and mixes
-/// them into a single 16kHz mono PCM WAV — the format Nemotron ASR expects — so no
-/// voice in the meeting (neither the user's nor the other participants') is lost.
+/// Mixes the requested microphone (or none) and one output capture — system loopback or a
+/// single process tree — into a 16 kHz mono PCM WAV, the format Nemotron ASR expects.
 /// The same mixed stream is optionally raised as float32 frames for live streaming ASR.
 /// </summary>
 public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
@@ -17,7 +16,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     private static readonly WaveFormat MixFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
 
     private WasapiCapture? _micCapture;
-    private WasapiLoopbackCapture? _systemCapture;
+    private IWaveIn? _outputCapture;
     private WaveFileWriter? _writer;
     private CancellationTokenSource? _pumpCts;
     private Task? _pumpTask;
@@ -31,11 +30,19 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     public void Start(string outputWavPath, string? microphoneDeviceId = null)
     {
+        Start(outputWavPath, RecordingCaptureSources.SystemLoopback(captureMicrophone: true, microphoneDeviceId));
+    }
+
+    public void Start(string outputWavPath, RecordingCaptureSources sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        sources.ThrowIfInvalid();
+
         if (IsRecording)
             throw new InvalidOperationException("A recording is already in progress.");
 
         WasapiCapture? micCapture = null;
-        WasapiLoopbackCapture? systemCapture = null;
+        IWaveIn? outputCapture = null;
         WaveFileWriter? writer = null;
         CancellationTokenSource? pumpCts = null;
         Task? pumpTask = null;
@@ -44,18 +51,24 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
         try
         {
-            micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(microphoneDeviceId));
-            systemCapture = new WasapiLoopbackCapture();
-
-            var micBuffer = CreateBuffer(micCapture.WaveFormat);
-            var systemBuffer = CreateBuffer(systemCapture.WaveFormat);
-
-            micCapture.DataAvailable += (_, e) => micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
-            systemCapture.DataAvailable += (_, e) => systemBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
-
             var mixer = new MixingSampleProvider(MixFormat);
-            mixer.AddMixerInput(ResampleToMixFormat(micBuffer.ToSampleProvider(), micCapture.WaveFormat));
-            mixer.AddMixerInput(ResampleToMixFormat(systemBuffer.ToSampleProvider(), systemCapture.WaveFormat));
+
+            if (sources.CaptureMicrophone)
+            {
+                micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(sources.MicrophoneDeviceId));
+                var micBuffer = CreateBuffer(micCapture.WaveFormat);
+                micCapture.DataAvailable += (_, e) => micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                mixer.AddMixerInput(ResampleToMixFormat(micBuffer.ToSampleProvider(), micCapture.WaveFormat));
+            }
+
+            // Exactly one output. Process scope must not also open system loopback.
+            outputCapture = sources.UsesSystemLoopback
+                ? new WasapiLoopbackCapture()
+                : new ProcessLoopbackCapture(sources.ProcessId);
+
+            var outputBuffer = CreateBuffer(outputCapture.WaveFormat);
+            outputCapture.DataAvailable += (_, e) => outputBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            mixer.AddMixerInput(ResampleToMixFormat(outputBuffer.ToSampleProvider(), outputCapture.WaveFormat));
 
             var pcm16 = mixer.ToWaveProvider16();
             writer = new WaveFileWriter(outputWavPath, pcm16.WaveFormat);
@@ -63,11 +76,11 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             pumpCts = new CancellationTokenSource();
             pumpTask = Task.Run(() => PumpLoop(pcm16, writer, pumpCts.Token));
 
-            micCapture.StartRecording();
-            systemCapture.StartRecording();
+            micCapture?.StartRecording();
+            outputCapture.StartRecording();
 
             _micCapture = micCapture;
-            _systemCapture = systemCapture;
+            _outputCapture = outputCapture;
             _writer = writer;
             _pumpCts = pumpCts;
             _pumpTask = pumpTask;
@@ -75,7 +88,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         }
         catch
         {
-            AbortFailedStart(micCapture, systemCapture, writer, pumpCts, pumpTask);
+            AbortFailedStart(micCapture, outputCapture, writer, pumpCts, pumpTask);
             throw;
         }
     }
@@ -92,7 +105,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             return;
 
         _micCapture?.StopRecording();
-        _systemCapture?.StopRecording();
+        _outputCapture?.StopRecording();
 
         _pumpCts?.Cancel();
         if (_pumpTask is not null)
@@ -112,9 +125,9 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         _writer = null;
 
         _micCapture?.Dispose();
-        _systemCapture?.Dispose();
+        _outputCapture?.Dispose();
         _micCapture = null;
-        _systemCapture = null;
+        _outputCapture = null;
 
         _pumpCts?.Dispose();
         _pumpCts = null;
@@ -138,7 +151,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     private static void AbortFailedStart(
         WasapiCapture? micCapture,
-        WasapiLoopbackCapture? systemCapture,
+        IWaveIn? outputCapture,
         WaveFileWriter? writer,
         CancellationTokenSource? pumpCts,
         Task? pumpTask)
@@ -169,13 +182,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
         try
         {
-            systemCapture?.StopRecording();
+            outputCapture?.StopRecording();
         }
         catch (Exception)
         {
         }
 
-        systemCapture?.Dispose();
+        outputCapture?.Dispose();
         pumpCts?.Dispose();
     }
 

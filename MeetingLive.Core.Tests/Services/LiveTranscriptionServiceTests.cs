@@ -111,6 +111,8 @@ public class LiveTranscriptionServiceTests
 
         public void Start(string outputWavPath, string? microphoneDeviceId = null) => IsRecording = true;
 
+        public void Start(string outputWavPath, RecordingCaptureSources sources) => IsRecording = true;
+
         public void Stop() => IsRecording = false;
 
         public void Pause() => IsPaused = true;
