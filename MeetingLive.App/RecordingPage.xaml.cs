@@ -115,6 +115,30 @@ public sealed partial class RecordingPage : Page
             ViewModel.SelectedDestination = destination;
     }
 
+    private void RecordMicrophoneComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: RecordingMicrophoneChoice choice })
+            ViewModel.SelectRecordingMicrophone(choice);
+    }
+
+    private void RecordMicrophoneComboBox_DropDownOpened(object sender, object e) =>
+        ViewModel.RefreshRecordingMicrophones();
+
+    private void RecordAudioSource_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { Tag: string tag })
+            ViewModel.SelectRecordingOutput(tag == "App");
+    }
+
+    private void RecordAppComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedItem: RecordingAppOption option })
+            ViewModel.SelectRecordingApp(option);
+    }
+
+    private void RecordAppComboBox_DropDownOpened(object sender, object e) =>
+        ViewModel.RefreshOpenApps();
+
     private async void LiveAnswerProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_applyingLiveAnswerProvider)

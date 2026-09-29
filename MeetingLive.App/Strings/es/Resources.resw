@@ -55,6 +55,15 @@
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
   <data name="RecordPage_MicLevel.Text" xml:space="preserve"><value>Nivel del micrófono</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
+  <data name="ComboRecordMicrophone.Header" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>Ninguno</value></data>
+  <data name="RadioRecordAudioSource.Header" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>Todo el audio del sistema</value></data>
+  <data name="RecordPage_OneApp.Text" xml:space="preserve"><value>Una aplicación</value></data>
+  <data name="ComboRecordApp.Header" xml:space="preserve"><value>Aplicación</value></data>
+  <data name="ComboRecordApp.PlaceholderText" xml:space="preserve"><value>Elige una aplicación</value></data>
+  <data name="RecordPage_AppCaptureNote.Text" xml:space="preserve"><value>Captura esa aplicación y sus procesos hijos. Un navegador puede incluir otras pestañas, o no oír audio que suena en otro proceso.</value></data>
+  <data name="RecordPage_AppDisplay" xml:space="preserve"><value>{0} — {1}</value></data>
   <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancelar</value></data>
   <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancelar transcripción o resumen</value></data>
   <data name="Record_Record" xml:space="preserve"><value>Grabar</value></data>
@@ -194,6 +203,9 @@
   <data name="Status_PreparingEngine" xml:space="preserve"><value>Preparando el motor de transcripción...</value></data>
   <data name="Status_LoadingModel" xml:space="preserve"><value>Cargando el modelo de transcripción...</value></data>
   <data name="Status_Recording" xml:space="preserve"><value>Grabando... micrófono + audio del sistema.</value></data>
+  <data name="Status_RecordingNoMic" xml:space="preserve"><value>Grabando... solo audio del sistema.</value></data>
+  <data name="Status_RecordingMicApp" xml:space="preserve"><value>Grabando... micrófono + {0}.</value></data>
+  <data name="Status_RecordingNoMicApp" xml:space="preserve"><value>Grabando... solo {0}.</value></data>
   <data name="Status_Importing" xml:space="preserve"><value>Importando audio...</value></data>
   <data name="Status_TranscriptReady" xml:space="preserve"><value>Transcripción lista. Preparando resumen...</value></data>
 
@@ -214,6 +226,8 @@
   <data name="Status_CliOnPath" xml:space="preserve"><value>Detectado en el PATH.</value></data>
   <data name="Status_CliMissing" xml:space="preserve"><value>No se encontró en el PATH: instálalo antes de grabar.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: no se pudo iniciar la grabación ({0}).</value></data>
+  <data name="Error_ChooseRecordingApp" xml:space="preserve"><value>Error: elige una aplicación, o cambia a todo el audio del sistema.</value></data>
+  <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>La grabación se detuvo porque falló el audio de la reunión: {0}</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: no se pudo importar ese audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error al detener la grabación: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error al procesar la grabación: {0}</value></data>

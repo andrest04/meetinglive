@@ -93,6 +93,53 @@
             </ComboBox>
         </Grid>
 
+        <StackPanel Spacing="12">
+            <ComboBox x:Uid="ComboRecordMicrophone"
+                      ItemsSource="{x:Bind ViewModel.RecordingMicrophones, Mode=OneWay}"
+                      SelectedItem="{x:Bind ViewModel.SelectedRecordingMicrophone, Mode=OneWay}"
+                      DisplayMemberPath="DisplayName"
+                      SelectionChanged="RecordMicrophoneComboBox_SelectionChanged"
+                      DropDownOpened="RecordMicrophoneComboBox_DropDownOpened"
+                      IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                      HorizontalAlignment="Stretch"
+                      MinWidth="220"
+                      AutomationProperties.AutomationId="ComboRecordMicrophone" />
+            <RadioButtons x:Uid="RadioRecordAudioSource"
+                          MaxColumns="1"
+                          IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                          AutomationProperties.AutomationId="RadioRecordAudioSource">
+                <RadioButton IsChecked="{x:Bind ViewModel.IsSystemAudioSelected, Mode=OneWay}"
+                             Checked="RecordAudioSource_Checked"
+                             Tag="System"
+                             AutomationProperties.AutomationId="RadioRecordSystemAudio">
+                    <TextBlock x:Uid="RecordPage_AllSystemAudio" />
+                </RadioButton>
+                <RadioButton IsChecked="{x:Bind ViewModel.IsOneAppSelected, Mode=OneWay}"
+                             Checked="RecordAudioSource_Checked"
+                             Tag="App"
+                             AutomationProperties.AutomationId="RadioRecordOneApp">
+                    <TextBlock x:Uid="RecordPage_OneApp" />
+                </RadioButton>
+            </RadioButtons>
+            <StackPanel Spacing="4"
+                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowAppPicker), Mode=OneWay}">
+                <ComboBox x:Uid="ComboRecordApp"
+                          ItemsSource="{x:Bind ViewModel.RecordingApps, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.SelectedRecordingApp, Mode=OneWay}"
+                          DisplayMemberPath="DisplayName"
+                          SelectionChanged="RecordAppComboBox_SelectionChanged"
+                          DropDownOpened="RecordAppComboBox_DropDownOpened"
+                          IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                          HorizontalAlignment="Stretch"
+                          MinWidth="220"
+                          AutomationProperties.AutomationId="ComboRecordApp" />
+                <TextBlock x:Uid="RecordPage_AppCaptureNote"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </StackPanel>
+
         <StackPanel Spacing="8"
                     Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowComingUp), Mode=OneWay}"
                     AutomationProperties.AutomationId="ComingUpSection">
@@ -414,6 +461,13 @@
                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                VerticalAlignment="Center"
                                AutomationProperties.AutomationId="TxtHighlightFeedback" />
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"
+                               Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}"
+                               AutomationProperties.AutomationId="TxtRecordingStatus" />
                 </tk:WrapPanel>
             </Border>
         </StackPanel>
