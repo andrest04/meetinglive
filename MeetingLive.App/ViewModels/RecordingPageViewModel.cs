@@ -259,6 +259,9 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     public bool HasCanvasTranscript => !string.IsNullOrEmpty(CanvasTranscriptText);
 
+    /// <summary>Idle with nothing to show: the transcript card would only hold a hint, so hide it.</summary>
+    public bool ShowTranscriptCanvas => IsSessionActive || HasCanvasTranscript;
+
     public string CanvasHeading =>
         IsSessionActive
             ? AppStrings.Get("RecordPage_LiveTranscript.Text")
@@ -1607,6 +1610,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         OnPropertyChanged(nameof(HasLiveTranscript));
         OnPropertyChanged(nameof(CanvasTranscriptText));
         OnPropertyChanged(nameof(HasCanvasTranscript));
+        OnPropertyChanged(nameof(ShowTranscriptCanvas));
         CopyToClipboardCommand.NotifyCanExecuteChanged();
     }
 
@@ -1622,6 +1626,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private void NotifyCanvasState()
     {
         OnPropertyChanged(nameof(IsSessionActive));
+        OnPropertyChanged(nameof(ShowTranscriptCanvas));
         OnPropertyChanged(nameof(ShowMicPreview));
         OnPropertyChanged(nameof(ShowSetupPanel));
         OnPropertyChanged(nameof(ShowRecordHero));

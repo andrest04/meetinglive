@@ -576,11 +576,12 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="*" MinHeight="260" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Grid.Column="0" RowSpacing="8">
+            <Grid Grid.Row="0" Grid.Column="0" RowSpacing="8" MinHeight="260"
+                  Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowTranscriptCanvas), Mode=OneWay}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
