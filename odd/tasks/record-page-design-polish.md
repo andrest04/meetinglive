@@ -44,7 +44,7 @@ Strict TDD enabled; runner `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.
 
 - [x] T1 — Multi-lens critique (read-only, 4 lenses)
 - [x] T2 — Prioritized design plan: `odd/tasks/record-page-design-polish.plan.md`
-- [ ] U1 — Session states and feedback (CardSurface style, processing bar, promoted result card)
+- [x] U1 — Session states and feedback (CardSurface style, processing bar, promoted result card)
 - [ ] U2 — Idle hero and form polish (SettingsCards, Expander, hero button, Coming up)
 - [ ] U3 — Recording bar and transcript as protagonist
 - [ ] U4 — Cross-page consistency (secondary)
@@ -54,3 +54,5 @@ Strict TDD enabled; runner `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.
 - 2026-09-28 — Doc created after exploring RecordingPage.xaml (842 lines) and prior recording-compact-layout task.
 
 - 2026-09-28 — Critique workflow done (5 agents). Engram mirror pending (mem_save failed: multiple active sessions). Starting U1.
+
+- 2026-09-28 — U1 done, commit e8c7620. IsStatusError can fire while recording/processing, so the error InfoBar was kept in the session view (SessionErrorVisibility) and a second one added to the idle column.
