@@ -1876,7 +1876,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         string? savedId,
         bool preserveCurrent)
     {
-        _suppressRecordingSourceCommit = true;
         var none = new RecordingMicrophoneChoice(
             RecordingMicrophoneKind.None,
             AppStrings.Get("RecordPage_MicrophoneNone"));
@@ -1884,19 +1883,29 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             RecordingMicrophoneKind.SystemDefault,
             AppStrings.Get("Microphone_SystemDefault"));
 
-        RecordingMicrophones.Clear();
-        RecordingMicrophones.Add(none);
-        RecordingMicrophones.Add(systemDefault);
+        var next = new List<RecordingMicrophoneChoice> { none, systemDefault };
         foreach (var device in devices)
         {
             if (string.IsNullOrEmpty(device.Id))
                 continue;
 
-            RecordingMicrophones.Add(new RecordingMicrophoneChoice(
+            next.Add(new RecordingMicrophoneChoice(
                 RecordingMicrophoneKind.Device,
                 device.Name,
                 device.Id));
         }
+
+        // Rewriting the items while the drop-down is open closes the popup, and the refresh
+        // runs on DropDownOpened. Keep the existing collection when nothing changed.
+        if (preserveCurrent && SelectedRecordingMicrophone is not null && SameMicrophoneChoices(RecordingMicrophones, next))
+            return;
+
+        _suppressRecordingSourceCommit = true;
+        RecordingMicrophones.Clear();
+        foreach (var choice in next)
+            RecordingMicrophones.Add(choice);
+        none = RecordingMicrophones[0];
+        systemDefault = RecordingMicrophones[1];
 
         var chosen = ResolveMicrophoneChoice(none, systemDefault, savedId, preserveCurrent);
         SelectedRecordingMicrophone = chosen;
@@ -1906,6 +1915,24 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             StopMicPreview();
         else
             TryStartMicPreview();
+    }
+
+    private static bool SameMicrophoneChoices(
+        IReadOnlyList<RecordingMicrophoneChoice> current,
+        IReadOnlyList<RecordingMicrophoneChoice> next)
+    {
+        if (current.Count != next.Count)
+            return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            if (current[i].Kind != next[i].Kind
+                || current[i].DeviceId != next[i].DeviceId
+                || current[i].DisplayName != next[i].DisplayName)
+                return false;
+        }
+
+        return true;
     }
 
     private RecordingMicrophoneChoice ResolveMicrophoneChoice(
