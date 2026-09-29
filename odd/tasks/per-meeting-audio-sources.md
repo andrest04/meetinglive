@@ -96,6 +96,7 @@ Branch `feat/per-meeting-audio-sources`.
 - `2ad05e4` feat(capture): record one app or skip the microphone
 - `5f340db` fix(capture): surface process-loopback failures instead of silence
 - `0e3ae15` feat(recording): choose mic and app audio per meeting
+- `89cb2e1` fix(capture): use a fixed format for process loopback and keep system loopback tolerant
 
 `CaptureMicrophone: false` is no microphone. Null device id with capture on is the OS default. `ProcessTree` does not also open system loopback. A failed activation does not fall back to system audio. If the chosen app's capture dies after start, the pump stops and the recording page shows `Error_OutputCaptureFailed`.
 
