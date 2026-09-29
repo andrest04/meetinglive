@@ -46,7 +46,7 @@ Strict TDD enabled; runner `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.
 - [x] T2 — Prioritized design plan: `odd/tasks/record-page-design-polish.plan.md`
 - [x] U1 — Session states and feedback (CardSurface style, processing bar, promoted result card)
 - [x] U2 — Idle hero and form polish (SettingsCards, Expander, hero button, Coming up)
-- [ ] U3 — Recording bar and transcript as protagonist
+- [x] U3 — Recording bar and transcript as protagonist
 - [ ] U4 — Cross-page consistency (secondary)
 
 ## Progress log
@@ -58,3 +58,5 @@ Strict TDD enabled; runner `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.
 - 2026-09-28 — U1 done, commit e8c7620. IsStatusError can fire while recording/processing, so the error InfoBar was kept in the session view (SessionErrorVisibility) and a second one added to the idle column.
 
 - 2026-09-28 — U2 done, commit edf76c6. Audio sources are SettingsCards in an Expander (collapses when a transcript exists); AutomationIds stay on the inner ComboBox/RadioButtons. Setup panel lost its outer card, headline string shortened (also used by the setup dialog). Status glyphs skipped (no VM booleans).
+
+- 2026-09-28 — U3 done, commit PENDING_HASH. Recording bar is one CardSurface row (Stop, Pause, Highlight, Copy, Discard); Copy stays in layout (disabled until a transcript exists) so nothing reflows; feedback texts moved to the transcript heading; jump-to-latest, LIVE badge, reduced-motion pulse added. tk:WrapPanel and xmlns:tk removed; csproj untouched (the Markdown package is still used elsewhere).

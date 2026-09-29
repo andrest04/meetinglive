@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.UI.ViewManagement;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
@@ -211,7 +212,16 @@ public sealed partial class RecordingPage : Page
     {
         if (ViewModel.IsRecording && !ViewModel.IsPaused)
         {
-            RecordingPulseStoryboard.Begin();
+            // Respect the Windows "Animation effects" setting: keep the pulse static at a mid opacity instead of animating.
+            if (new UISettings().AnimationsEnabled)
+            {
+                RecordingPulseStoryboard.Begin();
+            }
+            else
+            {
+                RecordingPulseStoryboard.Stop();
+                RecordingPulse.Opacity = 0.3;
+            }
         }
         else
         {
@@ -225,6 +235,14 @@ public sealed partial class RecordingPage : Page
         var scroll = LiveTranscriptScroll;
         _stickToTranscriptEnd = scroll.ScrollableHeight <= 0 ||
             scroll.VerticalOffset >= scroll.ScrollableHeight - 32;
+        BtnJumpToLatest.Visibility = _stickToTranscriptEnd ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void JumpToLatest_Click(object sender, RoutedEventArgs e)
+    {
+        _stickToTranscriptEnd = true;
+        BtnJumpToLatest.Visibility = Visibility.Collapsed;
+        LiveTranscriptScroll.ChangeView(null, LiveTranscriptScroll.ScrollableHeight, null, disableAnimation: true);
     }
 
     private void FollowLiveTranscriptIfNeeded()
@@ -259,6 +277,15 @@ public sealed partial class RecordingPage : Page
         isPaused ? AppStrings.Get("Record_Resume") : AppStrings.Get("Record_Pause");
 
     public static string DiscardLabel() => AppStrings.Get("Record_Discard");
+
+    // The recording bar's Copy is icon-only, so its name and tooltip reuse the x:Uid text resource without applying its Content.
+    public static string CopyLabel() => AppStrings.Get("RecordPage_Copy.Content");
+
+    public static string JumpToLatestLabel() => AppStrings.Get("RecordPage_JumpToLatest");
+
+    /// <summary>LIVE badge: audio is being captured, so it hides while paused.</summary>
+    public static Visibility LiveVisibility(bool isRecording, bool isPaused) =>
+        isRecording && !isPaused ? Visibility.Visible : Visibility.Collapsed;
 
     public static string HighlightLabel() => AppStrings.Get("Record_Highlight");
 

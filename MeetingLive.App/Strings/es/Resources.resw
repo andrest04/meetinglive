@@ -47,6 +47,8 @@
   <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Transcripción en vivo</value></data>
   <data name="RecordPage_SavedTranscript" xml:space="preserve"><value>Transcripción</value></data>
   <data name="RecordPage_LiveTranscriptHint.Text" xml:space="preserve"><value>Solo es una vista previa en vivo. La transcripción que se guarda se genera a partir de la grabación después de detenerla.</value></data>
+  <data name="RecordPage_LiveBadge.Text" xml:space="preserve"><value>En vivo</value></data>
+  <data name="RecordPage_JumpToLatest" xml:space="preserve"><value>Ir al final</value></data>
   <data name="RecordPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
   <data name="RecordPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
   <data name="RecordPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcripción copiada al portapapeles.</value></data>

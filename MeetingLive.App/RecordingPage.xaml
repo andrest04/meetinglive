@@ -9,7 +9,6 @@
     xmlns:vm="using:MeetingLive_App.ViewModels"
     xmlns:models="using:MeetingLive.Core.Models"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:tk="using:CommunityToolkit.WinUI.UI.Controls"
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
@@ -137,7 +136,9 @@
                             <ProgressBar x:Uid="RecordPage_MicLevelBar"
                                          Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
                                          Minimum="0" Maximum="100"
+                                         IsHitTestVisible="False"
                                          Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}"
+                                         AutomationProperties.AccessibilityView="Raw"
                                          AutomationProperties.AutomationId="ProgressRecordMicrophoneLevel" />
                         </Grid>
                     </StackPanel>
@@ -393,107 +394,82 @@
 
         </StackPanel>
 
-        <StackPanel Spacing="12"
-                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
-            <Grid ColumnSpacing="12">
+        <!-- RECORDING bar: one fixed row (status | mic meter | actions). Copy, highlight feedback and status text live outside it
+             (Copy stays in the layout, disabled, and the feedback texts sit in the transcript heading) so the bar never reflows.
+             Tab order follows the primary action first: Stop, Pause, Highlight, Copy, Discard. -->
+        <Border Style="{StaticResource CardSurface}"
+                Padding="16,12"
+                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+            <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
-                           Text="{x:Bind ViewModel.MeetingTitle, Mode=OneWay}"
-                           Style="{StaticResource SubtitleTextBlockStyle}"
-                           TextWrapping="NoWrap"
-                           TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center"
-                           AutomationProperties.AutomationId="TxtRecordingTitle" />
-                <Border Grid.Column="1"
-                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="{ThemeResource ControlCornerRadius}"
-                        Padding="8,4"
-                        VerticalAlignment="Center"
-                        Visibility="{x:Bind local:RecordingPage.NonEmptyVisibility(ViewModel.SelectedDestination.Path), Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xE8B7;" FontSize="14" VerticalAlignment="Center" />
-                        <TextBlock Text="{x:Bind ViewModel.SelectedDestination.Path, Mode=OneWay, FallbackValue=''}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   MaxWidth="280"
-                                   TextWrapping="NoWrap"
-                                   TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"
-                                   AutomationProperties.AutomationId="TxtRecordingDestination" />
-                    </StackPanel>
-                </Border>
-            </Grid>
 
-            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="{ThemeResource ControlCornerRadius}"
-                    Padding="12,8">
-                <tk:WrapPanel HorizontalSpacing="12" VerticalSpacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Grid Width="18" Height="18" VerticalAlignment="Center">
-                            <Ellipse x:Name="RecordingPulse"
-                                     Fill="{ThemeResource SystemFillColorCriticalBrush}"
-                                     Opacity="0"
-                                     IsHitTestVisible="False" />
-                            <Ellipse Width="10" Height="10"
-                                     Fill="{ThemeResource SystemFillColorCriticalBrush}"
-                                     IsHitTestVisible="False" />
-                        </Grid>
+                <Grid Grid.Column="0" ColumnSpacing="12" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Width="18" Height="18" VerticalAlignment="Center"
+                          AutomationProperties.AccessibilityView="Raw">
+                        <Ellipse x:Name="RecordingPulse"
+                                 Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                 Opacity="0"
+                                 IsHitTestVisible="False"
+                                 AutomationProperties.AccessibilityView="Raw" />
+                        <Ellipse Width="10" Height="10"
+                                 Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                 IsHitTestVisible="False"
+                                 AutomationProperties.AccessibilityView="Raw" />
+                    </Grid>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock x:Uid="RecordPage_ElapsedTime"
                                    Text="{x:Bind ViewModel.ElapsedText, Mode=OneWay}"
                                    Style="{StaticResource BodyStrongTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                   VerticalAlignment="Center"
                                    AutomationProperties.AutomationId="TxtRecordingElapsed" />
+                        <!-- The destination path moved into this title's tooltip; the TextBlock keeps its AutomationId there. -->
+                        <TextBlock Text="{x:Bind ViewModel.MeetingTitle, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   AutomationProperties.AutomationId="TxtRecordingTitle">
+                            <ToolTipService.ToolTip>
+                                <ToolTip>
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedDestination.Path, Mode=OneWay, FallbackValue=''}"
+                                               TextWrapping="Wrap"
+                                               MaxWidth="360"
+                                               AutomationProperties.AutomationId="TxtRecordingDestination" />
+                                </ToolTip>
+                            </ToolTipService.ToolTip>
+                        </TextBlock>
                     </StackPanel>
-                    <ProgressBar x:Uid="RecordPage_MicLevelBar"
-                                 Width="120"
-                                 Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
-                                 Minimum="0" Maximum="100"
-                                 VerticalAlignment="Center"
-                                 Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}"
-                                 AutomationProperties.AutomationId="ProgressRecordMicrophoneLevel" />
-                    <Button Command="{x:Bind ViewModel.TogglePauseCommand}"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="BtnPauseRecording"
-                            AutomationProperties.Name="{x:Bind local:RecordingPage.PauseLabel(ViewModel.IsPaused), Mode=OneWay}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="{x:Bind local:RecordingPage.PauseGlyph(ViewModel.IsPaused), Mode=OneWay}" FontSize="16" />
-                            <TextBlock Text="{x:Bind local:RecordingPage.PauseLabel(ViewModel.IsPaused), Mode=OneWay}" />
-                        </StackPanel>
-                        <Button.KeyboardAccelerators>
-                            <KeyboardAccelerator Modifiers="Control"
-                                                 Key="P"
-                                                 Invoked="TogglePause_AcceleratorInvoked" />
-                        </Button.KeyboardAccelerators>
-                    </Button>
-                    <Button Click="DiscardRecording_Click"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="BtnDiscardRecording"
-                            AutomationProperties.Name="{x:Bind local:RecordingPage.DiscardLabel()}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE74D;" FontSize="16" />
-                            <TextBlock Text="{x:Bind local:RecordingPage.DiscardLabel()}" />
-                        </StackPanel>
-                        <Button.KeyboardAccelerators>
-                            <KeyboardAccelerator Modifiers="Control,Shift"
-                                                 Key="D"
-                                                 Invoked="DiscardRecording_AcceleratorInvoked" />
-                        </Button.KeyboardAccelerators>
-                    </Button>
+                </Grid>
+
+                <ProgressBar Grid.Column="1"
+                             x:Uid="RecordPage_MicLevelBar"
+                             Width="96"
+                             Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
+                             Minimum="0" Maximum="100"
+                             VerticalAlignment="Center"
+                             IsHitTestVisible="False"
+                             Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}"
+                             AutomationProperties.AccessibilityView="Raw"
+                             AutomationProperties.AutomationId="ProgressRecordMicrophoneLevel" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button Command="{x:Bind ViewModel.ToggleRecordingCommand}"
                             Style="{StaticResource AccentButtonStyle}"
+                            MinHeight="40"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="BtnToggleRecording"
                             AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
+                            <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16"
+                                      AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
                         </StackPanel>
                         <Button.KeyboardAccelerators>
@@ -502,37 +478,83 @@
                                                  Invoked="ToggleRecording_AcceleratorInvoked" />
                         </Button.KeyboardAccelerators>
                     </Button>
+                    <Button Command="{x:Bind ViewModel.TogglePauseCommand}"
+                            MinHeight="40"
+                            MinWidth="112"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="BtnPauseRecording"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.PauseLabel(ViewModel.IsPaused), Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="{x:Bind local:RecordingPage.PauseGlyph(ViewModel.IsPaused), Mode=OneWay}" FontSize="16"
+                                      AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Text="{x:Bind local:RecordingPage.PauseLabel(ViewModel.IsPaused), Mode=OneWay}" />
+                        </StackPanel>
+                        <Button.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control"
+                                                 Key="P"
+                                                 Invoked="TogglePause_AcceleratorInvoked" />
+                        </Button.KeyboardAccelerators>
+                    </Button>
                     <Button Command="{x:Bind ViewModel.HighlightMomentCommand}"
+                            MinHeight="40"
+                            MinWidth="40"
                             VerticalAlignment="Center"
                             ToolTipService.ToolTip="{x:Bind local:RecordingPage.HighlightTooltip()}"
                             AutomationProperties.AutomationId="BtnHighlightMoment"
                             AutomationProperties.Name="{x:Bind local:RecordingPage.HighlightLabel()}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE734;" FontSize="16" />
-                            <TextBlock Text="{x:Bind local:RecordingPage.HighlightLabel()}" />
-                        </StackPanel>
+                        <FontIcon Glyph="&#xE734;" FontSize="16"
+                                  AutomationProperties.AccessibilityView="Raw" />
                     </Button>
-                    <Button x:Uid="RecordPage_Copy"
-                            Command="{x:Bind ViewModel.CopyToClipboardCommand}"
+                    <Button Command="{x:Bind ViewModel.CopyToClipboardCommand}"
+                            MinHeight="40"
+                            MinWidth="40"
                             VerticalAlignment="Center"
-                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
-                            AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
-                    <TextBlock Text="{x:Bind ViewModel.HighlightFeedback, Mode=OneWay}"
-                               Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasHighlightFeedback), Mode=OneWay}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                               VerticalAlignment="Center"
-                               AutomationProperties.AutomationId="TxtHighlightFeedback" />
-                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap"
-                               VerticalAlignment="Center"
-                               Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}"
-                               AutomationProperties.AutomationId="TxtRecordingStatus" />
-                </tk:WrapPanel>
-            </Border>
-        </StackPanel>
+                            IsEnabled="{x:Bind ViewModel.HasCanvasTranscript, Mode=OneWay}"
+                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.CopyLabel()}"
+                            AutomationProperties.AutomationId="BtnCopyLiveTranscript"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.CopyLabel()}">
+                        <FontIcon Glyph="&#xE8C8;" FontSize="16"
+                                  AutomationProperties.AccessibilityView="Raw" />
+                    </Button>
+                    <!-- Discard is destructive: last in the order, visually separated, and confirmed by a dialog. The lightweight
+                         resources keep the critical foreground on hover/press; High Contrast falls back to the system button colors. -->
+                    <Button Click="DiscardRecording_Click"
+                            Margin="8,0,0,0"
+                            MinHeight="40"
+                            MinWidth="40"
+                            VerticalAlignment="Center"
+                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.DiscardLabel()}"
+                            AutomationProperties.AutomationId="BtnDiscardRecording"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.DiscardLabel()}">
+                        <Button.Resources>
+                            <ResourceDictionary>
+                                <ResourceDictionary.ThemeDictionaries>
+                                    <ResourceDictionary x:Key="Default">
+                                        <StaticResource x:Key="ButtonBackground" ResourceKey="SubtleFillColorTransparentBrush" />
+                                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
+                                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrush" ResourceKey="ControlFillColorTransparentBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="ControlFillColorTransparentBrush" />
+                                        <StaticResource x:Key="ButtonBorderBrushPressed" ResourceKey="ControlFillColorTransparentBrush" />
+                                        <StaticResource x:Key="ButtonForeground" ResourceKey="SystemFillColorCriticalBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemFillColorCriticalBrush" />
+                                        <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="SystemFillColorCriticalBrush" />
+                                    </ResourceDictionary>
+                                    <ResourceDictionary x:Key="HighContrast" />
+                                </ResourceDictionary.ThemeDictionaries>
+                            </ResourceDictionary>
+                        </Button.Resources>
+                        <FontIcon Glyph="&#xE74D;" FontSize="16"
+                                  AutomationProperties.AccessibilityView="Raw" />
+                        <Button.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control,Shift"
+                                                 Key="D"
+                                                 Invoked="DiscardRecording_AcceleratorInvoked" />
+                        </Button.KeyboardAccelerators>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <!-- PROCESSING bar: replaces the idle column while a session is being transcribed or summarized. -->
         <Border Style="{StaticResource CardSurface}"
@@ -591,7 +613,6 @@
                   Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowTranscriptCanvas), Mode=OneWay}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" MinHeight="160" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -600,55 +621,136 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
-                               Style="{StaticResource BodyStrongTextBlockStyle}"
-                               VerticalAlignment="Center" />
-                    <!-- While recording, Copy lives in the compact control bar; this one serves the saved transcript. -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                                Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
-                        <Button x:Uid="RecordPage_Copy"
-                                Command="{x:Bind ViewModel.CopyToClipboardCommand}"
-                                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
-                                AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.CanvasHeading, Mode=OneWay}"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   VerticalAlignment="Center" />
+                        <!-- LIVE badge: only while audio is actually being captured (hidden when paused). -->
+                        <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{ThemeResource OverlayCornerRadius}"
+                                Padding="8,2"
+                                VerticalAlignment="Center"
+                                Visibility="{x:Bind local:RecordingPage.LiveVisibility(ViewModel.IsRecording, ViewModel.IsPaused), Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="8" Height="8"
+                                         Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                         VerticalAlignment="Center"
+                                         IsHitTestVisible="False"
+                                         AutomationProperties.AccessibilityView="Raw" />
+                                <TextBlock x:Uid="RecordPage_LiveBadge"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                           VerticalAlignment="Center"
+                                           AutomationProperties.AutomationId="TxtLiveBadge" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                </Grid>
-                <InfoBar Grid.Row="1"
-                         x:Uid="RecordPage_CopyConfirmation"
-                         Severity="Success"
-                         IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
-                         AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
-                <Border Grid.Row="2"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="{ThemeResource ControlCornerRadius}"
-                        Padding="16"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch">
-                    <ScrollViewer x:Name="LiveTranscriptScroll"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  ViewChanged="LiveTranscriptScroll_ViewChanged">
-                        <Grid>
-                            <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <!-- Feedback lives here, not in the recording bar, so it can appear without reflowing the controls. -->
+                        <StackPanel Orientation="Horizontal" Spacing="12"
+                                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                            <TextBlock Text="{x:Bind ViewModel.HighlightFeedback, Mode=OneWay}"
+                                       Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasHighlightFeedback), Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                       MaxWidth="360"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.LiveSetting="Polite"
+                                       AutomationProperties.AutomationId="TxtHighlightFeedback" />
+                            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                                       Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       VerticalAlignment="Top"
-                                        Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}" />
-                            <TextBlock x:Name="LiveTranscriptBlock"
-                                       IsTextSelectionEnabled="True"
-                                       TextWrapping="Wrap"
-                                       VerticalAlignment="Top"
-                                       LostFocus="LiveTranscriptBlock_LostFocus"
-                                       AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
-                        </Grid>
-                    </ScrollViewer>
-                </Border>
+                                       MaxWidth="360"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.LiveSetting="Polite"
+                                       AutomationProperties.AutomationId="TxtRecordingStatus" />
+                        </StackPanel>
+                        <!-- While recording, Copy lives in the compact control bar; this one serves the saved transcript. -->
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                            <Button x:Uid="RecordPage_Copy"
+                                    Command="{x:Bind ViewModel.CopyToClipboardCommand}"
+                                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}"
+                                    AutomationProperties.AutomationId="BtnCopyLiveTranscript" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <Grid Grid.Row="1">
+                    <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{ThemeResource ControlCornerRadius}"
+                            Padding="24,20"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
+                        <ScrollViewer x:Name="LiveTranscriptScroll"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      ViewChanged="LiveTranscriptScroll_ViewChanged">
+                            <Grid MaxWidth="760">
+                                <StackPanel Spacing="8"
+                                            Margin="0,24,0,0"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Top"
+                                            Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasCanvasTranscript), Mode=OneWay}">
+                                    <FontIcon Glyph="&#xE720;"
+                                              FontSize="24"
+                                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                              AutomationProperties.AccessibilityView="Raw" />
+                                    <TextBlock x:Uid="RecordPage_LiveTranscriptHint"
+                                               Style="{StaticResource BodyTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               MaxWidth="480" />
+                                </StackPanel>
+                                <TextBlock x:Name="LiveTranscriptBlock"
+                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                           FontSize="16"
+                                           LineHeight="26"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Top"
+                                           LostFocus="LiveTranscriptBlock_LostFocus"
+                                           AutomationProperties.AutomationId="TxtLiveTranscriptPreview" />
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+                    <!-- Both overlays sit over the transcript cell so the row heights never change when they appear. -->
+                    <InfoBar x:Uid="RecordPage_CopyConfirmation"
+                             Severity="Success"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             MaxWidth="320"
+                             Margin="0,12,12,0"
+                             IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
+                             AutomationProperties.AutomationId="InfoCopyLiveTranscript" />
+                    <Button x:Name="BtnJumpToLatest"
+                            Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,20,16"
+                            MinHeight="40"
+                            MinWidth="40"
+                            Visibility="Collapsed"
+                            Click="JumpToLatest_Click"
+                            ToolTipService.ToolTip="{x:Bind local:RecordingPage.JumpToLatestLabel()}"
+                            AutomationProperties.AutomationId="BtnJumpToLatest"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.JumpToLatestLabel()}">
+                        <FontIcon Glyph="&#xE74B;" FontSize="16"
+                                  AutomationProperties.AccessibilityView="Raw" />
+                    </Button>
+                </Grid>
 
                 <!-- Live-ask dock: chat-composer row under the transcript. The answer card lives in the side panel so it never resizes the transcript. -->
-                <StackPanel Grid.Row="3" Spacing="8"
+                <StackPanel Grid.Row="2" Spacing="8"
                             Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
                     <Grid ColumnSpacing="8"
                           Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasArmedQuestion), Mode=OneWay}">
