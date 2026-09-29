@@ -296,6 +296,12 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     public bool HasComingUpMessage => !string.IsNullOrEmpty(ComingUpMessage);
 
+    /// <summary>Calendar access failed: worth an InfoBar.</summary>
+    public bool HasComingUpError => HasComingUpMessage && IsComingUpError;
+
+    /// <summary>Nothing scheduled: a single muted line, not an InfoBar.</summary>
+    public bool HasComingUpEmptyMessage => HasComingUpMessage && !IsComingUpError;
+
     public RecordingPageViewModel()
     {
         _pipeline = new RecordingPipelineOrchestrator(_transcription, _meetings);
@@ -1038,7 +1044,18 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
     }
 
-    partial void OnComingUpMessageChanged(string value) => OnPropertyChanged(nameof(HasComingUpMessage));
+    partial void OnComingUpMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasComingUpMessage));
+        OnPropertyChanged(nameof(HasComingUpError));
+        OnPropertyChanged(nameof(HasComingUpEmptyMessage));
+    }
+
+    partial void OnIsComingUpErrorChanged(bool value)
+    {
+        OnPropertyChanged(nameof(HasComingUpError));
+        OnPropertyChanged(nameof(HasComingUpEmptyMessage));
+    }
 
     partial void OnMeetingBriefChanged(string value) => OnPropertyChanged(nameof(ShowMeetingBrief));
 

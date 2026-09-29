@@ -53,14 +53,17 @@
   <data name="RecordPage_ViewTranscript.Content" xml:space="preserve"><value>Ver transcripción</value></data>
   <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>Ver resumen</value></data>
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
-  <data name="RecordPage_MicLevel.Text" xml:space="preserve"><value>Nivel del micrófono</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
-  <data name="ComboRecordMicrophone.Header" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="RecordPage_AudioSources.Text" xml:space="preserve"><value>Fuentes de audio</value></data>
+  <data name="RecordPage_MicrophoneLabel.Text" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="ComboRecordMicrophone.AutomationProperties.Name" xml:space="preserve"><value>Micrófono</value></data>
   <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>Ninguno</value></data>
-  <data name="RadioRecordAudioSource.Header" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="RecordPage_MeetingAudioLabel.Text" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="RadioRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Audio de la reunión</value></data>
   <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>Todo el audio del sistema</value></data>
   <data name="RecordPage_OneApp.Text" xml:space="preserve"><value>Una aplicación</value></data>
-  <data name="ComboRecordApp.Header" xml:space="preserve"><value>Aplicación</value></data>
+  <data name="RecordPage_AppLabel.Text" xml:space="preserve"><value>Aplicación</value></data>
+  <data name="ComboRecordApp.AutomationProperties.Name" xml:space="preserve"><value>Aplicación</value></data>
   <data name="ComboRecordApp.PlaceholderText" xml:space="preserve"><value>Elige una aplicación</value></data>
   <data name="RecordPage_AppCaptureNote.Text" xml:space="preserve"><value>Captura esa aplicación y sus procesos hijos. Un navegador puede incluir otras pestañas, o no oír audio que suena en otro proceso.</value></data>
   <data name="RecordPage_AppDisplay" xml:space="preserve"><value>{0} — {1}</value></data>
@@ -428,10 +431,10 @@
   <data name="RecordPage_LiveAnswerText.AutomationProperties.Name" xml:space="preserve"><value>Respuesta en vivo</value></data>
   <data name="ComingUp_Heading.Text" xml:space="preserve"><value>Próximamente</value></data>
   <data name="ComingUp_Heading.AutomationProperties.Name" xml:space="preserve"><value>Próximamente</value></data>
-  <data name="ComingUp_Previous.Content" xml:space="preserve"><value>Anterior</value></data>
   <data name="ComingUp_Previous.AutomationProperties.Name" xml:space="preserve"><value>Reuniones anteriores</value></data>
-  <data name="ComingUp_Next.Content" xml:space="preserve"><value>Siguiente</value></data>
+  <data name="ComingUp_Previous.ToolTipService.ToolTip" xml:space="preserve"><value>Reuniones anteriores</value></data>
   <data name="ComingUp_Next.AutomationProperties.Name" xml:space="preserve"><value>Próximas reuniones</value></data>
+  <data name="ComingUp_Next.ToolTipService.ToolTip" xml:space="preserve"><value>Próximas reuniones</value></data>
   <data name="ComingUp_Empty" xml:space="preserve"><value>No hay nada próximamente.</value></data>
   <data name="ComingUp_AccessDenied" xml:space="preserve"><value>Windows denegó el acceso al calendario. Permite que MeetingLive lea el calendario y vuelve a abrir Grabar.</value></data>
   <data name="ComingUp_NoPackageIdentity" xml:space="preserve"><value>MeetingLive no puede leer el calendario de Windows porque este inicio no tiene identidad de paquete.</value></data>

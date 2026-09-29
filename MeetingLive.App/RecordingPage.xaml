@@ -63,7 +63,11 @@
 
         <StackPanel Grid.Row="0" Spacing="12">
 
-        <StackPanel Spacing="20"
+        <!-- Idle-only content. One centered column, capped so wide windows do not stretch the pickers edge to edge.
+             Hierarchy: title and destination, one Audio sources card, the Record action row, then the quiet Coming up strip. -->
+        <StackPanel Spacing="16"
+                    MaxWidth="720"
+                    HorizontalAlignment="Stretch"
                     Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
 
         <TextBlock x:Uid="RecordPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
@@ -93,144 +97,144 @@
             </ComboBox>
         </Grid>
 
-        <StackPanel Spacing="12">
-            <ComboBox x:Uid="ComboRecordMicrophone"
-                      ItemsSource="{x:Bind ViewModel.RecordingMicrophones, Mode=OneWay}"
-                      SelectedItem="{x:Bind ViewModel.SelectedRecordingMicrophone, Mode=OneWay}"
-                      DisplayMemberPath="DisplayName"
-                      SelectionChanged="RecordMicrophoneComboBox_SelectionChanged"
-                      DropDownOpened="RecordMicrophoneComboBox_DropDownOpened"
-                      IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
-                      HorizontalAlignment="Stretch"
-                      MinWidth="220"
-                      AutomationProperties.AutomationId="ComboRecordMicrophone" />
-            <RadioButtons x:Uid="RadioRecordAudioSource"
-                          MaxColumns="1"
-                          IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
-                          AutomationProperties.AutomationId="RadioRecordAudioSource">
-                <RadioButton IsChecked="{x:Bind ViewModel.IsSystemAudioSelected, Mode=OneWay}"
-                             Checked="RecordAudioSource_Checked"
-                             Tag="System"
-                             AutomationProperties.AutomationId="RadioRecordSystemAudio">
-                    <TextBlock x:Uid="RecordPage_AllSystemAudio" />
-                </RadioButton>
-                <RadioButton IsChecked="{x:Bind ViewModel.IsOneAppSelected, Mode=OneWay}"
-                             Checked="RecordAudioSource_Checked"
-                             Tag="App"
-                             AutomationProperties.AutomationId="RadioRecordOneApp">
-                    <TextBlock x:Uid="RecordPage_OneApp" />
-                </RadioButton>
-            </RadioButtons>
-            <StackPanel Spacing="4"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowAppPicker), Mode=OneWay}">
-                <ComboBox x:Uid="ComboRecordApp"
-                          ItemsSource="{x:Bind ViewModel.RecordingApps, Mode=OneWay}"
-                          SelectedItem="{x:Bind ViewModel.SelectedRecordingApp, Mode=OneWay}"
-                          DisplayMemberPath="DisplayName"
-                          SelectionChanged="RecordAppComboBox_SelectionChanged"
-                          DropDownOpened="RecordAppComboBox_DropDownOpened"
-                          IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
-                          HorizontalAlignment="Stretch"
-                          MinWidth="220"
-                          AutomationProperties.AutomationId="ComboRecordApp" />
-                <TextBlock x:Uid="RecordPage_AppCaptureNote"
-                           Style="{StaticResource CaptionTextBlockStyle}"
+        <!-- Audio sources: label column plus control column. Rows carry their own top margin (not RowSpacing) so the
+             collapsed app row leaves no trailing gap. The mic meter sits inline with the microphone picker. -->
+        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource ControlCornerRadius}"
+                Padding="16">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.ColumnSpan="2"
+                           x:Uid="RecordPage_AudioSources"
+                           Style="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <TextBlock Grid.Row="1"
+                           x:Uid="RecordPage_MicrophoneLabel"
+                           Margin="0,12,0,0"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap" />
-            </StackPanel>
-        </StackPanel>
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+                <Grid Grid.Row="1" Grid.Column="1" Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Uid="ComboRecordMicrophone"
+                              ItemsSource="{x:Bind ViewModel.RecordingMicrophones, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedRecordingMicrophone, Mode=OneWay}"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="RecordMicrophoneComboBox_SelectionChanged"
+                              DropDownOpened="RecordMicrophoneComboBox_DropDownOpened"
+                              IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                              HorizontalAlignment="Stretch"
+                              MinWidth="160"
+                              AutomationProperties.AutomationId="ComboRecordMicrophone" />
+                    <ProgressBar Grid.Column="1"
+                                 x:Uid="RecordPage_MicLevelBar"
+                                 Width="96"
+                                 Margin="12,0,0,0"
+                                 VerticalAlignment="Center"
+                                 Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
+                                 Minimum="0" Maximum="100"
+                                 Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}"
+                                 AutomationProperties.AutomationId="ProgressRecordMicrophoneLevel" />
+                </Grid>
+
+                <TextBlock Grid.Row="2"
+                           x:Uid="RecordPage_MeetingAudioLabel"
+                           Margin="0,12,0,0"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+                <RadioButtons Grid.Row="2" Grid.Column="1"
+                              x:Uid="RadioRecordAudioSource"
+                              Margin="0,12,0,0"
+                              MaxColumns="2"
+                              IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                              AutomationProperties.AutomationId="RadioRecordAudioSource">
+                    <RadioButton IsChecked="{x:Bind ViewModel.IsSystemAudioSelected, Mode=OneWay}"
+                                 Checked="RecordAudioSource_Checked"
+                                 Tag="System"
+                                 AutomationProperties.AutomationId="RadioRecordSystemAudio">
+                        <TextBlock x:Uid="RecordPage_AllSystemAudio" />
+                    </RadioButton>
+                    <RadioButton IsChecked="{x:Bind ViewModel.IsOneAppSelected, Mode=OneWay}"
+                                 Checked="RecordAudioSource_Checked"
+                                 Tag="App"
+                                 AutomationProperties.AutomationId="RadioRecordOneApp">
+                        <TextBlock x:Uid="RecordPage_OneApp" />
+                    </RadioButton>
+                </RadioButtons>
+
+                <Grid Grid.Row="3" Grid.ColumnSpan="2"
+                      ColumnSpacing="12"
+                      RowSpacing="4"
+                      Margin="0,12,0,0"
+                      Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowAppPicker), Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Uid="RecordPage_AppLabel"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="1"
+                              x:Uid="ComboRecordApp"
+                              ItemsSource="{x:Bind ViewModel.RecordingApps, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.SelectedRecordingApp, Mode=OneWay}"
+                              DisplayMemberPath="DisplayName"
+                              SelectionChanged="RecordAppComboBox_SelectionChanged"
+                              DropDownOpened="RecordAppComboBox_DropDownOpened"
+                              IsEnabled="{x:Bind local:RecordingPage.Not(ViewModel.IsRecording), Mode=OneWay}"
+                              HorizontalAlignment="Stretch"
+                              MinWidth="160"
+                              AutomationProperties.AutomationId="ComboRecordApp" />
+                    <TextBlock Grid.Row="1" Grid.Column="1"
+                               x:Uid="RecordPage_AppCaptureNote"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Grid>
+        </Border>
 
         <StackPanel Spacing="8"
-                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowComingUp), Mode=OneWay}"
-                    AutomationProperties.AutomationId="ComingUpSection">
-            <Grid>
-                <TextBlock x:Uid="ComingUp_Heading"
-                           Style="{StaticResource BodyStrongTextBlockStyle}"
-                           VerticalAlignment="Center" />
-                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                    <Button x:Uid="ComingUp_Previous"
-                            Command="{x:Bind ViewModel.PreviousComingUpCommand}"
-                            AutomationProperties.AutomationId="BtnComingUpPrevious" />
-                    <Button x:Uid="ComingUp_Next"
-                            Command="{x:Bind ViewModel.NextComingUpCommand}"
-                            AutomationProperties.AutomationId="BtnComingUpNext" />
-                </StackPanel>
-            </Grid>
-            <InfoBar IsOpen="{x:Bind ViewModel.HasComingUpMessage, Mode=OneWay}"
-                     IsClosable="False"
-                     Severity="{x:Bind local:RecordingPage.ComingUpSeverity(ViewModel.IsComingUpError), Mode=OneWay}"
-                     Message="{x:Bind ViewModel.ComingUpMessage, Mode=OneWay}"
-                     AutomationProperties.AutomationId="InfoComingUp" />
-            <ScrollViewer HorizontalScrollMode="Enabled"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollMode="Disabled"
-                          VerticalScrollBarVisibility="Disabled">
-                <ItemsRepeater ItemsSource="{x:Bind ViewModel.ComingUpEvents, Mode=OneWay}"
-                               AutomationProperties.AutomationId="ListComingUp">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Orientation="Horizontal" Spacing="8" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="models:CalendarEvent">
-                            <Button MinWidth="200"
-                                    MaxWidth="240"
-                                    HorizontalContentAlignment="Stretch"
-                                    Padding="0"
-                                    Background="{ThemeResource SubtleFillColorTransparentBrush}"
-                                    BorderThickness="0"
-                                    Click="ComingUpEvent_Click"
-                                    Tag="{x:Bind EventId}"
-                                    AutomationProperties.Name="{x:Bind Subject}"
-                                    AutomationProperties.AutomationId="{x:Bind local:RecordingPage.ComingUpEventAutomationId(EventId)}">
-                                <Border Padding="12"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="{ThemeResource ControlCornerRadius}">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="{x:Bind Subject}"
-                                                   TextWrapping="NoWrap"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                        <TextBlock Text="{x:Bind local:RecordingPage.ComingUpWhen(Start, Duration)}"
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                        <TextBlock Text="{x:Bind Location}"
-                                                   TextWrapping="NoWrap"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                   Visibility="{x:Bind local:RecordingPage.NonEmptyVisibility(Location)}" />
-                                    </StackPanel>
-                                </Border>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-            </ScrollViewer>
+                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMeetingBrief), Mode=OneWay}"
+                    AutomationProperties.AutomationId="BriefSection">
+            <TextBlock x:Uid="RecordPage_BriefHeading"
+                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <TextBlock x:Uid="RecordPage_BriefText"
+                       Text="{x:Bind ViewModel.MeetingBrief, Mode=OneWay}"
+                       TextWrapping="Wrap"
+                       IsTextSelectionEnabled="True"
+                       AutomationProperties.AutomationId="TxtMeetingBrief" />
         </StackPanel>
+        <InfoBar x:Uid="RecordPage_BriefFailed"
+                 IsOpen="{x:Bind ViewModel.HasBriefError, Mode=OneWay}"
+                 IsClosable="False"
+                 Severity="Error"
+                 Message="{x:Bind ViewModel.BriefError, Mode=OneWay}"
+                 AutomationProperties.AutomationId="InfoBriefError" />
 
-        <StackPanel Spacing="8">
-            <StackPanel Spacing="8"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMeetingBrief), Mode=OneWay}"
-                        AutomationProperties.AutomationId="BriefSection">
-                <TextBlock x:Uid="RecordPage_BriefHeading"
-                           Style="{StaticResource BodyStrongTextBlockStyle}" />
-                <TextBlock x:Uid="RecordPage_BriefText"
-                           Text="{x:Bind ViewModel.MeetingBrief, Mode=OneWay}"
-                           TextWrapping="Wrap"
-                           IsTextSelectionEnabled="True"
-                           AutomationProperties.AutomationId="TxtMeetingBrief" />
-            </StackPanel>
-            <InfoBar x:Uid="RecordPage_BriefFailed"
-                     IsOpen="{x:Bind ViewModel.HasBriefError, Mode=OneWay}"
-                     IsClosable="False"
-                     Severity="Error"
-                     Message="{x:Bind ViewModel.BriefError, Mode=OneWay}"
-                     AutomationProperties.AutomationId="InfoBriefError" />
-        </StackPanel>
-
-        <Grid Margin="0,8,0,4">
+        <!-- Action area: either the setup checklist or the Record hero. Record is the only accent control on the page. -->
+        <Grid Margin="0,4,0,0">
             <Border MaxWidth="480"
                     HorizontalAlignment="Center"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -269,65 +273,147 @@
                 </StackPanel>
             </Border>
 
-            <StackPanel Spacing="10" HorizontalAlignment="Center"
+            <StackPanel Spacing="12" HorizontalAlignment="Center"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowRecordHero), Mode=OneWay}">
-            <Grid HorizontalAlignment="Center" MinWidth="160" MinHeight="96">
-                <Button Command="{x:Bind ViewModel.ToggleRecordingCommand}"
-                        Style="{StaticResource AccentButtonStyle}"
-                        MinWidth="120"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AutomationId="BtnToggleRecording"
-                         AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
-                        <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
-                    </StackPanel>
-                    <Button.KeyboardAccelerators>
-                        <KeyboardAccelerator Modifiers="Control"
-                                             Key="R"
-                                             Invoked="ToggleRecording_AcceleratorInvoked" />
-                    </Button.KeyboardAccelerators>
-                </Button>
-            </Grid>
-            <Button Command="{x:Bind ViewModel.ImportAudioCommand}"
-                    HorizontalAlignment="Center"
-                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowImportAudio), Mode=OneWay}"
-                    AutomationProperties.AutomationId="BtnImportAudio"
-                    AutomationProperties.Name="{x:Bind local:RecordingPage.ImportLabel()}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE8E5;" FontSize="16" />
-                    <TextBlock Text="{x:Bind local:RecordingPage.ImportLabel()}" />
+                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                    <Button Command="{x:Bind ViewModel.ToggleRecordingCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            MinWidth="160"
+                            Padding="24,8"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="BtnToggleRecording"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="{x:Bind local:RecordingPage.RecordGlyph(ViewModel.IsRecording), Mode=OneWay}" FontSize="16" />
+                            <TextBlock Text="{x:Bind local:RecordingPage.RecordLabel(ViewModel.IsRecording), Mode=OneWay}" />
+                        </StackPanel>
+                        <Button.KeyboardAccelerators>
+                            <KeyboardAccelerator Modifiers="Control"
+                                                 Key="R"
+                                                 Invoked="ToggleRecording_AcceleratorInvoked" />
+                        </Button.KeyboardAccelerators>
+                    </Button>
+                    <Button Command="{x:Bind ViewModel.ImportAudioCommand}"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderThickness="0"
+                            VerticalAlignment="Center"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowImportAudio), Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnImportAudio"
+                            AutomationProperties.Name="{x:Bind local:RecordingPage.ImportLabel()}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8E5;" FontSize="16" />
+                            <TextBlock Text="{x:Bind local:RecordingPage.ImportLabel()}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
-            </Button>
-            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}">
-                <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
-                <Button x:Uid="RecordPage_CancelProcessing"
-                        Command="{x:Bind ViewModel.CancelProcessingCommand}"
-                        AutomationProperties.AutomationId="BtnCancelProcessing" />
-            </StackPanel>
-            <StackPanel Spacing="4" MinWidth="280" HorizontalAlignment="Center"
-                        Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowMicPreview), Mode=OneWay}">
-                <TextBlock x:Uid="RecordPage_MicLevel"
+                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center"
+                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}">
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
+                    <Button x:Uid="RecordPage_CancelProcessing"
+                            Command="{x:Bind ViewModel.CancelProcessingCommand}"
+                            AutomationProperties.AutomationId="BtnCancelProcessing" />
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                            Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ProgressBar x:Uid="RecordPage_MicLevelBar"
-                             Value="{x:Bind ViewModel.MicLevel, Mode=OneWay}"
-                             Minimum="0" Maximum="100"
-                             HorizontalAlignment="Stretch"
-                             AutomationProperties.AutomationId="ProgressRecordMicrophoneLevel" />
-            </StackPanel>
-            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"
-                       MaxWidth="420"
-                        Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}" />
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           MaxWidth="420"
+                           Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}" />
             </StackPanel>
         </Grid>
+
+        <!-- Coming up is deliberately quiet: caption header, small icon-only paging, and a single muted line when empty. -->
+        <StackPanel Spacing="8"
+                    Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowComingUp), Mode=OneWay}"
+                    AutomationProperties.AutomationId="ComingUpSection">
+            <Grid>
+                <TextBlock x:Uid="ComingUp_Heading"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right"
+                            Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.HasComingUpMessage), Mode=OneWay}">
+                    <Button x:Uid="ComingUp_Previous"
+                            Command="{x:Bind ViewModel.PreviousComingUpCommand}"
+                            Width="32" Height="32"
+                            Padding="0"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderThickness="0"
+                            AutomationProperties.AutomationId="BtnComingUpPrevious">
+                        <FontIcon Glyph="&#xE76B;" FontSize="12" />
+                    </Button>
+                    <Button x:Uid="ComingUp_Next"
+                            Command="{x:Bind ViewModel.NextComingUpCommand}"
+                            Width="32" Height="32"
+                            Padding="0"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderThickness="0"
+                            AutomationProperties.AutomationId="BtnComingUpNext">
+                        <FontIcon Glyph="&#xE76C;" FontSize="12" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <TextBlock Text="{x:Bind ViewModel.ComingUpMessage, Mode=OneWay}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                       TextWrapping="Wrap"
+                       Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasComingUpEmptyMessage), Mode=OneWay}"
+                       AutomationProperties.AutomationId="TxtComingUpEmpty" />
+            <InfoBar IsOpen="{x:Bind ViewModel.HasComingUpError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="{x:Bind local:RecordingPage.ComingUpSeverity(ViewModel.IsComingUpError), Mode=OneWay}"
+                     Message="{x:Bind ViewModel.ComingUpMessage, Mode=OneWay}"
+                     AutomationProperties.AutomationId="InfoComingUp" />
+            <ScrollViewer HorizontalScrollMode="Enabled"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollMode="Disabled"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.ComingUpEvents, Mode=OneWay}"
+                               AutomationProperties.AutomationId="ListComingUp">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Horizontal" Spacing="8" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="models:CalendarEvent">
+                            <Button MinWidth="200"
+                                    MaxWidth="240"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="0"
+                                    Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                                    BorderThickness="0"
+                                    Click="ComingUpEvent_Click"
+                                    Tag="{x:Bind EventId}"
+                                    AutomationProperties.Name="{x:Bind Subject}"
+                                    AutomationProperties.AutomationId="{x:Bind local:RecordingPage.ComingUpEventAutomationId(EventId)}">
+                                <Border Padding="12,8"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{ThemeResource ControlCornerRadius}">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{x:Bind Subject}"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                        <TextBlock Text="{x:Bind local:RecordingPage.ComingUpWhen(Start, Duration)}"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{x:Bind Location}"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   Visibility="{x:Bind local:RecordingPage.NonEmptyVisibility(Location)}" />
+                                    </StackPanel>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+            </ScrollViewer>
+        </StackPanel>
 
         </StackPanel>
 
