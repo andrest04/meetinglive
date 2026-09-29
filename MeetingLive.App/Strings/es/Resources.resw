@@ -41,6 +41,7 @@
   <data name="SummaryPage_Notes.Header" xml:space="preserve"><value>Tus notas</value></data>
   <data name="SummaryPage_Notes.PlaceholderText" xml:space="preserve"><value>Agrega tus notas para esta reunión</value></data>
   <data name="RecordPage_Title.Text" xml:space="preserve"><value>Grabar reunión</value></data>
+  <data name="RecordPage_Subtitle.Text" xml:space="preserve"><value>Prepara tu reunión y grábala. La transcripción y el resumen se crean al detener.</value></data>
   <data name="RecordPage_MeetingTitle.Header" xml:space="preserve"><value>Título</value></data>
   <data name="RecordPage_Destination.Header" xml:space="preserve"><value>Guardar en</value></data>
   <data name="RecordPage_LiveTranscript.Text" xml:space="preserve"><value>Transcripción en vivo</value></data>
@@ -54,18 +55,18 @@
   <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>Ver resumen</value></data>
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
-  <data name="RecordPage_AudioSources.Text" xml:space="preserve"><value>Fuentes de audio</value></data>
-  <data name="RecordPage_MicrophoneLabel.Text" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="RecordPage_AudioSources.Header" xml:space="preserve"><value>Fuentes de audio</value></data>
+  <data name="RecordPage_MicrophoneLabel.Header" xml:space="preserve"><value>Micrófono</value></data>
   <data name="ComboRecordMicrophone.AutomationProperties.Name" xml:space="preserve"><value>Micrófono</value></data>
   <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>Ninguno</value></data>
-  <data name="RecordPage_MeetingAudioLabel.Text" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="RecordPage_MeetingAudioLabel.Header" xml:space="preserve"><value>Audio de la reunión</value></data>
   <data name="RadioRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Audio de la reunión</value></data>
   <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>Todo el audio del sistema</value></data>
   <data name="RecordPage_OneApp.Text" xml:space="preserve"><value>Una aplicación</value></data>
-  <data name="RecordPage_AppLabel.Text" xml:space="preserve"><value>Aplicación</value></data>
+  <data name="RecordPage_AppLabel.Header" xml:space="preserve"><value>Aplicación</value></data>
   <data name="ComboRecordApp.AutomationProperties.Name" xml:space="preserve"><value>Aplicación</value></data>
   <data name="ComboRecordApp.PlaceholderText" xml:space="preserve"><value>Elige una aplicación</value></data>
-  <data name="RecordPage_AppCaptureNote.Text" xml:space="preserve"><value>Captura esa aplicación y sus procesos hijos. Un navegador puede incluir otras pestañas, o no oír audio que suena en otro proceso.</value></data>
+  <data name="RecordPage_AppLabel.Description" xml:space="preserve"><value>Captura esa aplicación y sus procesos hijos. Un navegador puede incluir otras pestañas, o no oír audio que suena en otro proceso.</value></data>
   <data name="RecordPage_AppDisplay" xml:space="preserve"><value>{0} — {1}</value></data>
   <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancelar</value></data>
   <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancelar transcripción o resumen</value></data>
@@ -313,7 +314,7 @@
   <data name="RecordingSetup.Title" xml:space="preserve"><value>Configurar grabación</value></data>
   <data name="RecordingSetup.PrimaryButtonText" xml:space="preserve"><value>Configurar</value></data>
   <data name="RecordingSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
-  <data name="RecordingSetup_Headline.Text" xml:space="preserve"><value>Instala los componentes necesarios antes de grabar. Nada se descarga después de presionar Grabar o Detener.</value></data>
+  <data name="RecordingSetup_Headline.Text" xml:space="preserve"><value>Instala lo necesario antes de grabar. Nada se descarga al grabar ni al detener.</value></data>
   <data name="RecordingSetup_Live.Header" xml:space="preserve"><value>Vista previa en vivo (Nemo)</value></data>
   <data name="RecordingSetup_Engine.Header" xml:space="preserve"><value>Transcripción (Nemotron)</value></data>
   <data name="RecordingSetup_Summary.Header" xml:space="preserve"><value>Resumen</value></data>
