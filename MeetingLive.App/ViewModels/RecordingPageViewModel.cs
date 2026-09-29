@@ -1114,7 +1114,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             _captureFailureNotified = 0;
             _audioCapture.OutputCaptureFailed += OnOutputCaptureFailed;
             _audioCapture.PcmFrameAvailable += OnRecordingPcmFrame;
-            _audioCapture.Start(_currentAudioPath, sources);
+            var audioPath = _currentAudioPath;
+            await Task.Run(() => _audioCapture.Start(audioPath, sources));
             StatusText = RecordingStatusText();
             IsRecording = true;
         }
@@ -1770,11 +1771,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             return;
         }
 
-        var generation = ++_previewGeneration;
+        _previewGeneration++;
         var deviceId = choice.Kind == RecordingMicrophoneKind.Device ? choice.DeviceId : null;
-        if (generation != _previewGeneration || !_isPageVisible || IsRecording || IsProcessing || HasLastMeeting)
-            return;
-
         _levelMeter.Start(string.IsNullOrEmpty(deviceId) ? null : deviceId);
     }
 

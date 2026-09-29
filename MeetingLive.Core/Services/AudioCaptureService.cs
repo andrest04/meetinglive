@@ -22,7 +22,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     private Task? _pumpTask;
     private int _paused;
     private int _userStop;
-    private Exception? _outputFailure;
+    private volatile Exception? _outputFailure;
 
     public bool IsRecording { get; private set; }
 
@@ -33,11 +33,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     public event EventHandler<Exception>? OutputCaptureFailed;
 
     /// <summary>
-    /// A capture-thread failure is surfaced only when it is not the caller asking to stop.
-    /// A null error is a normal stop.
+    /// A capture-thread failure is surfaced only when it is not the caller asking to stop
+    /// and the output is a process-loopback capture. System loopback keeps its historical
+    /// behavior (for example an output device change): the error is ignored and recording
+    /// continues. A null error is a normal stop.
     /// </summary>
-    internal static bool ShouldSurfaceOutputFailure(Exception? error, bool userStop) =>
-        error is not null && !userStop;
+    internal static bool ShouldSurfaceOutputFailure(Exception? error, bool userStop, bool isProcessCapture) =>
+        error is not null && !userStop && isProcessCapture;
 
     public void Start(string outputWavPath, string? microphoneDeviceId = null)
     {
@@ -172,7 +174,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     private void OnOutputCaptureStopped(object? sender, StoppedEventArgs e)
     {
-        if (!ShouldSurfaceOutputFailure(e.Exception, Volatile.Read(ref _userStop) != 0))
+        if (!ShouldSurfaceOutputFailure(e.Exception, Volatile.Read(ref _userStop) != 0, sender is ProcessLoopbackCapture))
             return;
 
         _outputFailure = e.Exception;

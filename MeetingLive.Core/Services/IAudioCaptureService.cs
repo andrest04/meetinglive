@@ -13,8 +13,8 @@ public interface IAudioCaptureService
     event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
 
     /// <summary>
-    /// Raised when output capture stops with an error after start, including a process-tree
-    /// capture whose target exited. Not raised for a caller-initiated stop. The WAV pump is
+    /// Raised when a process-tree output capture stops with an error after start.
+    /// Not raised for system loopback errors or for a caller-initiated stop. The WAV pump is
     /// cancelled so the file does not keep growing with silence.
     /// </summary>
     event EventHandler<Exception>? OutputCaptureFailed;

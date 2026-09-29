@@ -88,7 +88,8 @@ public class RecordingCaptureSourcesTests
     {
         var surfaced = AudioCaptureService.ShouldSurfaceOutputFailure(
             new InvalidOperationException("process exited"),
-            userStop: false);
+            userStop: false,
+            isProcessCapture: true);
 
         Assert.True(surfaced);
     }
@@ -98,7 +99,7 @@ public class RecordingCaptureSourcesTests
     [InlineData(true)]
     public void ShouldSurfaceOutputFailure_NullError_IsFalse(bool userStop)
     {
-        Assert.False(AudioCaptureService.ShouldSurfaceOutputFailure(null, userStop));
+        Assert.False(AudioCaptureService.ShouldSurfaceOutputFailure(null, userStop, isProcessCapture: true));
     }
 
     [Fact]
@@ -106,7 +107,19 @@ public class RecordingCaptureSourcesTests
     {
         var surfaced = AudioCaptureService.ShouldSurfaceOutputFailure(
             new InvalidOperationException("teardown"),
-            userStop: true);
+            userStop: true,
+            isProcessCapture: true);
+
+        Assert.False(surfaced);
+    }
+
+    [Fact]
+    public void ShouldSurfaceOutputFailure_SystemLoopbackError_IsFalse()
+    {
+        var surfaced = AudioCaptureService.ShouldSurfaceOutputFailure(
+            new InvalidOperationException("device changed"),
+            userStop: false,
+            isProcessCapture: false);
 
         Assert.False(surfaced);
     }

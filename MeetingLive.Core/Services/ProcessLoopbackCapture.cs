@@ -19,6 +19,9 @@ namespace MeetingLive.Core.Services;
 internal sealed partial class ProcessLoopbackCapture : IWaveIn
 {
     private const uint BufferFlagSilent = 0x2;
+    private const int CaptureSampleRate = 48000;
+    private const ushort CaptureChannels = 2;
+    private const ushort CaptureBitsPerSample = 16;
     private static readonly TimeSpan ActivationTimeout = TimeSpan.FromSeconds(10);
 
     private readonly uint _processId;
@@ -71,8 +74,8 @@ internal sealed partial class ProcessLoopbackCapture : IWaveIn
 
     public WaveFormat WaveFormat
     {
-        get => _waveFormat ?? throw new InvalidOperationException("Process loopback mix format is not available.");
-        set => throw new InvalidOperationException("Process loopback capture uses the mix format from GetMixFormat.");
+        get => _waveFormat ?? throw new InvalidOperationException("Process loopback capture format is not available.");
+        set => throw new InvalidOperationException("Process loopback capture uses a fixed 48 kHz 16-bit stereo format.");
     }
 
     public event EventHandler<WaveInEventArgs>? DataAvailable;
@@ -208,17 +211,23 @@ internal sealed partial class ProcessLoopbackCapture : IWaveIn
         _audioClient = ActivateClient(_processId);
         unsafe
         {
-            WAVEFORMATEX* mixFormat = null;
+            // The process-loopback IAudioClient returns E_NOTIMPL from GetMixFormat, so the
+            // format is fixed here. AUTOCONVERTPCM makes the engine convert to it. The struct
+            // lives on the stack for the duration of Initialize; nothing to free.
+            _waveFormat = new WaveFormat(CaptureSampleRate, CaptureBitsPerSample, CaptureChannels);
+            var format = new WAVEFORMATEX
+            {
+                wFormatTag = 1, // WAVE_FORMAT_PCM
+                nChannels = CaptureChannels,
+                nSamplesPerSec = (uint)CaptureSampleRate,
+                nAvgBytesPerSec = (uint)_waveFormat.AverageBytesPerSecond,
+                nBlockAlign = (ushort)_waveFormat.BlockAlign,
+                wBitsPerSample = CaptureBitsPerSample,
+                cbSize = 0,
+            };
+
             try
             {
-                _audioClient.GetMixFormat(&mixFormat);
-                if (mixFormat is null)
-                    throw new InvalidOperationException("Process loopback GetMixFormat returned no format.");
-
-                _waveFormat = WaveFormat.MarshalFromPtr((IntPtr)mixFormat);
-                if (_waveFormat.BlockAlign <= 0)
-                    throw new InvalidOperationException("Process loopback mix format has an invalid block alignment.");
-
                 var flags = PInvoke.AUDCLNT_STREAMFLAGS_LOOPBACK
                     | PInvoke.AUDCLNT_STREAMFLAGS_EVENTCALLBACK
                     | PInvoke.AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM;
@@ -227,17 +236,12 @@ internal sealed partial class ProcessLoopbackCapture : IWaveIn
                     flags,
                     hnsBufferDuration: 0,
                     hnsPeriodicity: 0,
-                    mixFormat,
+                    &format,
                     AudioSessionGuid: null);
             }
             catch (COMException ex)
             {
                 throw WrapFailure("Process loopback initialization failed", ex);
-            }
-            finally
-            {
-                if (mixFormat is not null)
-                    Marshal.FreeCoTaskMem((IntPtr)mixFormat);
             }
 
             var captureId = typeof(IAudioCaptureClient).GUID;
