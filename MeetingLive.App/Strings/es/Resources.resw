@@ -445,6 +445,7 @@
   <data name="RecordPage_BriefText.AutomationProperties.Name" xml:space="preserve"><value>Informe previo a la reunión</value></data>
   <data name="RecordPage_BriefFailed.Title" xml:space="preserve"><value>No se pudo preparar el informe</value></data>
   <data name="RecordPage_BriefFailed.AutomationProperties.Name" xml:space="preserve"><value>Error del informe</value></data>
+  <data name="RecordPage_StatusErrorTitle.Title" xml:space="preserve"><value>Algo salió mal</value></data>
   <data name="RecordPage_BriefFailedFormat" xml:space="preserve"><value>La nota está abierta. No se pudo preparar el informe: {0}</value></data>
   <data name="RecordPage_NoteTemplate.Header" xml:space="preserve"><value>Plantilla</value></data>
   <data name="RecordPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Plantilla de notas</value></data>

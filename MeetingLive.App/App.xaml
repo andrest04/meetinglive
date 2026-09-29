@@ -44,6 +44,15 @@
                     <SolidColorBrush x:Key="FolderAccentNeutralBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Keyed (not implicit): Border is also used for dots and pills. -->
+            <Style x:Key="CardSurface" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+                <Setter Property="Padding" Value="16" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -68,7 +68,7 @@
         <StackPanel Spacing="16"
                     MaxWidth="720"
                     HorizontalAlignment="Stretch"
-                    Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsRecording), Mode=OneWay}">
+                    Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsSessionActive), Mode=OneWay}">
 
         <TextBlock x:Uid="RecordPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
 
@@ -306,23 +306,30 @@
                         </StackPanel>
                     </Button>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center"
-                            Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}">
-                    <ProgressRing IsActive="{x:Bind ViewModel.IsProcessing, Mode=OneWay}" Width="24" Height="24" />
-                    <Button x:Uid="RecordPage_CancelProcessing"
-                            Command="{x:Bind ViewModel.CancelProcessingCommand}"
-                            AutomationProperties.AutomationId="BtnCancelProcessing" />
-                </StackPanel>
-                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                           Style="{StaticResource CaptionTextBlockStyle}"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           HorizontalAlignment="Center"
-                           MaxWidth="420"
-                           Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}" />
+                <Grid Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               MaxWidth="420"
+                               AutomationProperties.LiveSetting="Polite"
+                               Visibility="{x:Bind local:RecordingPage.NonEmptyVisibility(ViewModel.StatusText), Mode=OneWay}" />
+                </Grid>
             </StackPanel>
         </Grid>
+
+        <!-- Idle error: sits under the hero. The session copy of this InfoBar lives below the recording bar. -->
+        <InfoBar x:Uid="RecordPage_StatusErrorTitle"
+                 IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
+                 IsClosable="False"
+                 Severity="{x:Bind local:RecordingPage.StatusSeverity(ViewModel.StatusText), Mode=OneWay}"
+                 Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                 Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}"
+                 HorizontalAlignment="Stretch"
+                 Margin="0,8,0,0"
+                 AutomationProperties.AutomationId="InfoIdleStatusError" />
 
         <!-- Coming up is deliberately quiet: caption header, small icon-only paging, and a single muted line when empty. -->
         <StackPanel Spacing="8"
@@ -558,12 +565,43 @@
             </Border>
         </StackPanel>
 
-        <InfoBar IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
+        <!-- PROCESSING bar: replaces the idle column while a session is being transcribed or summarized. -->
+        <Border Style="{StaticResource CardSurface}"
+                Padding="16,12"
+                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsProcessing), Mode=OneWay}">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                               TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.AutomationId="TxtProcessingStatus" />
+                    <ProgressBar IsIndeterminate="{x:Bind ViewModel.IsProcessing, Mode=OneWay}"
+                                 AutomationProperties.AutomationId="ProgressProcessing"
+                                 HorizontalAlignment="Stretch" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        x:Uid="RecordPage_CancelProcessing"
+                        Command="{x:Bind ViewModel.CancelProcessingCommand}"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="BtnCancelProcessing" />
+            </Grid>
+        </Border>
+
+        <!-- Session error: the idle column (with its own error InfoBar) is hidden while recording or processing,
+             and IsStatusError can fire in both (stop/pause/output-capture failures), so the error stays visible here. -->
+        <InfoBar x:Uid="RecordPage_StatusErrorTitle"
+                 IsOpen="{x:Bind ViewModel.IsStatusError, Mode=OneWay}"
                  IsClosable="False"
                  Severity="{x:Bind local:RecordingPage.StatusSeverity(ViewModel.StatusText), Mode=OneWay}"
                  Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                 Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.IsStatusError), Mode=OneWay}"
-                 HorizontalAlignment="Stretch" />
+                 Visibility="{x:Bind local:RecordingPage.SessionErrorVisibility(ViewModel.IsStatusError, ViewModel.IsSessionActive), Mode=OneWay}"
+                 HorizontalAlignment="Stretch"
+                 AutomationProperties.AutomationId="InfoSessionStatusError" />
 
         </StackPanel>
 
@@ -811,28 +849,36 @@
             </Grid>
         </Grid>
 
+        <!-- RESULT state: the saved meeting is promoted with an accent edge and a success check. Hidden during a session. -->
         <Border Grid.Row="2"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="{ThemeResource ControlCornerRadius}"
+                Style="{StaticResource CardSurface}"
+                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                BorderThickness="3,1,1,1"
                 Padding="16,12"
-                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.HasLastMeeting), Mode=OneWay}">
+                Visibility="{x:Bind local:RecordingPage.LastMeetingVisibility(ViewModel.HasLastMeeting, ViewModel.IsSessionActive), Mode=OneWay}">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0"
+                <FontIcon Grid.Column="0"
+                          Glyph="&#xE73E;"
+                          FontSize="16"
+                          Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                          VerticalAlignment="Center"
+                          AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1"
                            Text="{x:Bind ViewModel.LastMeetingTitle, Mode=OneWay}"
                            Style="{StaticResource BodyStrongTextBlockStyle}"
                            TextWrapping="NoWrap"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                     <Button x:Uid="RecordPage_ViewTranscript" Click="ViewTranscript_Click"
                             AutomationProperties.AutomationId="BtnViewTranscript" />
                     <Button x:Uid="RecordPage_ViewSummary" Click="ViewSummary_Click"
+                            Style="{StaticResource AccentButtonStyle}"
                             IsEnabled="{x:Bind ViewModel.HasSummary, Mode=OneWay}"
                             AutomationProperties.AutomationId="BtnViewSummary" />
                 </StackPanel>

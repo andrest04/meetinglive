@@ -445,6 +445,7 @@
   <data name="RecordPage_BriefText.AutomationProperties.Name" xml:space="preserve"><value>Pre-meeting brief</value></data>
   <data name="RecordPage_BriefFailed.Title" xml:space="preserve"><value>Could not prepare the brief</value></data>
   <data name="RecordPage_BriefFailed.AutomationProperties.Name" xml:space="preserve"><value>Brief error</value></data>
+  <data name="RecordPage_StatusErrorTitle.Title" xml:space="preserve"><value>Something went wrong</value></data>
   <data name="RecordPage_BriefFailedFormat" xml:space="preserve"><value>The note is open. The brief could not be prepared: {0}</value></data>
   <data name="RecordPage_NoteTemplate.Header" xml:space="preserve"><value>Template</value></data>
   <data name="RecordPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>

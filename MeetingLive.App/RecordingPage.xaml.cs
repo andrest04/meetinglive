@@ -300,6 +300,14 @@ public sealed partial class RecordingPage : Page
 
     public static string ComingUpEventAutomationId(string eventId) => "BtnComingUpEvent_" + eventId;
 
+    /// <summary>RESULT state only: the promoted last-meeting card hides while a session is recording or processing.</summary>
+    public static Visibility LastMeetingVisibility(bool hasLastMeeting, bool isSessionActive) =>
+        hasLastMeeting && !isSessionActive ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The idle column has its own error bar; this one covers recording and processing.</summary>
+    public static Visibility SessionErrorVisibility(bool isStatusError, bool isSessionActive) =>
+        isStatusError && isSessionActive ? Visibility.Visible : Visibility.Collapsed;
+
     public static Visibility NonEmptyVisibility(string? text) =>
         string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
 
