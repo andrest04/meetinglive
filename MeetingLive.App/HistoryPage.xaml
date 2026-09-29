@@ -10,7 +10,7 @@
     xmlns:vm="using:MeetingLive_App.ViewModels"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="12">
+    <Grid Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -88,10 +88,7 @@
                        PanePlacement="Left"
                        OpenPaneLength="260">
                 <SplitView.Pane>
-                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="{ThemeResource ControlCornerRadius}"
+                <Border Style="{StaticResource CardSurface}"
                         Margin="0,0,16,0"
                         Padding="4,8">
                     <TreeView ItemsSource="{x:Bind ViewModel.FolderNodes}"
@@ -183,10 +180,7 @@
                              </ListView.ItemContainerStyle>
                              <ListView.ItemTemplate>
                                  <DataTemplate x:DataType="models:MeetingRecord">
-                                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                             BorderThickness="1"
-                                             CornerRadius="{ThemeResource ControlCornerRadius}"
+                                     <Border Style="{StaticResource CardSurface}"
                                              Padding="16,12">
                                          <Grid ColumnSpacing="12">
                                              <Grid.ColumnDefinitions>

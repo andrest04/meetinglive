@@ -8,7 +8,7 @@
     xmlns:local="using:MeetingLive_App"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="12">
+    <Grid Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -20,8 +20,6 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.Title, Mode=OneWay}"
-                       Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
                         Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.HasContent), Mode=OneWay}">
                 <Button x:Uid="TranscriptPage_Copy" Command="{x:Bind ViewModel.CopyToClipboardCommand}"

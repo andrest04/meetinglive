@@ -15,7 +15,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Padding="24,24,24,12" ColumnSpacing="12">
+        <Grid Grid.Row="0" Padding="24,24,24,16" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -96,7 +96,7 @@
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
             <TextBlock x:Uid="SessionPage_Empty"
-                       Opacity="0.7" HorizontalAlignment="Center" TextAlignment="Center" />
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" TextAlignment="Center" />
             <Button x:Uid="SessionPage_EmptyCta"
                     Style="{StaticResource AccentButtonStyle}"
                     HorizontalAlignment="Center"
