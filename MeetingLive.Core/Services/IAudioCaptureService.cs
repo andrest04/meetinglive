@@ -12,6 +12,13 @@ public interface IAudioCaptureService
     /// written to the WAV, converted to float32 in [-1, 1]. Only fired when there are subscribers.</summary>
     event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
 
+    /// <summary>
+    /// Raised when output capture stops with an error after start, including a process-tree
+    /// capture whose target exited. Not raised for a caller-initiated stop. The WAV pump is
+    /// cancelled so the file does not keep growing with silence.
+    /// </summary>
+    event EventHandler<Exception>? OutputCaptureFailed;
+
     /// <summary>Starts capturing the microphone plus system loopback, mixed into a single 16 kHz mono WAV.
     /// <paramref name="microphoneDeviceId"/> is the <see cref="NAudio.CoreAudioApi.MMDevice.ID"/> of
     /// the microphone to record from; null/empty (or a device that no longer exists) falls back to

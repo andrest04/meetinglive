@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Native;
+using MeetingLive.Core.Services;
 using Windows.Win32.System.Com.StructuredStorage;
 
 namespace MeetingLive.Core.Tests.Services;
@@ -80,6 +81,34 @@ public class RecordingCaptureSourcesTests
         Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(bytes));
         Assert.Equal(0x01020304u, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(4)));
         Assert.Equal(0, BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(8)));
+    }
+
+    [Fact]
+    public void ShouldSurfaceOutputFailure_ErrorWhileRecording_IsTrue()
+    {
+        var surfaced = AudioCaptureService.ShouldSurfaceOutputFailure(
+            new InvalidOperationException("process exited"),
+            userStop: false);
+
+        Assert.True(surfaced);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ShouldSurfaceOutputFailure_NullError_IsFalse(bool userStop)
+    {
+        Assert.False(AudioCaptureService.ShouldSurfaceOutputFailure(null, userStop));
+    }
+
+    [Fact]
+    public void ShouldSurfaceOutputFailure_UserStop_IsFalse()
+    {
+        var surfaced = AudioCaptureService.ShouldSurfaceOutputFailure(
+            new InvalidOperationException("teardown"),
+            userStop: true);
+
+        Assert.False(surfaced);
     }
 
     [Fact]

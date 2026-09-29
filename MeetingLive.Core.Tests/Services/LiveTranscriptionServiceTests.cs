@@ -109,6 +109,10 @@ public class LiveTranscriptionServiceTests
 
         public event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
 
+#pragma warning disable CS0067 // Interface member. This fake never raises capture failures.
+        public event EventHandler<Exception>? OutputCaptureFailed;
+#pragma warning restore CS0067
+
         public void Start(string outputWavPath, string? microphoneDeviceId = null) => IsRecording = true;
 
         public void Start(string outputWavPath, RecordingCaptureSources sources) => IsRecording = true;

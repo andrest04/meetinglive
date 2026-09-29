@@ -21,12 +21,23 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     private CancellationTokenSource? _pumpCts;
     private Task? _pumpTask;
     private int _paused;
+    private int _userStop;
+    private Exception? _outputFailure;
 
     public bool IsRecording { get; private set; }
 
     public bool IsPaused => Volatile.Read(ref _paused) != 0;
 
     public event EventHandler<PcmFrameEventArgs>? PcmFrameAvailable;
+
+    public event EventHandler<Exception>? OutputCaptureFailed;
+
+    /// <summary>
+    /// A capture-thread failure is surfaced only when it is not the caller asking to stop.
+    /// A null error is a normal stop.
+    /// </summary>
+    internal static bool ShouldSurfaceOutputFailure(Exception? error, bool userStop) =>
+        error is not null && !userStop;
 
     public void Start(string outputWavPath, string? microphoneDeviceId = null)
     {
@@ -48,6 +59,8 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         Task? pumpTask = null;
 
         Volatile.Write(ref _paused, 0);
+        Volatile.Write(ref _userStop, 0);
+        _outputFailure = null;
 
         try
         {
@@ -68,6 +81,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
             var outputBuffer = CreateBuffer(outputCapture.WaveFormat);
             outputCapture.DataAvailable += (_, e) => outputBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            outputCapture.RecordingStopped += OnOutputCaptureStopped;
             mixer.AddMixerInput(ResampleToMixFormat(outputBuffer.ToSampleProvider(), outputCapture.WaveFormat));
 
             var pcm16 = mixer.ToWaveProvider16();
@@ -88,6 +102,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         }
         catch
         {
+            DetachOutputStopped(outputCapture);
             AbortFailedStart(micCapture, outputCapture, writer, pumpCts, pumpTask);
             throw;
         }
@@ -104,6 +119,8 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         if (!IsRecording)
             return;
 
+        Volatile.Write(ref _userStop, 1);
+        DetachOutputStopped(_outputCapture);
         _micCapture?.StopRecording();
         _outputCapture?.StopRecording();
 
@@ -135,6 +152,10 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
         IsRecording = false;
         Volatile.Write(ref _paused, 0);
+        var failure = _outputFailure;
+        _outputFailure = null;
+        if (failure is not null)
+            throw failure;
     }
 
     public void Pause()
@@ -147,6 +168,30 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
     {
         if (IsRecording)
             Volatile.Write(ref _paused, 0);
+    }
+
+    private void OnOutputCaptureStopped(object? sender, StoppedEventArgs e)
+    {
+        if (!ShouldSurfaceOutputFailure(e.Exception, Volatile.Read(ref _userStop) != 0))
+            return;
+
+        _outputFailure = e.Exception;
+        try
+        {
+            _pumpCts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        if (e.Exception is not null)
+            OutputCaptureFailed?.Invoke(this, e.Exception);
+    }
+
+    private void DetachOutputStopped(IWaveIn? capture)
+    {
+        if (capture is not null)
+            capture.RecordingStopped -= OnOutputCaptureStopped;
     }
 
     private static void AbortFailedStart(
