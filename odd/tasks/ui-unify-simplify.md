@@ -52,7 +52,7 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 - [x] T1 Single provider — route: delegated (2+ non-trivial files) — commit 5026939
 - [x] T2 Summary drafts to recipe — route: delegated — commit 2cc817f
 - [x] T3 Note template only on Summary — route: delegated — commit e24c448
-- [ ] T4 Session header Copy / Open location — route: delegated
+- [x] T4 Session header Copy / Open location — route: delegated — commit 7b4d50b
 - [ ] T5 Library context menus + single Open — route: delegated
 - [x] T6 Hide Personal tasks without key — route: delegated (bundled with T1 writer) — commit 5026939
 
@@ -67,10 +67,11 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 
 ## Next step
 
-T4.
+T5.
 
 ## Evidence
 
 - T1+T6 (5026939): guard test `Deserialize_WhenJsonHasRemovedProviderKeys_LoadsAndIgnoresThem` added before removal (passed while the properties still existed, so no RED is possible for a pure removal; it stays as the regression guard). Obsolete live-answer and chat resolver tests deleted. Build: 0 errors. Tests: 643 passed, 0 failed.
 - T2 (2cc817f): RED observed (ChatRecipeCatalogTests failed to compile: ChatRecipeCatalog.ProjectPlanId missing, CS0117), GREEN after adding the recipe and localized name (CoreStrings en/es): 13 recipe tests passed. FollowUp/ProjectPlan prompt builders and their tests deleted. Deviation: the draft InfoBar (SummaryPage_DraftError) is kept because "List actions" still reports copied / no-items / copy-failed through it. Build: 0 errors. Tests: 641 passed, 0 failed.
 - T3 (e24c448): App-only removal (no Core behavior change, no test project for XAML), verified by build. Pipeline request now carries no template (Auto). Build: 0 errors. Tests: 641 passed, 0 failed.
+- T4 (7b4d50b): App-only change verified by build. Copy uses ISessionCopySource implemented by TranscriptPage (transcript) and SummaryPage (My notes text in notes mode, otherwise the summary); Open location and the copy confirmation now live in SessionPageViewModel. Build: 0 errors. Tests: 641 passed, 0 failed.
