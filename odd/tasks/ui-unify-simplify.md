@@ -53,7 +53,7 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 - [x] T2 Summary drafts to recipe — route: delegated — commit 2cc817f
 - [x] T3 Note template only on Summary — route: delegated — commit e24c448
 - [x] T4 Session header Copy / Open location — route: delegated — commit 7b4d50b
-- [ ] T5 Library context menus + single Open — route: delegated
+- [x] T5 Library context menus + single Open — route: delegated — commit 3ef2a22
 - [x] T6 Hide Personal tasks without key — route: delegated (bundled with T1 writer) — commit 5026939
 
 ## Checks
@@ -67,7 +67,7 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 
 ## Next step
 
-T5.
+Done: all tasks committed; awaiting user push decision.
 
 ## Evidence
 
@@ -75,3 +75,4 @@ T5.
 - T2 (2cc817f): RED observed (ChatRecipeCatalogTests failed to compile: ChatRecipeCatalog.ProjectPlanId missing, CS0117), GREEN after adding the recipe and localized name (CoreStrings en/es): 13 recipe tests passed. FollowUp/ProjectPlan prompt builders and their tests deleted. Deviation: the draft InfoBar (SummaryPage_DraftError) is kept because "List actions" still reports copied / no-items / copy-failed through it. Build: 0 errors. Tests: 641 passed, 0 failed.
 - T3 (e24c448): App-only removal (no Core behavior change, no test project for XAML), verified by build. Pipeline request now carries no template (Auto). Build: 0 errors. Tests: 641 passed, 0 failed.
 - T4 (7b4d50b): App-only change verified by build. Copy uses ISessionCopySource implemented by TranscriptPage (transcript) and SummaryPage (My notes text in notes mode, otherwise the summary); Open location and the copy confirmation now live in SessionPageViewModel. Build: 0 errors. Tests: 641 passed, 0 failed.
+- T5 (3ef2a22): App-only change verified by build. Row menu is built in code (MenuFlyout from the More button and ContextRequested, so keyboard Menu / Shift+F10 works); Delete keeps its confirm dialog. Build: 0 errors. Tests: 641 passed, 0 failed.
