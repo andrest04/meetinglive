@@ -112,6 +112,9 @@
   <data name="RecipeNextStepsName" xml:space="preserve">
     <value>Qué debo hacer a continuación</value>
   </data>
+  <data name="RecipeProjectPlanName" xml:space="preserve">
+    <value>Plan de proyecto</value>
+  </data>
   <data name="RecipeFeatureRequestsName" xml:space="preserve">
     <value>Principales solicitudes de funciones</value>
   </data>

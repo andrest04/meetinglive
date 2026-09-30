@@ -136,12 +136,6 @@
                 <Button x:Uid="SummaryPage_ListActions"
                         Command="{x:Bind ViewModel.CopyActionItemsCommand}"
                         AutomationProperties.AutomationId="BtnListActions" />
-                <Button x:Uid="SummaryPage_FollowUp"
-                        Command="{x:Bind ViewModel.WriteFollowUpCommand}"
-                        AutomationProperties.AutomationId="BtnWriteFollowUp" />
-                <Button x:Uid="SummaryPage_ProjectPlan"
-                        Command="{x:Bind ViewModel.DraftProjectPlanCommand}"
-                        AutomationProperties.AutomationId="BtnDraftProjectPlan" />
             </StackPanel>
             <InfoBar x:Uid="SummaryPage_DraftError"
                      IsOpen="{x:Bind ViewModel.HasDraftMessage, Mode=OneWay}"

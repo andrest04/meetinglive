@@ -476,17 +476,10 @@
   <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
   <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>Listar acciones</value></data>
   <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copiar elementos de acción</value></data>
-  <data name="SummaryPage_FollowUp.Content" xml:space="preserve"><value>Redactar correo de seguimiento</value></data>
-  <data name="SummaryPage_FollowUp.AutomationProperties.Name" xml:space="preserve"><value>Redactar correo de seguimiento</value></data>
-  <data name="SummaryPage_ProjectPlan.Content" xml:space="preserve"><value>Redactar plan de proyecto</value></data>
-  <data name="SummaryPage_ProjectPlan.AutomationProperties.Name" xml:space="preserve"><value>Redactar plan de proyecto</value></data>
   <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>No se pudo crear el borrador</value></data>
   <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Estado del borrador</value></data>
   <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No hay elementos de acción para copiar.</value></data>
   <data name="SummaryPage_ActionsCopied" xml:space="preserve"><value>Elementos de acción copiados al portapapeles.</value></data>
-  <data name="SummaryPage_FollowUpCopied" xml:space="preserve"><value>Seguimiento copiado al portapapeles.</value></data>
-  <data name="SummaryPage_ProjectPlanCopied" xml:space="preserve"><value>Plan de proyecto copiado al portapapeles.</value></data>
-  <data name="SummaryPage_DraftEmpty" xml:space="preserve"><value>El borrador llegó vacío. El resumen no se modificó.</value></data>
   <data name="Chat_Bar.AutomationProperties.Name" xml:space="preserve"><value>Chat de la reunión</value></data>
   <data name="Chat_Composer.PlaceholderText" xml:space="preserve"><value>Pregunta sobre tus reuniones</value></data>
   <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Mensaje</value></data>

@@ -18,18 +18,21 @@ public class ChatRecipeCatalogTests
                 CoreStrings.Get("RecipeActionItemsName"),
                 CoreStrings.Get("RecipeFollowUpEmailName"),
                 CoreStrings.Get("RecipeNextStepsName"),
+                CoreStrings.Get("RecipeProjectPlanName"),
                 CoreStrings.Get("RecipeFeatureRequestsName"),
                 CoreStrings.Get("RecipeRecurringThemesName"),
                 CoreStrings.Get("RecipeWeeklyUpdateName"),
             ],
             builtIns.Select(recipe => recipe.Name).ToList());
-        Assert.All(builtIns.Take(4), recipe => Assert.Equal(ChatRecipe.SingleAvailability, recipe.Availability));
-        Assert.All(builtIns.Skip(4), recipe => Assert.Equal(ChatRecipe.MultipleAvailability, recipe.Availability));
+        Assert.All(builtIns.Take(5), recipe => Assert.Equal(ChatRecipe.SingleAvailability, recipe.Availability));
+        Assert.All(builtIns.Skip(5), recipe => Assert.Equal(ChatRecipe.MultipleAvailability, recipe.Availability));
         Assert.Equal(builtIns.Count, builtIns.Select(recipe => recipe.Id).Distinct().Count());
         Assert.Contains("discussed so far", byId[ChatRecipeCatalog.DiscussedId].Prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("unassigned", byId[ChatRecipeCatalog.ActionItemsId].Prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Do not send it.", byId[ChatRecipeCatalog.FollowUpEmailId].Prompt);
         Assert.Contains("next steps", byId[ChatRecipeCatalog.NextStepsId].Prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("project plan", byId[ChatRecipeCatalog.ProjectPlanId].Prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Do not invent owners.", byId[ChatRecipeCatalog.ProjectPlanId].Prompt);
         Assert.Contains("themes", byId[ChatRecipeCatalog.FeatureRequestsId].Prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("patterns", byId[ChatRecipeCatalog.RecurringThemesId].Prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Draft only", byId[ChatRecipeCatalog.WeeklyUpdateId].Prompt);

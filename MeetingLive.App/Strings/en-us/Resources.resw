@@ -476,17 +476,10 @@
   <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Save custom template</value></data>
   <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>List actions</value></data>
   <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copy action items</value></data>
-  <data name="SummaryPage_FollowUp.Content" xml:space="preserve"><value>Write follow-up email</value></data>
-  <data name="SummaryPage_FollowUp.AutomationProperties.Name" xml:space="preserve"><value>Write follow-up email</value></data>
-  <data name="SummaryPage_ProjectPlan.Content" xml:space="preserve"><value>Draft project plan</value></data>
-  <data name="SummaryPage_ProjectPlan.AutomationProperties.Name" xml:space="preserve"><value>Draft project plan</value></data>
   <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>Could not create the draft</value></data>
   <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Draft status</value></data>
   <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No action items to copy.</value></data>
   <data name="SummaryPage_ActionsCopied" xml:space="preserve"><value>Action items copied to the clipboard.</value></data>
-  <data name="SummaryPage_FollowUpCopied" xml:space="preserve"><value>Follow-up copied to the clipboard.</value></data>
-  <data name="SummaryPage_ProjectPlanCopied" xml:space="preserve"><value>Project plan copied to the clipboard.</value></data>
-  <data name="SummaryPage_DraftEmpty" xml:space="preserve"><value>The draft came back empty. The summary was not changed.</value></data>
   <data name="Chat_Bar.AutomationProperties.Name" xml:space="preserve"><value>Meeting chat</value></data>
   <data name="Chat_Composer.PlaceholderText" xml:space="preserve"><value>Ask about your meetings</value></data>
   <data name="Chat_Composer.AutomationProperties.Name" xml:space="preserve"><value>Message</value></data>

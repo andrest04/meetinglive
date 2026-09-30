@@ -15,6 +15,7 @@ public static class ChatRecipeCatalog
     public static readonly Guid ActionItemsId = Guid.Parse("11111111-1111-4111-8111-111111111102");
     public static readonly Guid FollowUpEmailId = Guid.Parse("11111111-1111-4111-8111-111111111103");
     public static readonly Guid NextStepsId = Guid.Parse("11111111-1111-4111-8111-111111111104");
+    public static readonly Guid ProjectPlanId = Guid.Parse("11111111-1111-4111-8111-111111111105");
     public static readonly Guid FeatureRequestsId = Guid.Parse("11111111-1111-4111-8111-111111111201");
     public static readonly Guid RecurringThemesId = Guid.Parse("11111111-1111-4111-8111-111111111202");
     public static readonly Guid WeeklyUpdateId = Guid.Parse("11111111-1111-4111-8111-111111111203");
@@ -29,6 +30,8 @@ public static class ChatRecipeCatalog
             "Draft a concise follow-up email. Do not send it."),
         Recipe(NextStepsId, CoreStrings.Get("RecipeNextStepsName"), ChatRecipe.SingleAvailability,
             "List my next steps from this meeting."),
+        Recipe(ProjectPlanId, CoreStrings.Get("RecipeProjectPlanName"), ChatRecipe.SingleAvailability,
+            "Draft a short project plan from this meeting: outcome, steps, owners, open questions. Do not invent owners."),
         Recipe(FeatureRequestsId, CoreStrings.Get("RecipeFeatureRequestsName"), ChatRecipe.MultipleAvailability,
             "Group product feedback into themes."),
         Recipe(RecurringThemesId, CoreStrings.Get("RecipeRecurringThemesName"), ChatRecipe.MultipleAvailability,
