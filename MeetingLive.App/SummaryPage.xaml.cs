@@ -8,7 +8,7 @@ using MeetingLive_App.ViewModels;
 namespace MeetingLive_App;
 
 /// <summary>Shows the structured summary of a meeting, and can generate one on demand.</summary>
-public sealed partial class SummaryPage : Page
+public sealed partial class SummaryPage : Page, ISessionCopySource
 {
     private bool _applyingNoteTemplate;
     private bool _notesModeReady;
@@ -61,6 +61,8 @@ public sealed partial class SummaryPage : Page
         var result = await dialog.ShowAsync();
         return result == ContentDialogResult.Primary;
     }
+
+    public string? GetCopyText() => ViewModel.CopyText;
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 

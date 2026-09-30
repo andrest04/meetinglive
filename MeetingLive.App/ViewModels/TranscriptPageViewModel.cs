@@ -1,10 +1,6 @@
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
-using Microsoft.UI.Dispatching;
-using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -12,8 +8,6 @@ namespace MeetingLive_App.ViewModels;
 public partial class TranscriptPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
-    private Guid? _recordId;
-    private DispatcherQueueTimer? _copyConfirmationTimer;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -26,9 +20,6 @@ public partial class TranscriptPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _hasContent;
-
-    [ObservableProperty]
-    private bool _isCopyConfirmationOpen;
 
     /// <summary>True once loading has finished and there's nothing to show — precomputed so the
     /// XAML empty-state Visibility binding doesn't need a nested multi-argument x:Bind call.</summary>
@@ -43,7 +34,6 @@ public partial class TranscriptPageViewModel : ObservableObject
                 ? await _meetings.GetByIdAsync(id)
                 : (await _meetings.GetAllAsync()).OrderByDescending(m => m.RecordedAt).FirstOrDefault();
 
-            _recordId = record?.Id;
             if (record is not null)
                 AppServices.Workspace.SelectMeeting(record.Id);
 
@@ -55,49 +45,6 @@ public partial class TranscriptPageViewModel : ObservableObject
         {
             IsLoading = false;
         }
-    }
-
-    [RelayCommand]
-    private void CopyToClipboard()
-    {
-        if (!HasContent)
-            return;
-
-        var package = new DataPackage();
-        package.SetText(Transcript);
-        Clipboard.SetContent(package);
-        ShowCopyConfirmation();
-    }
-
-    private void ShowCopyConfirmation()
-    {
-        IsCopyConfirmationOpen = true;
-        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
-        _copyConfirmationTimer.Stop();
-        _copyConfirmationTimer.Start();
-    }
-
-    private DispatcherQueueTimer CreateCopyConfirmationTimer()
-    {
-        var timer = App.DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(2.5);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
-        return timer;
-    }
-
-    [RelayCommand]
-    private async Task OpenFileLocationAsync()
-    {
-        if (_recordId is not { } id)
-            return;
-
-        var record = await AppServices.Meetings.GetByIdAsync(id);
-        var filePath = record?.SourcePath;
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-            return;
-
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
     }
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));

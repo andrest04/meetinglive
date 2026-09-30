@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
@@ -20,7 +19,6 @@ public partial class SummaryPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private MeetingRecord? _record;
-    private DispatcherQueueTimer? _copyConfirmationTimer;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -42,9 +40,6 @@ public partial class SummaryPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isGenerating;
-
-    [ObservableProperty]
-    private bool _isCopyConfirmationOpen;
 
     [ObservableProperty]
     private string _statusText = string.Empty;
@@ -119,8 +114,16 @@ public partial class SummaryPageViewModel : ObservableObject
     /// <summary>Generate or regenerate chrome — precomputed so XAML doesn't nest x:Bind arguments.</summary>
     public bool ShowSummaryActionBar => (CanGenerateSummary || CanRegenerateSummary) && ShowEnhancedChrome;
 
-    /// <summary>Copy / open-location buttons in the title row — summary-specific, hidden while notes show.</summary>
-    public bool ShowSummaryHeaderActions => HasSummary && ShowEnhancedChrome;
+    /// <summary>What the user sees on this tab: the raw notes while My notes shows, otherwise the
+    /// summary. Null when there is nothing to copy.</summary>
+    public string? CopyText
+    {
+        get
+        {
+            var text = IsShowingNotes ? Notes : Summary;
+            return string.IsNullOrWhiteSpace(text) ? null : text;
+        }
+    }
 
     public async Task LoadAsync(Guid? meetingId)
     {
@@ -160,7 +163,6 @@ public partial class SummaryPageViewModel : ObservableObject
             NotifyDraftCommands();
             OnPropertyChanged(nameof(ShowNoteTemplate));
             OnPropertyChanged(nameof(ShowDraftActions));
-            OnPropertyChanged(nameof(ShowSummaryHeaderActions));
         }
     }
 
@@ -369,54 +371,6 @@ public partial class SummaryPageViewModel : ObservableObject
         CopyActionItemsCommand.NotifyCanExecuteChanged();
     }
 
-    [RelayCommand]
-    private void CopyToClipboard()
-    {
-        if (!HasSummary)
-            return;
-
-        var package = new DataPackage();
-        package.SetText(Summary);
-        Clipboard.SetContent(package);
-        ShowCopyConfirmation();
-    }
-
-    private void ShowCopyConfirmation()
-    {
-        IsCopyConfirmationOpen = true;
-        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
-        _copyConfirmationTimer.Stop();
-        _copyConfirmationTimer.Start();
-    }
-
-    private DispatcherQueueTimer CreateCopyConfirmationTimer()
-    {
-        var timer = App.DispatcherQueue.CreateTimer();
-        timer.Interval = TimeSpan.FromSeconds(2.5);
-        timer.IsRepeating = false;
-        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
-        return timer;
-    }
-
-    [RelayCommand]
-    private async Task OpenFileLocationAsync()
-    {
-        if (_record is null)
-            return;
-
-        var filePath = _record.SourcePath;
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-        {
-            var loaded = await AppServices.Meetings.GetByIdAsync(_record.Id);
-            filePath = loaded?.SourcePath;
-        }
-
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-            return;
-
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
-    }
-
     /// <summary>Rebuilds <see cref="ActionItems"/> from <c>_record.ActionItems</c>, re-wiring the
     /// toggle-persist subscription on each wrapper.</summary>
     private void LoadActionItems()
@@ -462,7 +416,6 @@ public partial class SummaryPageViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(ShowDraftActions));
-        OnPropertyChanged(nameof(ShowSummaryHeaderActions));
     }
 
     partial void OnIsShowingNotesChanged(bool value)
@@ -471,7 +424,6 @@ public partial class SummaryPageViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowNoteTemplate));
         OnPropertyChanged(nameof(ShowDraftActions));
         OnPropertyChanged(nameof(ShowSummaryActionBar));
-        OnPropertyChanged(nameof(ShowSummaryHeaderActions));
     }
 
     partial void OnCanGenerateSummaryChanged(bool value)

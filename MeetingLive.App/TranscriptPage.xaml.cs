@@ -7,7 +7,7 @@ using MeetingLive_App.ViewModels;
 namespace MeetingLive_App;
 
 /// <summary>Shows the full transcript of a meeting (navigated with a Guid id).</summary>
-public sealed partial class TranscriptPage : Page
+public sealed partial class TranscriptPage : Page, ISessionCopySource
 {
     public TranscriptPageViewModel ViewModel { get; } = new();
 
@@ -27,6 +27,8 @@ public sealed partial class TranscriptPage : Page
     {
         AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
     }
+
+    public string? GetCopyText() => ViewModel.HasContent ? ViewModel.Transcript : null;
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 }

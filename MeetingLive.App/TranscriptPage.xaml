@@ -8,34 +8,8 @@
     xmlns:local="using:MeetingLive_App"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Grid Grid.Row="0" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                        Visibility="{x:Bind local:TranscriptPage.BoolToVisibility(ViewModel.HasContent), Mode=OneWay}">
-                <Button x:Uid="TranscriptPage_Copy" Command="{x:Bind ViewModel.CopyToClipboardCommand}"
-                        AutomationProperties.AutomationId="BtnCopyTranscript" />
-                <Button x:Uid="TranscriptPage_OpenLocation" Command="{x:Bind ViewModel.OpenFileLocationCommand}"
-                        AutomationProperties.AutomationId="BtnOpenTranscriptLocation" />
-            </StackPanel>
-        </Grid>
-
-        <InfoBar Grid.Row="1"
-                 x:Uid="TranscriptPage_CopyConfirmation"
-                 Severity="Success"
-                 IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
-                 AutomationProperties.AutomationId="InfoCopyTranscript" />
-
-        <Grid Grid.Row="2">
+    <Grid Padding="24">
+        <Grid>
             <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                           HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 

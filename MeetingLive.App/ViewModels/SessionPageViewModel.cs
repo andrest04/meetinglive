@@ -1,7 +1,10 @@
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using Microsoft.UI.Dispatching;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace MeetingLive_App.ViewModels;
 
@@ -10,6 +13,7 @@ public partial class SessionPageViewModel : ObservableObject
 {
     private readonly IMeetingRepository _meetings = AppServices.Meetings;
     private Guid? _meetingId;
+    private DispatcherQueueTimer? _copyConfirmationTimer;
 
     public SessionPageViewModel()
     {
@@ -30,6 +34,52 @@ public partial class SessionPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSuggestingTitle;
+
+    [ObservableProperty]
+    private bool _isCopyConfirmationOpen;
+
+    /// <summary>Copies <paramref name="text"/> (whatever the active tab is showing) and confirms it.</summary>
+    public void Copy(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return;
+
+        var package = new DataPackage();
+        package.SetText(text);
+        Clipboard.SetContent(package);
+        ShowCopyConfirmation();
+    }
+
+    private void ShowCopyConfirmation()
+    {
+        IsCopyConfirmationOpen = true;
+        _copyConfirmationTimer ??= CreateCopyConfirmationTimer();
+        _copyConfirmationTimer.Stop();
+        _copyConfirmationTimer.Start();
+    }
+
+    private DispatcherQueueTimer CreateCopyConfirmationTimer()
+    {
+        var timer = App.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2.5);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) => IsCopyConfirmationOpen = false;
+        return timer;
+    }
+
+    /// <summary>Reveals the meeting's markdown file in Explorer.</summary>
+    public async Task OpenFileLocationAsync()
+    {
+        if (_meetingId is not { } id)
+            return;
+
+        var record = await _meetings.GetByIdAsync(id);
+        var filePath = record?.SourcePath;
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            return;
+
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+    }
 
     /// <summary>Supplied by the page (needs a XamlRoot for the setup dialog). Used only when the
     /// selected provider is Local.</summary>

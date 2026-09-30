@@ -31,6 +31,12 @@
   <data name="SessionPage_Rename.ToolTipService.ToolTip" xml:space="preserve"><value>Renombrar título</value></data>
   <data name="SessionPage_SuggestTitle.AutomationProperties.Name" xml:space="preserve"><value>Sugerir título</value></data>
   <data name="SessionPage_SuggestTitle.ToolTipService.ToolTip" xml:space="preserve"><value>Generar título con IA</value></data>
+  <data name="SessionPage_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copiar</value></data>
+  <data name="SessionPage_Copy.ToolTipService.ToolTip" xml:space="preserve"><value>Copiar lo que muestra esta pestaña</value></data>
+  <data name="SessionPage_OpenLocation.AutomationProperties.Name" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
+  <data name="SessionPage_OpenLocation.ToolTipService.ToolTip" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
+  <data name="SessionPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
+  <data name="SessionPage_CopyConfirmation.Message" xml:space="preserve"><value>Copiado al portapapeles.</value></data>
   <data name="SessionRename_Title" xml:space="preserve"><value>Renombrar reunión</value></data>
   <data name="SessionRename_Primary" xml:space="preserve"><value>Renombrar</value></data>
   <data name="SessionRename_Cancel" xml:space="preserve"><value>Cancelar</value></data>
@@ -90,21 +96,13 @@
   <data name="Status_Paused" xml:space="preserve"><value>En pausa. La interrupción no se graba.</value></data>
   <data name="Status_RecordingDiscarded" xml:space="preserve"><value>Grabación descartada.</value></data>
   <data name="TranscriptPage_Title.Text" xml:space="preserve"><value>Transcripción</value></data>
-  <data name="TranscriptPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
-  <data name="TranscriptPage_OpenLocation.Content" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
   <data name="TranscriptPage_Empty.Text" xml:space="preserve"><value>Todavía no hay transcripción. Graba o importa una reunión primero.</value></data>
   <data name="TranscriptPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
-  <data name="TranscriptPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
-  <data name="TranscriptPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcripción copiada al portapapeles.</value></data>
   <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Resumen</value></data>
-  <data name="SummaryPage_Copy.Content" xml:space="preserve"><value>Copiar</value></data>
-  <data name="SummaryPage_OpenLocation.Content" xml:space="preserve"><value>Abrir ubicación del archivo</value></data>
   <data name="SummaryPage_Generate.Text" xml:space="preserve"><value>Generar resumen</value></data>
   <data name="SummaryPage_Regenerate.Content" xml:space="preserve"><value>Regenerar resumen</value></data>
   <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>Todavía no hay resumen. Graba o importa una reunión, o genera uno a partir de su transcripción.</value></data>
   <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
-  <data name="SummaryPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
-  <data name="SummaryPage_CopyConfirmation.Message" xml:space="preserve"><value>Resumen copiado al portapapeles.</value></data>
   <data name="SummaryPage_RelatedMeetings.Text" xml:space="preserve"><value>Reuniones relacionadas</value></data>
   <data name="SummaryRegenerate_Title" xml:space="preserve"><value>¿Reemplazar este resumen?</value></data>
   <data name="SummaryRegenerate_Content" xml:space="preserve"><value>Regenerar sobrescribirá el resumen y los elementos de acción de "{0}".</value></data>

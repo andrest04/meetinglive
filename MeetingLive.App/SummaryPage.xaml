@@ -16,8 +16,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -34,21 +32,7 @@
                              AutomationProperties.AutomationId="SelectorSummaryEnhanced" />
         </SelectorBar>
 
-        <Grid Grid.Row="1" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryHeaderActions), Mode=OneWay}">
-                <Button x:Uid="SummaryPage_Copy" Command="{x:Bind ViewModel.CopyToClipboardCommand}"
-                        AutomationProperties.AutomationId="BtnCopySummary" />
-                <Button x:Uid="SummaryPage_OpenLocation" Command="{x:Bind ViewModel.OpenFileLocationCommand}"
-                        AutomationProperties.AutomationId="BtnOpenSummaryLocation" />
-            </StackPanel>
-        </Grid>
-
-        <StackPanel Grid.Row="2" Spacing="4"
+        <StackPanel Grid.Row="1" Spacing="4"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasRelatedMeetings), Mode=OneWay}">
             <TextBlock x:Uid="SummaryPage_RelatedMeetings" Style="{StaticResource CaptionTextBlockStyle}"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -78,13 +62,7 @@
             </ListView>
         </StackPanel>
 
-        <InfoBar Grid.Row="3"
-                 x:Uid="SummaryPage_CopyConfirmation"
-                 Severity="Success"
-                 IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
-                 AutomationProperties.AutomationId="InfoCopySummary" />
-
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="12"
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
             <Button Command="{x:Bind ViewModel.GenerateSummaryCommand}"
                     Style="{StaticResource AccentButtonStyle}"
@@ -106,7 +84,7 @@
             <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <StackPanel Grid.Row="5" Spacing="8"
+        <StackPanel Grid.Row="3" Spacing="8"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowNoteTemplate), Mode=OneWay}">
             <Grid ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -145,7 +123,7 @@
                      AutomationProperties.AutomationId="InfoDraftStatus" />
         </StackPanel>
 
-        <Grid Grid.Row="6">
+        <Grid Grid.Row="4">
             <TextBox x:Uid="SummaryPage_Notes"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"

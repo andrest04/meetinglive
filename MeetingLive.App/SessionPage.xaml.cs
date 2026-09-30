@@ -91,6 +91,15 @@ public sealed partial class SessionPage : Page
             NavigateInner(AppServices.Workspace.SessionTab, AppServices.Workspace.SelectedMeetingId);
     }
 
+    private void Copy_Click(object sender, RoutedEventArgs e)
+    {
+        if (SessionFrame.Content is ISessionCopySource source)
+            ViewModel.Copy(source.GetCopyText());
+    }
+
+    private async void OpenLocation_Click(object sender, RoutedEventArgs e) =>
+        await ViewModel.OpenFileLocationAsync();
+
     private void EmptyCta_Click(object sender, RoutedEventArgs e)
     {
         AppServices.Workspace.NavigateTo(WorkspaceService.Recording);
