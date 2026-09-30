@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -23,8 +22,6 @@ public sealed partial class MainPage : Page
 {
     private bool _isNavigating;
     private bool _paneDragging;
-    private bool _applyingChatProvider;
-    private bool _chatReady;
     private bool _suppressRecipeFlyout;
     private bool _recipeFlyoutFromSlash;
     private bool _personalTasksDialogOpening;
@@ -36,7 +33,6 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
-        Chat.PropertyChanged += OnChatPropertyChanged;
 
         // The built-in Settings item's Content is localized from the OS language,
         // which can show up as e.g. "Configuración" on a Spanish-language system.
@@ -70,8 +66,6 @@ public sealed partial class MainPage : Page
                 Chat.ShowSendError(ex);
             }
 
-            _chatReady = true;
-            ApplyChatProviderSelection();
             Chat.Messages.CollectionChanged += (_, _) => ScrollChatToEnd();
 
             var settings = await AppServices.Settings.LoadAsync();
@@ -84,47 +78,6 @@ public sealed partial class MainPage : Page
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
-
-    private void OnChatPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (!_chatReady)
-            return;
-
-        if (e.PropertyName == nameof(MeetingChatViewModel.SelectedProvider))
-            ApplyChatProviderSelection();
-    }
-
-    private void ApplyChatProviderSelection()
-    {
-        _applyingChatProvider = true;
-        try
-        {
-            CmbMeetingChatProvider.SelectedItem = Chat.SelectedProvider;
-        }
-        finally
-        {
-            _applyingChatProvider = false;
-        }
-    }
-
-    private async void ChatProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_applyingChatProvider)
-            return;
-        if (sender is not ComboBox { SelectedItem: LiveAnswerProviderOption option })
-            return;
-        if (Chat.SelectedProvider?.Kind == option.Kind)
-            return;
-
-        try
-        {
-            await Chat.SaveProviderAsync(option.Kind);
-        }
-        catch (Exception ex)
-        {
-            Chat.ShowSendError(ex);
-        }
-    }
 
     private void TxtMeetingChat_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {

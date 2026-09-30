@@ -213,17 +213,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     [ObservableProperty]
     private bool _isAnswering;
 
-    [ObservableProperty]
-    private LiveAnswerProviderOption? _selectedLiveAnswerProvider;
-
-    public IReadOnlyList<LiveAnswerProviderOption> LiveAnswerProviders { get; } =
-    [
-        new() { Kind = SummaryProviderKind.Local, DisplayName = AppStrings.Get("RecordingSetup_SummaryLocal") },
-        new() { Kind = SummaryProviderKind.ClaudeCode, DisplayName = AppStrings.Get("Cli_ClaudeName") },
-        new() { Kind = SummaryProviderKind.Codex, DisplayName = AppStrings.Get("Cli_CodexName") },
-        new() { Kind = SummaryProviderKind.Xai, DisplayName = AppStrings.Get("Xai_ProviderName") },
-    ];
-
     public bool HasArmedQuestion => !string.IsNullOrWhiteSpace(ArmedQuestion);
 
     public bool HasLiveAnswer => !string.IsNullOrEmpty(LiveAnswerText);
@@ -496,14 +485,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private bool CanDismissArmedQuestion() => HasArmedQuestion;
 
-    public async Task SaveLiveAnswerProviderAsync(SummaryProviderKind kind)
-    {
-        ApplyLoadedLiveAnswerProvider(kind);
-        var settings = await AppServices.Settings.LoadAsync();
-        settings.SelectedLiveAnswerProvider = kind.ToString();
-        await AppServices.Settings.SaveAsync(settings);
-    }
-
     private async Task AskLiveAsync(bool typedOnly)
     {
         if (!IsRecording)
@@ -530,7 +511,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         LiveAnswerText = string.Empty;
 
         var committed = _committedTranscript;
-        var selectedKind = SelectedLiveAnswerProvider?.Kind;
 
         try
         {
@@ -538,7 +518,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             if (generation != _liveAnswerGeneration || token.IsCancellationRequested)
                 return;
 
-            var providerKind = selectedKind ?? settings.ResolveLiveAnswerProviderKind();
+            var providerKind = settings.ResolveSummaryProviderKind();
             var resolved = await SummaryProviderResolver.ResolveAsync(
                 providerKind,
                 EnsureSummaryModelAsync,
@@ -659,12 +639,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         LiveAskText = string.Empty;
         LiveAnswerText = string.Empty;
         LiveAnswerError = string.Empty;
-    }
-
-    private void ApplyLoadedLiveAnswerProvider(SummaryProviderKind kind)
-    {
-        SelectedLiveAnswerProvider = LiveAnswerProviders.FirstOrDefault(item => item.Kind == kind)
-            ?? LiveAnswerProviders[0];
     }
 
     private void OnMeetingDeleted(object? sender, Guid id)
@@ -1096,7 +1070,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         var settings = await AppServices.Settings.LoadAsync();
         ResetLiveAnswerSession();
-        ApplyLoadedLiveAnswerProvider(settings.ResolveLiveAnswerProviderKind());
 
         _currentMeetingId = _linkedMeetingId ?? Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;

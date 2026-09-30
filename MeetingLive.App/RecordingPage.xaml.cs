@@ -15,7 +15,6 @@ namespace MeetingLive_App;
 public sealed partial class RecordingPage : Page
 {
     private bool _stickToTranscriptEnd = true;
-    private bool _applyingLiveAnswerProvider;
     private bool _applyingNoteTemplate;
 
     public RecordingPageViewModel ViewModel { get; } = new();
@@ -33,7 +32,6 @@ public sealed partial class RecordingPage : Page
             // ScopeOwner keeps Ctrl+Enter on these controls. A null owner is global and would steal the shortcut from notes.
             LiveAskAccelerator.ScopeOwner = TxtLiveAsk;
             LiveAnswerAccelerator.ScopeOwner = BtnLiveAnswer;
-            ApplyLiveAnswerProviderSelection();
             ApplyLiveTranscript(follow: false);
         };
     }
@@ -140,18 +138,6 @@ public sealed partial class RecordingPage : Page
     private void RecordAppComboBox_DropDownOpened(object sender, object e) =>
         ViewModel.RefreshOpenApps();
 
-    private async void LiveAnswerProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_applyingLiveAnswerProvider)
-            return;
-        if (sender is not ComboBox { SelectedItem: LiveAnswerProviderOption option })
-            return;
-        if (ViewModel.SelectedLiveAnswerProvider?.Kind == option.Kind)
-            return;
-
-        await ViewModel.SaveLiveAnswerProviderAsync(option.Kind);
-    }
-
     private void LiveAsk_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         args.Handled = true;
@@ -166,25 +152,10 @@ public sealed partial class RecordingPage : Page
             _ = ViewModel.ConfirmLiveAnswerCommand.ExecuteAsync(null);
     }
 
-    private void ApplyLiveAnswerProviderSelection()
-    {
-        _applyingLiveAnswerProvider = true;
-        try
-        {
-            CmbLiveAnswerProvider.SelectedItem = ViewModel.SelectedLiveAnswerProvider;
-        }
-        finally
-        {
-            _applyingLiveAnswerProvider = false;
-        }
-    }
-
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ViewModel.IsRecording) or nameof(ViewModel.IsPaused))
             UpdateRecordingPulse();
-        else if (e.PropertyName is nameof(ViewModel.SelectedLiveAnswerProvider))
-            ApplyLiveAnswerProviderSelection();
         else if (e.PropertyName is nameof(ViewModel.LiveTranscriptText)
                  or nameof(ViewModel.CanvasTranscriptText))
         {
@@ -299,10 +270,6 @@ public sealed partial class RecordingPage : Page
     public static string LiveAskName() => AppStrings.Get("RecordPage_LiveAsk.AutomationProperties.Name");
 
     public static string LiveAskPlaceholder() => AppStrings.Get("RecordPage_LiveAsk.PlaceholderText");
-
-    public static string LiveAnswerProviderName() => AppStrings.Get("RecordPage_LiveAnswerProvider.AutomationProperties.Name");
-
-    public static string LiveAnswerProviderTooltip() => AppStrings.Get("RecordPage_LiveAnswerProvider.Header");
 
     public static string LiveAnswerTooltip() => AppStrings.Get("RecordPage_LiveAnswerTooltip");
 

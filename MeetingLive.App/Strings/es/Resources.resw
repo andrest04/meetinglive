@@ -420,8 +420,6 @@
   <data name="RecordPage_LiveAnswerTooltip" xml:space="preserve"><value>Responder (Ctrl+Enter)</value></data>
   <data name="RecordPage_LiveAnswerDismiss.Content" xml:space="preserve"><value>Descartar</value></data>
   <data name="RecordPage_LiveAnswerDismiss.AutomationProperties.Name" xml:space="preserve"><value>Descartar la pregunta detectada</value></data>
-  <data name="RecordPage_LiveAnswerProvider.Header" xml:space="preserve"><value>Responder con</value></data>
-  <data name="RecordPage_LiveAnswerProvider.AutomationProperties.Name" xml:space="preserve"><value>Proveedor de respuesta en vivo</value></data>
   <data name="RecordPage_LiveAsk.Header" xml:space="preserve"><value>Preguntar</value></data>
   <data name="RecordPage_LiveAsk.PlaceholderText" xml:space="preserve"><value>Escribe una pregunta y presiona Ctrl+Enter</value></data>
   <data name="RecordPage_LiveAsk.AutomationProperties.Name" xml:space="preserve"><value>Escribir una pregunta</value></data>
@@ -502,9 +500,6 @@
   <data name="Chat_History.ToolTipService.ToolTip" xml:space="preserve"><value>Historial de chat</value></data>
   <data name="Chat_New.AutomationProperties.Name" xml:space="preserve"><value>Nuevo chat</value></data>
   <data name="Chat_New.ToolTipService.ToolTip" xml:space="preserve"><value>Nuevo chat</value></data>
-  <data name="Chat_Provider.Header" xml:space="preserve"><value>Responder con</value></data>
-  <data name="Chat_ProviderButton.AutomationProperties.Name" xml:space="preserve"><value>Proveedor de chat</value></data>
-  <data name="Chat_ProviderButton.ToolTipService.ToolTip" xml:space="preserve"><value>Proveedor de chat</value></data>
   <data name="Chat_Transcript.AutomationProperties.Name" xml:space="preserve"><value>Mensajes de chat</value></data>
   <data name="Chat_Sending.AutomationProperties.Name" xml:space="preserve"><value>Enviando</value></data>
   <data name="Chat_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copiar</value></data>

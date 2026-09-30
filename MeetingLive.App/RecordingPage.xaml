@@ -794,29 +794,13 @@
                              Severity="Error"
                              Message="{x:Bind ViewModel.LiveAnswerError, Mode=OneWay}"
                              AutomationProperties.AutomationId="InfoLiveAnswerError" />
-                    <!-- Provider and question share one row with no visible headers; names and hints come from the same resources the x:Uid versions used. -->
+                    <!-- Question row: names and hints come from the same resources the x:Uid versions used. -->
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbLiveAnswerProvider"
-                                  MinWidth="140"
-                                  Margin="0,0,8,0"
-                                  ItemsSource="{x:Bind ViewModel.LiveAnswerProviders, Mode=OneWay}"
-                                  SelectionChanged="LiveAnswerProvider_SelectionChanged"
-                                  ToolTipService.ToolTip="{x:Bind local:RecordingPage.LiveAnswerProviderTooltip()}"
-                                  AutomationProperties.Name="{x:Bind local:RecordingPage.LiveAnswerProviderName()}"
-                                  AutomationProperties.AutomationId="CmbLiveAnswerProvider">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:LiveAnswerProviderOption">
-                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
                         <TextBox x:Name="TxtLiveAsk"
-                                 Grid.Column="1"
                                  AcceptsReturn="False"
                                  PlaceholderText="{x:Bind local:RecordingPage.LiveAskPlaceholder()}"
                                  Text="{x:Bind ViewModel.LiveAskText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -830,7 +814,7 @@
                                                      Invoked="LiveAsk_AcceleratorInvoked" />
                             </TextBox.KeyboardAccelerators>
                         </TextBox>
-                        <ProgressRing Grid.Column="2"
+                        <ProgressRing Grid.Column="1"
                                       x:Uid="RecordPage_LiveAnswerProgress"
                                       IsActive="{x:Bind ViewModel.IsAnswering, Mode=OneWay}"
                                       Width="20"

@@ -27,6 +27,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     private bool _forceAllRecipes;
     private bool _subscribed;
     private int _scopeGeneration;
+    private bool _personalTasksAvailable;
 
     [ObservableProperty]
     private string _draft = string.Empty;
@@ -63,22 +64,11 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasRecipeSuggestions;
 
-    [ObservableProperty]
-    private LiveAnswerProviderOption? _selectedProvider;
-
     public ObservableCollection<ChatMessageItem> Messages { get; } = [];
 
     public ObservableCollection<ChatThreadItem> Threads { get; } = [];
 
     public ObservableCollection<ChatRecipeItem> RecipeSuggestions { get; } = [];
-
-    public IReadOnlyList<LiveAnswerProviderOption> Providers { get; } =
-    [
-        new() { Kind = SummaryProviderKind.Local, DisplayName = AppStrings.Get("RecordingSetup_SummaryLocal") },
-        new() { Kind = SummaryProviderKind.ClaudeCode, DisplayName = AppStrings.Get("Cli_ClaudeName") },
-        new() { Kind = SummaryProviderKind.Codex, DisplayName = AppStrings.Get("Cli_CodexName") },
-        new() { Kind = SummaryProviderKind.Xai, DisplayName = AppStrings.Get("Xai_ProviderName") },
-    ];
 
     public Func<Task<string?>>? EnsureSummaryModelAsync { get; set; }
 
@@ -89,8 +79,9 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     public bool PrefersMultipleRecipes =>
         _decision.Kind is ChatScopeKind.Folder or ChatScopeKind.AllMeetings;
 
-    /// <summary>"What do I need to do" only makes sense for one specific meeting.</summary>
-    public bool ShowPersonalTasksRecipe => _decision.Kind == ChatScopeKind.Meeting;
+    /// <summary>"What do I need to do" only makes sense for one specific meeting, and only when
+    /// TypeSafe is enabled with an API key (same gate as the Personal tasks dialog).</summary>
+    public bool ShowPersonalTasksRecipe => _decision.Kind == ChatScopeKind.Meeting && _personalTasksAvailable;
 
     public Guid? CurrentMeetingId => _decision.MeetingId;
 
@@ -102,19 +93,8 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             _subscribed = true;
         }
 
-        var settings = await AppServices.Settings.LoadAsync();
-        SelectedProvider = Providers.FirstOrDefault(item => item.Kind == settings.ResolveChatProviderKind())
-            ?? Providers[0];
         await RefreshScopeAsync();
         await RefreshThreadsAsync();
-    }
-
-    public async Task SaveProviderAsync(SummaryProviderKind kind)
-    {
-        SelectedProvider = Providers.FirstOrDefault(item => item.Kind == kind) ?? Providers[0];
-        var settings = await AppServices.Settings.LoadAsync();
-        settings.SelectedChatProvider = kind.ToString();
-        await AppServices.Settings.SaveAsync(settings);
     }
 
     [RelayCommand]
@@ -163,7 +143,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
 
             var settings = await AppServices.Settings.LoadAsync();
             var provider = await SummaryProviderResolver.ResolveAsync(
-                settings.ResolveChatProviderKind(),
+                settings.ResolveSummaryProviderKind(),
                 EnsureSummaryModelAsync,
                 EnsureCliProviderAsync,
                 EnsureXaiProviderAsync);
@@ -384,6 +364,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             workspace.SelectedFolderId,
             workspace.SelectedMeetingId);
         var label = await BuildScopeLabelAsync(decision);
+        await RefreshPersonalTasksAvailabilityAsync();
         if (generation != _scopeGeneration)
             return;
 
@@ -403,6 +384,15 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             UpdateMismatch();
         await RefreshRecipesAsync();
         SendCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task RefreshPersonalTasksAvailabilityAsync()
+    {
+        var settings = await AppServices.Settings.LoadAsync();
+        var credentials = AppServices.TypeSafeCredentials.Load();
+        _personalTasksAvailable = settings.TypeSafeEnabled
+            && credentials is not null
+            && !string.IsNullOrWhiteSpace(credentials.ApiKey);
     }
 
     private async Task<string> BuildScopeLabelAsync(ChatScopeDecision decision)
@@ -599,6 +589,25 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         }
 
         return completion.Task;
+    }
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        if (value)
+            _ = RefreshPersonalTasksGateAsync();
+    }
+
+    private async Task RefreshPersonalTasksGateAsync()
+    {
+        try
+        {
+            await RefreshPersonalTasksAvailabilityAsync();
+            OnPropertyChanged(nameof(ShowPersonalTasksRecipe));
+        }
+        catch (Exception ex)
+        {
+            ShowError(AppStrings.Format("Chat_SendFailed", ex.Message));
+        }
     }
 
     partial void OnIsSendingChanged(bool value) => SendCommand.NotifyCanExecuteChanged();

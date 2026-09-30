@@ -93,61 +93,6 @@ public class AppSettingsTests
     }
 
     [Fact]
-    public void ResolveLiveAnswerProviderKind_WhenUnset_FallsBackToSummaryProvider()
-    {
-        var settings = new AppSettings { SelectedSummaryProvider = "Codex" };
-
-        Assert.Equal(SummaryProviderKind.Codex, settings.ResolveLiveAnswerProviderKind());
-    }
-
-    [Fact]
-    public void ResolveLiveAnswerProviderKind_WhenUnsetAndSummaryUnset_ReturnsLocal()
-    {
-        var settings = new AppSettings();
-
-        Assert.Equal(SummaryProviderKind.Local, settings.ResolveLiveAnswerProviderKind());
-    }
-
-    [Theory]
-    [InlineData("Local", SummaryProviderKind.Local)]
-    [InlineData("ClaudeCode", SummaryProviderKind.ClaudeCode)]
-    [InlineData("Codex", SummaryProviderKind.Codex)]
-    [InlineData("Xai", SummaryProviderKind.Xai)]
-    public void ResolveLiveAnswerProviderKind_WhenSet_ReturnsSelectedKind(string stored, SummaryProviderKind expected)
-    {
-        var settings = new AppSettings
-        {
-            SelectedSummaryProvider = "Local",
-            SelectedLiveAnswerProvider = stored,
-        };
-
-        Assert.Equal(expected, settings.ResolveLiveAnswerProviderKind());
-    }
-
-    [Fact]
-    public void ResolveLiveAnswerProviderKind_WhenUnrecognized_FallsBackToSummaryProvider()
-    {
-        var settings = new AppSettings
-        {
-            SelectedSummaryProvider = "Xai",
-            SelectedLiveAnswerProvider = "OpenAI",
-        };
-
-        Assert.Equal(SummaryProviderKind.Xai, settings.ResolveLiveAnswerProviderKind());
-    }
-
-    [Fact]
-    public void ResolveLiveAnswerProviderKind_WhenJsonOmitsField_FallsBackToSummaryProvider()
-    {
-        var settings = JsonSerializer.Deserialize<AppSettings>(
-            """{"selectedSummaryProvider":"ClaudeCode"}""",
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
-
-        Assert.NotNull(settings);
-        Assert.Equal(SummaryProviderKind.ClaudeCode, settings.ResolveLiveAnswerProviderKind());
-    }
-
-    [Fact]
     public void CalendarNotificationsEnabled_WhenUnset_DefaultsTrue()
     {
         Assert.True(new AppSettings().CalendarNotificationsEnabled);
@@ -201,39 +146,14 @@ public class AppSettingsTests
     }
 
     [Fact]
-    public void ResolveChatProviderKind_WhenUnset_FallsBackToSummaryProvider()
+    public void Deserialize_WhenJsonHasRemovedProviderKeys_LoadsAndIgnoresThem()
     {
-        var settings = new AppSettings { SelectedSummaryProvider = "Codex" };
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            """{"selectedSummaryProvider":"Codex","selectedChatProvider":"Xai","selectedLiveAnswerProvider":"ClaudeCode"}""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        Assert.Equal(SummaryProviderKind.Codex, settings.ResolveChatProviderKind());
-    }
-
-    [Theory]
-    [InlineData("Local", SummaryProviderKind.Local)]
-    [InlineData("ClaudeCode", SummaryProviderKind.ClaudeCode)]
-    [InlineData("Codex", SummaryProviderKind.Codex)]
-    [InlineData("Xai", SummaryProviderKind.Xai)]
-    public void ResolveChatProviderKind_WhenSet_ReturnsSelectedKind(string stored, SummaryProviderKind expected)
-    {
-        var settings = new AppSettings
-        {
-            SelectedSummaryProvider = "Local",
-            SelectedChatProvider = stored,
-        };
-
-        Assert.Equal(expected, settings.ResolveChatProviderKind());
-    }
-
-    [Fact]
-    public void ResolveChatProviderKind_WhenUnrecognized_FallsBackToSummaryProvider()
-    {
-        var settings = new AppSettings
-        {
-            SelectedSummaryProvider = "Xai",
-            SelectedChatProvider = "OpenAI",
-        };
-
-        Assert.Equal(SummaryProviderKind.Xai, settings.ResolveChatProviderKind());
+        Assert.NotNull(settings);
+        Assert.Equal(SummaryProviderKind.Codex, settings.ResolveSummaryProviderKind());
     }
 
     [Fact]
