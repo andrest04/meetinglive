@@ -65,16 +65,58 @@ public sealed partial class HistoryPage : Page
 
     private void ViewSummary_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: Guid meetingId })
+        if (sender is not FrameworkElement { Tag: Guid meetingId })
             return;
 
         AppServices.Workspace.SelectMeeting(meetingId);
         AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
     }
 
+    private void MeetingMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: Guid meetingId } target)
+            return;
+
+        CreateMeetingMenu(meetingId).ShowAt(target);
+    }
+
+    private void MeetingRow_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { Tag: Guid meetingId } target)
+            return;
+
+        args.Handled = true;
+        var menu = CreateMeetingMenu(meetingId);
+        if (args.TryGetPosition(target, out var position))
+            menu.ShowAt(target, new FlyoutShowOptions { Position = position });
+        else
+            menu.ShowAt(target);
+    }
+
+    private MenuFlyout CreateMeetingMenu(Guid meetingId)
+    {
+        var flyout = new MenuFlyout();
+        flyout.Items.Add(CreateMeetingMenuItem("HistoryRow_OpenSummary", "", "MenuHistoryOpenSummary", meetingId, ViewSummary_Click));
+        flyout.Items.Add(CreateMeetingMenuItem("HistoryRow_Move", "", "MenuHistoryMove", meetingId, Move_Click));
+        flyout.Items.Add(CreateMeetingMenuItem("HistoryRow_Delete", "", "MenuHistoryDelete", meetingId, Delete_Click));
+        return flyout;
+    }
+
+    private static MenuFlyoutItem CreateMeetingMenuItem(
+        string textKey,
+        string glyph,
+        string automationId,
+        Guid meetingId,
+        RoutedEventHandler click)
+    {
+        var item = CreateFolderMenuItem(textKey, glyph, automationId, click);
+        item.Tag = meetingId;
+        return item;
+    }
+
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: Guid meetingId })
+        if (sender is not FrameworkElement { Tag: Guid meetingId })
             return;
 
         var title = ViewModel.Meetings.FirstOrDefault(m => m.Id == meetingId)?.Title ?? string.Empty;
@@ -115,9 +157,6 @@ public sealed partial class HistoryPage : Page
         await ViewModel.CreateFolderAsync(nameBox.Text);
     }
 
-    private async void RenameFolder_Click(object sender, RoutedEventArgs e) =>
-        await ShowRenameFolderDialogAsync();
-
     private async void FolderTree_RightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         if ((e.OriginalSource as FrameworkElement)?.DataContext is not FolderNode node
@@ -139,6 +178,11 @@ public sealed partial class HistoryPage : Page
             "\uE790",
             "MenuLibraryPersonality",
             FolderContextPersonality_Click));
+        flyout.Items.Add(CreateFolderMenuItem(
+            "LibraryContext_Delete",
+            "",
+            "MenuLibraryDeleteFolder",
+            FolderContextDelete_Click));
         flyout.ShowAt(target, new FlyoutShowOptions { Position = e.GetPosition(target) });
     }
 
@@ -160,7 +204,15 @@ public sealed partial class HistoryPage : Page
         await ShowPersonalityDialogAsync(node);
     }
 
-    private async void DeleteFolder_Click(object sender, RoutedEventArgs e)
+    private async void FolderContextDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (!await TrySelectContextFolderAsync(sender))
+            return;
+
+        await ShowDeleteFolderDialogAsync();
+    }
+
+    private async Task ShowDeleteFolderDialogAsync()
     {
         if (!ViewModel.IsRealFolderSelected)
             return;
@@ -188,7 +240,7 @@ public sealed partial class HistoryPage : Page
 
     private async void Move_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: Guid meetingId })
+        if (sender is not FrameworkElement { Tag: Guid meetingId })
             return;
 
         var destinations = ViewModel.GetMoveDestinations();

@@ -53,12 +53,6 @@
                 </ToggleButton>
                 <Button x:Uid="Library_NewFolder" Click="NewFolder_Click"
                         AutomationProperties.AutomationId="BtnLibraryNewFolder" />
-                <Button x:Uid="Library_RenameFolder" Click="RenameFolder_Click"
-                        IsEnabled="{x:Bind ViewModel.IsRealFolderSelected, Mode=OneWay}"
-                        AutomationProperties.AutomationId="BtnLibraryRenameFolder" />
-                <Button x:Uid="Library_DeleteFolder" Click="DeleteFolder_Click"
-                        IsEnabled="{x:Bind ViewModel.IsRealFolderSelected, Mode=OneWay}"
-                        AutomationProperties.AutomationId="BtnLibraryDeleteFolder" />
             </StackPanel>
         </Grid>
 
@@ -181,6 +175,8 @@
                              <ListView.ItemTemplate>
                                  <DataTemplate x:DataType="models:MeetingRecord">
                                      <Border Style="{StaticResource CardSurface}"
+                                             Tag="{x:Bind Id}"
+                                             ContextRequested="MeetingRow_ContextRequested"
                                              Padding="16,12">
                                          <Grid ColumnSpacing="12">
                                              <Grid.ColumnDefinitions>
@@ -200,12 +196,10 @@
                                              </StackPanel>
 
                                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                 <Button x:Uid="Library_Move" Click="Move_Click" Tag="{x:Bind Id}"
-                                                         AutomationProperties.AutomationId="BtnLibraryMove" />
-                                                 <Button x:Uid="HistoryPage_Summary" Click="ViewSummary_Click" Tag="{x:Bind Id}"
-                                                         AutomationProperties.AutomationId="BtnHistorySummary" />
-                                                 <Button x:Uid="HistoryPage_Delete" Click="Delete_Click" Tag="{x:Bind Id}"
-                                                         AutomationProperties.AutomationId="BtnHistoryDelete" />
+                                                 <Button x:Uid="HistoryRow_More" Click="MeetingMore_Click" Tag="{x:Bind Id}"
+                                                         AutomationProperties.AutomationId="BtnHistoryMore">
+                                                     <FontIcon Glyph="&#xE712;" />
+                                                 </Button>
                                              </StackPanel>
                                          </Grid>
                                      </Border>

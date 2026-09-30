@@ -59,8 +59,7 @@
   <data name="RecordPage_CopyConfirmation.Title" xml:space="preserve"><value>Copiado</value></data>
   <data name="RecordPage_CopyConfirmation.Message" xml:space="preserve"><value>Transcripción copiada al portapapeles.</value></data>
   <data name="RecordPage_LastRecording.Text" xml:space="preserve"><value>Última grabación procesada</value></data>
-  <data name="RecordPage_ViewTranscript.Content" xml:space="preserve"><value>Ver transcripción</value></data>
-  <data name="RecordPage_ViewSummary.Content" xml:space="preserve"><value>Ver resumen</value></data>
+  <data name="RecordPage_Open.Content" xml:space="preserve"><value>Abrir</value></data>
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
   <data name="RecordPage_AudioSources.Header" xml:space="preserve"><value>Fuentes de audio</value></data>
@@ -112,8 +111,6 @@
   <data name="HistoryPage_Title.Text" xml:space="preserve"><value>Biblioteca</value></data>
   <data name="HistoryPage_Empty.Text" xml:space="preserve"><value>Todavía no hay reuniones grabadas.</value></data>
   <data name="HistoryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
-  <data name="HistoryPage_Summary.Content" xml:space="preserve"><value>Resumen</value></data>
-  <data name="HistoryPage_Delete.Content" xml:space="preserve"><value>Eliminar</value></data>
   <data name="History_NoContent" xml:space="preserve"><value>Todavía no hay contenido</value></data>
   <data name="HistoryDelete_Title" xml:space="preserve"><value>¿Eliminar esta reunión?</value></data>
   <data name="HistoryDelete_Content" xml:space="preserve"><value>Esto elimina permanentemente "{0}" y su grabación.</value></data>
@@ -276,11 +273,14 @@
   <data name="Dialog_OK" xml:space="preserve"><value>Aceptar</value></data>
   <data name="Library_Inbox" xml:space="preserve"><value>Bandeja de entrada</value></data>
   <data name="Library_NewFolder.Content" xml:space="preserve"><value>Nueva carpeta</value></data>
-  <data name="Library_RenameFolder.Content" xml:space="preserve"><value>Renombrar</value></data>
   <data name="LibraryContext_Rename" xml:space="preserve"><value>Renombrar</value></data>
   <data name="LibraryContext_Personality" xml:space="preserve"><value>Personalidad</value></data>
-  <data name="Library_DeleteFolder.Content" xml:space="preserve"><value>Eliminar carpeta</value></data>
-  <data name="Library_Move.Content" xml:space="preserve"><value>Mover</value></data>
+  <data name="LibraryContext_Delete" xml:space="preserve"><value>Eliminar carpeta</value></data>
+  <data name="HistoryRow_More.AutomationProperties.Name" xml:space="preserve"><value>Más acciones</value></data>
+  <data name="HistoryRow_More.ToolTipService.ToolTip" xml:space="preserve"><value>Más acciones</value></data>
+  <data name="HistoryRow_OpenSummary" xml:space="preserve"><value>Abrir resumen</value></data>
+  <data name="HistoryRow_Move" xml:space="preserve"><value>Mover</value></data>
+  <data name="HistoryRow_Delete" xml:space="preserve"><value>Eliminar</value></data>
   <data name="Library_Search.PlaceholderText" xml:space="preserve"><value>Buscar reuniones</value></data>
   <data name="Library_FolderNote.Header" xml:space="preserve"><value>Notas de la carpeta</value></data>
   <data name="Library_FolderNote.PlaceholderText" xml:space="preserve"><value>Notas para esta carpeta</value></data>

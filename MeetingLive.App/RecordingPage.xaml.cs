@@ -47,22 +47,15 @@ public sealed partial class RecordingPage : Page
         ViewModel.OnNavigatedFrom();
     }
 
-    private void ViewTranscript_Click(object sender, RoutedEventArgs e)
+    private void Open_Click(object sender, RoutedEventArgs e)
     {
         if (ViewModel.LastMeeting is not { } meeting)
             return;
 
         AppServices.Workspace.SelectMeeting(meeting.Id);
-        AppServices.Workspace.OpenSession(WorkspaceService.TabTranscript);
-    }
-
-    private void ViewSummary_Click(object sender, RoutedEventArgs e)
-    {
-        if (ViewModel.LastMeeting is not { } meeting)
-            return;
-
-        AppServices.Workspace.SelectMeeting(meeting.Id);
-        AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
+        AppServices.Workspace.OpenSession(ViewModel.HasSummary
+            ? WorkspaceService.TabSummary
+            : WorkspaceService.TabTranscript);
     }
 
     private async void DiscardRecording_Click(object sender, RoutedEventArgs e) =>
