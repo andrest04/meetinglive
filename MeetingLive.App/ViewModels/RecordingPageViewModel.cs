@@ -110,11 +110,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private string _briefError = string.Empty;
 
     [ObservableProperty]
-    private string? _selectedNoteTemplateId;
-
-    public ObservableCollection<NoteTemplateOption> NoteTemplates { get; } = [];
-
-    [ObservableProperty]
     private string _highlightFeedback = string.Empty;
 
     [ObservableProperty]
@@ -311,7 +306,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _ = LoadDestinationsAsync();
         _ = RefreshReadinessAsync();
         _ = RefreshComingUpAsync();
-        _ = LoadNoteTemplatesAsync();
         TryStartFromTakeNotes();
     }
 
@@ -875,25 +869,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             SessionNotes = existing.Notes;
     }
 
-    public async Task LoadNoteTemplatesAsync(string? selectId = null)
-    {
-        var items = await NoteTemplateOption.LoadAsync();
-        NoteTemplates.Clear();
-        foreach (var item in items)
-            NoteTemplates.Add(item);
-
-        if (selectId is not null)
-            SelectedNoteTemplateId = selectId;
-        else if (string.IsNullOrWhiteSpace(SelectedNoteTemplateId))
-            SelectedNoteTemplateId = NoteTemplateCatalog.AutoId;
-    }
-
-    public async Task SaveCustomTemplateAsync(CustomNoteTemplate template)
-    {
-        await AppServices.NoteTemplates.SaveAsync(template);
-        await LoadNoteTemplatesAsync(NoteTemplateCatalog.CustomId);
-    }
-
     public async Task SavePrepNotesAsync()
     {
         if (_linkedMeetingId is not { } id || IsRecording || IsProcessing)
@@ -1410,8 +1385,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         var pausedDuration = _pausedDuration;
         var highlights = _highlights.ToArray();
         var folderId = await ResolveSelectedFolderIdAsync();
-        var templateId = NoteTemplateCatalog.NormalizeId(SelectedNoteTemplateId);
-        var templateInstructions = await NoteTemplateInstructions.ResolveAsync(templateId, AppServices.NoteTemplates);
         var request = new RecordingPipelineRequest(
             meetingId,
             audioPath,
@@ -1428,9 +1401,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             _linkedJoinUrl,
             _linkedAttendees,
             BlankToNull(MeetingBrief),
-            _linkedAgenda,
-            templateId,
-            templateInstructions);
+            _linkedAgenda);
 
         await _pipeline.RunAsync(
             request,

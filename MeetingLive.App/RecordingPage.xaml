@@ -862,36 +862,8 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-                <Grid x:Name="SessionNotesPanel" Grid.Row="1" RowSpacing="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbNoteTemplate"
-                                  x:Uid="RecordPage_NoteTemplate"
-                                  ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
-                                  SelectionChanged="NoteTemplate_SelectionChanged"
-                                  HorizontalAlignment="Stretch"
-                                  AutomationProperties.AutomationId="CmbNoteTemplate">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:NoteTemplateOption">
-                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <Button Grid.Column="1"
-                                x:Uid="RecordPage_SaveCustomTemplate"
-                                Click="SaveCustomTemplate_Click"
-                                VerticalAlignment="Bottom"
-                                AutomationProperties.AutomationId="BtnSaveCustomTemplate" />
-                    </Grid>
+                <Grid x:Name="SessionNotesPanel" Grid.Row="1">
                     <TextBox x:Name="TxtRecordingNotes"
-                             Grid.Row="1"
                              x:Uid="RecordPage_SessionNotes"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"

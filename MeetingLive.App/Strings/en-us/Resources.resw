@@ -448,10 +448,6 @@
   <data name="RecordPage_BriefFailed.AutomationProperties.Name" xml:space="preserve"><value>Brief error</value></data>
   <data name="RecordPage_StatusErrorTitle.Title" xml:space="preserve"><value>Something went wrong</value></data>
   <data name="RecordPage_BriefFailedFormat" xml:space="preserve"><value>The note is open. The brief could not be prepared: {0}</value></data>
-  <data name="RecordPage_NoteTemplate.Header" xml:space="preserve"><value>Template</value></data>
-  <data name="RecordPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>
-  <data name="RecordPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Save custom template</value></data>
-  <data name="RecordPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Save custom template</value></data>
   <data name="NoteTemplate_Auto" xml:space="preserve"><value>Auto</value></data>
   <data name="NoteTemplate_OneOnOne" xml:space="preserve"><value>1:1</value></data>
   <data name="NoteTemplate_Standup" xml:space="preserve"><value>Standup</value></data>

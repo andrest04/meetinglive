@@ -15,7 +15,6 @@ namespace MeetingLive_App;
 public sealed partial class RecordingPage : Page
 {
     private bool _stickToTranscriptEnd = true;
-    private bool _applyingNoteTemplate;
 
     public RecordingPageViewModel ViewModel { get; } = new();
 
@@ -36,12 +35,10 @@ public sealed partial class RecordingPage : Page
         };
     }
 
-    protected override async void OnNavigatedTo(NavigationEventArgs e)
+    protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
         ViewModel.OnNavigatedTo();
-        await ViewModel.LoadNoteTemplatesAsync();
-        ApplyNoteTemplateSelection();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -304,42 +301,6 @@ public sealed partial class RecordingPage : Page
 
     public static Visibility NonEmptyVisibility(string? text) =>
         string.IsNullOrWhiteSpace(text) ? Visibility.Collapsed : Visibility.Visible;
-
-    private void ApplyNoteTemplateSelection()
-    {
-        _applyingNoteTemplate = true;
-        try
-        {
-            var id = string.IsNullOrWhiteSpace(ViewModel.SelectedNoteTemplateId)
-                ? NoteTemplateCatalog.AutoId
-                : ViewModel.SelectedNoteTemplateId;
-            CmbNoteTemplate.SelectedItem = ViewModel.NoteTemplates.FirstOrDefault(item => item.Id == id)
-                ?? ViewModel.NoteTemplates.FirstOrDefault();
-        }
-        finally
-        {
-            _applyingNoteTemplate = false;
-        }
-    }
-
-    private void NoteTemplate_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_applyingNoteTemplate || sender is not ComboBox { SelectedItem: NoteTemplateOption option })
-            return;
-
-        ViewModel.SelectedNoteTemplateId = option.Id;
-    }
-
-    private async void SaveCustomTemplate_Click(object sender, RoutedEventArgs e)
-    {
-        var existing = await AppServices.NoteTemplates.LoadAsync();
-        var edited = await CustomNoteTemplateDialog.ShowAsync(XamlRoot, existing);
-        if (edited is null)
-            return;
-
-        await ViewModel.SaveCustomTemplateAsync(edited);
-        ApplyNoteTemplateSelection();
-    }
 
     private void Notes_LostFocus(object sender, RoutedEventArgs e)
     {
