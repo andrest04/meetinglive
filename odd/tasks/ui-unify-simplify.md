@@ -50,7 +50,7 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 ## Tasks
 
 - [x] T1 Single provider — route: delegated (2+ non-trivial files) — commit 5026939
-- [ ] T2 Summary drafts to recipe — route: delegated
+- [x] T2 Summary drafts to recipe — route: delegated — commit 2cc817f
 - [ ] T3 Note template only on Summary — route: delegated
 - [ ] T4 Session header Copy / Open location — route: delegated
 - [ ] T5 Library context menus + single Open — route: delegated
@@ -67,8 +67,9 @@ Fewer places to make the same choice. The Recording page (959 XAML lines, 2096-l
 
 ## Next step
 
-T2.
+T3.
 
 ## Evidence
 
 - T1+T6 (5026939): guard test `Deserialize_WhenJsonHasRemovedProviderKeys_LoadsAndIgnoresThem` added before removal (passed while the properties still existed, so no RED is possible for a pure removal; it stays as the regression guard). Obsolete live-answer and chat resolver tests deleted. Build: 0 errors. Tests: 643 passed, 0 failed.
+- T2 (2cc817f): RED observed (ChatRecipeCatalogTests failed to compile: ChatRecipeCatalog.ProjectPlanId missing, CS0117), GREEN after adding the recipe and localized name (CoreStrings en/es): 13 recipe tests passed. FollowUp/ProjectPlan prompt builders and their tests deleted. Deviation: the draft InfoBar (SummaryPage_DraftError) is kept because "List actions" still reports copied / no-items / copy-failed through it. Build: 0 errors. Tests: 641 passed, 0 failed.
