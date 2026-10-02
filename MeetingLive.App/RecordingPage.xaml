@@ -248,6 +248,19 @@
                                TextWrapping="Wrap"
                                Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.AudioSources.ShowEmptyHint), Mode=OneWay}"
                                AutomationProperties.AutomationId="TxtNoAppsPlaying" />
+                    <!-- Suggestion only: it never switches the source on its own, and closing it hides it for that process. -->
+                    <InfoBar x:Uid="RecordPage_MeetingAppSuggestion"
+                             IsOpen="{x:Bind ViewModel.AudioSources.IsSuggestionOpen, Mode=TwoWay}"
+                             IsClosable="True"
+                             Severity="Informational"
+                             Title="{x:Bind ViewModel.AudioSources.SuggestionTitle, Mode=OneWay}"
+                             AutomationProperties.AutomationId="InfoMeetingAppSuggestion">
+                        <InfoBar.ActionButton>
+                            <Button Content="{x:Bind ViewModel.AudioSources.SuggestionActionLabel, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.AudioSources.UseSuggestedAppCommand}"
+                                    AutomationProperties.AutomationId="BtnUseSuggestedApp" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
                 </StackPanel>
             </StackPanel>
         </Border>

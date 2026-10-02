@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 
@@ -17,8 +18,15 @@ public sealed partial class RecordingAudioSourcesViewModel : ObservableObject
     private const int PeaksPerRefresh = 10;
 
     private readonly IProcessInfoProvider _processes = new WindowsProcessInfoProvider();
+    private readonly HashSet<uint> _dismissedSuggestions = [];
+    private IReadOnlyList<ActiveAudioApp> _lastApps = [];
     private CancellationTokenSource? _pollCts;
     private int _pollGeneration;
+    private uint _suggestedProcessId;
+    private bool _updatingSuggestion;
+    private bool _userTouched;
+    private bool _restorePending;
+    private bool _restoring;
 
     public RecordingAudioSourcesViewModel()
     {
@@ -51,10 +59,31 @@ public sealed partial class RecordingAudioSourcesViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFallbackOpen;
 
+    /// <summary>"Zoom is in a call" prompt shown while all system audio is selected. Never switches by itself.</summary>
+    [ObservableProperty]
+    private bool _isSuggestionOpen;
+
+    [ObservableProperty]
+    private string _suggestionTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _suggestionActionLabel = string.Empty;
+
     partial void OnSelectedCardChanged(AudioSourceCard? value)
     {
         OnPropertyChanged(nameof(IsAppSelected));
         OnPropertyChanged(nameof(SelectedName));
+        EvaluateSuggestion();
+    }
+
+    /// <summary>Closing the InfoBar (the user's X) dismisses that process for the rest of the session.</summary>
+    partial void OnIsSuggestionOpenChanged(bool value)
+    {
+        if (value || _updatingSuggestion || _suggestedProcessId == 0)
+            return;
+
+        _dismissedSuggestions.Add(_suggestedProcessId);
+        _suggestedProcessId = 0;
     }
 
     /// <summary>User picked a card. Programmatic changes go through <see cref="SelectedCard"/> directly.</summary>
@@ -63,8 +92,98 @@ public sealed partial class RecordingAudioSourcesViewModel : ObservableObject
         if (ReferenceEquals(SelectedCard, card))
             return;
 
+        _userTouched = true;
         IsFallbackOpen = false;
         SelectedCard = card;
+        _ = RememberChoiceAsync(card);
+    }
+
+    [RelayCommand]
+    private void UseSuggestedApp()
+    {
+        var card = Cards.FirstOrDefault(item => !item.IsSystem && item.ProcessId == _suggestedProcessId);
+        if (card is not null)
+            SelectCard(card);
+    }
+
+    /// <summary>Load, mutate, save: the settings file is rewritten wholesale, so never start from a fresh AppSettings.</summary>
+    private static async Task RememberChoiceAsync(AudioSourceCard card)
+    {
+        try
+        {
+            var settings = await AppServices.Settings.LoadAsync();
+            if (card.IsSystem)
+                RecordAudioSourceMemory.RememberSystemAudio(settings);
+            else
+                RecordAudioSourceMemory.RememberApp(settings, card.ExePath, card.Name);
+
+            await AppServices.Settings.SaveAsync(settings);
+        }
+        catch (Exception)
+        {
+            // Remembering is a convenience; a locked settings file must not break picking a card.
+        }
+    }
+
+    private void EvaluateSuggestion()
+    {
+        // Wait for the remembered app to be restored first, so a suggestion does not flash up and vanish.
+        if (_restoring)
+            return;
+
+        var pick = MeetingAppSuggestion.Pick(_lastApps, SelectedCard is null or { IsSystem: true }, _dismissedSuggestions);
+        _updatingSuggestion = true;
+        try
+        {
+            if (pick is null)
+            {
+                _suggestedProcessId = 0;
+                IsSuggestionOpen = false;
+                return;
+            }
+
+            if (_suggestedProcessId != pick.ProcessId)
+            {
+                _suggestedProcessId = pick.ProcessId;
+                SuggestionTitle = AppStrings.Format("RecordPage_SuggestionTitle", pick.FriendlyName);
+                SuggestionActionLabel = AppStrings.Format("RecordPage_SuggestionAction", pick.FriendlyName);
+            }
+
+            IsSuggestionOpen = true;
+        }
+        finally
+        {
+            _updatingSuggestion = false;
+        }
+    }
+
+    /// <summary>
+    /// Reselects the remembered app, but only when an app with that executable is playing right now.
+    /// Anything else stays on all system audio without a message. Programmatic: it is not written back.
+    /// </summary>
+    private async Task RestoreRememberedAppAsync()
+    {
+        try
+        {
+            var settings = await AppServices.Settings.LoadAsync();
+            if (_userTouched || SelectedCard is { IsSystem: false })
+                return;
+
+            if (RecordAudioSourceMemory.RestoreApp(settings, _lastApps) is { } app
+                && Cards.FirstOrDefault(card => !card.IsSystem && card.ProcessId == app.ProcessId) is { } restored)
+            {
+                SelectedCard = restored;
+            }
+        }
+        catch (Exception)
+        {
+            // Unreadable settings: stay on all system audio.
+        }
+        finally
+        {
+            _restoring = false;
+            EvaluateSuggestion();
+        }
     }
 
     /// <summary>
@@ -93,6 +212,7 @@ public sealed partial class RecordingAudioSourcesViewModel : ObservableObject
         if (_pollCts is not null)
             return;
 
+        _restorePending = !_userTouched;
         var cts = new CancellationTokenSource();
         _pollCts = cts;
         var generation = ++_pollGeneration;
@@ -187,6 +307,16 @@ public sealed partial class RecordingAudioSourcesViewModel : ObservableObject
 
         SyncCards(desired);
         OnPropertyChanged(nameof(ShowEmptyHint));
+
+        _lastApps = apps;
+        if (_restorePending)
+        {
+            _restorePending = false;
+            _restoring = true;
+            _ = RestoreRememberedAppAsync();
+        }
+
+        EvaluateSuggestion();
     }
 
     /// <summary>Minimal removes, inserts and moves, so cards that stay are never recreated and the selection holds.</summary>

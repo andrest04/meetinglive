@@ -70,6 +70,24 @@ public sealed class AppSettings
     /// safe fallback if the previously selected device has been unplugged or no longer exists.</summary>
     public string? SelectedMicrophoneDeviceId { get; set; }
 
+    /// <summary>Last microphone the user picked on the Record page: <c>None</c>, <c>SystemDefault</c> or <c>Device</c>.
+    /// Null means the user never changed it there, so the Settings microphone applies. Written only by
+    /// <see cref="Services.RecordAudioSourceMemory"/>.</summary>
+    public string? RecordMicrophoneKind { get; set; }
+
+    /// <summary>Device id for <see cref="RecordMicrophoneKind"/> <c>Device</c>.</summary>
+    public string? RecordMicrophoneDeviceId { get; set; }
+
+    /// <summary>Last meeting-audio choice on the Record page: <c>System</c> or <c>App</c>. Null means never changed.</summary>
+    public string? RecordOutputKind { get; set; }
+
+    /// <summary>Executable path of the remembered app when <see cref="RecordOutputKind"/> is <c>App</c>.
+    /// An app is only reselected when one with this executable is playing audio right now.</summary>
+    public string? RecordAppExePath { get; set; }
+
+    /// <summary>Display name of the remembered app. Informational; matching uses <see cref="RecordAppExePath"/>.</summary>
+    public string? RecordAppName { get; set; }
+
     /// <summary>Whether live Nemotron streaming transcription runs during recording.
     /// Defaults to <see langword="true"/>. The live draft is saved at Stop; Nemotron
     /// then re-reads the WAV and replaces that transcript when it produces text.</summary>

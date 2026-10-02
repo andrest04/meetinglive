@@ -1767,19 +1767,21 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     }
 
     /// <summary>
-    /// Reads Settings only to preselect. The page choice is not written back.
-    /// A null or empty saved id is the OS default, never none.
+    /// Preselects the microphone the user last picked on this page, or the Settings microphone when they never did.
+    /// An unplugged device falls back to the OS default, never to none.
     /// </summary>
     private async Task LoadRecordingMicrophonesAsync(bool preserveCurrent)
     {
         var generation = ++_microphoneLoadGeneration;
-        string? savedId = null;
+        var saved = new RememberedMicrophone(RememberedMicrophoneKind.SystemDefault, null);
         IReadOnlyList<MicrophoneDeviceOption> devices = [];
         try
         {
             var settings = await AppServices.Settings.LoadAsync();
-            savedId = settings.SelectedMicrophoneDeviceId;
             devices = await Task.Run(() => AppServices.Microphones.GetAvailableMicrophones());
+            saved = RecordAudioSourceMemory.RestoreMicrophone(
+                settings,
+                devices.Where(device => !string.IsNullOrEmpty(device.Id)).Select(device => device.Id).ToList());
         }
         catch (Exception)
         {
@@ -1791,7 +1793,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         if (App.DispatcherQueue.HasThreadAccess)
         {
-            ApplyMicrophoneChoices(devices, savedId, preserveCurrent);
+            ApplyMicrophoneChoices(devices, saved, preserveCurrent);
             return;
         }
 
@@ -1801,7 +1803,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             try
             {
                 if (generation == _microphoneLoadGeneration && _isPageVisible)
-                    ApplyMicrophoneChoices(devices, savedId, preserveCurrent);
+                    ApplyMicrophoneChoices(devices, saved, preserveCurrent);
             }
             finally
             {
@@ -1820,7 +1822,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private void ApplyMicrophoneChoices(
         IReadOnlyList<MicrophoneDeviceOption> devices,
-        string? savedId,
+        RememberedMicrophone saved,
         bool preserveCurrent)
     {
         var none = new RecordingMicrophoneChoice(
@@ -1859,7 +1861,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         none = RecordingMicrophones[0];
         systemDefault = RecordingMicrophones[1];
 
-        var chosen = ResolveMicrophoneChoice(none, systemDefault, savedId, preserveCurrent);
+        var chosen = ResolveMicrophoneChoice(none, systemDefault, saved, preserveCurrent);
         SelectedRecordingMicrophone = chosen;
         OnPropertyChanged(nameof(ShowMicPreview));
         App.DispatcherQueue.TryEnqueue(() => _suppressRecordingSourceCommit = false);
@@ -1890,7 +1892,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private RecordingMicrophoneChoice ResolveMicrophoneChoice(
         RecordingMicrophoneChoice none,
         RecordingMicrophoneChoice systemDefault,
-        string? savedId,
+        RememberedMicrophone saved,
         bool preserveCurrent)
     {
         if (preserveCurrent && SelectedRecordingMicrophone is { } current)
@@ -1905,11 +1907,13 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             };
         }
 
-        if (string.IsNullOrEmpty(savedId))
-            return systemDefault;
-
-        return RecordingMicrophones.FirstOrDefault(item =>
-            item.Kind == RecordingMicrophoneKind.Device && item.DeviceId == savedId) ?? systemDefault;
+        return saved.Kind switch
+        {
+            RememberedMicrophoneKind.None => none,
+            RememberedMicrophoneKind.Device => RecordingMicrophones.FirstOrDefault(item =>
+                item.Kind == RecordingMicrophoneKind.Device && item.DeviceId == saved.DeviceId) ?? systemDefault,
+            _ => systemDefault,
+        };
     }
 
     public void SelectRecordingMicrophone(RecordingMicrophoneChoice choice)
@@ -1922,6 +1926,28 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         _recordingMicrophoneTouched = true;
         SelectedRecordingMicrophone = choice;
+        _ = RememberMicrophoneAsync(choice);
+    }
+
+    /// <summary>Load, mutate, save: the settings file is rewritten wholesale, so never start from a fresh AppSettings.</summary>
+    private static async Task RememberMicrophoneAsync(RecordingMicrophoneChoice choice)
+    {
+        try
+        {
+            var kind = choice.Kind switch
+            {
+                RecordingMicrophoneKind.None => RememberedMicrophoneKind.None,
+                RecordingMicrophoneKind.Device => RememberedMicrophoneKind.Device,
+                _ => RememberedMicrophoneKind.SystemDefault,
+            };
+            var settings = await AppServices.Settings.LoadAsync();
+            RecordAudioSourceMemory.RememberMicrophone(settings, kind, choice.DeviceId);
+            await AppServices.Settings.SaveAsync(settings);
+        }
+        catch (Exception)
+        {
+            // Remembering is a convenience; a locked settings file must not break picking a microphone.
+        }
     }
 
     /// <summary>

@@ -76,6 +76,9 @@
   <data name="RecordPage_SourceFallback.Title" xml:space="preserve"><value>Fuente de audio cambiada</value></data>
   <data name="RecordPage_SourceFallback.AutomationProperties.Name" xml:space="preserve"><value>Fuente de audio cambiada</value></data>
   <data name="RecordPage_SourceFallbackMessage" xml:space="preserve"><value>{0} ya no se está ejecutando. Se grabará todo el audio del sistema.</value></data>
+  <data name="RecordPage_MeetingAppSuggestion.AutomationProperties.Name" xml:space="preserve"><value>Sugerencia de aplicación de reunión</value></data>
+  <data name="RecordPage_SuggestionTitle" xml:space="preserve"><value>{0} está en una llamada</value></data>
+  <data name="RecordPage_SuggestionAction" xml:space="preserve"><value>Usar {0}</value></data>
   <data name="ComboRecordMicrophone.AutomationProperties.Name" xml:space="preserve"><value>Micrófono</value></data>
   <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>Ninguno</value></data>
   <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>Todo el audio del sistema</value></data>
