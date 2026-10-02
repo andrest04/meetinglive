@@ -63,6 +63,8 @@ public sealed class TranscriptionService(
                 ClockSkew = clockSkew,
             };
 
+            // A recording whose process died keeps RIFF/data sizes of 0; fix them so it is readable.
+            _ = WavHeaderRepair.Repair(wavFilePath);
             using var reader = new AudioFileReader(wavFilePath);
             var duration = reader.TotalTime;
             var channels = Math.Max(1, reader.WaveFormat.Channels);

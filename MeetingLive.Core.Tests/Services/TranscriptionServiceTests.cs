@@ -66,6 +66,28 @@ public class TranscriptionServiceTests : IDisposable
         Assert.Equal(0, stream.FinishAndDrainCalls);
     }
 
+    [Fact]
+    public async Task TranscribeAsync_WavLeftOpenByAbruptExit_IsRepairedAndTranscribed()
+    {
+        var wavPath = WriteSilenceWav();
+        var bytes = File.ReadAllBytes(wavPath);
+        Array.Clear(bytes, 4, 4); // RIFF size
+        var dataTag = bytes.AsSpan().IndexOf("data"u8);
+        Array.Clear(bytes, dataTag + 4, 4); // data size
+        File.WriteAllBytes(wavPath, bytes);
+        var stream = new ScriptedStream("recovered words");
+        var service = new TranscriptionService(
+            new FakeModels(),
+            new FakeRuntime(),
+            new FakeEngine(new TrackingRecognizer(stream)),
+            new FakeHardware());
+
+        var text = await service.TranscribeAsync(wavPath);
+
+        Assert.Contains("recovered words", text, StringComparison.Ordinal);
+        Assert.True(stream.PushCalls > 0);
+    }
+
     private string WriteSilenceWav()
     {
         var path = Path.Combine(_tempDirectory, "take.wav");
