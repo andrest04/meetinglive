@@ -48,6 +48,19 @@ internal struct NemoSpeechAsrDiarConfig
     [FieldOffset(36)] public int UpdatePeriodFrames;
 }
 
+/// <summary>
+/// POD mirror of <c>nemo_speech_asr_endpointing_config</c> (x64 MSVC layout, 16 bytes).
+/// C <c>bool</c> is 1 byte, so flags are <see cref="byte"/>; the int32 sits at offset 12.
+/// </summary>
+[StructLayout(LayoutKind.Explicit, Size = 16)]
+internal struct NemoSpeechAsrEndpointingConfig
+{
+    [FieldOffset(0)] public nuint Size;
+    [FieldOffset(8)] public byte Enable;
+    [FieldOffset(9)] public byte VadBased;
+    [FieldOffset(12)] public int StopHistoryEouMs;
+}
+
 /// <summary>POD mirror of <c>nemo_speech_asr_recognizer_config</c>. Unused subsystem pointers stay NULL.</summary>
 [StructLayout(LayoutKind.Explicit, Size = 80)]
 internal struct NemoSpeechAsrRecognizerConfig

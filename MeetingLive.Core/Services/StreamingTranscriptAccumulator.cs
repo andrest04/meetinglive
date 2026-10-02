@@ -128,7 +128,8 @@ public sealed class StreamingTranscriptAccumulator
 
         if (result.Words.Count == 0)
         {
-            yield return FormatLine(start, end, text);
+            foreach (var line in FormatUntimedWindows(start, end, text))
+                yield return line;
             yield break;
         }
 
@@ -191,6 +192,39 @@ public sealed class StreamingTranscriptAccumulator
                 continue;
 
             yield return FormatLine(window.Start, window.End, windowText, window.SpeakerTag);
+        }
+    }
+
+    /// <summary>
+    /// Safety net for results with no word timings (interim results never carry them, and a
+    /// stream without endpointing never finalizes): spread the whitespace tokens evenly over the
+    /// span so no single line covers more than <see cref="WindowLength"/>. Splits only on word
+    /// boundaries and never carries speaker tags, which need word-level data.
+    /// </summary>
+    private static IEnumerable<string> FormatUntimedWindows(TimeSpan start, TimeSpan end, string text)
+    {
+        var duration = end - start;
+        if (duration <= WindowLength)
+        {
+            yield return FormatLine(start, end, text);
+            yield break;
+        }
+
+        var tokens = Whitespace.Split(text).Where(token => token.Length > 0).ToArray();
+        var windowCount = (int)Math.Min(Math.Ceiling(duration / WindowLength), tokens.Length);
+        if (windowCount <= 1)
+        {
+            yield return FormatLine(start, end, text);
+            yield break;
+        }
+
+        for (var i = 0; i < windowCount; i++)
+        {
+            var first = i * tokens.Length / windowCount;
+            var last = (i + 1) * tokens.Length / windowCount;
+            var windowStart = start + duration * i / windowCount;
+            var windowEnd = i == windowCount - 1 ? end : start + duration * (i + 1) / windowCount;
+            yield return FormatLine(windowStart, windowEnd, string.Join(" ", tokens[first..last]));
         }
     }
 

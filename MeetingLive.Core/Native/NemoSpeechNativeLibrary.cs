@@ -102,6 +102,13 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         }
     }
 
+    /// <summary>
+    /// Trailing silence (ms) that closes an utterance. NeMo-Speech docs (asr/configuration.md)
+    /// default endpointing to off; probe on real meeting audio: 800 ms gave ~8 finals per 52 s
+    /// with word timings and speaker tags, 500 ms gave 9 (more mid-sentence cuts).
+    /// </summary>
+    internal const int EndpointingStopHistoryEouMs = 800;
+
     public NemoOwnedHandle CreateRecognizer(
         string modelPath,
         int gpu,
@@ -115,6 +122,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         var modelPtr = IntPtr.Zero;
         var streamingPtr = IntPtr.Zero;
         var diarPtr = IntPtr.Zero;
+        var endpointingPtr = IntPtr.Zero;
         var cfgPtr = IntPtr.Zero;
         try
         {
@@ -165,12 +173,25 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
                 diarPtr = Alloc(diar);
             }
 
+            // With endpointing NULL (the default) the server emits a single final only when the
+            // stream is closed, which the app never does (FinishAndDrain aborts CUDA), so no
+            // final ever arrives. Energy-based endpointing (vad_based=0) needs no extra model.
+            var endpointing = new NemoSpeechAsrEndpointingConfig
+            {
+                Size = (nuint)Marshal.SizeOf<NemoSpeechAsrEndpointingConfig>(),
+                Enable = 1,
+                VadBased = 0,
+                StopHistoryEouMs = EndpointingStopHistoryEouMs,
+            };
+            endpointingPtr = Alloc(endpointing);
+
             var cfg = new NemoSpeechAsrRecognizerConfig
             {
                 Size = (nuint)Marshal.SizeOf<NemoSpeechAsrRecognizerConfig>(),
                 Backend = backendPtr,
                 Model = modelPtr,
                 Streaming = streamingPtr,
+                Endpointing = endpointingPtr,
                 Diar = diarPtr,
             };
             cfgPtr = Alloc(cfg);
@@ -184,6 +205,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         finally
         {
             Free(cfgPtr);
+            Free(endpointingPtr);
             Free(diarPtr);
             Free(streamingPtr);
             Free(modelPtr);

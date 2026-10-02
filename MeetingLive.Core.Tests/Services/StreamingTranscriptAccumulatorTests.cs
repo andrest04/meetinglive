@@ -325,6 +325,70 @@ public class StreamingTranscriptAccumulatorTests
         Assert.Equal(expected, accumulator.CommittedText);
     }
 
+    [Fact]
+    public void Apply_NoWordsInterimSpanning75Seconds_SplitsIntoWindowsOfAtMost30Seconds()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var tokens = Enumerable.Range(1, 150).Select(i => $"w{i}").ToArray();
+
+        accumulator.Apply(new NemoSpeechAsrResult(false, string.Join(' ', tokens), 75, []));
+
+        var lines = accumulator.DisplayText.Split(Environment.NewLine).Skip(1).ToArray();
+        AssertWindowsCoverTokensInOrder(lines, tokens, TimeSpan.Zero, TimeSpan.FromSeconds(75));
+    }
+
+    [Fact]
+    public void Apply_NoWordsFinalSpanning75Seconds_SplitsIntoWindowsOfAtMost30Seconds()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+        var tokens = Enumerable.Range(1, 150).Select(i => $"w{i}").ToArray();
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, string.Join(' ', tokens), 75, []));
+
+        var lines = accumulator.CommittedText.Split(Environment.NewLine).Skip(1).ToArray();
+        AssertWindowsCoverTokensInOrder(lines, tokens, TimeSpan.Zero, TimeSpan.FromSeconds(75));
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "next", 80, []));
+        Assert.EndsWith(Line(TimeSpan.FromSeconds(75), TimeSpan.FromSeconds(80), "next"), accumulator.CommittedText);
+    }
+
+    [Fact]
+    public void Apply_NoWordsFinalWithin30Seconds_StaysOneLine()
+    {
+        var accumulator = new StreamingTranscriptAccumulator(RecordedAt);
+
+        accumulator.Apply(new NemoSpeechAsrResult(true, "short text here", 20, []));
+
+        Assert.Equal(
+            Header() + Environment.NewLine + Line(TimeSpan.Zero, TimeSpan.FromSeconds(20), "short text here"),
+            accumulator.CommittedText);
+    }
+
+    private static void AssertWindowsCoverTokensInOrder(
+        string[] lines, string[] tokens, TimeSpan spanStart, TimeSpan spanEnd)
+    {
+        Assert.True(lines.Length >= 3, $"expected >= 3 lines, got {lines.Length}");
+        var seen = new List<string>();
+        var cursor = spanStart;
+        foreach (var line in lines)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                line, @"^\[(\d+):(\d+\.\d+)-(\d+):(\d+\.\d+)\] (.+)$");
+            Assert.True(match.Success, line);
+            var from = TimeSpan.FromMinutes(int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))
+                + TimeSpan.FromSeconds(double.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture));
+            var to = TimeSpan.FromMinutes(int.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture))
+                + TimeSpan.FromSeconds(double.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture));
+            Assert.True(to - from <= TimeSpan.FromSeconds(30.01), line);
+            Assert.True(from >= cursor - TimeSpan.FromMilliseconds(10), line);
+            cursor = to;
+            seen.AddRange(match.Groups[5].Value.Split(' '));
+        }
+
+        Assert.Equal(tokens, seen);
+        Assert.Equal(spanEnd.TotalSeconds, cursor.TotalSeconds, 1);
+    }
+
     private static string Header()
     {
         var stamp = RecordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
