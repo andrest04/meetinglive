@@ -17,6 +17,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
     private readonly IAudioCaptureService _audioCapture;
     private readonly NemoSpeechRecognizerFactory _factory;
     private readonly object _gate = new();
+    private readonly IAsrBackendStatus? _backendStatus;
 
     private ChannelWriter<(float[] Samples, int SampleRate)>? _frameWriter;
     private INemoSpeechRecognizer? _recognizer;
@@ -24,6 +25,8 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
     private StreamingTranscriptAccumulator? _accumulator;
     private Task? _worker;
     private bool _running;
+    private long _totalTicks;
+    private long _droppedTicks;
 
     public LiveTranscriptionService(
         IAudioCaptureService audioCapture,
@@ -34,6 +37,7 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         IAsrBackendStatus? backendStatus = null)
     {
         _audioCapture = audioCapture;
+        _backendStatus = backendStatus;
         _factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware, backendStatus);
     }
 
@@ -61,7 +65,10 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,
             SingleWriter = true,
-        });
+        }, OnFrameDropped);
+
+        Interlocked.Exchange(ref _totalTicks, 0);
+        Interlocked.Exchange(ref _droppedTicks, 0);
 
         lock (_gate)
         {
@@ -129,6 +136,12 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         stream?.Dispose();
         recognizer?.Dispose();
 
+        // The worker has finished, so the counters are final. Published before returning so
+        // Settings reflects the session that just ended.
+        _backendStatus?.ReportLiveDrops(new LiveDropSummary(
+            TimeSpan.FromTicks(Interlocked.Read(ref _droppedTicks)),
+            TimeSpan.FromTicks(Interlocked.Read(ref _totalTicks))));
+
         return accumulator?.CommittedText ?? string.Empty;
     }
 
@@ -137,8 +150,20 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
     private void OnPcmFrame(object? sender, PcmFrameEventArgs e)
     {
         // Must not wait for native ASR — the capture pump writes the WAV on this thread.
-        _frameWriter?.TryWrite((e.Samples, e.SampleRate));
+        var writer = _frameWriter;
+        if (writer is null)
+            return;
+
+        Interlocked.Add(ref _totalTicks, DurationTicks(e.Samples.Length, e.SampleRate));
+        writer.TryWrite((e.Samples, e.SampleRate));
     }
+
+    // DropOldest still reports TryWrite as true; this callback is the only signal that a frame was lost.
+    private void OnFrameDropped((float[] Samples, int SampleRate) frame) =>
+        Interlocked.Add(ref _droppedTicks, DurationTicks(frame.Samples.Length, frame.SampleRate));
+
+    private static long DurationTicks(int sampleCount, int sampleRate) =>
+        sampleRate <= 0 ? 0 : sampleCount * TimeSpan.TicksPerSecond / sampleRate;
 
     private async Task ProcessFramesAsync(ChannelReader<(float[] Samples, int SampleRate)> reader)
     {

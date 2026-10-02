@@ -102,6 +102,105 @@ public class LiveTranscriptionServiceTests
         }
     }
 
+    [Fact]
+    public void Stop_WhenNothingWasDropped_PublishesZeroPercent()
+    {
+        var capture = new FakeAudioCapture();
+        var status = new AsrBackendStatus();
+        var service = NewService(capture, new TrackingStream(), status);
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        for (var i = 0; i < 3; i++)
+            capture.Raise(new float[1600], 16000);
+        service.Stop();
+
+        var summary = Assert.IsType<LiveDropSummary>(status.LastLiveDrops);
+        Assert.Equal(TimeSpan.Zero, summary.DroppedDuration);
+        Assert.Equal(TimeSpan.FromMilliseconds(300), summary.TotalDuration);
+        Assert.Equal(0, summary.DroppedPercent);
+    }
+
+    [Fact]
+    public void Stop_WhenNativePushIsSlow_PublishesTheDroppedDuration()
+    {
+        var capture = new FakeAudioCapture();
+        var stream = new BlockingStream();
+        var status = new AsrBackendStatus();
+        var service = NewService(capture, stream, status);
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        try
+        {
+            // The first frame is taken by the worker, which then blocks inside Push.
+            capture.Raise(new float[1600], 16000);
+            Assert.True(stream.PushEntered.Wait(TimeSpan.FromSeconds(2)));
+
+            // 12 more 100 ms frames: the queue keeps 8, so the 4 oldest are dropped.
+            for (var i = 0; i < 12; i++)
+                capture.Raise(new float[1600], 16000);
+        }
+        finally
+        {
+            stream.AllowPush.Set();
+            service.Stop();
+        }
+
+        var summary = Assert.IsType<LiveDropSummary>(status.LastLiveDrops);
+        Assert.Equal(TimeSpan.FromMilliseconds(400), summary.DroppedDuration);
+        Assert.Equal(TimeSpan.FromMilliseconds(1300), summary.TotalDuration);
+        Assert.Equal(400.0 / 1300.0 * 100, summary.DroppedPercent, precision: 6);
+    }
+
+    [Fact]
+    public void Stop_RaisesLiveDropsChangedOnce()
+    {
+        var capture = new FakeAudioCapture();
+        var status = new AsrBackendStatus();
+        var raised = new List<LiveDropSummary>();
+        status.LiveDropsChanged += (_, summary) => raised.Add(summary);
+        var service = NewService(capture, new TrackingStream(), status);
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        Assert.Empty(raised);
+        Assert.Null(status.LastLiveDrops);
+        service.Stop();
+        service.Stop();
+
+        Assert.Single(raised);
+        Assert.Same(status.LastLiveDrops, raised[0]);
+    }
+
+    [Fact]
+    public void Start_ResetsTheCountersOfThePreviousSession()
+    {
+        var capture = new FakeAudioCapture();
+        var stream = new BlockingStream();
+        var status = new AsrBackendStatus();
+        var service = NewService(capture, stream, status);
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        capture.Raise(new float[1600], 16000);
+        Assert.True(stream.PushEntered.Wait(TimeSpan.FromSeconds(2)));
+        for (var i = 0; i < 12; i++)
+            capture.Raise(new float[1600], 16000);
+        stream.AllowPush.Set();
+        service.Stop();
+        Assert.NotEqual(TimeSpan.Zero, status.LastLiveDrops!.DroppedDuration);
+
+        service.Start("en", DateTimeOffset.UnixEpoch);
+        capture.Raise(new float[1600], 16000);
+        service.Stop();
+
+        Assert.Equal(TimeSpan.Zero, status.LastLiveDrops!.DroppedDuration);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), status.LastLiveDrops.TotalDuration);
+    }
+
+    private static LiveTranscriptionService NewService(
+        FakeAudioCapture capture,
+        INemoSpeechStream stream,
+        IAsrBackendStatus status) =>
+        new(capture, new FakeModels(), new FakeRuntime(), new FakeEngine(stream), new FakeHardware(), status);
+
     private sealed class FakeAudioCapture : IAudioCaptureService
     {
         public bool IsRecording { get; private set; }
