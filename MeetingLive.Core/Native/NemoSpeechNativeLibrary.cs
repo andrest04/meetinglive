@@ -106,7 +106,8 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
         string modelPath,
         int gpu,
         string? diarizationModelPath = null,
-        SortformerGeometry geometry = SortformerGeometry.Streaming)
+        SortformerGeometry geometry = SortformerGeometry.Streaming,
+        AsrLatencyProfile latency = AsrLatencyProfile.Live)
     {
         var modelPathPtr = Marshal.StringToCoTaskMemUTF8(modelPath);
         var diarPathPtr = IntPtr.Zero;
@@ -134,14 +135,15 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
 
             // NVIDIA Nemotron 3.5 ASR: rnnt_right_context is encoder frames at 80ms.
             // 1 = 160ms, 3 = 320ms, 6 = 560ms, 13 = 1.12s. Larger = lower WER.
-            // Meetings use 320ms (not the 80/160ms voice-agent points).
+            // The value comes from the latency profile: live preview uses 320ms (3),
+            // the offline post-Stop pass uses 1.12s (13). Not the 80/160ms voice-agent points.
             var streaming = new NemoSpeechAsrStreamingConfig
             {
                 Size = (nuint)Marshal.SizeOf<NemoSpeechAsrStreamingConfig>(),
                 ChunkSize = 0.16f,
                 CtcLeftPadding = 1.92f,
                 CtcRightPadding = 1.92f,
-                RnntRightContext = 3,
+                RnntRightContext = latency.RightContextFrames(),
             };
             streamingPtr = Alloc(streaming);
 

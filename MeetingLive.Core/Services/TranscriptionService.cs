@@ -50,7 +50,10 @@ public sealed class TranscriptionService(
         bool enableSpeakerDiarization)
     {
         var factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware, backendStatus);
-        var recognizer = factory.Create(enableSpeakerDiarization, SortformerGeometry.Meeting);
+        var recognizer = factory.Create(
+            enableSpeakerDiarization,
+            SortformerGeometry.Meeting,
+            AsrLatencyProfile.Offline);
         INemoSpeechStream? stream = null;
         try
         {

@@ -42,6 +42,7 @@ public class TranscriptionServiceTests : IDisposable
         Assert.Contains("hello there", text, StringComparison.Ordinal);
         Assert.Equal("en-US", recognizer.LastLanguage);
         Assert.Equal(SortformerGeometry.Meeting, engine.LastGeometry);
+        Assert.Equal(AsrLatencyProfile.Offline, engine.LastLatency);
         Assert.True(stream.PushCalls > 0);
         Assert.Equal(0, stream.FinishAndDrainCalls);
         Assert.Equal(1, stream.DisposeCalls);
@@ -124,14 +125,18 @@ public class TranscriptionServiceTests : IDisposable
     {
         public SortformerGeometry LastGeometry { get; private set; }
 
+        public AsrLatencyProfile LastLatency { get; private set; }
+
         public INemoSpeechRecognizer CreateRecognizer(
             string modelPath,
             string runtimeBinDirectory,
             int gpu,
             string? diarizationModelPath = null,
-            SortformerGeometry geometry = SortformerGeometry.Streaming)
+            SortformerGeometry geometry = SortformerGeometry.Streaming,
+            AsrLatencyProfile latency = AsrLatencyProfile.Live)
         {
             LastGeometry = geometry;
+            LastLatency = latency;
             return recognizer;
         }
     }

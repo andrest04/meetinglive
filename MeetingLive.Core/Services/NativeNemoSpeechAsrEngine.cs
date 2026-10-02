@@ -15,12 +15,13 @@ public sealed class NativeNemoSpeechAsrEngine : INemoSpeechAsrEngine
         string runtimeBinDirectory,
         int gpu,
         string? diarizationModelPath = null,
-        SortformerGeometry geometry = SortformerGeometry.Streaming)
+        SortformerGeometry geometry = SortformerGeometry.Streaming,
+        AsrLatencyProfile latency = AsrLatencyProfile.Live)
     {
         var library = NemoSpeechNativeLibrary.Load(runtimeBinDirectory);
         try
         {
-            var recognizer = library.CreateRecognizer(modelPath, gpu, diarizationModelPath, geometry);
+            var recognizer = library.CreateRecognizer(modelPath, gpu, diarizationModelPath, geometry, latency);
             return new NativeNemoSpeechRecognizer(
                 library,
                 recognizer,

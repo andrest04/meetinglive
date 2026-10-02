@@ -12,7 +12,8 @@ public interface INemoSpeechAsrEngine
         string runtimeBinDirectory,
         int gpu,
         string? diarizationModelPath = null,
-        SortformerGeometry geometry = SortformerGeometry.Streaming);
+        SortformerGeometry geometry = SortformerGeometry.Streaming,
+        AsrLatencyProfile latency = AsrLatencyProfile.Live);
 }
 
 public interface INemoSpeechRecognizer : IDisposable

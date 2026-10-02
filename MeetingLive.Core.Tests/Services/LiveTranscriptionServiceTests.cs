@@ -57,6 +57,7 @@ public class LiveTranscriptionServiceTests
 
         Assert.Equal(string.Empty, text);
         Assert.Equal(SortformerGeometry.Streaming, engine.LastGeometry);
+        Assert.Equal(AsrLatencyProfile.Live, engine.LastLatency);
         Assert.Equal(0, stream.FinishAndDrainCalls);
         Assert.Equal(1, stream.DisposeCalls);
         Assert.Equal(1, recognizer.DisposeCalls);
@@ -192,14 +193,18 @@ public class LiveTranscriptionServiceTests
 
         public SortformerGeometry LastGeometry { get; private set; }
 
+        public AsrLatencyProfile LastLatency { get; private set; }
+
         public INemoSpeechRecognizer CreateRecognizer(
             string modelPath,
             string runtimeBinDirectory,
             int gpu,
             string? diarizationModelPath = null,
-            SortformerGeometry geometry = SortformerGeometry.Streaming)
+            SortformerGeometry geometry = SortformerGeometry.Streaming,
+            AsrLatencyProfile latency = AsrLatencyProfile.Live)
         {
             LastGeometry = geometry;
+            LastLatency = latency;
             return _recognizer;
         }
     }

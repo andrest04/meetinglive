@@ -15,7 +15,8 @@ public sealed class NemoSpeechRecognizerFactory(
 {
     public INemoSpeechRecognizer Create(
         bool enableSpeakerDiarization = false,
-        SortformerGeometry geometry = SortformerGeometry.Streaming)
+        SortformerGeometry geometry = SortformerGeometry.Streaming,
+        AsrLatencyProfile latency = AsrLatencyProfile.Live)
     {
         var modelPath = models.GetModelPath();
         if (!models.IsModelDownloaded())
@@ -37,7 +38,8 @@ public sealed class NemoSpeechRecognizerFactory(
                     runtime.GetBinDirectory(NemoSpeechBackend.Cuda),
                     gpu: 0,
                     diarizationModelPath,
-                    geometry);
+                    geometry,
+                    latency);
             }
             catch (Exception ex)
             {
@@ -60,7 +62,8 @@ public sealed class NemoSpeechRecognizerFactory(
             runtime.GetBinDirectory(NemoSpeechBackend.Cpu),
             gpu: -1,
             diarizationModelPath,
-            geometry);
+            geometry,
+            latency);
         status?.Report(new AsrBackendUsage(NemoSpeechBackend.Cpu, fallbackReason));
         return cpu;
     }

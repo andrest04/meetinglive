@@ -87,6 +87,52 @@ public class NemoSpeechRecognizerFactoryTests
     }
 
     [Fact]
+    public void Create_DefaultLatency_IsLive()
+    {
+        var engine = new FakeEngine();
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime(),
+            engine,
+            new FakeHardware());
+
+        factory.Create();
+
+        Assert.Equal(AsrLatencyProfile.Live, engine.LastLatency);
+    }
+
+    [Fact]
+    public void Create_WhenOfflineLatency_PassesOfflineToEngine()
+    {
+        var engine = new FakeEngine();
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime(),
+            engine,
+            new FakeHardware());
+
+        factory.Create(latency: AsrLatencyProfile.Offline);
+
+        Assert.Equal(AsrLatencyProfile.Offline, engine.LastLatency);
+    }
+
+    [Fact]
+    public void Create_WhenCudaFallsBackToCpu_KeepsLatencyProfile()
+    {
+        var engine = new FakeEngine { CudaFailure = new InvalidOperationException("no cuda") };
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime { CudaReady = true },
+            engine,
+            new FakeHardware { GpuName = "NVIDIA GeForce RTX 4070" });
+
+        factory.Create(latency: AsrLatencyProfile.Offline);
+
+        Assert.Equal(-1, engine.LastGpu);
+        Assert.Equal(AsrLatencyProfile.Offline, engine.LastLatency);
+    }
+
+    [Fact]
     public void Create_WhenCudaSucceeds_ReportsCudaWithoutFallbackReason()
     {
         var status = new AsrBackendStatus();
@@ -251,6 +297,8 @@ public class NemoSpeechRecognizerFactoryTests
 
         public SortformerGeometry LastGeometry { get; private set; }
 
+        public AsrLatencyProfile LastLatency { get; private set; }
+
         public Exception? CudaFailure { get; set; }
 
         public INemoSpeechRecognizer CreateRecognizer(
@@ -258,11 +306,13 @@ public class NemoSpeechRecognizerFactoryTests
             string runtimeBinDirectory,
             int gpu,
             string? diarizationModelPath = null,
-            SortformerGeometry geometry = SortformerGeometry.Streaming)
+            SortformerGeometry geometry = SortformerGeometry.Streaming,
+            AsrLatencyProfile latency = AsrLatencyProfile.Live)
         {
             if (gpu >= 0 && CudaFailure is not null)
                 throw CudaFailure;
 
+            LastLatency = latency;
             LastGpu = gpu;
             LastDiarizationModelPath = diarizationModelPath;
             LastGeometry = geometry;
