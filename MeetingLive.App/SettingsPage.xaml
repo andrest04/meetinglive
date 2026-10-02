@@ -380,6 +380,12 @@
                 <TextBlock Text="{x:Bind ViewModel.TranscriptionEngine.TranscriptionAccelerationCaption, Mode=OneWay}"
                            Style="{StaticResource SecondaryCaptionTextBlockStyle}"
                            AutomationProperties.AutomationId="TxtTranscriptionAcceleration" />
+                <InfoBar x:Uid="Settings_AsrFallback"
+                         Severity="Warning"
+                         IsClosable="False"
+                         IsOpen="{x:Bind ViewModel.TranscriptionEngine.IsBackendFallbackWarningOpen, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.TranscriptionEngine.BackendFallbackMessage, Mode=OneWay}"
+                         AutomationProperties.AutomationId="InfoAsrBackendFallback" />
 
                 <controls:SettingsCard x:Uid="Settings_SpeakerLabels"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE716;}">

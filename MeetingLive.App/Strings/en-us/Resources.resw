@@ -152,6 +152,12 @@
   <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>~0.74 GB model; runtime extra (CPU ~5 MB or CUDA ~106 MB). Official NVIDIA binaries — nothing else to install.</value></data>
   <data name="Settings_DownloadEngine.Content" xml:space="preserve"><value>Download</value></data>
   <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="Settings_AccelerationExpectedCuda" xml:space="preserve"><value>Will try GPU (CUDA); the backend actually used is shown after the first transcription</value></data>
+  <data name="Settings_AccelerationExpectedCpu" xml:space="preserve"><value>Will use CPU</value></data>
+  <data name="Settings_AccelerationActiveCuda" xml:space="preserve"><value>Running on GPU (CUDA)</value></data>
+  <data name="Settings_AccelerationActiveCpu" xml:space="preserve"><value>Running on CPU</value></data>
+  <data name="Settings_AsrFallback.Title" xml:space="preserve"><value>GPU acceleration is not active</value></data>
+  <data name="Settings_AccelerationFallbackMessage" xml:space="preserve"><value>CUDA could not start, so transcription ran on the CPU and may be slower. Reason: {0}</value></data>
   <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Speaker labels</value></data>
   <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Optional Sortformer model (~0.14 GB). Uses extra GPU/CPU while transcribing and labels up to four voices as Speaker 1–4. Turn off to transcribe without who-spoke tags.</value></data>
   <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Download</value></data>

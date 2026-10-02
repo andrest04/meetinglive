@@ -65,7 +65,8 @@ public partial class SettingsPageViewModel : ObservableObject
             await TypeSafe.LoadAsync(settings);
             Language.ApplyLoadedSettings(settings);
             TranscriptionEngine.ApplyLoadedSettings(
-                settings, snapshot.TranscriptionInstalled, snapshot.SpeakerDiarizationInstalled, snapshot.TranscriptionCaption);
+                settings, snapshot.TranscriptionInstalled, snapshot.SpeakerDiarizationInstalled, snapshot.ExpectedBackend);
+            TranscriptionEngine.StartObservingBackend();
             Microphone.ApplyLoadedDevices(snapshot.Microphones, settings.SelectedMicrophoneDeviceId);
             if (!_isPageVisible)
                 return;
@@ -106,7 +107,7 @@ public partial class SettingsPageViewModel : ObservableObject
             models,
             TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime),
             AppServices.NemotronModels.IsDiarizationModelDownloaded(),
-            TranscriptionEngineInstaller.AccelerationCaption(hardware, AppServices.NemoSpeechRuntime),
+            TranscriptionEngineInstaller.ExpectedBackend(hardware, AppServices.NemoSpeechRuntime),
             AppServices.Microphones.GetAvailableMicrophones());
     }
 
@@ -116,6 +117,7 @@ public partial class SettingsPageViewModel : ObservableObject
     public void StopLevelMeter()
     {
         _isPageVisible = false;
+        TranscriptionEngine.StopObservingBackend();
         Microphone.StopLevelMeter();
     }
 
@@ -123,6 +125,6 @@ public partial class SettingsPageViewModel : ObservableObject
         IReadOnlyList<(SummaryModelInfo Info, FitRating Rating, bool Downloaded)> Models,
         bool TranscriptionInstalled,
         bool SpeakerDiarizationInstalled,
-        string TranscriptionCaption,
+        NemoSpeechBackend ExpectedBackend,
         IReadOnlyList<MicrophoneDeviceOption> Microphones);
 }

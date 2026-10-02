@@ -152,6 +152,12 @@
   <data name="Settings_NemotronCard.Description" xml:space="preserve"><value>Modelo de ~0.74 GB; tiempo de ejecución adicional (CPU ~5 MB o CUDA ~106 MB). Binarios oficiales de NVIDIA: no hay nada más que instalar.</value></data>
   <data name="Settings_DownloadEngine.Content" xml:space="preserve"><value>Descargar</value></data>
   <data name="Settings_DeleteEngine.Content" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="Settings_AccelerationExpectedCuda" xml:space="preserve"><value>Intentará usar la GPU (CUDA); el motor realmente utilizado se muestra tras la primera transcripción</value></data>
+  <data name="Settings_AccelerationExpectedCpu" xml:space="preserve"><value>Usará la CPU</value></data>
+  <data name="Settings_AccelerationActiveCuda" xml:space="preserve"><value>Ejecutándose en la GPU (CUDA)</value></data>
+  <data name="Settings_AccelerationActiveCpu" xml:space="preserve"><value>Ejecutándose en la CPU</value></data>
+  <data name="Settings_AsrFallback.Title" xml:space="preserve"><value>La aceleración por GPU no está activa</value></data>
+  <data name="Settings_AccelerationFallbackMessage" xml:space="preserve"><value>CUDA no pudo iniciarse, por lo que la transcripción se ejecutó en la CPU y puede ser más lenta. Motivo: {0}</value></data>
   <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Etiquetas de hablante</value></data>
   <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Modelo Sortformer opcional (~0.14 GB). Usa GPU/CPU adicional durante la transcripción y etiqueta hasta cuatro voces como Hablante 1-4. Desactívalo para transcribir sin etiquetas de quién habló.</value></data>
   <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Descargar</value></data>

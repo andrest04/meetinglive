@@ -42,6 +42,42 @@ public class TranscriptionEngineInstallerTests
         Assert.DoesNotContain(statuses, status => status.Contains("Sortformer", StringComparison.Ordinal));
     }
 
+    private static readonly HardwareProfile NvidiaGpu = new(16, "NVIDIA GeForce RTX 4070", 12);
+
+    [Fact]
+    public void ExpectedBackend_WhenNvidiaGpuAndCudaRuntimeReady_ReturnsCuda()
+    {
+        var runtime = new FakeRuntime { CudaReady = true };
+
+        Assert.Equal(NemoSpeechBackend.Cuda, TranscriptionEngineInstaller.ExpectedBackend(NvidiaGpu, runtime));
+    }
+
+    [Fact]
+    public void ExpectedBackend_WhenCudaRuntimeOnDiskButNoNvidiaGpu_ReturnsCpu()
+    {
+        var runtime = new FakeRuntime { CudaReady = true };
+
+        Assert.Equal(
+            NemoSpeechBackend.Cpu,
+            TranscriptionEngineInstaller.ExpectedBackend(new HardwareProfile(16, null, null), runtime));
+    }
+
+    [Fact]
+    public void ExpectedBackend_WhenNvidiaGpuAndOnlyCpuRuntimeReady_ReturnsCpu()
+    {
+        var runtime = new FakeRuntime();
+
+        Assert.Equal(NemoSpeechBackend.Cpu, TranscriptionEngineInstaller.ExpectedBackend(NvidiaGpu, runtime));
+    }
+
+    [Fact]
+    public void ExpectedBackend_WhenNothingInstalledAndNvidiaGpu_ReturnsCuda()
+    {
+        var runtime = new FakeRuntime { CpuReady = false };
+
+        Assert.Equal(NemoSpeechBackend.Cuda, TranscriptionEngineInstaller.ExpectedBackend(NvidiaGpu, runtime));
+    }
+
     private sealed class FakeModels : INemotronModelManager
     {
         public bool ModelDownloaded { get; set; }
@@ -83,7 +119,12 @@ public class TranscriptionEngineInstallerTests
 
     private sealed class FakeRuntime : INemoSpeechRuntimeManager
     {
-        public bool IsReady(NemoSpeechBackend backend) => backend == NemoSpeechBackend.Cpu;
+        public bool CudaReady { get; set; }
+
+        public bool CpuReady { get; set; } = true;
+
+        public bool IsReady(NemoSpeechBackend backend) =>
+            backend == NemoSpeechBackend.Cpu ? CpuReady : CudaReady;
 
         public string GetBinDirectory(NemoSpeechBackend backend) => "bin";
 

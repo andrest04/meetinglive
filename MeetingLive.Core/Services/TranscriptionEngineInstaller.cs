@@ -55,17 +55,21 @@ public static class TranscriptionEngineInstaller
         }
     }
 
-    public static string AccelerationCaption(HardwareProfile hardware, INemoSpeechRuntimeManager runtime)
+    /// <summary>
+    /// The backend <see cref="NemoSpeechRecognizerFactory"/> will try first. It is only an
+    /// expectation: CUDA create can still fail at load time, so what actually ran is reported
+    /// by <see cref="IAsrBackendStatus"/>.
+    /// </summary>
+    public static NemoSpeechBackend ExpectedBackend(HardwareProfile hardware, INemoSpeechRuntimeManager runtime)
     {
-        if (runtime.IsReady(NemoSpeechBackend.Cuda))
-            return "GPU acceleration (CUDA)";
+        var preferred = NemoSpeechRuntimeManager.SelectBackend(hardware);
+        if (preferred == NemoSpeechBackend.Cuda && runtime.IsReady(NemoSpeechBackend.Cuda))
+            return NemoSpeechBackend.Cuda;
 
         if (runtime.IsReady(NemoSpeechBackend.Cpu))
-            return "CPU";
+            return NemoSpeechBackend.Cpu;
 
-        return NemoSpeechRuntimeManager.SelectBackend(hardware) == NemoSpeechBackend.Cuda
-            ? "GPU acceleration (CUDA)"
-            : "CPU";
+        return preferred;
     }
 }
 

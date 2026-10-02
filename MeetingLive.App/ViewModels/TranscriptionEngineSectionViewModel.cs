@@ -52,19 +52,62 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
     private string _transcriptionDownloadStatusText = string.Empty;
 
     [ObservableProperty]
-    private string _transcriptionAccelerationCaption = "CPU";
+    private string _transcriptionAccelerationCaption = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBackendFallbackWarningOpen;
+
+    [ObservableProperty]
+    private string _backendFallbackMessage = string.Empty;
+
+    /// <summary>What the factory will try first; only shown until a recognizer has really been created.</summary>
+    private NemoSpeechBackend _expectedBackend = NemoSpeechBackend.Cpu;
 
     public void ApplyLoadedSettings(
         AppSettings settings,
         bool transcriptionInstalled,
         bool speakerDiarizationInstalled,
-        string transcriptionCaption)
+        NemoSpeechBackend expectedBackend)
     {
         IsLiveTranscriptionEnabled = settings.LiveTranscriptionEnabled;
         IsSpeakerDiarizationEnabled = settings.SpeakerDiarizationEnabled;
         IsSpeakerDiarizationModelInstalled = speakerDiarizationInstalled;
         IsTranscriptionEngineInstalled = transcriptionInstalled;
-        TranscriptionAccelerationCaption = transcriptionCaption;
+        _expectedBackend = expectedBackend;
+        ApplyBackendStatus();
+    }
+
+    /// <summary>Follows the shared backend status while Settings is visible. Pair with
+    /// <see cref="StopObservingBackend"/> so the app-lifetime singleton never keeps this view model alive.</summary>
+    public void StartObservingBackend()
+    {
+        AppServices.AsrBackend.Changed -= OnBackendChanged;
+        AppServices.AsrBackend.Changed += OnBackendChanged;
+        ApplyBackendStatus();
+    }
+
+    public void StopObservingBackend() => AppServices.AsrBackend.Changed -= OnBackendChanged;
+
+    // Raised on the recording / transcription thread that created the recognizer.
+    private void OnBackendChanged(object? sender, AsrBackendUsage usage) =>
+        App.DispatcherQueue.TryEnqueue(ApplyBackendStatus);
+
+    private void ApplyBackendStatus()
+    {
+        var usage = AppServices.AsrBackend.Current;
+        TranscriptionAccelerationCaption = usage is null
+            ? AppStrings.Get(_expectedBackend == NemoSpeechBackend.Cuda
+                ? "Settings_AccelerationExpectedCuda"
+                : "Settings_AccelerationExpectedCpu")
+            : AppStrings.Get(usage.Backend == NemoSpeechBackend.Cuda
+                ? "Settings_AccelerationActiveCuda"
+                : "Settings_AccelerationActiveCpu");
+
+        var reason = usage?.FallbackReason;
+        BackendFallbackMessage = reason is null
+            ? string.Empty
+            : AppStrings.Format("Settings_AccelerationFallbackMessage", reason);
+        IsBackendFallbackWarningOpen = reason is not null;
     }
 
     [RelayCommand]
@@ -116,8 +159,8 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
     {
         IsTranscriptionEngineInstalled = TranscriptionEngineInstaller.IsReady(
             AppServices.NemotronModels, AppServices.NemoSpeechRuntime);
-        TranscriptionAccelerationCaption = TranscriptionEngineInstaller.AccelerationCaption(
-            hardware, AppServices.NemoSpeechRuntime);
+        _expectedBackend = TranscriptionEngineInstaller.ExpectedBackend(hardware, AppServices.NemoSpeechRuntime);
+        ApplyBackendStatus();
     }
 
     [RelayCommand]

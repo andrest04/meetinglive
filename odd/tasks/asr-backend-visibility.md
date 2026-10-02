@@ -36,7 +36,7 @@ A user with an NVIDIA GPU can run on CPU (slow live transcript, slow post-Stop p
 ## Tasks
 
 - [x] T1 Core: factory reports actual backend + CUDA fallback reason; shared backend status; tests. Route: delegated (sonnet writer; 4+ files to understand).
-- [ ] T2 App: caption and fallback warning bound to the actual backend status; strings en+es. Route: delegated (sonnet writer; XAML + VM + resw).
+- [x] T2 App: caption and fallback warning bound to the actual backend status; strings en+es. Route: delegated (sonnet writer; XAML + VM + resw).
 
 ## Acceptance criteria
 
@@ -57,8 +57,9 @@ Work-unit commits straight to main (repo convention), Conventional Commits, no A
 ## Progress
 
 - Created 2026-10-01.
-- T1 done: factory reports the actual backend + CUDA fallback reason to `IAsrBackendStatus` (`AppServices.AsrBackend`); 647 Core tests green.
+- T1 done: factory reports the actual backend + CUDA fallback reason to `IAsrBackendStatus` (`AppServices.AsrBackend`); 647 Core tests green. Commit 766fa93.
+- T2 done: Settings caption follows `AsrBackend` status ("Will try GPU (CUDA)" / "Running on GPU (CUDA)" / "Running on CPU"); Warning InfoBar with the reason on CUDA to CPU fallback; `AccelerationCaption` replaced by `ExpectedBackend` (+4 tests, 651 green); strings en+es; App x64 build succeeded.
 
 ## Next step
 
-T2.
+Done; user to verify in the running app.
