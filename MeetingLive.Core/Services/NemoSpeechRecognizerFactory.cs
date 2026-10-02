@@ -10,7 +10,8 @@ public sealed class NemoSpeechRecognizerFactory(
     INemotronModelManager models,
     INemoSpeechRuntimeManager runtime,
     INemoSpeechAsrEngine engine,
-    IHardwareDetectionService hardware)
+    IHardwareDetectionService hardware,
+    IAsrBackendStatus? status = null)
 {
     public INemoSpeechRecognizer Create(
         bool enableSpeakerDiarization = false,
@@ -24,32 +25,43 @@ public sealed class NemoSpeechRecognizerFactory(
         if (enableSpeakerDiarization && models.IsDiarizationModelDownloaded())
             diarizationModelPath = models.GetDiarizationModelPath();
 
+        string? fallbackReason = null;
         var preferred = NemoSpeechRuntimeManager.SelectBackend(hardware.DetectHardware());
         if (preferred == NemoSpeechBackend.Cuda && runtime.IsReady(NemoSpeechBackend.Cuda))
         {
+            INemoSpeechRecognizer? cuda = null;
             try
             {
-                return engine.CreateRecognizer(
+                cuda = engine.CreateRecognizer(
                     modelPath,
                     runtime.GetBinDirectory(NemoSpeechBackend.Cuda),
                     gpu: 0,
                     diarizationModelPath,
                     geometry);
             }
-            catch
+            catch (Exception ex)
             {
                 // CUDA zip loaded or recognizer create failed (missing driver, VRAM, etc.).
+                fallbackReason = ex.Message;
+            }
+
+            if (cuda is not null)
+            {
+                status?.Report(new AsrBackendUsage(NemoSpeechBackend.Cuda, null));
+                return cuda;
             }
         }
 
         if (!runtime.IsReady(NemoSpeechBackend.Cpu))
             throw new InvalidOperationException("The Nemotron ASR CPU runtime is not installed.");
 
-        return engine.CreateRecognizer(
+        var cpu = engine.CreateRecognizer(
             modelPath,
             runtime.GetBinDirectory(NemoSpeechBackend.Cpu),
             gpu: -1,
             diarizationModelPath,
             geometry);
+        status?.Report(new AsrBackendUsage(NemoSpeechBackend.Cpu, fallbackReason));
+        return cpu;
     }
 }

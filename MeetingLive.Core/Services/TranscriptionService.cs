@@ -12,7 +12,8 @@ public sealed class TranscriptionService(
     INemotronModelManager models,
     INemoSpeechRuntimeManager runtime,
     INemoSpeechAsrEngine engine,
-    IHardwareDetectionService hardware) : ITranscriptionService
+    IHardwareDetectionService hardware,
+    IAsrBackendStatus? backendStatus = null) : ITranscriptionService
 {
     /// <summary>100 ms of 16 kHz mono float32.</summary>
     private const int FrameFloats = 1600;
@@ -48,7 +49,7 @@ public sealed class TranscriptionService(
         TimeSpan clockSkew,
         bool enableSpeakerDiarization)
     {
-        var factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware);
+        var factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware, backendStatus);
         var recognizer = factory.Create(enableSpeakerDiarization, SortformerGeometry.Meeting);
         INemoSpeechStream? stream = null;
         try

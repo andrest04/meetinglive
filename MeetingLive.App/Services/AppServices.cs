@@ -45,11 +45,13 @@ public static class AppServices
 
     public static IHardwareDetectionService HardwareDetection { get; } = new HardwareDetectionService();
 
+    public static IAsrBackendStatus AsrBackend { get; } = new AsrBackendStatus();
+
     public static ITranscriptionService Transcription { get; } = new TranscriptionService(
-        NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
+        NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection, AsrBackend);
 
     public static ILiveTranscriptionService LiveTranscription { get; } = new LiveTranscriptionService(
-        AudioCapture, NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection);
+        AudioCapture, NemotronModels, NemoSpeechRuntime, NemoSpeechEngine, HardwareDetection, AsrBackend);
 
     public static ILocalLlmModelManager LocalLlmModels { get; } = new LocalLlmModelManager(LazyModelDownloadHttpClient.Value);
 

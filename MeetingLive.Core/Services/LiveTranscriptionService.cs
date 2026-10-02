@@ -30,10 +30,11 @@ public sealed class LiveTranscriptionService : ILiveTranscriptionService, IDispo
         INemotronModelManager models,
         INemoSpeechRuntimeManager runtime,
         INemoSpeechAsrEngine engine,
-        IHardwareDetectionService hardware)
+        IHardwareDetectionService hardware,
+        IAsrBackendStatus? backendStatus = null)
     {
         _audioCapture = audioCapture;
-        _factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware);
+        _factory = new NemoSpeechRecognizerFactory(models, runtime, engine, hardware, backendStatus);
     }
 
     public event EventHandler<LiveTranscriptUpdate>? TranscriptUpdated;

@@ -86,6 +86,107 @@ public class NemoSpeechRecognizerFactoryTests
         Assert.Equal(SortformerGeometry.Streaming, engine.LastGeometry);
     }
 
+    [Fact]
+    public void Create_WhenCudaSucceeds_ReportsCudaWithoutFallbackReason()
+    {
+        var status = new AsrBackendStatus();
+        var engine = new FakeEngine();
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime { CudaReady = true },
+            engine,
+            new FakeHardware { GpuName = "NVIDIA GeForce RTX 4070" },
+            status);
+
+        factory.Create();
+
+        Assert.Equal(0, engine.LastGpu);
+        Assert.Equal(new AsrBackendUsage(NemoSpeechBackend.Cuda, null), status.Current);
+    }
+
+    [Fact]
+    public void Create_WhenCudaCreateThrows_FallsBackToCpuAndReportsReason()
+    {
+        var status = new AsrBackendStatus();
+        var engine = new FakeEngine { CudaFailure = new InvalidOperationException("CUDA driver is too old") };
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime { CudaReady = true },
+            engine,
+            new FakeHardware { GpuName = "NVIDIA GeForce RTX 4070" },
+            status);
+
+        var recognizer = factory.Create();
+
+        Assert.NotNull(recognizer);
+        Assert.Equal(-1, engine.LastGpu);
+        Assert.NotNull(status.Current);
+        Assert.Equal(NemoSpeechBackend.Cpu, status.Current.Backend);
+        Assert.Contains("CUDA driver is too old", status.Current.FallbackReason);
+    }
+
+    [Fact]
+    public void Create_WhenNoNvidiaGpu_ReportsCpuWithoutFallbackReason()
+    {
+        var status = new AsrBackendStatus();
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime { CudaReady = true },
+            new FakeEngine(),
+            new FakeHardware(),
+            status);
+
+        factory.Create();
+
+        Assert.Equal(new AsrBackendUsage(NemoSpeechBackend.Cpu, null), status.Current);
+    }
+
+    [Fact]
+    public void Create_WhenCudaRuntimeMissing_ReportsCpuWithoutFallbackReason()
+    {
+        var status = new AsrBackendStatus();
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime { CudaReady = false },
+            new FakeEngine(),
+            new FakeHardware { GpuName = "NVIDIA GeForce RTX 4070" },
+            status);
+
+        factory.Create();
+
+        Assert.Equal(new AsrBackendUsage(NemoSpeechBackend.Cpu, null), status.Current);
+    }
+
+    [Fact]
+    public void Create_WhenStatusIsOmitted_StillCreatesRecognizer()
+    {
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime(),
+            new FakeEngine(),
+            new FakeHardware());
+
+        Assert.NotNull(factory.Create());
+    }
+
+    [Fact]
+    public void Create_RaisesChangedWithTheNewUsage()
+    {
+        var status = new AsrBackendStatus();
+        AsrBackendUsage? raised = null;
+        status.Changed += (_, usage) => raised = usage;
+        var factory = new NemoSpeechRecognizerFactory(
+            new FakeModels { ModelDownloaded = true },
+            new FakeRuntime(),
+            new FakeEngine(),
+            new FakeHardware(),
+            status);
+
+        factory.Create();
+
+        Assert.Equal(new AsrBackendUsage(NemoSpeechBackend.Cpu, null), raised);
+    }
+
     private sealed class FakeModels : INemotronModelManager
     {
         public bool ModelDownloaded { get; set; }
@@ -118,7 +219,10 @@ public class NemoSpeechRecognizerFactoryTests
 
     private sealed class FakeRuntime : INemoSpeechRuntimeManager
     {
-        public bool IsReady(NemoSpeechBackend backend) => backend == NemoSpeechBackend.Cpu;
+        public bool CudaReady { get; set; }
+
+        public bool IsReady(NemoSpeechBackend backend) =>
+            backend == NemoSpeechBackend.Cpu || CudaReady;
 
         public string GetBinDirectory(NemoSpeechBackend backend) => "bin";
 
@@ -134,7 +238,9 @@ public class NemoSpeechRecognizerFactoryTests
 
     private sealed class FakeHardware : IHardwareDetectionService
     {
-        public HardwareProfile DetectHardware() => new(16, null, null);
+        public string? GpuName { get; set; }
+
+        public HardwareProfile DetectHardware() => new(16, GpuName, GpuName is null ? null : 12);
     }
 
     private sealed class FakeEngine : INemoSpeechAsrEngine
@@ -145,6 +251,8 @@ public class NemoSpeechRecognizerFactoryTests
 
         public SortformerGeometry LastGeometry { get; private set; }
 
+        public Exception? CudaFailure { get; set; }
+
         public INemoSpeechRecognizer CreateRecognizer(
             string modelPath,
             string runtimeBinDirectory,
@@ -152,6 +260,9 @@ public class NemoSpeechRecognizerFactoryTests
             string? diarizationModelPath = null,
             SortformerGeometry geometry = SortformerGeometry.Streaming)
         {
+            if (gpu >= 0 && CudaFailure is not null)
+                throw CudaFailure;
+
             LastGpu = gpu;
             LastDiarizationModelPath = diarizationModelPath;
             LastGeometry = geometry;
