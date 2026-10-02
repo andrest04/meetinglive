@@ -165,6 +165,9 @@
   <data name="Settings_AccelerationActiveCpu" xml:space="preserve"><value>Ejecutándose en la CPU</value></data>
   <data name="Settings_AsrFallback.Title" xml:space="preserve"><value>La aceleración por GPU no está activa</value></data>
   <data name="Settings_AccelerationFallbackMessage" xml:space="preserve"><value>CUDA no pudo iniciarse, por lo que la transcripción se ejecutó en la CPU y puede ser más lenta. Motivo: {0}</value></data>
+  <data name="Settings_LiveDropsCaption" xml:space="preserve"><value>Última sesión en vivo: {0}% del audio omitido</value></data>
+  <data name="Settings_LiveDropsWarning.Title" xml:space="preserve"><value>La transcripción en vivo omitió audio</value></data>
+  <data name="Settings_LiveDropsWarningMessage" xml:space="preserve"><value>La transcripción en vivo omitió el {0}% del audio. La transcripción final tras detener es completa; suele deberse a un motor lento (CPU).</value></data>
   <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Etiquetas de hablante</value></data>
   <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Modelo Sortformer opcional (~0.14 GB). Usa GPU/CPU adicional durante la transcripción y etiqueta hasta cuatro voces como Hablante 1-4. Desactívalo para transcribir sin etiquetas de quién habló.</value></data>
   <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Descargar</value></data>

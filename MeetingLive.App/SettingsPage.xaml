@@ -386,6 +386,16 @@
                          IsOpen="{x:Bind ViewModel.TranscriptionEngine.IsBackendFallbackWarningOpen, Mode=OneWay}"
                          Message="{x:Bind ViewModel.TranscriptionEngine.BackendFallbackMessage, Mode=OneWay}"
                          AutomationProperties.AutomationId="InfoAsrBackendFallback" />
+                <TextBlock Text="{x:Bind ViewModel.TranscriptionEngine.LiveDropsCaption, Mode=OneWay}"
+                           Style="{StaticResource SecondaryCaptionTextBlockStyle}"
+                           Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.TranscriptionEngine.IsLiveDropsCaptionVisible), Mode=OneWay}"
+                           AutomationProperties.AutomationId="TxtLiveDrops" />
+                <InfoBar x:Uid="Settings_LiveDropsWarning"
+                         Severity="Warning"
+                         IsClosable="False"
+                         IsOpen="{x:Bind ViewModel.TranscriptionEngine.IsLiveDropsWarningOpen, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.TranscriptionEngine.LiveDropsWarningMessage, Mode=OneWay}"
+                         AutomationProperties.AutomationId="InfoLiveDropsWarning" />
 
                 <controls:SettingsCard x:Uid="Settings_SpeakerLabels"
                                         HeaderIcon="{ui:FontIcon Glyph=&#xE716;}">

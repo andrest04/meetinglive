@@ -165,6 +165,9 @@
   <data name="Settings_AccelerationActiveCpu" xml:space="preserve"><value>Running on CPU</value></data>
   <data name="Settings_AsrFallback.Title" xml:space="preserve"><value>GPU acceleration is not active</value></data>
   <data name="Settings_AccelerationFallbackMessage" xml:space="preserve"><value>CUDA could not start, so transcription ran on the CPU and may be slower. Reason: {0}</value></data>
+  <data name="Settings_LiveDropsCaption" xml:space="preserve"><value>Last live session: {0}% of audio skipped</value></data>
+  <data name="Settings_LiveDropsWarning.Title" xml:space="preserve"><value>Live transcript skipped audio</value></data>
+  <data name="Settings_LiveDropsWarningMessage" xml:space="preserve"><value>Live transcript skipped {0}% of the audio. The final transcript after Stop is complete; a slow backend (CPU) usually causes this.</value></data>
   <data name="Settings_SpeakerLabels.Header" xml:space="preserve"><value>Speaker labels</value></data>
   <data name="Settings_SpeakerLabels.Description" xml:space="preserve"><value>Optional Sortformer model (~0.14 GB). Uses extra GPU/CPU while transcribing and labels up to four voices as Speaker 1–4. Turn off to transcribe without who-spoke tags.</value></data>
   <data name="Settings_DownloadSpeakers.Content" xml:space="preserve"><value>Download</value></data>

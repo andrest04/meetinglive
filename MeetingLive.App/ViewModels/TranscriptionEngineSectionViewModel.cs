@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
@@ -60,6 +61,21 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
     [ObservableProperty]
     private string _backendFallbackMessage = string.Empty;
 
+    [ObservableProperty]
+    private string _liveDropsCaption = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLiveDropsCaptionVisible;
+
+    [ObservableProperty]
+    private bool _isLiveDropsWarningOpen;
+
+    [ObservableProperty]
+    private string _liveDropsWarningMessage = string.Empty;
+
+    /// <summary>Above this share of skipped audio the live drops are worth a warning.</summary>
+    private const double LiveDropsWarningPercent = 5;
+
     /// <summary>What the factory will try first; only shown until a recognizer has really been created.</summary>
     private NemoSpeechBackend _expectedBackend = NemoSpeechBackend.Cpu;
 
@@ -83,17 +99,29 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
     {
         AppServices.AsrBackend.Changed -= OnBackendChanged;
         AppServices.AsrBackend.Changed += OnBackendChanged;
+        AppServices.AsrBackend.LiveDropsChanged -= OnLiveDropsChanged;
+        AppServices.AsrBackend.LiveDropsChanged += OnLiveDropsChanged;
         ApplyBackendStatus();
     }
 
-    public void StopObservingBackend() => AppServices.AsrBackend.Changed -= OnBackendChanged;
+    public void StopObservingBackend()
+    {
+        AppServices.AsrBackend.Changed -= OnBackendChanged;
+        AppServices.AsrBackend.LiveDropsChanged -= OnLiveDropsChanged;
+    }
 
     // Raised on the recording / transcription thread that created the recognizer.
     private void OnBackendChanged(object? sender, AsrBackendUsage usage) =>
         App.DispatcherQueue.TryEnqueue(ApplyBackendStatus);
 
+    // Raised on the thread that stopped the live session.
+    private void OnLiveDropsChanged(object? sender, LiveDropSummary summary) =>
+        App.DispatcherQueue.TryEnqueue(ApplyBackendStatus);
+
     private void ApplyBackendStatus()
     {
+        ApplyLiveDrops(AppServices.AsrBackend.LastLiveDrops);
+
         var usage = AppServices.AsrBackend.Current;
         TranscriptionAccelerationCaption = usage is null
             ? AppStrings.Get(_expectedBackend == NemoSpeechBackend.Cuda
@@ -108,6 +136,25 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
             ? string.Empty
             : AppStrings.Format("Settings_AccelerationFallbackMessage", reason);
         IsBackendFallbackWarningOpen = reason is not null;
+    }
+
+    private void ApplyLiveDrops(LiveDropSummary? summary)
+    {
+        if (summary is null)
+        {
+            IsLiveDropsCaptionVisible = false;
+            IsLiveDropsWarningOpen = false;
+            LiveDropsCaption = string.Empty;
+            LiveDropsWarningMessage = string.Empty;
+            return;
+        }
+
+        var percent = summary.DroppedPercent.ToString("0.#", CultureInfo.CurrentCulture);
+        var warn = summary.DroppedPercent > LiveDropsWarningPercent;
+        LiveDropsCaption = AppStrings.Format("Settings_LiveDropsCaption", percent);
+        IsLiveDropsCaptionVisible = !warn;
+        LiveDropsWarningMessage = warn ? AppStrings.Format("Settings_LiveDropsWarningMessage", percent) : string.Empty;
+        IsLiveDropsWarningOpen = warn;
     }
 
     [RelayCommand]
