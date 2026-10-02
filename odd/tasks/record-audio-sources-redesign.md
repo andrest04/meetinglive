@@ -56,7 +56,7 @@ Defaults: All system audio by default; detected meeting app is a one-click sugge
 
 - [x] T1 Core: active-audio app enumeration + parent mapping + friendly name + peak; tests. Route: delegated (sonnet writer; native + 4+ files).
 - [x] T2 App: Sources section with app cards, icons, meters, collapsed recording summary; resw en+es. Route: delegated (sonnet writer; XAML + VM + resw).
-- [ ] T3 Remember choices + meeting-app suggestion; tests. Route: delegated (sonnet writer).
+- [x] T3 Remember choices + meeting-app suggestion; tests. Route: delegated (sonnet writer).
 
 ## Acceptance criteria
 
@@ -84,10 +84,14 @@ Forecast ~900–1300 authored lines across 3 work-unit commits. Repo convention:
   - RED: 53 tests failed (stub threw NotImplementedException). GREEN: 53 passed; full Core suite 714 passed, 0 failed. App build x64 succeeded, 0 errors. Runtime against a real audio device not exercised (no app launch).
   - API for T2: `ActiveAudioAppService(new NAudioAudioSessionSource(), new WindowsProcessInfoProvider(), (uint)Environment.ProcessId)` implementing `IActiveAudioAppService`. `Refresh()` returns `ActiveAudioApp(ProcessId, ExePath?, FriendlyName, IsBrowser, IsKnownMeetingApp, Peak)`. `ReadPeaks()` returns rootPid to peak (0..1) for the last Refresh; cheap, poll ~150 ms. Call `Refresh()` every ~1-2 s to pick up new or ended apps. Browser meeting detection needs a window title (MeetingCallDetector), so IsKnownMeetingApp is false for browsers. `RecordingAppEnumerator` left untouched for T2 to swap.
 
-- T2 done (route: delegated sonnet writer; commit recorded below). Core: `AudioLevelMeter.ToMeterValue` (dB mapping, -60..0 dBFS), `ActiveAppEntries.Merge/IsStillRunning` (keeps a vanished selected app as unavailable; record-time process check rejects reused pids). RED: 19 failed (stubs threw NotImplementedException). GREEN: 19 passed; full Core suite 733 passed, 0 failed. App build x64 succeeded, 0 errors. UI not launched (user checks).
+- T2 done (commit 5844669, route: delegated sonnet writer). Core: `AudioLevelMeter.ToMeterValue` (dB mapping, -60..0 dBFS), `ActiveAppEntries.Merge/IsStillRunning` (keeps a vanished selected app as unavailable; record-time process check rejects reused pids). RED: 19 failed (stubs threw NotImplementedException). GREEN: 19 passed; full Core suite 733 passed, 0 failed. App build x64 succeeded, 0 errors. UI not launched (user checks).
   - App: always-visible Sources card (full-width mic ComboBox with label, dB meter, `GridView` of cards: All system audio + one per active app with shell icon via `AppIconCache` (StorageFile thumbnail), live meter, Detected tag, "Records all tabs" on browsers, dimmed "Not playing" when the selected app vanished). One background loop (`RecordingAudioSourcesViewModel`) owns the NAudio source: Refresh ~1.5 s, ReadPeaks ~150 ms, only while the page is visible and idle. Recording bar shows "Mic: X · Audio: Y". `RecordingAppEnumerator` and `RecordingAppOption` deleted. Mic preview now also runs idle after a finished meeting (HasLastMeeting no longer gates it).
   - System card shows no meter (no system-wide peak is read; faking one would mislead).
 
+- T3 done (commit 0ee935e, route: delegated sonnet writer). Core: `RecordAudioSourceMemory` (Remember*/Restore* over `AppSettings`, new fields `RecordMicrophoneKind/DeviceId`, `RecordOutputKind`, `RecordAppExePath/Name`) and `MeetingAppSuggestion.Pick`. RED: 25 failed (stubs). GREEN: 25 passed; full Core suite 758 passed, 0 failed. App build x64 succeeded, 0 errors.
+  - App: mic and card choices persist via load-mutate-save only on user change (`SelectRecordingMicrophone`, `SelectCard`); mic restore on page load (unplugged device falls back to system default); remembered app reselected only if its exe is in the first active list, else silent system audio; InfoBar "X is in a call · Use X" while system audio is selected, never auto-switches, dismissal remembered per pid for the VM lifetime.
+  - Deviation: browser meeting-title detection through `MeetingCallDetector` was not wired (needs window enumeration per pid, which was retired with `RecordingAppEnumerator`); the suggestion uses `IsKnownMeetingApp` only. Browser cards still show "Records all tabs".
+
 ## Next step
 
-T3.
+User checks the Record page in the running app (cards, icons, meters, restore, suggestion). Push is the user's call.
