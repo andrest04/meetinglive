@@ -60,6 +60,9 @@ Work-unit commits straight to main (repo convention), Conventional Commits, no A
 - T1 done: factory reports the actual backend + CUDA fallback reason to `IAsrBackendStatus` (`AppServices.AsrBackend`); 647 Core tests green. Commit 766fa93.
 - T2 done: Settings caption follows `AsrBackend` status ("Will try GPU (CUDA)" / "Running on GPU (CUDA)" / "Running on CPU"); Warning InfoBar with the reason on CUDA to CPU fallback; `AccelerationCaption` replaced by `ExpectedBackend` (+4 tests, 651 green); strings en+es; App x64 build succeeded.
 
+- Parent spot check: Core tests 651 passed, 0 failed. RDD assess: medium (slice_budget_reached, 407 lines); user declined review for this candidate.
+- Known gap: backend status is shown only on Settings, not on the Record page.
+
 ## Next step
 
 Done; user to verify in the running app.
