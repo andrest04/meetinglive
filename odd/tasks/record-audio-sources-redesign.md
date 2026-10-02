@@ -55,7 +55,7 @@ Defaults: All system audio by default; detected meeting app is a one-click sugge
 ## Tasks
 
 - [x] T1 Core: active-audio app enumeration + parent mapping + friendly name + peak; tests. Route: delegated (sonnet writer; native + 4+ files).
-- [ ] T2 App: Sources section with app cards, icons, meters, collapsed recording summary; resw en+es. Route: delegated (sonnet writer; XAML + VM + resw).
+- [x] T2 App: Sources section with app cards, icons, meters, collapsed recording summary; resw en+es. Route: delegated (sonnet writer; XAML + VM + resw).
 - [ ] T3 Remember choices + meeting-app suggestion; tests. Route: delegated (sonnet writer).
 
 ## Acceptance criteria
@@ -84,6 +84,10 @@ Forecast ~900–1300 authored lines across 3 work-unit commits. Repo convention:
   - RED: 53 tests failed (stub threw NotImplementedException). GREEN: 53 passed; full Core suite 714 passed, 0 failed. App build x64 succeeded, 0 errors. Runtime against a real audio device not exercised (no app launch).
   - API for T2: `ActiveAudioAppService(new NAudioAudioSessionSource(), new WindowsProcessInfoProvider(), (uint)Environment.ProcessId)` implementing `IActiveAudioAppService`. `Refresh()` returns `ActiveAudioApp(ProcessId, ExePath?, FriendlyName, IsBrowser, IsKnownMeetingApp, Peak)`. `ReadPeaks()` returns rootPid to peak (0..1) for the last Refresh; cheap, poll ~150 ms. Call `Refresh()` every ~1-2 s to pick up new or ended apps. Browser meeting detection needs a window title (MeetingCallDetector), so IsKnownMeetingApp is false for browsers. `RecordingAppEnumerator` left untouched for T2 to swap.
 
+- T2 done (route: delegated sonnet writer; commit recorded below). Core: `AudioLevelMeter.ToMeterValue` (dB mapping, -60..0 dBFS), `ActiveAppEntries.Merge/IsStillRunning` (keeps a vanished selected app as unavailable; record-time process check rejects reused pids). RED: 19 failed (stubs threw NotImplementedException). GREEN: 19 passed; full Core suite 733 passed, 0 failed. App build x64 succeeded, 0 errors. UI not launched (user checks).
+  - App: always-visible Sources card (full-width mic ComboBox with label, dB meter, `GridView` of cards: All system audio + one per active app with shell icon via `AppIconCache` (StorageFile thumbnail), live meter, Detected tag, "Records all tabs" on browsers, dimmed "Not playing" when the selected app vanished). One background loop (`RecordingAudioSourcesViewModel`) owns the NAudio source: Refresh ~1.5 s, ReadPeaks ~150 ms, only while the page is visible and idle. Recording bar shows "Mic: X · Audio: Y". `RecordingAppEnumerator` and `RecordingAppOption` deleted. Mic preview now also runs idle after a finished meeting (HasLastMeeting no longer gates it).
+  - System card shows no meter (no system-wide peak is read; faking one would mislead).
+
 ## Next step
 
-T2.
+T3.

@@ -28,20 +28,3 @@ public enum RecordingMicrophoneKind
     SystemDefault = 1,
     Device = 2,
 }
-
-/// <summary>One open app, identified by process id. Display is the process plus one window title.</summary>
-public sealed class RecordingAppOption
-{
-    public RecordingAppOption(uint processId, string processName, string displayName)
-    {
-        ProcessId = processId;
-        ProcessName = processName;
-        DisplayName = displayName;
-    }
-
-    public uint ProcessId { get; }
-
-    public string ProcessName { get; }
-
-    public string DisplayName { get; }
-}

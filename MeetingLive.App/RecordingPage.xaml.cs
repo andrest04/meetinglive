@@ -113,20 +113,12 @@ public sealed partial class RecordingPage : Page
     private void RecordMicrophoneComboBox_DropDownOpened(object sender, object e) =>
         ViewModel.RefreshRecordingMicrophones();
 
-    private void RecordAudioSource_Checked(object sender, RoutedEventArgs e)
+    // A null SelectedItem is a collection rebuild or a binding reset, not the user clearing the choice.
+    private void AudioSourceList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is RadioButton { Tag: string tag })
-            ViewModel.SelectRecordingOutput(tag == "App");
+        if (sender is GridView { SelectedItem: AudioSourceCard card })
+            ViewModel.AudioSources.SelectCard(card);
     }
-
-    private void RecordAppComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is ComboBox { SelectedItem: RecordingAppOption option })
-            ViewModel.SelectRecordingApp(option);
-    }
-
-    private void RecordAppComboBox_DropDownOpened(object sender, object e) =>
-        ViewModel.RefreshOpenApps();
 
     private void LiveAsk_AcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -224,6 +216,9 @@ public sealed partial class RecordingPage : Page
     public static bool Not(bool value) => !value;
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+
+    public static Visibility AnyVisible(bool first, bool second, bool third) =>
+        first || second || third ? Visibility.Visible : Visibility.Collapsed;
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
 

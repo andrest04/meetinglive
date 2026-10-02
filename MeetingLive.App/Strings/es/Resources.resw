@@ -62,19 +62,23 @@
   <data name="RecordPage_Open.Content" xml:space="preserve"><value>Abrir</value></data>
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Tiempo de grabación transcurrido</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Nivel del micrófono</value></data>
-  <data name="RecordPage_AudioSources.Header" xml:space="preserve"><value>Fuentes de audio</value></data>
-  <data name="RecordPage_MicrophoneLabel.Header" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="RecordPage_SourcesHeading.Text" xml:space="preserve"><value>Fuentes</value></data>
+  <data name="ComboRecordMicrophone.Header" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="RecordPage_MeetingAudioHeading.Text" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="ListRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Audio de la reunión</value></data>
+  <data name="RecordPage_SystemCardTooltip" xml:space="preserve"><value>Graba todo lo que suena en este equipo, incluidas otras aplicaciones.</value></data>
+  <data name="RecordPage_AppCardTooltip" xml:space="preserve"><value>Graba esta aplicación y los procesos auxiliares que inicia. El audio de otras aplicaciones queda fuera.</value></data>
+  <data name="RecordPage_AppDetectedTag.Text" xml:space="preserve"><value>Detectada</value></data>
+  <data name="RecordPage_BrowserHint.Text" xml:space="preserve"><value>Graba todas las pestañas</value></data>
+  <data name="RecordPage_AppNotPlaying.Text" xml:space="preserve"><value>Sin audio</value></data>
+  <data name="RecordPage_NoAppsPlaying.Text" xml:space="preserve"><value>Reproduce audio en tu aplicación de reuniones para elegirla aquí</value></data>
+  <data name="RecordPage_SourcesSummary" xml:space="preserve"><value>Micrófono: {0} · Audio: {1}</value></data>
+  <data name="RecordPage_SourceFallback.Title" xml:space="preserve"><value>Fuente de audio cambiada</value></data>
+  <data name="RecordPage_SourceFallback.AutomationProperties.Name" xml:space="preserve"><value>Fuente de audio cambiada</value></data>
+  <data name="RecordPage_SourceFallbackMessage" xml:space="preserve"><value>{0} ya no se está ejecutando. Se grabará todo el audio del sistema.</value></data>
   <data name="ComboRecordMicrophone.AutomationProperties.Name" xml:space="preserve"><value>Micrófono</value></data>
   <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>Ninguno</value></data>
-  <data name="RecordPage_MeetingAudioLabel.Header" xml:space="preserve"><value>Audio de la reunión</value></data>
-  <data name="RadioRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Audio de la reunión</value></data>
   <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>Todo el audio del sistema</value></data>
-  <data name="RecordPage_OneApp.Text" xml:space="preserve"><value>Una aplicación</value></data>
-  <data name="RecordPage_AppLabel.Header" xml:space="preserve"><value>Aplicación</value></data>
-  <data name="ComboRecordApp.AutomationProperties.Name" xml:space="preserve"><value>Aplicación</value></data>
-  <data name="ComboRecordApp.PlaceholderText" xml:space="preserve"><value>Elige una aplicación</value></data>
-  <data name="RecordPage_AppLabel.Description" xml:space="preserve"><value>Captura esa aplicación y sus procesos hijos. Un navegador puede incluir otras pestañas, o no oír audio que suena en otro proceso.</value></data>
-  <data name="RecordPage_AppDisplay" xml:space="preserve"><value>{0} — {1}</value></data>
   <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancelar</value></data>
   <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancelar transcripción o resumen</value></data>
   <data name="Record_Record" xml:space="preserve"><value>Grabar</value></data>
@@ -233,7 +237,6 @@
   <data name="Status_CliOnPath" xml:space="preserve"><value>Detectado en el PATH.</value></data>
   <data name="Status_CliMissing" xml:space="preserve"><value>No se encontró en el PATH: instálalo antes de grabar.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: no se pudo iniciar la grabación ({0}).</value></data>
-  <data name="Error_ChooseRecordingApp" xml:space="preserve"><value>Error: elige una aplicación, o cambia a todo el audio del sistema.</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>La grabación se detuvo porque falló el audio de la reunión: {0}</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: no se pudo importar ese audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error al detener la grabación: {0}</value></data>

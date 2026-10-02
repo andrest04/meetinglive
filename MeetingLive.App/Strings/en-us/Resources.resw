@@ -62,19 +62,23 @@
   <data name="RecordPage_Open.Content" xml:space="preserve"><value>Open</value></data>
   <data name="RecordPage_ElapsedTime.AutomationProperties.Name" xml:space="preserve"><value>Elapsed recording time</value></data>
   <data name="RecordPage_MicLevelBar.AutomationProperties.Name" xml:space="preserve"><value>Microphone level</value></data>
-  <data name="RecordPage_AudioSources.Header" xml:space="preserve"><value>Audio sources</value></data>
-  <data name="RecordPage_MicrophoneLabel.Header" xml:space="preserve"><value>Microphone</value></data>
+  <data name="RecordPage_SourcesHeading.Text" xml:space="preserve"><value>Sources</value></data>
+  <data name="ComboRecordMicrophone.Header" xml:space="preserve"><value>Microphone</value></data>
+  <data name="RecordPage_MeetingAudioHeading.Text" xml:space="preserve"><value>Meeting audio</value></data>
+  <data name="ListRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Meeting audio</value></data>
+  <data name="RecordPage_SystemCardTooltip" xml:space="preserve"><value>Records everything playing on this PC, including other apps.</value></data>
+  <data name="RecordPage_AppCardTooltip" xml:space="preserve"><value>Records this app and the helper processes it starts. Audio from other apps is left out.</value></data>
+  <data name="RecordPage_AppDetectedTag.Text" xml:space="preserve"><value>Detected</value></data>
+  <data name="RecordPage_BrowserHint.Text" xml:space="preserve"><value>Records all tabs</value></data>
+  <data name="RecordPage_AppNotPlaying.Text" xml:space="preserve"><value>Not playing</value></data>
+  <data name="RecordPage_NoAppsPlaying.Text" xml:space="preserve"><value>Play audio in your meeting app to pick it here</value></data>
+  <data name="RecordPage_SourcesSummary" xml:space="preserve"><value>Mic: {0} · Audio: {1}</value></data>
+  <data name="RecordPage_SourceFallback.Title" xml:space="preserve"><value>Audio source changed</value></data>
+  <data name="RecordPage_SourceFallback.AutomationProperties.Name" xml:space="preserve"><value>Audio source changed</value></data>
+  <data name="RecordPage_SourceFallbackMessage" xml:space="preserve"><value>{0} is no longer running. Recording all system audio instead.</value></data>
   <data name="ComboRecordMicrophone.AutomationProperties.Name" xml:space="preserve"><value>Microphone</value></data>
   <data name="RecordPage_MicrophoneNone" xml:space="preserve"><value>None</value></data>
-  <data name="RecordPage_MeetingAudioLabel.Header" xml:space="preserve"><value>Meeting audio</value></data>
-  <data name="RadioRecordAudioSource.AutomationProperties.Name" xml:space="preserve"><value>Meeting audio</value></data>
   <data name="RecordPage_AllSystemAudio.Text" xml:space="preserve"><value>All system audio</value></data>
-  <data name="RecordPage_OneApp.Text" xml:space="preserve"><value>One app</value></data>
-  <data name="RecordPage_AppLabel.Header" xml:space="preserve"><value>App</value></data>
-  <data name="ComboRecordApp.AutomationProperties.Name" xml:space="preserve"><value>App</value></data>
-  <data name="ComboRecordApp.PlaceholderText" xml:space="preserve"><value>Choose an app</value></data>
-  <data name="RecordPage_AppLabel.Description" xml:space="preserve"><value>Captures that app and its child processes. A browser may include other tabs, or miss audio from another process.</value></data>
-  <data name="RecordPage_AppDisplay" xml:space="preserve"><value>{0} — {1}</value></data>
   <data name="RecordPage_CancelProcessing.Content" xml:space="preserve"><value>Cancel</value></data>
   <data name="RecordPage_CancelProcessing.AutomationProperties.Name" xml:space="preserve"><value>Cancel transcription or summary</value></data>
   <data name="Record_Record" xml:space="preserve"><value>Record</value></data>
@@ -233,7 +237,6 @@
   <data name="Status_CliOnPath" xml:space="preserve"><value>Detected on PATH.</value></data>
   <data name="Status_CliMissing" xml:space="preserve"><value>Not found on PATH — install it before recording.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: could not start recording ({0}).</value></data>
-  <data name="Error_ChooseRecordingApp" xml:space="preserve"><value>Error: choose an app, or switch to all system audio.</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>Recording stopped because the meeting audio failed: {0}</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: couldn't import that audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error stopping the recording: {0}</value></data>

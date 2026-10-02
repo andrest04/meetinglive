@@ -72,6 +72,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private bool _openingComingUp;
     private bool _suppressRecordingSourceCommit;
     private bool _recordingMicrophoneTouched;
+    private bool _micPreviewRunning;
     private int _microphoneLoadGeneration;
 
     [ObservableProperty]
@@ -128,19 +129,14 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     [ObservableProperty]
     private RecordingMicrophoneChoice? _selectedRecordingMicrophone;
 
-    public ObservableCollection<RecordingAppOption> RecordingApps { get; } = [];
+    /// <summary>Meeting-audio cards: all system audio (default) plus the apps that are playing right now.</summary>
+    public RecordingAudioSourcesViewModel AudioSources { get; } = new();
 
-    [ObservableProperty]
-    private RecordingAppOption? _selectedRecordingApp;
-
-    /// <summary>Default output is all system audio. Not written back to Settings.</summary>
-    [ObservableProperty]
-    private bool _isSystemAudioSelected = true;
-
-    [ObservableProperty]
-    private bool _isOneAppSelected;
-
-    public bool ShowAppPicker => IsOneAppSelected;
+    /// <summary>One line for the recording bar: the idle Sources card collapses to this while recording.</summary>
+    public string SourcesSummary => AppStrings.Format(
+        "RecordPage_SourcesSummary",
+        SelectedRecordingMicrophone?.DisplayName ?? AppStrings.Get("Microphone_SystemDefault"),
+        AudioSources.SelectedName);
 
     /// <summary>
     /// Supplied by the page (needs a XamlRoot for the setup dialog): resolves,
@@ -253,10 +249,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     public string LastMeetingTitle => LastMeeting?.Title ?? string.Empty;
 
-    /// <summary>Hidden when this meeting's microphone is none, including the idle meter.</summary>
+    /// <summary>Hidden when this meeting's microphone is none. The idle meter stays up even after a recording finished,
+    /// because the Sources card is always visible and the next meeting uses the same microphone.</summary>
     public bool ShowMicPreview =>
         CapturesSelectedMicrophone &&
-        ((IsRecording && !IsPaused) || (!IsProcessing && !HasLastMeeting));
+        ((IsRecording && !IsPaused) || !IsProcessing);
 
     private bool CapturesSelectedMicrophone =>
         SelectedRecordingMicrophone is { Kind: not RecordingMicrophoneKind.None };
@@ -294,6 +291,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _pipeline = new RecordingPipelineOrchestrator(_transcription, _meetings);
         _liveTranscription.TranscriptUpdated += OnLiveTranscriptUpdated;
         _levelMeter.LevelChanged += OnMicLevelChanged;
+        AudioSources.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(RecordingAudioSourcesViewModel.SelectedName))
+                OnPropertyChanged(nameof(SourcesSummary));
+        };
         AppServices.Workspace.MeetingDeleted += OnMeetingDeleted;
         AppServices.Workspace.TakeNotesRequested += OnTakeNotesRequested;
     }
@@ -302,6 +304,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     public void OnNavigatedTo()
     {
         _isPageVisible = true;
+        UpdateSourcePolling();
         _ = LoadRecordingMicrophonesAsync(preserveCurrent: _recordingMicrophoneTouched);
         _ = LoadDestinationsAsync();
         _ = RefreshReadinessAsync();
@@ -330,6 +333,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     {
         _isPageVisible = false;
         _microphoneLoadGeneration++;
+        UpdateSourcePolling();
         if (!IsRecording)
             StopMicPreview();
         _ = SavePrepNotesAsync();
@@ -1457,10 +1461,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         OnPropertyChanged(nameof(HasLastMeeting));
         OnPropertyChanged(nameof(HasSummary));
         NotifyCanvasState();
-        if (value is null)
-            TryStartMicPreview();
-        else
-            StopMicPreview();
+        TryStartMicPreview();
     }
 
     partial void OnIsRecordingChanged(bool value)
@@ -1475,6 +1476,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         AppServices.Workspace.IsCaptureActive = value || IsProcessing;
         AppServices.Workspace.PublishLiveTranscript(LiveTranscriptText);
+        UpdateSourcePolling();
         NotifyCanvasState();
         TogglePauseCommand.NotifyCanExecuteChanged();
         DiscardRecordingCommand.NotifyCanExecuteChanged();
@@ -1562,6 +1564,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     {
         AppServices.Workspace.IsCaptureActive = value || IsRecording;
         AppServices.Workspace.PublishLiveTranscript(LiveTranscriptText);
+        UpdateSourcePolling();
         NotifyCanvasState();
         CancelProcessingCommand.NotifyCanExecuteChanged();
         ImportAudioCommand.NotifyCanExecuteChanged();
@@ -1611,10 +1614,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         IsProcessing = false;
         ToggleRecordingCommand.NotifyCanExecuteChanged();
         ImportAudioCommand.NotifyCanExecuteChanged();
-        if (HasLastMeeting)
-            StopMicPreview();
-        else
-            TryStartMicPreview();
+        TryStartMicPreview();
     }
 
     private void StartElapsedTimer()
@@ -1646,7 +1646,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private void OnMicLevelChanged(object? sender, float level)
     {
-        App.DispatcherQueue.TryEnqueue(() => MicLevel = Math.Clamp(level * 100.0, 0, 100));
+        App.DispatcherQueue.TryEnqueue(() => MicLevel = AudioLevelMeter.ToMeterValue(level) * 100.0);
     }
 
     private void OnRecordingPcmFrame(object? sender, PcmFrameEventArgs e)
@@ -1659,7 +1659,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             sumSquares += sample * (double)sample;
 
         var rms = Math.Sqrt(sumSquares / e.Samples.Length);
-        var level = Math.Clamp(rms * 100.0, 0, 100);
+        var level = AudioLevelMeter.ToMeterValue(rms) * 100.0;
         App.DispatcherQueue.TryEnqueue(() => MicLevel = level);
     }
 
@@ -1722,13 +1722,14 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private void StopMicPreview()
     {
         _previewGeneration++;
+        _micPreviewRunning = false;
         _levelMeter.Stop();
         MicLevel = 0;
     }
 
     private void TryStartMicPreview()
     {
-        if (!_isPageVisible || IsRecording || IsProcessing || HasLastMeeting)
+        if (!_isPageVisible || IsRecording || IsProcessing)
             return;
 
         if (SelectedRecordingMicrophone is not { Kind: not RecordingMicrophoneKind.None } choice)
@@ -1738,13 +1739,24 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
 
         _previewGeneration++;
+        _micPreviewRunning = true;
         var deviceId = choice.Kind == RecordingMicrophoneKind.Device ? choice.DeviceId : null;
         _levelMeter.Start(string.IsNullOrEmpty(deviceId) ? null : deviceId);
+    }
+
+    /// <summary>The app meters poll only while Record is showing and idle; the loop releases the audio session source when it stops.</summary>
+    private void UpdateSourcePolling()
+    {
+        if (_isPageVisible && !IsRecording && !IsProcessing)
+            AudioSources.Start();
+        else
+            AudioSources.Stop();
     }
 
     partial void OnSelectedRecordingMicrophoneChanged(RecordingMicrophoneChoice? value)
     {
         OnPropertyChanged(nameof(ShowMicPreview));
+        OnPropertyChanged(nameof(SourcesSummary));
         if (_suppressRecordingSourceCommit)
             return;
 
@@ -1752,15 +1764,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             StopMicPreview();
         else
             TryStartMicPreview();
-    }
-
-    partial void OnIsOneAppSelectedChanged(bool value)
-    {
-        OnPropertyChanged(nameof(ShowAppPicker));
-        if (value)
-            RefreshOpenApps();
-        else
-            ClearChooseAppError();
     }
 
     /// <summary>
@@ -1842,7 +1845,12 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         // Rewriting the items while the drop-down is open closes the popup, and the refresh
         // runs on DropDownOpened. Keep the existing collection when nothing changed.
         if (preserveCurrent && SelectedRecordingMicrophone is not null && SameMicrophoneChoices(RecordingMicrophones, next))
+        {
+            // Coming back to a cached page: leaving stopped the preview, and nothing else restarts it.
+            if (!_micPreviewRunning)
+                TryStartMicPreview();
             return;
+        }
 
         _suppressRecordingSourceCommit = true;
         RecordingMicrophones.Clear();
@@ -1916,82 +1924,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         SelectedRecordingMicrophone = choice;
     }
 
-    public void SelectRecordingOutput(bool oneApp)
-    {
-        if (oneApp == IsOneAppSelected)
-            return;
-
-        IsSystemAudioSelected = !oneApp;
-        IsOneAppSelected = oneApp;
-    }
-
-    public void SelectRecordingApp(RecordingAppOption? option)
-    {
-        if (_suppressRecordingSourceCommit)
-            return;
-
-        if (ReferenceEquals(SelectedRecordingApp, option))
-            return;
-
-        SelectedRecordingApp = option;
-        if (option is not null)
-            ClearChooseAppError();
-    }
-
-    public void RefreshOpenApps()
-    {
-        IReadOnlyList<RecordingAppWindow> windows;
-        try
-        {
-            windows = RecordingAppEnumerator.ListOpenApps((uint)Environment.ProcessId);
-        }
-        catch (Exception)
-        {
-            windows = [];
-        }
-
-        var previousId = SelectedRecordingApp?.ProcessId ?? 0;
-        var options = windows
-            .Select(window => new RecordingAppOption(
-                window.ProcessId,
-                window.ProcessName,
-                AppStrings.Format("RecordPage_AppDisplay", window.ProcessName, window.WindowTitle)))
-            .ToList();
-
-        if (SameOpenApps(RecordingApps, options))
-            return;
-
-        _suppressRecordingSourceCommit = true;
-        RecordingApps.Clear();
-        foreach (var option in options)
-            RecordingApps.Add(option);
-
-        var chosen = previousId == 0
-            ? null
-            : RecordingApps.FirstOrDefault(option => option.ProcessId == previousId);
-        SelectedRecordingApp = chosen;
-        App.DispatcherQueue.TryEnqueue(() => _suppressRecordingSourceCommit = false);
-    }
-
-    private static bool SameOpenApps(
-        IReadOnlyList<RecordingAppOption> current,
-        IReadOnlyList<RecordingAppOption> next)
-    {
-        if (current.Count != next.Count)
-            return false;
-
-        for (var i = 0; i < current.Count; i++)
-        {
-            if (current[i].ProcessId != next[i].ProcessId || current[i].DisplayName != next[i].DisplayName)
-                return false;
-        }
-
-        return true;
-    }
-
     /// <summary>
     /// None is <see cref="RecordingCaptureSources.CaptureMicrophone"/> false.
-    /// OS default is capture on with a null device id. One app never falls back to system loopback.
+    /// OS default is capture on with a null device id. A chosen app records its process tree; if that app is
+    /// gone by now, the Sources card falls back to all system audio and says so.
     /// </summary>
     private RecordingCaptureSources? CreateCaptureSourcesOrShowError()
     {
@@ -2000,41 +1936,24 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         if (SelectedRecordingMicrophone is { Kind: RecordingMicrophoneKind.Device, DeviceId: { Length: > 0 } id })
             deviceId = id;
 
-        if (!IsOneAppSelected)
-            return RecordingCaptureSources.SystemLoopback(captureMicrophone, deviceId);
-
-        var app = SelectedRecordingApp;
-        if (app is null || app.ProcessId == 0)
-        {
-            StatusText = AppStrings.Get("Error_ChooseRecordingApp");
-            return null;
-        }
-
-        return RecordingCaptureSources.ProcessTree(captureMicrophone, deviceId, app.ProcessId);
+        return AudioSources.ResolveRecordingTarget() is { } processId
+            ? RecordingCaptureSources.ProcessTree(captureMicrophone, deviceId, processId)
+            : RecordingCaptureSources.SystemLoopback(captureMicrophone, deviceId);
     }
 
     private string RecordingStatusText()
     {
         var noMic = SelectedRecordingMicrophone is { Kind: RecordingMicrophoneKind.None };
-        if (IsOneAppSelected && SelectedRecordingApp is { } app)
+        if (AudioSources.IsAppSelected)
         {
+            var appName = AudioSources.SelectedName;
             return noMic
-                ? AppStrings.Format("Status_RecordingNoMicApp", app.ProcessName)
-                : AppStrings.Format("Status_RecordingMicApp", app.ProcessName);
+                ? AppStrings.Format("Status_RecordingNoMicApp", appName)
+                : AppStrings.Format("Status_RecordingMicApp", appName);
         }
 
         return noMic
             ? AppStrings.Get("Status_RecordingNoMic")
             : AppStrings.Get("Status_Recording");
-    }
-
-    private void ClearChooseAppError()
-    {
-        if (!string.Equals(StatusText, AppStrings.Get("Error_ChooseRecordingApp"), StringComparison.Ordinal))
-            return;
-
-        StatusText = IsReadyToRecord
-            ? AppStrings.Get("Status_ReadyToRecord")
-            : AppStrings.Get("Status_NeedsSetup");
     }
 }
