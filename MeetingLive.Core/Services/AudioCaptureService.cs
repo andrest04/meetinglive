@@ -15,6 +15,8 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 {
     private static readonly WaveFormat MixFormat = WaveFormat.CreateIeeeFloatWaveFormat(16000, 1);
 
+    private static readonly TimeSpan HeaderFlushInterval = TimeSpan.FromSeconds(5);
+
     private WasapiCapture? _micCapture;
     private IWaveIn? _outputCapture;
     private WaveFileWriter? _writer;
@@ -265,6 +267,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         var pauseSlice = new System.Diagnostics.Stopwatch();
         long bytesWritten = 0;
         var pauseAccumulatedMs = 0.0;
+        var headerCadence = WavHeaderFlushCadence.ForFormat(source.WaveFormat, HeaderFlushInterval);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -289,6 +292,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             {
                 writer.Write(buffer, 0, bytesRead);
                 bytesWritten += bytesRead;
+
+                // Same thread as Write, and Stop awaits the pump before Dispose, so this cannot
+                // race either. Flush() rewrites the RIFF/data sizes and restores the position;
+                // without it an abrupt exit leaves sizes of 0 and the audio unreadable.
+                if (headerCadence.ShouldFlush(bytesWritten))
+                    TryFlushHeader(writer);
+
                 RaisePcmFrameIfNeeded(buffer, bytesRead, source.WaveFormat.SampleRate);
             }
 
@@ -296,6 +306,18 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             var sleepMs = expectedElapsedMs - (stopwatch.Elapsed.TotalMilliseconds - pauseAccumulatedMs);
             if (sleepMs > 0)
                 Thread.Sleep((int)sleepMs);
+        }
+    }
+
+    private static void TryFlushHeader(WaveFileWriter writer)
+    {
+        try
+        {
+            writer.Flush();
+        }
+        catch (IOException)
+        {
+            // Best effort (e.g. transient disk error): the final Flush/Dispose still writes the header.
         }
     }
 
