@@ -258,32 +258,6 @@ public sealed class RecordingPipelineOrchestrator(
     private static void Dispatch(Action action) => App.DispatcherQueue.TryEnqueue(() => action());
 }
 
-/// <summary>Everything <see cref="RecordingPipelineOrchestrator"/> needs about one finished take
-/// (recorded or imported) to run transcription, summarization, and saving. <see cref="Highlights"/>
-/// is a snapshot (highlighting requires <c>IsRecording</c>, so it cannot change once processing
-/// starts) — Session notes are read live at each save through
-/// <see cref="IRecordingPipelineCallbacks.CurrentSessionNotes"/> instead, since the notes field
-/// stays editable while processing runs.</summary>
-public sealed record RecordingPipelineRequest(
-    Guid MeetingId,
-    string AudioPath,
-    DateTimeOffset RecordedAt,
-    DateTimeOffset EndedAt,
-    string Title,
-    string? LiveDraft,
-    TimeSpan PausedDuration,
-    Guid? FolderId,
-    IReadOnlyList<TimeSpan> Highlights,
-    string? CalendarEventId = null,
-    string? CalendarId = null,
-    string? SeriesId = null,
-    string? JoinUrl = null,
-    IReadOnlyList<string>? Attendees = null,
-    string? Brief = null,
-    string? Agenda = null,
-    string? NoteTemplateId = null,
-    string? TemplateInstructions = null);
-
 /// <summary>
 /// Pipeline events <see cref="RecordingPipelineOrchestrator"/> reports back to its host. Every
 /// method is invoked already marshaled onto <see cref="App.DispatcherQueue"/>, so implementations

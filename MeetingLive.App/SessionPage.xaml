@@ -13,6 +13,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -79,6 +80,15 @@
                     <FontIcon Glyph="&#xE838;"
                               FontFamily="{ThemeResource SymbolThemeFontFamily}" />
                 </Button>
+                <Button x:Uid="SessionPage_Retranscribe"
+                        Click="Retranscribe_Click"
+                        VerticalAlignment="Center"
+                        Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.HasAudio), Mode=OneWay}"
+                        IsEnabled="{x:Bind ViewModel.CanRetranscribe, Mode=OneWay}"
+                        AutomationProperties.AutomationId="BtnSessionRetranscribe">
+                    <FontIcon Glyph="&#xE72C;"
+                              FontFamily="{ThemeResource SymbolThemeFontFamily}" />
+                </Button>
             </StackPanel>
         </Grid>
 
@@ -89,8 +99,42 @@
                  IsOpen="{x:Bind ViewModel.IsCopyConfirmationOpen, Mode=TwoWay}"
                  AutomationProperties.AutomationId="InfoSessionCopy" />
 
+        <StackPanel Grid.Row="2" Margin="24,0,24,8" Spacing="8">
+            <Grid ColumnSpacing="12"
+                  Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.IsRetranscribing), Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.RetranscribeStatus, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.AutomationId="TextSessionRetranscribeStatus" />
+                    <ProgressBar x:Uid="SessionPage_RetranscribeProgress"
+                                 IsIndeterminate="True"
+                                 AutomationProperties.AutomationId="ProgressSessionRetranscribe" />
+                </StackPanel>
+                <Button x:Uid="SessionPage_RetranscribeCancel"
+                        Grid.Column="1"
+                        Click="CancelRetranscribe_Click"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="BtnSessionRetranscribeCancel" />
+            </Grid>
+            <InfoBar x:Uid="SessionPage_RetranscribeError"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.RetranscribeError, Mode=OneWay}"
+                     IsOpen="{x:Bind ViewModel.IsRetranscribeErrorOpen, Mode=TwoWay}"
+                     AutomationProperties.AutomationId="InfoSessionRetranscribeError" />
+            <InfoBar x:Uid="SessionPage_RetranscribeNotice"
+                     Severity="Informational"
+                     Message="{x:Bind ViewModel.RetranscribeNotice, Mode=OneWay}"
+                     IsOpen="{x:Bind ViewModel.IsRetranscribeNoticeOpen, Mode=TwoWay}"
+                     AutomationProperties.AutomationId="InfoSessionRetranscribeNotice" />
+        </StackPanel>
+
         <SelectorBar x:Name="SessionTabs"
-                     Grid.Row="2"
+                     Grid.Row="3"
                      Margin="24,0"
                      SelectionChanged="SessionTabs_SelectionChanged"
                      Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}"
@@ -112,15 +156,15 @@
         </SelectorBar>
 
         <Frame x:Name="SessionFrame"
-               Grid.Row="3"
+               Grid.Row="4"
                IsNavigationStackEnabled="False"
                Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}" />
 
-        <ProgressRing Grid.Row="3"
+        <ProgressRing Grid.Row="4"
                       IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                       HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" />
 
-        <StackPanel Grid.Row="3" Spacing="12"
+        <StackPanel Grid.Row="4" Spacing="12"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind local:SessionPage.BoolToVisibility(ViewModel.IsEmpty), Mode=OneWay}">
             <TextBlock x:Uid="SessionPage_Empty"

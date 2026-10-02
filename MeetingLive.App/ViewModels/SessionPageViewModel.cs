@@ -18,7 +18,23 @@ public partial class SessionPageViewModel : ObservableObject
     public SessionPageViewModel()
     {
         AppServices.Workspace.MeetingChanged += OnMeetingChanged;
+        AppServices.Workspace.ScopeChanged += OnWorkspaceScopeChanged;
+        AppServices.Retranscription.StateChanged += OnRetranscriptionStateChanged;
+        AppServices.Retranscription.Finished += OnRetranscriptionFinished;
     }
+
+    /// <summary>Unhooks app-lifetime events; the page calls this when it is navigated away from.</summary>
+    public void Detach()
+    {
+        AppServices.Workspace.MeetingChanged -= OnMeetingChanged;
+        AppServices.Workspace.ScopeChanged -= OnWorkspaceScopeChanged;
+        AppServices.Retranscription.StateChanged -= OnRetranscriptionStateChanged;
+        AppServices.Retranscription.Finished -= OnRetranscriptionFinished;
+    }
+
+    /// <summary>Raised on the UI thread when a re-transcription of the open meeting ends, so the
+    /// page can reload the Transcript / Summary tab it is showing.</summary>
+    public event EventHandler? RetranscriptionFinished;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -37,6 +53,30 @@ public partial class SessionPageViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isCopyConfirmationOpen;
+
+    [ObservableProperty]
+    private bool _hasAudio;
+
+    [ObservableProperty]
+    private bool _isRetranscribing;
+
+    [ObservableProperty]
+    private bool _isRetranscribeBusy;
+
+    [ObservableProperty]
+    private string _retranscribeStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRetranscribeErrorOpen;
+
+    [ObservableProperty]
+    private string _retranscribeError = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRetranscribeNoticeOpen;
+
+    [ObservableProperty]
+    private string _retranscribeNotice = string.Empty;
 
     /// <summary>Copies <paramref name="text"/> (whatever the active tab is showing) and confirms it.</summary>
     public void Copy(string? text)
@@ -101,6 +141,10 @@ public partial class SessionPageViewModel : ObservableObject
 
     public bool CanRename => HasMeeting && !IsSuggestingTitle;
 
+    /// <summary>The Re-transcribe action is shown when the saved audio file exists and enabled
+    /// only while no recording, processing, or other re-transcription is running.</summary>
+    public bool CanRetranscribe => HasMeeting && HasAudio && !IsRetranscribeBusy;
+
     public async Task LoadAsync(Guid? meetingId)
     {
         IsLoading = true;
@@ -112,6 +156,7 @@ public partial class SessionPageViewModel : ObservableObject
                 Title = string.Empty;
                 HasMeeting = false;
                 HasTranscript = false;
+                HasAudio = false;
                 return;
             }
 
@@ -119,6 +164,8 @@ public partial class SessionPageViewModel : ObservableObject
             Title = record?.Title ?? string.Empty;
             HasMeeting = record is not null;
             HasTranscript = record is not null && !string.IsNullOrWhiteSpace(record.Transcript);
+            HasAudio = IsAudioAvailable(record);
+            SyncRetranscriptionState();
         }
         finally
         {
@@ -239,7 +286,77 @@ public partial class SessionPageViewModel : ObservableObject
             Title = record?.Title ?? string.Empty;
             HasMeeting = record is not null;
             HasTranscript = record is not null && !string.IsNullOrWhiteSpace(record.Transcript);
+            HasAudio = IsAudioAvailable(record);
         });
+    }
+
+    private static bool IsAudioAvailable(MeetingRecord? record) =>
+        MeetingRetranscription.Evaluate(record, isBusy: false) == RetranscriptionAvailability.Available;
+
+    /// <summary>Re-runs the post-Stop pipeline over the saved audio via the shared
+    /// <see cref="MeetingRetranscriptionRunner"/>. The caller confirms with the user first.</summary>
+    public async Task RetranscribeAsync()
+    {
+        if (_meetingId is not { } id || !CanRetranscribe)
+            return;
+
+        var record = await _meetings.GetByIdAsync(id);
+        if (MeetingRetranscription.Evaluate(record, AppServices.Retranscription.IsRunning)
+            != RetranscriptionAvailability.Available)
+        {
+            HasAudio = IsAudioAvailable(record);
+            return;
+        }
+
+        IsRetranscribeErrorOpen = false;
+        IsRetranscribeNoticeOpen = false;
+        await AppServices.Retranscription.StartAsync(
+            record!, EnsureSummaryModelAsync, EnsureCliProviderAsync, EnsureXaiProviderAsync);
+    }
+
+    public void CancelRetranscription() => AppServices.Retranscription.Cancel();
+
+    private void OnWorkspaceScopeChanged(object? sender, EventArgs e) => SyncRetranscriptionState();
+
+    private void OnRetranscriptionStateChanged(object? sender, EventArgs e) => SyncRetranscriptionState();
+
+    private void SyncRetranscriptionState()
+    {
+        var runner = AppServices.Retranscription;
+        IsRetranscribing = runner.IsRunning && runner.MeetingId == _meetingId;
+        RetranscribeStatus = IsRetranscribing ? runner.Status : string.Empty;
+        IsRetranscribeBusy = runner.IsRunning || AppServices.Workspace.IsCaptureActive;
+    }
+
+    private void OnRetranscriptionFinished(object? sender, RetranscriptionResult result)
+    {
+        if (result.MeetingId != _meetingId)
+            return;
+
+        switch (result.Outcome)
+        {
+            case RetranscriptionOutcome.Failed or RetranscriptionOutcome.SummaryFailed:
+                RetranscribeError = result.Message ?? string.Empty;
+                IsRetranscribeErrorOpen = true;
+                break;
+            case RetranscriptionOutcome.Cancelled:
+                ShowRetranscribeNotice("SessionRetranscribe_Cancelled");
+                break;
+            case RetranscriptionOutcome.TranscriptOnly:
+                ShowRetranscribeNotice("SessionRetranscribe_DoneNoSummary");
+                break;
+            default:
+                ShowRetranscribeNotice("SessionRetranscribe_Done");
+                break;
+        }
+
+        RetranscriptionFinished?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ShowRetranscribeNotice(string resourceKey)
+    {
+        RetranscribeNotice = AppStrings.Get(resourceKey);
+        IsRetranscribeNoticeOpen = true;
     }
 
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
@@ -249,7 +366,12 @@ public partial class SessionPageViewModel : ObservableObject
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(CanSuggestTitle));
         OnPropertyChanged(nameof(CanRename));
+        OnPropertyChanged(nameof(CanRetranscribe));
     }
+
+    partial void OnHasAudioChanged(bool value) => OnPropertyChanged(nameof(CanRetranscribe));
+
+    partial void OnIsRetranscribeBusyChanged(bool value) => OnPropertyChanged(nameof(CanRetranscribe));
 
     partial void OnHasTranscriptChanged(bool value) => OnPropertyChanged(nameof(CanSuggestTitle));
 

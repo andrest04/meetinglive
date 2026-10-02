@@ -27,6 +27,14 @@ public sealed partial class SessionPage : Page
             ViewModel.EnsureCliProviderAsync = kind => CliProviderResolver.EnsureAvailableAsync(kind, XamlRoot);
             ViewModel.EnsureXaiProviderAsync = () => XaiProviderResolver.EnsureAvailableAsync(XamlRoot);
         };
+        ViewModel.RetranscriptionFinished += (_, _) =>
+            NavigateInner(AppServices.Workspace.SessionTab, AppServices.Workspace.SelectedMeetingId);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        ViewModel.Detach();
     }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
@@ -96,6 +104,28 @@ public sealed partial class SessionPage : Page
         if (SessionFrame.Content is ISessionCopySource source)
             ViewModel.Copy(source.GetCopyText());
     }
+
+    private async void Retranscribe_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.CanRetranscribe)
+            return;
+
+        var dialog = AppDialogFactory.CreateConfirm(
+            XamlRoot,
+            AppStrings.Get("SessionRetranscribe_Title"),
+            AppStrings.Format("SessionRetranscribe_Content", ViewModel.Title),
+            AppStrings.Get("SessionRetranscribe_Primary"),
+            AppStrings.Get("SessionRetranscribe_Cancel"),
+            ContentDialogButton.Close);
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        await ViewModel.RetranscribeAsync();
+    }
+
+    private void CancelRetranscribe_Click(object sender, RoutedEventArgs e) =>
+        ViewModel.CancelRetranscription();
 
     private async void OpenLocation_Click(object sender, RoutedEventArgs e) =>
         await ViewModel.OpenFileLocationAsync();

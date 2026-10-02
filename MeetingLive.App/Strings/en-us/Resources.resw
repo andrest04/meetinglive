@@ -37,6 +37,20 @@
   <data name="SessionPage_OpenLocation.ToolTipService.ToolTip" xml:space="preserve"><value>Open file location</value></data>
   <data name="SessionPage_CopyConfirmation.Title" xml:space="preserve"><value>Copied</value></data>
   <data name="SessionPage_CopyConfirmation.Message" xml:space="preserve"><value>Copied to the clipboard.</value></data>
+  <data name="SessionPage_Retranscribe.AutomationProperties.Name" xml:space="preserve"><value>Re-transcribe</value></data>
+  <data name="SessionPage_Retranscribe.ToolTipService.ToolTip" xml:space="preserve"><value>Re-transcribe from the saved audio</value></data>
+  <data name="SessionPage_RetranscribeProgress.AutomationProperties.Name" xml:space="preserve"><value>Re-transcription progress</value></data>
+  <data name="SessionPage_RetranscribeCancel.Content" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SessionPage_RetranscribeCancel.AutomationProperties.Name" xml:space="preserve"><value>Cancel re-transcription</value></data>
+  <data name="SessionPage_RetranscribeError.Title" xml:space="preserve"><value>Re-transcription failed</value></data>
+  <data name="SessionPage_RetranscribeNotice.Title" xml:space="preserve"><value>Re-transcription</value></data>
+  <data name="SessionRetranscribe_Title" xml:space="preserve"><value>Re-transcribe this meeting?</value></data>
+  <data name="SessionRetranscribe_Content" xml:space="preserve"><value>Re-transcribing "{0}" replaces its transcript with a new one made from the saved audio, then regenerates the summary. Any edits to the current summary will be lost.</value></data>
+  <data name="SessionRetranscribe_Primary" xml:space="preserve"><value>Re-transcribe</value></data>
+  <data name="SessionRetranscribe_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SessionRetranscribe_Done" xml:space="preserve"><value>Re-transcribed. The transcript and summary were updated.</value></data>
+  <data name="SessionRetranscribe_DoneNoSummary" xml:space="preserve"><value>Re-transcribed. The transcript was updated, but no summary was generated.</value></data>
+  <data name="SessionRetranscribe_Cancelled" xml:space="preserve"><value>Re-transcription cancelled.</value></data>
   <data name="SessionRename_Title" xml:space="preserve"><value>Rename meeting</value></data>
   <data name="SessionRename_Primary" xml:space="preserve"><value>Rename</value></data>
   <data name="SessionRename_Cancel" xml:space="preserve"><value>Cancel</value></data>

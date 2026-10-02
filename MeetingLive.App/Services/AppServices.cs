@@ -85,6 +85,8 @@ public static class AppServices
 
     public static WorkspaceService Workspace { get; } = new();
 
+    public static MeetingRetranscriptionRunner Retranscription { get; } = new(Transcription, Meetings);
+
     /// <summary>
     /// Creates a summary provider for the given <paramref name="kind"/>. A factory (rather
     /// than a singleton) because the selection can change between recordings, and the Local
