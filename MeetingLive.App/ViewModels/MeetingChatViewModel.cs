@@ -35,6 +35,10 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     [ObservableProperty]
     private string _scopeLabel = string.Empty;
 
+    /// <summary>Segoe Fluent glyph shown next to <see cref="ScopeLabel"/> in the header chip.</summary>
+    [ObservableProperty]
+    private string _scopeGlyph = ScopeGlyphFor(ChatScopeKind.AllMeetings);
+
     [ObservableProperty]
     private bool _isVisible = true;
 
@@ -400,6 +404,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         if (scopeChanged)
             IsExpanded = false;
         ScopeLabel = label;
+        ScopeGlyph = ScopeGlyphFor(decision.Kind);
         OnPropertyChanged(nameof(PrefersMultipleRecipes));
         OnPropertyChanged(nameof(ShowPersonalTasksRecipe));
         OnPropertyChanged(nameof(CurrentMeetingId));
@@ -445,6 +450,14 @@ public sealed partial class MeetingChatViewModel : ObservableObject
                 return AppStrings.Get("Chat_ScopeAll");
         }
     }
+
+    private static string ScopeGlyphFor(ChatScopeKind kind) => kind switch
+    {
+        ChatScopeKind.Live => "",
+        ChatScopeKind.Meeting => "",
+        ChatScopeKind.Folder => "",
+        _ => "",
+    };
 
     private async Task PersistTurnAsync(
         ChatThread? open,

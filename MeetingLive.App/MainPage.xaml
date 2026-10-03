@@ -72,12 +72,31 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LblMeetingChatScope"
-                                       Text="{x:Bind Chat.ScopeLabel, Mode=OneWay}"
-                                       Style="{ThemeResource BodyStrongTextBlockStyle}"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       AutomationProperties.AutomationId="LblMeetingChatScope" />
+                            <Border HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Padding="10,4"
+                                    CornerRadius="12"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1">
+                                <Grid ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="{x:Bind Chat.ScopeGlyph, Mode=OneWay}"
+                                              FontSize="14"
+                                              VerticalAlignment="Center"
+                                              AutomationProperties.AccessibilityView="Raw" />
+                                    <TextBlock x:Name="LblMeetingChatScope"
+                                               Grid.Column="1"
+                                               Text="{x:Bind Chat.ScopeLabel, Mode=OneWay}"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               AutomationProperties.AutomationId="LblMeetingChatScope" />
+                                </Grid>
+                            </Border>
                             <Button x:Name="BtnMeetingChatHistory"
                                     Grid.Column="1"
                                     x:Uid="Chat_History"
