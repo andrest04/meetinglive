@@ -114,12 +114,15 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         if (IsSending || !_decision.IsVisible)
             return;
 
-        var userMessage = Draft.Trim();
+        var originalDraft = Draft;
+        var userMessage = originalDraft.Trim();
         if (userMessage.Length == 0)
             return;
 
         IsSending = true;
         ClearError();
+        var (userItem, pendingItem) = AddOptimisticTurn(userMessage);
+        Draft = string.Empty;
         try
         {
             var decision = _decision;
@@ -200,12 +203,14 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             {
                 await InvokeOnUiAsync(() =>
                 {
+                    RollBackOptimisticTurn(userItem, pendingItem, originalDraft);
                     IsSending = false;
                     return Task.CompletedTask;
                 });
             }
             catch (Exception ex)
             {
+                RollBackOptimisticTurn(userItem, pendingItem, originalDraft);
                 IsSending = false;
                 ShowError(AppStrings.Format("Chat_SendFailed", ex.Message));
             }
@@ -470,7 +475,6 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         }
 
         _openThread = thread;
-        Draft = string.Empty;
         ShowMessages(thread.Messages);
         UpdateMismatch();
         await RefreshThreadsAsync();
@@ -517,6 +521,42 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         foreach (var message in messages)
             Messages.Add(ToMessageItem(message));
         HasMessages = Messages.Count > 0;
+    }
+
+    private (ChatMessageItem User, ChatMessageItem Pending) AddOptimisticTurn(string userMessage)
+    {
+        var user = new ChatMessageItem
+        {
+            Id = Guid.NewGuid(),
+            Role = ChatMessage.UserRole,
+            Text = userMessage,
+            RoleLabel = AppStrings.Get("Chat_RoleUser"),
+        };
+        var pending = new ChatMessageItem
+        {
+            Id = Guid.NewGuid(),
+            Role = ChatMessage.AssistantRole,
+            Text = string.Empty,
+            RoleLabel = AppStrings.Get("Chat_RoleAssistant"),
+            IsAssistant = true,
+            IsPending = true,
+        };
+        Messages.Add(user);
+        Messages.Add(pending);
+        HasMessages = true;
+        return (user, pending);
+    }
+
+    // A successful turn rebuilds Messages, so the optimistic rows are only still present after a failure.
+    private void RollBackOptimisticTurn(ChatMessageItem user, ChatMessageItem pending, string originalDraft)
+    {
+        Messages.Remove(pending);
+        if (!Messages.Remove(user))
+            return;
+
+        HasMessages = Messages.Count > 0;
+        if (string.IsNullOrEmpty(Draft))
+            Draft = originalDraft;
     }
 
     private void UpdateMismatch()

@@ -11,6 +11,8 @@ public sealed class ChatMessageItem
     public required string RoleLabel { get; init; }
 
     public bool IsAssistant { get; init; }
+
+    public bool IsPending { get; init; }
 }
 
 public sealed class ChatThreadItem
