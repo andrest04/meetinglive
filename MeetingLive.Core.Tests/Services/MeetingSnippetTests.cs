@@ -9,7 +9,7 @@ public class MeetingSnippetTests
     {
         var snippet = MeetingSnippet.From("### Notes\nShip it", "raw transcript");
 
-        Assert.Equal("Notes Ship it", snippet);
+        Assert.Equal("Ship it", snippet);
     }
 
     [Fact]
@@ -37,7 +37,38 @@ public class MeetingSnippetTests
 
         var snippet = MeetingSnippet.FromMarkdown(markdown);
 
-        Assert.Equal("What this was We agreed to ship the beta with care.", snippet);
+        Assert.Equal("We agreed to ship the beta with care.", snippet);
+    }
+
+    [Fact]
+    public void FromMarkdown_WhenOnlyHeadings_KeepsHeadingText()
+    {
+        var snippet = MeetingSnippet.FromMarkdown("## Decisions\n### Next steps");
+
+        Assert.Equal("Decisions Next steps", snippet);
+    }
+
+    [Fact]
+    public void From_WhenSummaryMissing_DropsTranscriptHeadersStampsAndSpeakerTags()
+    {
+        const string transcript = """
+            Recorded 2026-09-28 17:11
+            Ended 2026-09-28 17:11
+            [00:00.00-00:04.40] [ Speaker-1 ] Hello team
+            [00:04.40-00:06.00] Goodbye
+            """;
+
+        var snippet = MeetingSnippet.From(null, transcript);
+
+        Assert.Equal("Hello team Goodbye", snippet);
+    }
+
+    [Fact]
+    public void From_WhenTranscriptHasOnlyHeaders_ReturnsEmpty()
+    {
+        var snippet = MeetingSnippet.From(null, "Recorded 2026-09-28 17:11\nEnded 2026-09-28 17:11");
+
+        Assert.Equal(string.Empty, snippet);
     }
 
     [Fact]

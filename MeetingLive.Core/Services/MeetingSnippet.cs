@@ -4,8 +4,9 @@ namespace MeetingLive.Core.Services;
 
 /// <summary>
 /// Turns meeting summary/transcript Markdown into a single-line list snippet.
-/// Strips common markers (ATX headings, emphasis, backticks), collapses
-/// whitespace, and truncates to <see cref="MaxLength"/> characters.
+/// Skips ATX heading lines when there is body text (section titles read as noise in a preview),
+/// strips emphasis and backticks, collapses whitespace, and truncates to <see cref="MaxLength"/>.
+/// The transcript fallback drops the <c>Recorded</c>/<c>Ended</c> headers, elapsed stamps, and speaker tags.
 /// </summary>
 public static class MeetingSnippet
 {
@@ -13,8 +14,10 @@ public static class MeetingSnippet
 
     public static string From(string? summary, string? transcript)
     {
-        var source = !string.IsNullOrWhiteSpace(summary) ? summary : transcript;
-        return FromMarkdown(source);
+        if (!string.IsNullOrWhiteSpace(summary))
+            return FromMarkdown(summary);
+
+        return FromMarkdown(TranscriptBody(transcript));
     }
 
     public static string FromMarkdown(string? markdown)
@@ -23,32 +26,63 @@ public static class MeetingSnippet
             return string.Empty;
 
         var normalized = markdown.Replace("\r\n", "\n").Replace('\r', '\n');
-        var builder = new StringBuilder(normalized.Length);
+        var body = new StringBuilder(normalized.Length);
+        var headings = new StringBuilder();
         foreach (var rawLine in normalized.Split('\n'))
         {
+            var isHeading = IsHeading(rawLine.Trim());
             var line = StripMarkers(rawLine);
             if (line.Length == 0)
                 continue;
 
-            if (builder.Length > 0)
-                builder.Append(' ');
-            builder.Append(line);
+            var target = isHeading ? headings : body;
+            if (target.Length > 0)
+                target.Append(' ');
+            target.Append(line);
         }
 
-        var collapsed = CollapseWhitespace(builder.ToString());
+        var collapsed = CollapseWhitespace(body.Length > 0 ? body.ToString() : headings.ToString());
         if (collapsed.Length <= MaxLength)
             return collapsed;
 
         return collapsed[..MaxLength] + "…";
     }
 
-    private static string StripMarkers(string line)
+    private static string TranscriptBody(string? transcript)
     {
-        var trimmed = line.Trim();
+        var builder = new StringBuilder();
+        foreach (var line in CommittedTranscriptLine.Split(transcript))
+        {
+            if (CommittedTranscriptLine.IsHeader(line))
+                continue;
+
+            var text = CommittedTranscriptLine.ExtractBody(line);
+            if (text.Length == 0)
+                continue;
+
+            if (builder.Length > 0)
+                builder.Append('\n');
+            builder.Append(text);
+        }
+
+        return builder.ToString();
+    }
+
+    private static int HeadingLevel(string trimmed)
+    {
         var hashCount = 0;
         while (hashCount < trimmed.Length && hashCount < 6 && trimmed[hashCount] == '#')
             hashCount++;
-        if (hashCount > 0 && (hashCount == trimmed.Length || char.IsWhiteSpace(trimmed[hashCount])))
+        return hashCount > 0 && (hashCount == trimmed.Length || char.IsWhiteSpace(trimmed[hashCount])) ? hashCount : 0;
+    }
+
+    private static bool IsHeading(string trimmed) => HeadingLevel(trimmed) > 0;
+
+    private static string StripMarkers(string line)
+    {
+        var trimmed = line.Trim();
+        var hashCount = HeadingLevel(trimmed);
+        if (hashCount > 0)
             trimmed = trimmed[hashCount..].TrimStart();
 
         return trimmed
