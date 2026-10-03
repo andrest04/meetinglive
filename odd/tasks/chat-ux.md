@@ -34,9 +34,10 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
   - Commit `88d4c3c`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. `StarterRecipes` (first 4 scope recipes) + `ShowStarterRecipes` (`!HasMessages && !IsSending`), rendered as rounded chip Buttons in an `ItemsControl` with the Toolkit 7.1.2 `WrapPanel` (already referenced through the Markdown package); added `Chat_Starters.AutomationProperties.Name` (en/es).
 - [x] T6 Scope chip: show the chat scope (this meeting / this folder / all meetings) as an icon + label in the Expander header instead of plain text. Route: delegated (writer). Checks: app build.
   - Commit `f32b639`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. VM `ScopeGlyph` (Live E720, Meeting E7C3, Folder E8B7, All E8F1) next to the unchanged `ScopeLabel` text inside a rounded subtle Border; `LblMeetingChatScope` AutomationId kept.
-- [ ] T7 Clickable citations: pack `Id:` per meeting; prompt asks to cite meetings as `[Title, date](meeting://<id>)` using only context IDs; assistant `MarkdownTextBlock.LinkClicked` opens the meeting via `AppServices.Workspace.SelectMeeting` + `OpenSession(TabSummary)`; other http(s) links open in the browser. Route: delegated (writer). Checks: RED/GREEN `ChatContextPackerTests` / `ChatPromptBuilderTests`, app build.
+- [x] T7 Clickable citations: pack `Id:` per meeting; prompt asks to cite meetings as `[Title, date](meeting://<id>)` using only context IDs; assistant `MarkdownTextBlock.LinkClicked` opens the meeting via `AppServices.Workspace.SelectMeeting` + `OpenSession(TabSummary)`; other http(s) links open in the browser. Route: delegated (writer). Checks: RED/GREEN `ChatContextPackerTests` / `ChatPromptBuilderTests`, app build.
   - Deviation: links use `https://meetinglive.local/meeting/<id N>` (`ChatPromptBuilder.MeetingLink` / `TryParseMeetingLink`) instead of `meeting://`. The Toolkit 7.1.2 Markdown parser drops links whose scheme is not in its `KnownSchemes` allow-list (`IsUrlValid`), so a custom scheme would render as plain text.
-  - Core commit: the `feat(chat): pack meeting ids and ask for cited meeting links` commit. RED (stubs): filtered chat tests `Failed: 4, Passed: 19`. GREEN: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 812`. UI link handling: pending.
+  - Core commit `5ef998a`. RED (stubs): filtered chat tests `Failed: 4, Passed: 19`. GREEN: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 812`.
+  - UI commit: the `feat(chat): open cited meetings from chat answers` commit. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. `LinkClicked` opens existing meetings on the Summary tab, shows `Chat_MeetingLinkMissing` (en/es) for deleted ones, and launches other http(s) links in the browser. A real click in the running app has not been checked yet.
 - [ ] T8 Streaming: `StreamPromptAsync` default method; real streaming for `LocalLlmSummaryProvider` (InferAsync tokens) and `XaiSummaryProvider` (`stream: true` SSE); chat appends chunks to the pending row (observable `Text`, batched on the UI thread), then persists the full answer. Route: delegated (writer). Checks: RED/GREEN provider tests, app build.
 
 ## Acceptance criteria
@@ -48,4 +49,4 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 - Document created; branch `feat/chat-ux`. T1–T3 done and launch-verified. T4–T8 approved by the user ("vamos con todo").
 
 ## Next step
-T4.
+Launch check of T4–T7 (header buttons do not toggle the expander, starter chips, scope chip, citation click), then T8.

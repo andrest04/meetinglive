@@ -237,6 +237,8 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         ShowError(AppStrings.Format("Chat_SendFailed", exception.Message));
     }
 
+    public void ShowMeetingLinkMissing() => ShowError(AppStrings.Get("Chat_MeetingLinkMissing"));
+
     public async Task RefreshThreadsAsync()
     {
         var threads = await _threads.GetAllAsync();

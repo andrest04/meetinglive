@@ -222,6 +222,7 @@
                                                 <md:MarkdownTextBlock Text="{x:Bind Text, Mode=OneTime}"
                                                                       TextWrapping="WrapWholeWords"
                                                                       Background="Transparent"
+                                                                      LinkClicked="ChatMarkdown_LinkClicked"
                                                                       Visibility="{x:Bind local:MainPage.BoolToVisibility(HasAnswer), Mode=OneTime}" />
                                                 <StackPanel Orientation="Horizontal"
                                                             Spacing="8"

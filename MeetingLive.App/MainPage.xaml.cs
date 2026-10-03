@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 using MeetingLive_App.Dialogs;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
@@ -314,6 +315,35 @@ public sealed partial class MainPage : Page
         try
         {
             await Chat.DeleteThreadAsync(id);
+        }
+        catch (Exception ex)
+        {
+            Chat.ShowSendError(ex);
+        }
+    }
+
+    private async void ChatMarkdown_LinkClicked(object? sender, CommunityToolkit.WinUI.UI.Controls.LinkClickedEventArgs e)
+    {
+        try
+        {
+            if (ChatPromptBuilder.TryParseMeetingLink(e.Link, out var meetingId))
+            {
+                if (await AppServices.Meetings.GetByIdAsync(meetingId) is null)
+                {
+                    Chat.ShowMeetingLinkMissing();
+                    return;
+                }
+
+                AppServices.Workspace.SelectMeeting(meetingId);
+                AppServices.Workspace.OpenSession(WorkspaceService.TabSummary);
+                return;
+            }
+
+            if (Uri.TryCreate(e.Link, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp))
+            {
+                await Launcher.LaunchUriAsync(uri);
+            }
         }
         catch (Exception ex)
         {
