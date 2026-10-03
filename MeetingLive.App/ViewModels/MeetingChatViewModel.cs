@@ -106,6 +106,8 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         Draft = string.Empty;
         ClearError();
         UpdateMismatch();
+        // The header actions stay reachable while collapsed; starting a chat should reveal the composer.
+        IsExpanded = true;
     }
 
     [RelayCommand(CanExecute = nameof(CanSend))]
@@ -258,6 +260,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         _openThread = thread;
         ShowMessages(thread.Messages);
         UpdateMismatch();
+        IsExpanded = true;
     }
 
     public async Task DeleteThreadAsync(Guid id)

@@ -66,13 +66,85 @@
                           Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsVisible), Mode=OneWay}"
                           AutomationProperties.AutomationId="BarMeetingChat">
                     <Expander.Header>
-                        <Grid MinWidth="240">
+                        <Grid MinWidth="240" ColumnSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
                             <TextBlock x:Name="LblMeetingChatScope"
                                        Text="{x:Bind Chat.ScopeLabel, Mode=OneWay}"
                                        Style="{ThemeResource BodyStrongTextBlockStyle}"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        AutomationProperties.AutomationId="LblMeetingChatScope" />
+                            <Button x:Name="BtnMeetingChatHistory"
+                                    Grid.Column="1"
+                                    x:Uid="Chat_History"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    AutomationProperties.AutomationId="BtnMeetingChatHistory">
+                                <FontIcon Glyph="&#xE81C;" FontSize="16" />
+                                <Button.Flyout>
+                                    <Flyout x:Name="ChatHistoryFlyout"
+                                            Placement="TopEdgeAlignedRight"
+                                            Opening="ChatHistoryFlyout_Opening">
+                                        <Grid Width="320" RowSpacing="8">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock x:Uid="Chat_HistoryEmpty"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsHistoryEmpty), Mode=OneWay}" />
+                                            <ListView Grid.Row="1"
+                                                      MaxHeight="280"
+                                                      SelectionMode="None"
+                                                      IsItemClickEnabled="True"
+                                                      ItemsSource="{x:Bind Chat.Threads, Mode=OneWay}"
+                                                      ItemClick="ChatThread_ItemClick"
+                                                      AutomationProperties.AutomationId="ListMeetingChatHistory">
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ChatThreadItem">
+                                                        <Grid ColumnSpacing="8">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Spacing="2">
+                                                                <TextBlock Text="{x:Bind Title, Mode=OneTime}"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{x:Bind UpdatedLabel, Mode=OneTime}"
+                                                                           Style="{ThemeResource CaptionTextBlockStyle}"
+                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            </StackPanel>
+                                                            <Button Grid.Column="1"
+                                                                    x:Uid="Chat_DeleteThread"
+                                                                    Click="DeleteChatThread_Click"
+                                                                    Tag="{x:Bind Id}"
+                                                                    VerticalAlignment="Center">
+                                                                <FontIcon Glyph="&#xE74D;" FontSize="16" />
+                                                            </Button>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                        </Grid>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button x:Name="BtnMeetingChatNew"
+                                    Grid.Column="2"
+                                    x:Uid="Chat_New"
+                                    Command="{x:Bind Chat.NewChatCommand}"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    AutomationProperties.AutomationId="BtnMeetingChatNew">
+                                <FontIcon Glyph="&#xE710;" FontSize="16" />
+                            </Button>
                         </Grid>
                     </Expander.Header>
                     <Grid RowSpacing="8" Padding="12">
@@ -182,8 +254,6 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="TxtMeetingChat"
                                      x:Uid="Chat_Composer"
@@ -285,69 +355,6 @@
                                         </Grid>
                                     </Flyout>
                                 </Button.Flyout>
-                            </Button>
-                            <Button x:Name="BtnMeetingChatHistory"
-                                    Grid.Column="4"
-                                    x:Uid="Chat_History"
-                                    VerticalAlignment="Bottom"
-                                    AutomationProperties.AutomationId="BtnMeetingChatHistory">
-                                <FontIcon Glyph="&#xE81C;" FontSize="16" />
-                                <Button.Flyout>
-                                    <Flyout x:Name="ChatHistoryFlyout"
-                                            Placement="TopEdgeAlignedRight"
-                                            Opening="ChatHistoryFlyout_Opening">
-                                        <Grid Width="320" RowSpacing="8">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <TextBlock x:Uid="Chat_HistoryEmpty"
-                                                       TextWrapping="Wrap"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                       Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.IsHistoryEmpty), Mode=OneWay}" />
-                                            <ListView Grid.Row="1"
-                                                      MaxHeight="280"
-                                                      SelectionMode="None"
-                                                      IsItemClickEnabled="True"
-                                                      ItemsSource="{x:Bind Chat.Threads, Mode=OneWay}"
-                                                      ItemClick="ChatThread_ItemClick"
-                                                      AutomationProperties.AutomationId="ListMeetingChatHistory">
-                                                <ListView.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:ChatThreadItem">
-                                                        <Grid ColumnSpacing="8">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <StackPanel Spacing="2">
-                                                                <TextBlock Text="{x:Bind Title, Mode=OneTime}"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text="{x:Bind UpdatedLabel, Mode=OneTime}"
-                                                                           Style="{ThemeResource CaptionTextBlockStyle}"
-                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                            </StackPanel>
-                                                            <Button Grid.Column="1"
-                                                                    x:Uid="Chat_DeleteThread"
-                                                                    Click="DeleteChatThread_Click"
-                                                                    Tag="{x:Bind Id}"
-                                                                    VerticalAlignment="Center">
-                                                                <FontIcon Glyph="&#xE74D;" FontSize="16" />
-                                                            </Button>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ListView.ItemTemplate>
-                                            </ListView>
-                                        </Grid>
-                                    </Flyout>
-                                </Button.Flyout>
-                            </Button>
-                            <Button x:Name="BtnMeetingChatNew"
-                                    Grid.Column="5"
-                                    x:Uid="Chat_New"
-                                    Command="{x:Bind Chat.NewChatCommand}"
-                                    VerticalAlignment="Bottom"
-                                    AutomationProperties.AutomationId="BtnMeetingChatNew">
-                                <FontIcon Glyph="&#xE710;" FontSize="16" />
                             </Button>
                         </Grid>
                     </Grid>
