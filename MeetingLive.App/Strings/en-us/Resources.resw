@@ -300,7 +300,7 @@
 {0}</value></data>
   <data name="Dialog_OK" xml:space="preserve"><value>OK</value></data>
   <data name="Library_Inbox" xml:space="preserve"><value>Inbox</value></data>
-  <data name="Library_NewFolder.Content" xml:space="preserve"><value>New folder</value></data>
+  <data name="Library_NewFolderLabel.Text" xml:space="preserve"><value>New folder</value></data>
   <data name="LibraryContext_Rename" xml:space="preserve"><value>Rename</value></data>
   <data name="LibraryContext_Personality" xml:space="preserve"><value>Personality</value></data>
   <data name="LibraryContext_Delete" xml:space="preserve"><value>Delete folder</value></data>

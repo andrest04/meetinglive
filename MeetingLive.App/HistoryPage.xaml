@@ -31,6 +31,8 @@
                     <VisualState.Setters>
                         <Setter Target="FolderSplitView.DisplayMode" Value="Overlay" />
                         <Setter Target="FolderSplitView.IsPaneOpen" Value="False" />
+                        <!-- Overlay floats over the list, so it needs a solid surface; inline (wide) stays transparent. -->
+                        <Setter Target="FolderSplitView.PaneBackground" Value="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
                         <Setter Target="FoldersToggleButton.Visibility" Value="Visible" />
                     </VisualState.Setters>
                 </VisualState>
@@ -51,8 +53,13 @@
                               AutomationProperties.AutomationId="BtnLibraryFoldersToggle">
                     <FontIcon Glyph="&#xE8B7;" />
                 </ToggleButton>
-                <Button x:Uid="Library_NewFolder" Click="NewFolder_Click"
-                        AutomationProperties.AutomationId="BtnLibraryNewFolder" />
+                <Button Click="NewFolder_Click"
+                        AutomationProperties.AutomationId="BtnLibraryNewFolder">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE8F4;" FontSize="16" />
+                        <TextBlock x:Uid="Library_NewFolderLabel" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Grid>
 
@@ -79,6 +86,7 @@
                        Visibility="{x:Bind local:HistoryPage.InvertBoolToVisibility(ViewModel.IsLoading), Mode=OneWay}"
                        IsPaneOpen="True"
                        DisplayMode="Inline"
+                       PaneBackground="Transparent"
                        PanePlacement="Left"
                        OpenPaneLength="260">
                 <SplitView.Pane>
@@ -99,7 +107,7 @@
                                             <Border Width="8" Height="8" CornerRadius="4"
                                                     VerticalAlignment="Center"
                                                     Background="{x:Bind local:HistoryPage.FolderAccentBrush(ColorKey, FolderId)}"
-                                                    Visibility="{x:Bind local:HistoryPage.FolderAccentVisibility(FolderId)}" />
+                                                    Opacity="{x:Bind local:HistoryPage.FolderAccentOpacity(FolderId)}" />
                                             <FontIcon Glyph="{x:Bind local:HistoryPage.FolderGlyph(FolderId, IconKey)}"
                                                       FontSize="16"
                                                       Foreground="{x:Bind local:HistoryPage.FolderAccentBrush(ColorKey, FolderId)}"
@@ -178,29 +186,42 @@
                                              Tag="{x:Bind Id}"
                                              ContextRequested="MeetingRow_ContextRequested"
                                              Padding="16,12">
-                                         <Grid ColumnSpacing="12">
+                                         <!-- Title and date share the first line (date right-aligned, caption), snippet below.
+                                              The overflow button is subtle so the row content leads; the whole row stays the click target. -->
+                                         <Grid ColumnSpacing="12" RowSpacing="2">
                                              <Grid.ColumnDefinitions>
                                                  <ColumnDefinition Width="*" />
                                                  <ColumnDefinition Width="Auto" />
+                                                 <ColumnDefinition Width="Auto" />
                                              </Grid.ColumnDefinitions>
+                                             <Grid.RowDefinitions>
+                                                 <RowDefinition Height="Auto" />
+                                                 <RowDefinition Height="Auto" />
+                                             </Grid.RowDefinitions>
 
-                                             <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
-                                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                                     <TextBlock Text="{x:Bind Title}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                                     <TextBlock Text="{x:Bind local:HistoryPage.FormattedDate(RecordedAt)}"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                 </StackPanel>
-                                                 <TextBlock Text="{x:Bind local:HistoryPage.Snippet(Summary, Transcript)}"
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            TextTrimming="CharacterEllipsis" MaxLines="1" />
-                                             </StackPanel>
+                                             <TextBlock Text="{x:Bind Title}"
+                                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                        TextTrimming="CharacterEllipsis"
+                                                        TextWrapping="NoWrap" />
+                                             <TextBlock Grid.Column="1"
+                                                        Text="{x:Bind local:HistoryPage.FormattedDate(RecordedAt)}"
+                                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                        VerticalAlignment="Center" />
+                                             <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                                                        Text="{x:Bind local:HistoryPage.Snippet(Summary, Transcript)}"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                        TextTrimming="CharacterEllipsis" MaxLines="1" />
 
-                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                 <Button x:Uid="HistoryRow_More" Click="MeetingMore_Click" Tag="{x:Bind Id}"
-                                                         AutomationProperties.AutomationId="BtnHistoryMore">
-                                                     <FontIcon Glyph="&#xE712;" />
-                                                 </Button>
-                                             </StackPanel>
+                                             <Button Grid.Column="2" Grid.RowSpan="2"
+                                                     x:Uid="HistoryRow_More" Click="MeetingMore_Click" Tag="{x:Bind Id}"
+                                                     Width="36" Height="36" Padding="0"
+                                                     VerticalAlignment="Center"
+                                                     Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                                                     BorderThickness="0"
+                                                     AutomationProperties.AutomationId="BtnHistoryMore">
+                                                 <FontIcon Glyph="&#xE712;" FontSize="16" />
+                                             </Button>
                                          </Grid>
                                      </Border>
                                  </DataTemplate>

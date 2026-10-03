@@ -19,15 +19,15 @@ Make the Record, Summary, and Library pages use the window well: reachable conte
 
 ## Tasks
 - [x] T1 Record page scroll + Summary single toolbar and reading width — route: inline (2 XAML files, mechanical). Checks: app build 0 errors, launched.
-- [ ] T2 `MeetingSnippet`: skip heading lines when body text exists; transcript fallback drops `Recorded`/`Ended` headers, stamps, and speaker tags — route: inline (1 file + tests). Checks: RED/GREEN `MeetingSnippetTests`.
-- [ ] T3 Library visual polish (row hierarchy, subtle overflow, date on the right, pane background, New folder icon) — route: inline (1 XAML + strings). Checks: app build, launch.
+- [x] T2 `MeetingSnippet`: skip heading lines when body text exists; transcript fallback drops `Recorded`/`Ended` headers, stamps, and speaker tags — route: inline (1 file + tests). Checks: RED/GREEN `MeetingSnippetTests`.
+- [x] T3 Library visual polish (row hierarchy, subtle overflow, date on the right, pane background, New folder icon) — route: inline (1 XAML + strings). Checks: app build, launch.
 
 ## Acceptance criteria
 - Library snippets start with summary body text, never with a heading or a `[mm:ss.ff-…]` stamp.
 - Library rows show title, snippet, and one date; overflow button is subtle.
 
 ## Progress
-- T1 done, uncommitted at document creation.
+- T1 1165c2a. T2 f136bb8: RED 4 failing, GREEN 802 tests (one unrelated flaky timeout in CliProcessRunnerTests under full-suite load; passes alone, also on base). T3: app build 0 errors, screenshot verified Library rows, pane, and alignment. Review consent declined for T1 candidate by the user.
 
 ## Next step
-T2.
+Done. Optional: merge Transcript/Summary tabs on the meeting page (product decision).

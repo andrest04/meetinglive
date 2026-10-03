@@ -292,8 +292,8 @@ public sealed partial class HistoryPage : Page
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
 
-    public static Visibility FolderAccentVisibility(Guid? folderId) =>
-        folderId is null ? Visibility.Collapsed : Visibility.Visible;
+    // Opacity, not Visibility: the inbox keeps the dot slot so every folder name lines up.
+    public static double FolderAccentOpacity(Guid? folderId) => folderId is null ? 0 : 1;
 
     public static string FolderGlyph(Guid? folderId, string? iconKey) =>
         folderId is null ? "\uE716" : FolderIcon.ResolveGlyph(iconKey);
