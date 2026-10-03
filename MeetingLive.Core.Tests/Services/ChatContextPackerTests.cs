@@ -173,7 +173,10 @@ public class ChatContextPackerTests
         var packed = Pack(ChatScopeKind.Meeting, meetingId: meeting.Id, meetings: [meeting]);
 
         Assert.Contains("Sprint review", packed);
-        Assert.Contains(meeting.RecordedAt.ToString("O", CultureInfo.InvariantCulture), packed);
+        Assert.Contains(
+            "Recorded: " + meeting.RecordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            packed);
+        Assert.DoesNotContain(meeting.RecordedAt.ToString("O", CultureInfo.InvariantCulture), packed);
         Assert.Contains("Agreed on the composer", packed);
         Assert.Contains("Ship the notes", packed);
         Assert.Contains("Personal note", packed);

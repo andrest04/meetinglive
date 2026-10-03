@@ -25,6 +25,22 @@ public class ChatPromptBuilderTests
     }
 
     [Fact]
+    public void Build_AnyScope_AsksForMarkdownAndReadableMeetingReferences()
+    {
+        var prompt = ChatPromptBuilder.Build(
+            ChatScopeKind.Folder,
+            "packed-context-token",
+            [],
+            "Summarize the folder");
+
+        Assert.Contains("Answer in Markdown.", prompt);
+        Assert.Contains("Refer to meetings by title and a readable date", prompt);
+        Assert.Contains(
+            "Do not mention how many meetings were included or omitted unless the user asks.",
+            prompt);
+    }
+
+    [Fact]
     public void Build_WhenMessageContainsRewrite_AddsInstructionOnlyForMeetingScope()
     {
         foreach (var scope in Enum.GetValues<ChatScopeKind>())

@@ -158,7 +158,7 @@ public static class ChatContextPacker
     {
         builder.Append("Title: ").AppendLine(meeting.Title);
         builder.Append("Recorded: ")
-            .AppendLine(meeting.RecordedAt.ToString("O", CultureInfo.InvariantCulture));
+            .AppendLine(meeting.RecordedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
         builder.Append("Summary: ").AppendLine(CapPrefix(meeting.Summary, summaryMaxChars));
         AppendActionItems(builder, meeting.ActionItems);
         builder.Append("Notes: ").AppendLine(CapPrefix(meeting.Notes, notesMaxChars));

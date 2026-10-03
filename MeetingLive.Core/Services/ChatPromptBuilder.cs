@@ -39,6 +39,9 @@ public static class ChatPromptBuilder
         builder.AppendLine("If the context does not contain the answer, say so.");
         builder.AppendLine("Do not invent quotes, decisions, or attendees.");
         builder.AppendLine("Drafts (email, Slack, or spec) are drafts. Never claim something was sent.");
+        builder.AppendLine("Answer in Markdown.");
+        builder.AppendLine("Refer to meetings by title and a readable date (for example, \"Sprint review on Sep 1\").");
+        builder.AppendLine("Do not mention how many meetings were included or omitted unless the user asks.");
         builder.Append("Scope: ").AppendLine(ScopeLabel(scopeKind));
 
         if (AsksToRewriteNotes(scopeKind, userMessage))
