@@ -10,27 +10,111 @@
     xmlns:md="using:CommunityToolkit.WinUI.UI.Controls"
     mc:Ignorable="d">
 
-    <Grid Padding="24" RowSpacing="16">
+    <!-- One toolbar row (notes mode on the left, summary actions on the right) so the summary keeps almost all of the height.
+         Only the content row scrolls; the toolbar stays put. Reading content is capped at a comfortable line length. -->
+    <Grid Padding="24,16,24,24" RowSpacing="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <SelectorBar x:Name="NotesModeBar"
-                     SelectionChanged="NotesMode_SelectionChanged"
-                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}"
-                     AutomationProperties.AutomationId="SelectorSummaryNotesMode">
-            <SelectorBarItem x:Uid="NotesMode_MyNotes"
-                             Tag="notes"
-                             AutomationProperties.AutomationId="SelectorSummaryMyNotes" />
-            <SelectorBarItem x:Uid="NotesMode_Enhanced"
-                             Tag="enhanced"
-                             IsSelected="True"
-                             AutomationProperties.AutomationId="SelectorSummaryEnhanced" />
-        </SelectorBar>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <SelectorBar x:Name="NotesModeBar"
+                         SelectionChanged="NotesMode_SelectionChanged"
+                         Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasMeeting), Mode=OneWay}"
+                         AutomationProperties.AutomationId="SelectorSummaryNotesMode">
+                <SelectorBarItem x:Uid="NotesMode_MyNotes"
+                                 Tag="notes"
+                                 AutomationProperties.AutomationId="SelectorSummaryMyNotes" />
+                <SelectorBarItem x:Uid="NotesMode_Enhanced"
+                                 Tag="enhanced"
+                                 IsSelected="True"
+                                 AutomationProperties.AutomationId="SelectorSummaryEnhanced" />
+            </SelectorBar>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               VerticalAlignment="Center"
+                               MaxWidth="240"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTipService.ToolTip="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsGenerating, Mode=OneWay}" Width="20" Height="20" />
+                    <Button Command="{x:Bind ViewModel.GenerateSummaryCommand}"
+                            Style="{StaticResource AccentButtonStyle}"
+                            Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanGenerateSummary), Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnGenerateSummary">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEB78;"
+                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                      FontSize="16" />
+                            <TextBlock x:Uid="SummaryPage_Generate" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{x:Bind ViewModel.RegenerateSummaryCommand}"
+                            Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRegenerateSummary), Mode=OneWay}"
+                            AutomationProperties.AutomationId="BtnRegenerateSummary">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;"
+                                      FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                      FontSize="16" />
+                            <TextBlock x:Uid="SummaryPage_RegenerateLabel" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <ComboBox x:Name="CmbNoteTemplate"
+                          x:Uid="SummaryPage_NoteTemplateCompact"
+                          ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
+                          SelectionChanged="NoteTemplate_SelectionChanged"
+                          Width="200"
+                          VerticalAlignment="Center"
+                          Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowNoteTemplate), Mode=OneWay}"
+                          AutomationProperties.AutomationId="CmbSummaryNoteTemplate">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:NoteTemplateOption">
+                            <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Button x:Uid="SummaryPage_More"
+                        Width="40" Height="32" Padding="0"
+                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowNoteTemplate), Mode=OneWay}"
+                        AutomationProperties.AutomationId="BtnSummaryMore">
+                    <FontIcon Glyph="&#xE712;" FontSize="16" />
+                    <Button.Flyout>
+                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                            <MenuFlyoutItem x:Uid="SummaryPage_MoreSaveTemplate"
+                                            Click="SaveCustomTemplate_Click"
+                                            AutomationProperties.AutomationId="BtnSaveSummaryCustomTemplate">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE74E;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem x:Uid="SummaryPage_MoreListActions"
+                                            Command="{x:Bind ViewModel.CopyActionItemsCommand}"
+                                            Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowDraftActions), Mode=OneWay}"
+                                            AutomationProperties.AutomationId="BtnListActions">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xE8C8;" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </StackPanel>
+        </Grid>
 
         <StackPanel Grid.Row="1" Spacing="4"
                     Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasRelatedMeetings), Mode=OneWay}">
@@ -62,71 +146,19 @@
             </ListView>
         </StackPanel>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12"
-                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowSummaryActionBar), Mode=OneWay}">
-            <Button Command="{x:Bind ViewModel.GenerateSummaryCommand}"
-                    Style="{StaticResource AccentButtonStyle}"
-                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanGenerateSummary), Mode=OneWay}"
-                    AutomationProperties.AutomationId="BtnGenerateSummary">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xEB78;"
-                              FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                              FontSize="16" />
-                    <TextBlock x:Uid="SummaryPage_Generate" />
-                </StackPanel>
-            </Button>
-            <Button x:Uid="SummaryPage_Regenerate"
-                    Command="{x:Bind ViewModel.RegenerateSummaryCommand}"
-                    Style="{StaticResource AccentButtonStyle}"
-                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.CanRegenerateSummary), Mode=OneWay}"
-                    AutomationProperties.AutomationId="BtnRegenerateSummary" />
-            <ProgressRing IsActive="{x:Bind ViewModel.IsGenerating, Mode=OneWay}" Width="20" Height="20" />
-            <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
+        <InfoBar Grid.Row="2"
+                 x:Uid="SummaryPage_DraftError"
+                 IsOpen="{x:Bind ViewModel.HasDraftMessage, Mode=OneWay}"
+                 IsClosable="False"
+                 Severity="{x:Bind local:SummaryPage.DraftSeverity(ViewModel.IsDraftError), Mode=OneWay}"
+                 Message="{x:Bind ViewModel.DraftMessage, Mode=OneWay}"
+                 AutomationProperties.AutomationId="InfoDraftStatus" />
 
-        <StackPanel Grid.Row="3" Spacing="8"
-                    Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowNoteTemplate), Mode=OneWay}">
-            <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <ComboBox x:Name="CmbNoteTemplate"
-                          x:Uid="SummaryPage_NoteTemplate"
-                          ItemsSource="{x:Bind ViewModel.NoteTemplates, Mode=OneWay}"
-                          SelectionChanged="NoteTemplate_SelectionChanged"
-                          HorizontalAlignment="Stretch"
-                          AutomationProperties.AutomationId="CmbSummaryNoteTemplate">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:NoteTemplateOption">
-                            <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-                <Button Grid.Column="1"
-                        x:Uid="SummaryPage_SaveCustomTemplate"
-                        Click="SaveCustomTemplate_Click"
-                        VerticalAlignment="Bottom"
-                        AutomationProperties.AutomationId="BtnSaveSummaryCustomTemplate" />
-            </Grid>
-            <StackPanel Orientation="Horizontal" Spacing="8"
-                        Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.ShowDraftActions), Mode=OneWay}">
-                <Button x:Uid="SummaryPage_ListActions"
-                        Command="{x:Bind ViewModel.CopyActionItemsCommand}"
-                        AutomationProperties.AutomationId="BtnListActions" />
-            </StackPanel>
-            <InfoBar x:Uid="SummaryPage_DraftError"
-                     IsOpen="{x:Bind ViewModel.HasDraftMessage, Mode=OneWay}"
-                     IsClosable="False"
-                     Severity="{x:Bind local:SummaryPage.DraftSeverity(ViewModel.IsDraftError), Mode=OneWay}"
-                     Message="{x:Bind ViewModel.DraftMessage, Mode=OneWay}"
-                     AutomationProperties.AutomationId="InfoDraftStatus" />
-        </StackPanel>
-
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="3">
             <TextBox x:Uid="SummaryPage_Notes"
                      AcceptsReturn="True"
                      TextWrapping="Wrap"
+                     MaxWidth="880"
                      HorizontalAlignment="Stretch"
                      VerticalAlignment="Stretch"
                      Text="{x:Bind ViewModel.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -152,7 +184,7 @@
 
                 <ScrollViewer Visibility="{x:Bind local:SummaryPage.BoolToVisibility(ViewModel.HasSummary), Mode=OneWay}"
                               HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Spacing="16">
+                    <StackPanel Spacing="16" MaxWidth="880" Padding="0,0,16,0">
                         <md:MarkdownTextBlock Text="{x:Bind ViewModel.Summary, Mode=OneWay}"
                                               TextWrapping="WrapWholeWords"
                                               Background="Transparent"

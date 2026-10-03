@@ -21,8 +21,14 @@
         </Storyboard>
     </Page.Resources>
 
-    <!-- Row 0 is a plain Auto header (no ScrollViewer: an Auto row measures it with infinite height, so it would never scroll
-         and would starve the * row of space). While recording the header shrinks to a compact bar and row 1 keeps the rest. -->
+    <!-- Row 0 is a plain Auto header (no inner ScrollViewer: an Auto row measures it with infinite height, so it would never scroll
+         and would starve the * row of space). While recording the header shrinks to a compact bar and row 1 keeps the rest.
+         The page-level ScrollViewer only scrolls while idle, so a short window can reach everything under the idle column. During a
+         session its scroll bar is Disabled, which constrains the Grid to the viewport so the * row still fills the window. -->
+    <ScrollViewer VerticalScrollBarVisibility="{x:Bind local:RecordingPage.IdleScrollBarVisibility(ViewModel.IsSessionActive), Mode=OneWay}"
+                  VerticalScrollMode="Auto"
+                  HorizontalScrollMode="Disabled"
+                  HorizontalScrollBarVisibility="Disabled">
     <Grid Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -66,7 +72,7 @@
              Spacing follows the 8/16/24 scale: 24 between groups, 12 inside the title and pickers group.
              Hierarchy: title and destination, the always-visible Sources card, the Record action row, then the quiet Coming up strip. -->
         <StackPanel Spacing="24"
-                    MaxWidth="720"
+                    MaxWidth="960"
                     HorizontalAlignment="Stretch"
                     Visibility="{x:Bind local:RecordingPage.InvertBoolToVisibility(ViewModel.IsSessionActive), Mode=OneWay}">
 
@@ -268,7 +274,7 @@
         <!-- Action area: either the setup checklist or the Record hero. Record is the only accent control on the page.
              The setup checklist has no outer card: the SettingsCards are already surfaces, so a wrapper would be card-in-card. -->
         <Grid>
-            <StackPanel MaxWidth="720"
+            <StackPanel MaxWidth="960"
                         Spacing="12"
                         HorizontalAlignment="Stretch"
                         Visibility="{x:Bind local:RecordingPage.BoolToVisibility(ViewModel.ShowSetupPanel), Mode=OneWay}">
@@ -987,4 +993,5 @@
             </Grid>
         </Border>
     </Grid>
+    </ScrollViewer>
 </Page>

@@ -120,7 +120,6 @@
   <data name="TranscriptPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Summary</value></data>
   <data name="SummaryPage_Generate.Text" xml:space="preserve"><value>Generate summary</value></data>
-  <data name="SummaryPage_Regenerate.Content" xml:space="preserve"><value>Regenerate summary</value></data>
   <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>There's no summary yet. Record or import a meeting, or generate one from its transcript.</value></data>
   <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Record a meeting</value></data>
   <data name="SummaryPage_RelatedMeetings.Text" xml:space="preserve"><value>Related meetings</value></data>
@@ -493,12 +492,13 @@
   <data name="NotesMode_MyNotes.AutomationProperties.Name" xml:space="preserve"><value>My notes</value></data>
   <data name="NotesMode_Enhanced.Text" xml:space="preserve"><value>Enhanced</value></data>
   <data name="NotesMode_Enhanced.AutomationProperties.Name" xml:space="preserve"><value>Enhanced</value></data>
-  <data name="SummaryPage_NoteTemplate.Header" xml:space="preserve"><value>Template</value></data>
-  <data name="SummaryPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>
-  <data name="SummaryPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Save custom template</value></data>
-  <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Save custom template</value></data>
-  <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>List actions</value></data>
-  <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copy action items</value></data>
+  <data name="SummaryPage_RegenerateLabel.Text" xml:space="preserve"><value>Regenerate</value></data>
+  <data name="SummaryPage_NoteTemplateCompact.AutomationProperties.Name" xml:space="preserve"><value>Note template</value></data>
+  <data name="SummaryPage_NoteTemplateCompact.ToolTipService.ToolTip" xml:space="preserve"><value>Note template</value></data>
+  <data name="SummaryPage_More.AutomationProperties.Name" xml:space="preserve"><value>More options</value></data>
+  <data name="SummaryPage_More.ToolTipService.ToolTip" xml:space="preserve"><value>More options</value></data>
+  <data name="SummaryPage_MoreSaveTemplate.Text" xml:space="preserve"><value>Save as custom template</value></data>
+  <data name="SummaryPage_MoreListActions.Text" xml:space="preserve"><value>Copy action items</value></data>
   <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>Could not create the draft</value></data>
   <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Draft status</value></data>
   <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No action items to copy.</value></data>

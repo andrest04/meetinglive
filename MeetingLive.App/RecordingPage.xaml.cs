@@ -222,6 +222,10 @@ public sealed partial class RecordingPage : Page
 
     public static Visibility InvertBoolToVisibility(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
 
+    // Disabled (not Hidden) during a session: only Disabled constrains the content to the viewport height.
+    public static ScrollBarVisibility IdleScrollBarVisibility(bool isSessionActive) =>
+        isSessionActive ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+
     public static string RecordGlyph(bool isRecording) => isRecording ? "" : "";
 
     public static string RecordLabel(bool isRecording) =>

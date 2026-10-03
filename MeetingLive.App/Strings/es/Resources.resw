@@ -120,7 +120,6 @@
   <data name="TranscriptPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
   <data name="SummaryPage_Title.Text" xml:space="preserve"><value>Resumen</value></data>
   <data name="SummaryPage_Generate.Text" xml:space="preserve"><value>Generar resumen</value></data>
-  <data name="SummaryPage_Regenerate.Content" xml:space="preserve"><value>Regenerar resumen</value></data>
   <data name="SummaryPage_Empty.Text" xml:space="preserve"><value>Todavía no hay resumen. Graba o importa una reunión, o genera uno a partir de su transcripción.</value></data>
   <data name="SummaryPage_EmptyCta.Content" xml:space="preserve"><value>Grabar una reunión</value></data>
   <data name="SummaryPage_RelatedMeetings.Text" xml:space="preserve"><value>Reuniones relacionadas</value></data>
@@ -493,12 +492,13 @@
   <data name="NotesMode_MyNotes.AutomationProperties.Name" xml:space="preserve"><value>Mis notas</value></data>
   <data name="NotesMode_Enhanced.Text" xml:space="preserve"><value>Mejoradas</value></data>
   <data name="NotesMode_Enhanced.AutomationProperties.Name" xml:space="preserve"><value>Mejoradas</value></data>
-  <data name="SummaryPage_NoteTemplate.Header" xml:space="preserve"><value>Plantilla</value></data>
-  <data name="SummaryPage_NoteTemplate.AutomationProperties.Name" xml:space="preserve"><value>Plantilla de notas</value></data>
-  <data name="SummaryPage_SaveCustomTemplate.Content" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
-  <data name="SummaryPage_SaveCustomTemplate.AutomationProperties.Name" xml:space="preserve"><value>Guardar plantilla personalizada</value></data>
-  <data name="SummaryPage_ListActions.Content" xml:space="preserve"><value>Listar acciones</value></data>
-  <data name="SummaryPage_ListActions.AutomationProperties.Name" xml:space="preserve"><value>Copiar elementos de acción</value></data>
+  <data name="SummaryPage_RegenerateLabel.Text" xml:space="preserve"><value>Regenerar</value></data>
+  <data name="SummaryPage_NoteTemplateCompact.AutomationProperties.Name" xml:space="preserve"><value>Plantilla de notas</value></data>
+  <data name="SummaryPage_NoteTemplateCompact.ToolTipService.ToolTip" xml:space="preserve"><value>Plantilla de notas</value></data>
+  <data name="SummaryPage_More.AutomationProperties.Name" xml:space="preserve"><value>Más opciones</value></data>
+  <data name="SummaryPage_More.ToolTipService.ToolTip" xml:space="preserve"><value>Más opciones</value></data>
+  <data name="SummaryPage_MoreSaveTemplate.Text" xml:space="preserve"><value>Guardar como plantilla personalizada</value></data>
+  <data name="SummaryPage_MoreListActions.Text" xml:space="preserve"><value>Copiar elementos de acción</value></data>
   <data name="SummaryPage_DraftError.Title" xml:space="preserve"><value>No se pudo crear el borrador</value></data>
   <data name="SummaryPage_DraftError.AutomationProperties.Name" xml:space="preserve"><value>Estado del borrador</value></data>
   <data name="SummaryPage_NoActionItems" xml:space="preserve"><value>No hay elementos de acción para copiar.</value></data>
