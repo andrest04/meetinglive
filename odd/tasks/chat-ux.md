@@ -37,7 +37,7 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 - [x] T7 Clickable citations: pack `Id:` per meeting; prompt asks to cite meetings as `[Title, date](meeting://<id>)` using only context IDs; assistant `MarkdownTextBlock.LinkClicked` opens the meeting via `AppServices.Workspace.SelectMeeting` + `OpenSession(TabSummary)`; other http(s) links open in the browser. Route: delegated (writer). Checks: RED/GREEN `ChatContextPackerTests` / `ChatPromptBuilderTests`, app build.
   - Deviation: links use `https://meetinglive.local/meeting/<id N>` (`ChatPromptBuilder.MeetingLink` / `TryParseMeetingLink`) instead of `meeting://`. The Toolkit 7.1.2 Markdown parser drops links whose scheme is not in its `KnownSchemes` allow-list (`IsUrlValid`), so a custom scheme would render as plain text.
   - Core commit `5ef998a`. RED (stubs): filtered chat tests `Failed: 4, Passed: 19`. GREEN: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 812`.
-  - UI commit: the `feat(chat): open cited meetings from chat answers` commit. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. `LinkClicked` opens existing meetings on the Summary tab, shows `Chat_MeetingLinkMissing` (en/es) for deleted ones, and launches other http(s) links in the browser. A real click in the running app has not been checked yet.
+  - UI commit `40e1d8e`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. `LinkClicked` opens existing meetings on the Summary tab, shows `Chat_MeetingLinkMissing` (en/es) for deleted ones, and launches other http(s) links in the browser. A real click in the running app has not been checked yet.
 - [ ] T8 Streaming: `StreamPromptAsync` default method; real streaming for `LocalLlmSummaryProvider` (InferAsync tokens) and `XaiSummaryProvider` (`stream: true` SSE); chat appends chunks to the pending row (observable `Text`, batched on the UI thread), then persists the full answer. Route: delegated (writer). Checks: RED/GREEN provider tests, app build.
 
 ## Acceptance criteria
@@ -47,6 +47,7 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 
 ## Progress
 - Document created; branch `feat/chat-ux`. T1–T3 done and launch-verified. T4–T8 approved by the user ("vamos con todo").
+- T4–T7 done and build-verified (`14ce8ce`, `88d4c3c`, `f32b639`, `5ef998a`, `40e1d8e`); launch check pending.
 
 ## Next step
 Launch check of T4–T7 (header buttons do not toggle the expander, starter chips, scope chip, citation click), then T8.
