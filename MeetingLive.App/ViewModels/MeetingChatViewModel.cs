@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MeetingLive.Core.Models;
@@ -72,6 +74,8 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     private bool _showStarterRecipes;
 
     private const int StarterRecipeCount = 4;
+
+    private static readonly TimeSpan StreamFlushInterval = TimeSpan.FromMilliseconds(80);
 
     public ObservableCollection<ChatMessageItem> Messages { get; } = [];
 
@@ -173,7 +177,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             string answer;
             try
             {
-                answer = await Task.Run(() => provider.Provider.CompletePromptAsync(prompt));
+                answer = (await Task.Run(() => StreamAnswerAsync(provider.Provider, prompt, pendingItem))).Trim();
             }
             catch (OperationCanceledException)
             {
@@ -650,6 +654,43 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         Prompt = recipe.Prompt,
         IsBuiltIn = ChatRecipeList.IsBuiltIn(recipe.Id),
     };
+
+    /// <summary>
+    /// Runs off the UI thread. Pushes the growing answer into the pending row at most every
+    /// <see cref="StreamFlushInterval"/> (plus a final flush) and returns the full text.
+    /// </summary>
+    private static async Task<string> StreamAnswerAsync(ISummaryProvider provider, string prompt, ChatMessageItem pending)
+    {
+        var buffer = new StringBuilder();
+        var hasVisibleText = false;
+        var pushedLength = 0;
+        long lastPush = 0;
+        await foreach (var chunk in provider.StreamPromptAsync(prompt))
+        {
+            buffer.Append(chunk);
+            hasVisibleText |= !string.IsNullOrWhiteSpace(chunk);
+            if (!hasVisibleText)
+                continue;
+
+            if (pushedLength == 0 || Stopwatch.GetElapsedTime(lastPush) >= StreamFlushInterval)
+            {
+                PushPendingText(pending, buffer);
+                pushedLength = buffer.Length;
+                lastPush = Stopwatch.GetTimestamp();
+            }
+        }
+
+        if (hasVisibleText && pushedLength != buffer.Length)
+            PushPendingText(pending, buffer);
+
+        return buffer.ToString();
+    }
+
+    private static void PushPendingText(ChatMessageItem pending, StringBuilder buffer)
+    {
+        var text = buffer.ToString().TrimStart();
+        App.DispatcherQueue?.TryEnqueue(() => pending.Text = text);
+    }
 
     private static Task InvokeOnUiAsync(Func<Task> action)
     {

@@ -1,8 +1,10 @@
+using System.ComponentModel;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Dialogs;
@@ -28,6 +30,7 @@ public sealed partial class MainPage : Page
     private bool _personalTasksDialogOpening;
     private double _paneDragStartX;
     private double _paneDragStartLength;
+    private ScrollViewer? _chatScrollViewer;
 
     public MeetingChatViewModel Chat { get; } = new();
 
@@ -68,8 +71,17 @@ public sealed partial class MainPage : Page
             }
 
             // Defer so the ListView has realized the new row before scrolling to it.
-            Chat.Messages.CollectionChanged += (_, _) =>
+            Chat.Messages.CollectionChanged += (_, e) =>
+            {
+                // A streaming answer grows in place; follow it as its text changes.
+                foreach (var item in e.NewItems?.OfType<ChatMessageItem>() ?? [])
+                {
+                    if (item.IsPending)
+                        item.PropertyChanged += StreamingChatMessage_PropertyChanged;
+                }
+
                 DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ScrollChatToEnd);
+            };
 
             var settings = await AppServices.Settings.LoadAsync();
             NavView.OpenPaneLength = settings.ResolveNavigationPaneLength();
@@ -367,6 +379,37 @@ public sealed partial class MainPage : Page
 
         ChatTranscript.UpdateLayout();
         ChatTranscript.ScrollIntoView(ChatTranscript.Items[^1]);
+    }
+
+    // Text pushes are already batched by the view model, so one scroll per change is cheap.
+    private void StreamingChatMessage_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ChatMessageItem.Text))
+            return;
+
+        DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+        {
+            ChatTranscript.UpdateLayout();
+            // ScrollIntoView stops at the top of a row taller than the viewport; scroll to the extent instead.
+            _chatScrollViewer ??= FindDescendant<ScrollViewer>(ChatTranscript);
+            _chatScrollViewer?.ChangeView(null, _chatScrollViewer.ExtentHeight, null, disableAnimation: true);
+        });
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+                return match;
+
+            if (FindDescendant<T>(child) is { } nested)
+                return nested;
+        }
+
+        return null;
     }
 
     public static string CallPromptTitle() => AppStrings.Get("CallPrompt_Title");

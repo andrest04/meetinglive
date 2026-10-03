@@ -219,17 +219,17 @@
                                                 <TextBlock Text="{x:Bind RoleLabel, Mode=OneTime}"
                                                            Style="{ThemeResource CaptionTextBlockStyle}"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                <md:MarkdownTextBlock Text="{x:Bind Text, Mode=OneTime}"
+                                                <md:MarkdownTextBlock Text="{x:Bind Text, Mode=OneWay}"
                                                                       TextWrapping="WrapWholeWords"
                                                                       Background="Transparent"
                                                                       LinkClicked="ChatMarkdown_LinkClicked"
-                                                                      Visibility="{x:Bind local:MainPage.BoolToVisibility(HasAnswer), Mode=OneTime}" />
+                                                                      Visibility="{x:Bind local:MainPage.BoolToVisibility(HasText), Mode=OneWay}" />
                                                 <StackPanel Orientation="Horizontal"
                                                             Spacing="8"
-                                                            Visibility="{x:Bind local:MainPage.BoolToVisibility(IsPending), Mode=OneTime}">
+                                                            Visibility="{x:Bind local:MainPage.BoolToVisibility(IsThinking), Mode=OneWay}">
                                                     <ProgressRing Width="16"
                                                                   Height="16"
-                                                                  IsActive="{x:Bind IsPending, Mode=OneTime}"
+                                                                  IsActive="{x:Bind IsThinking, Mode=OneWay}"
                                                                   IsTabStop="False" />
                                                     <TextBlock x:Uid="Chat_Thinking"
                                                                VerticalAlignment="Center"
@@ -246,7 +246,7 @@
                                                     VerticalAlignment="Top"
                                                     Background="Transparent"
                                                     BorderThickness="0"
-                                                    Visibility="{x:Bind local:MainPage.BoolToVisibility(HasAnswer), Mode=OneTime}">
+                                                    Visibility="{x:Bind local:MainPage.BoolToVisibility(HasAnswer), Mode=OneWay}">
                                                 <FontIcon Glyph="&#xE8C8;" FontSize="14" />
                                             </Button>
                                         </Grid>
