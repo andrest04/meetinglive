@@ -26,6 +26,7 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 - [x] T2 Optimistic send: clear the draft and show the user message plus a pending assistant row immediately; replace the pending row with the answer; on failure remove both, restore the draft, show the error. Route: delegated (writer). Checks: app build.
   - Commit `f5bc1f9`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. Rollback only restores the draft when the optimistic rows are still present (a successful turn rebuilds `Messages`) and the composer is still empty.
 - [ ] T3 Chat XAML: assistant text via `MarkdownTextBlock`, user messages as right-aligned subtle bubbles, pending row with `ProgressRing` + "Thinking…", remove the stray toolbar spinner, taller transcript, auto-scroll on new rows. Route: delegated (writer). Checks: app build + launch.
+  - Commit `ab85004`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`; Core tests `Failed: 0, Passed: 803`. Removed unused `Chat_Sending`, added `Chat_Thinking.Text` (en/es). Launch check pending (parent).
 
 ## Acceptance criteria
 - `**bold**` and lists render formatted in assistant answers.
