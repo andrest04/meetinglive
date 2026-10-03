@@ -153,6 +153,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <ListView x:Name="ChatTranscript"
@@ -248,7 +249,32 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.ShowScopeMismatch), Mode=OneWay}" />
 
-                        <Grid Grid.Row="3" ColumnSpacing="8">
+                        <ItemsControl Grid.Row="3"
+                                      x:Uid="Chat_Starters"
+                                      ItemsSource="{x:Bind Chat.StarterRecipes, Mode=OneWay}"
+                                      Visibility="{x:Bind local:MainPage.BoolToVisibility(Chat.ShowStarterRecipes), Mode=OneWay}"
+                                      AutomationProperties.AutomationId="ListMeetingChatStarters">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <md:WrapPanel HorizontalSpacing="8" VerticalSpacing="8" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChatRecipeItem">
+                                    <Button Content="{x:Bind Name, Mode=OneTime}"
+                                            Tag="{x:Bind}"
+                                            Click="ChatStarter_Click"
+                                            ToolTipService.ToolTip="{x:Bind Prompt, Mode=OneTime}"
+                                            AutomationProperties.Name="{x:Bind Name, Mode=OneTime}"
+                                            Padding="12,4"
+                                            CornerRadius="12"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Grid Grid.Row="4" ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />

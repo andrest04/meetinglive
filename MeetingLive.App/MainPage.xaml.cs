@@ -175,6 +175,21 @@ public sealed partial class MainPage : Page
         }
     }
 
+    private async void ChatStarter_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: ChatRecipeItem item })
+            return;
+
+        try
+        {
+            await Chat.SendRecipeAsync(item);
+        }
+        catch (Exception ex)
+        {
+            Chat.ShowSendError(ex);
+        }
+    }
+
     private async void CreateChatRecipe_Click(object sender, RoutedEventArgs e)
     {
         ChatRecipeFlyout.Hide();

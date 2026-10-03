@@ -64,7 +64,15 @@ public sealed partial class MeetingChatViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasRecipeSuggestions;
 
+    [ObservableProperty]
+    private bool _showStarterRecipes;
+
+    private const int StarterRecipeCount = 4;
+
     public ObservableCollection<ChatMessageItem> Messages { get; } = [];
+
+    /// <summary>First scope recipes, offered as one-click prompts while the chat is empty.</summary>
+    public ObservableCollection<ChatRecipeItem> StarterRecipes { get; } = [];
 
     public ObservableCollection<ChatThreadItem> Threads { get; } = [];
 
@@ -303,6 +311,13 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         _forceAllRecipes = false;
     }
 
+    public async Task SendRecipeAsync(ChatRecipeItem recipe)
+    {
+        ApplyRecipe(recipe);
+        if (SendCommand.CanExecute(null))
+            await SendCommand.ExecuteAsync(null);
+    }
+
     public async Task CreateRecipeAsync(string name, string prompt, bool multiple)
     {
         var trimmedName = name.Trim();
@@ -488,6 +503,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         if (!_decision.IsVisible)
         {
             _scopeRecipes = [];
+            RefreshStarterRecipes();
             ApplyRecipeFilter(null);
             return;
         }
@@ -496,6 +512,7 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         _scopeRecipes = ChatRecipeList.ForScope(_decision.Kind, user)
             .Select(ToRecipeItem)
             .ToList();
+        RefreshStarterRecipes();
         var query = _forceAllRecipes || !Draft.StartsWith('/')
             ? null
             : Draft[1..].Trim();
@@ -517,6 +534,17 @@ public sealed partial class MeetingChatViewModel : ObservableObject
             RecipeSuggestions.Add(item);
         HasRecipeSuggestions = RecipeSuggestions.Count > 0;
     }
+
+    private void RefreshStarterRecipes()
+    {
+        StarterRecipes.Clear();
+        foreach (var item in _scopeRecipes.Take(StarterRecipeCount))
+            StarterRecipes.Add(item);
+        UpdateStarterVisibility();
+    }
+
+    private void UpdateStarterVisibility() =>
+        ShowStarterRecipes = StarterRecipes.Count > 0 && !HasMessages && !IsSending;
 
     private void ShowMessages(IEnumerable<ChatMessage> messages)
     {
@@ -653,7 +681,13 @@ public sealed partial class MeetingChatViewModel : ObservableObject
         }
     }
 
-    partial void OnIsSendingChanged(bool value) => SendCommand.NotifyCanExecuteChanged();
+    partial void OnIsSendingChanged(bool value)
+    {
+        SendCommand.NotifyCanExecuteChanged();
+        UpdateStarterVisibility();
+    }
+
+    partial void OnHasMessagesChanged(bool value) => UpdateStarterVisibility();
 
     partial void OnIsVisibleChanged(bool value) => SendCommand.NotifyCanExecuteChanged();
 

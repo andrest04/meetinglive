@@ -535,6 +535,7 @@
   <data name="Chat_RoleUser" xml:space="preserve"><value>You</value></data>
   <data name="Chat_RoleAssistant" xml:space="preserve"><value>Assistant</value></data>
   <data name="Chat_Thinking.Text" xml:space="preserve"><value>Thinking…</value></data>
+  <data name="Chat_Starters.AutomationProperties.Name" xml:space="preserve"><value>Suggested questions</value></data>
   <data name="Chat_Untitled" xml:space="preserve"><value>Untitled chat</value></data>
   <data name="Chat_ThreadUpdated" xml:space="preserve"><value>Updated {0}</value></data>
   <data name="Chat_HistoryEmpty.Text" xml:space="preserve"><value>No chats yet.</value></data>
