@@ -517,7 +517,6 @@
   <data name="Chat_New.AutomationProperties.Name" xml:space="preserve"><value>New chat</value></data>
   <data name="Chat_New.ToolTipService.ToolTip" xml:space="preserve"><value>New chat</value></data>
   <data name="Chat_Transcript.AutomationProperties.Name" xml:space="preserve"><value>Chat messages</value></data>
-  <data name="Chat_Sending.AutomationProperties.Name" xml:space="preserve"><value>Sending</value></data>
   <data name="Chat_Copy.AutomationProperties.Name" xml:space="preserve"><value>Copy</value></data>
   <data name="Chat_Copy.ToolTipService.ToolTip" xml:space="preserve"><value>Copy</value></data>
   <data name="Chat_Error.Title" xml:space="preserve"><value>Could not answer</value></data>
@@ -535,6 +534,7 @@
   <data name="Chat_ScopeMismatch.Text" xml:space="preserve"><value>This chat is from another scope. Sending starts a new chat.</value></data>
   <data name="Chat_RoleUser" xml:space="preserve"><value>You</value></data>
   <data name="Chat_RoleAssistant" xml:space="preserve"><value>Assistant</value></data>
+  <data name="Chat_Thinking.Text" xml:space="preserve"><value>Thinking…</value></data>
   <data name="Chat_Untitled" xml:space="preserve"><value>Untitled chat</value></data>
   <data name="Chat_ThreadUpdated" xml:space="preserve"><value>Updated {0}</value></data>
   <data name="Chat_HistoryEmpty.Text" xml:space="preserve"><value>No chats yet.</value></data>

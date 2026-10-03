@@ -66,7 +66,9 @@ public sealed partial class MainPage : Page
                 Chat.ShowSendError(ex);
             }
 
-            Chat.Messages.CollectionChanged += (_, _) => ScrollChatToEnd();
+            // Defer so the ListView has realized the new row before scrolling to it.
+            Chat.Messages.CollectionChanged += (_, _) =>
+                DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, ScrollChatToEnd);
 
             var settings = await AppServices.Settings.LoadAsync();
             NavView.OpenPaneLength = settings.ResolveNavigationPaneLength();

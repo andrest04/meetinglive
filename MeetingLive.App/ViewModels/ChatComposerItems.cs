@@ -13,6 +13,13 @@ public sealed class ChatMessageItem
     public bool IsAssistant { get; init; }
 
     public bool IsPending { get; init; }
+
+    public bool IsUser => !IsAssistant;
+
+    public bool HasAnswer => IsAssistant && !IsPending;
+
+    // ListViewItem automation peers read the item's ToString.
+    public override string ToString() => IsPending ? RoleLabel : $"{RoleLabel}: {Text}";
 }
 
 public sealed class ChatThreadItem
