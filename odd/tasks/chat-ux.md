@@ -50,7 +50,9 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 
 ## Progress
 - Document created; branch `feat/chat-ux`. T1–T3 done and launch-verified. T4–T8 approved by the user ("vamos con todo").
-- T4–T7 done and build-verified (`14ce8ce`, `88d4c3c`, `f32b639`, `5ef998a`, `40e1d8e`); launch check pending.
+- T4–T7 done and build-verified (`14ce8ce`, `88d4c3c`, `f32b639`, `5ef998a`, `40e1d8e`). T8 done (`8600605`, `0e8a3bc`): provider tests RED 4 → GREEN 26; full Core suite 818 passed.
+- Parent launch check (via `winapp ui`): starter chips, scope chip, header History/New, citation rendered as a link, and a full send with the current provider (answer + citation + copy) all work after T8. Not verified: clicking a citation (needs window foreground) and token-by-token streaming with local/xAI providers (current provider uses the one-chunk fallback).
+- Review consent offered for each candidate; the user declined each time.
 
 ## Next step
-Launch check of T4–T8 (header buttons do not toggle the expander, starter chips, scope chip, citation click, answer streams into the pending row with local and xAI providers).
+User checks: click a citation link; try streaming with the local model or xAI. Then push, fast-forward `main`, delete the branch.
