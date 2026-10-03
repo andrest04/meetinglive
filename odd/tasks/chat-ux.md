@@ -39,6 +39,7 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
   - Core commit `5ef998a`. RED (stubs): filtered chat tests `Failed: 4, Passed: 19`. GREEN: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 812`.
   - UI commit `40e1d8e`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. `LinkClicked` opens existing meetings on the Summary tab, shows `Chat_MeetingLinkMissing` (en/es) for deleted ones, and launches other http(s) links in the browser. A real click in the running app has not been checked yet.
 - [ ] T8 Streaming: `StreamPromptAsync` default method; real streaming for `LocalLlmSummaryProvider` (InferAsync tokens) and `XaiSummaryProvider` (`stream: true` SSE); chat appends chunks to the pending row (observable `Text`, batched on the UI thread), then persists the full answer. Route: delegated (writer). Checks: RED/GREEN provider tests, app build.
+  - Core: `ISummaryProvider.StreamPromptAsync` default method; `XaiApiClient.StreamChatAsync` (`stream: true` only on streaming requests, SSE `data:` deltas until `[DONE]`, same HTTP error mapping, `EmptyOutput` when no content); `XaiSummaryProvider` and `LocalLlmSummaryProvider` (shared `InferTokensAsync`) override it. RED (stub): filtered provider tests `Failed: 4, Passed: 22`. GREEN: filtered `Failed: 0, Passed: 26`; `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 818`.
 
 ## Acceptance criteria
 - `**bold**` and lists render formatted in assistant answers.

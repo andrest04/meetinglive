@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
@@ -39,4 +40,16 @@ public interface ISummaryProvider
     /// so Jev can select evidence and the user's summary provider writes the list.
     /// </summary>
     Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams the answer to an already-built prompt as text chunks. The default yields the
+    /// whole <see cref="CompletePromptAsync"/> result once; providers with a streaming API
+    /// override it. Concatenating every chunk gives the full answer.
+    /// </summary>
+    async IAsyncEnumerable<string> StreamPromptAsync(
+        string prompt,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        yield return await CompletePromptAsync(prompt, cancellationToken);
+    }
 }

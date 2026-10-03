@@ -35,6 +35,22 @@ public class LocalLlmSummaryProviderTests
     }
 
     [Fact]
+    public async Task StreamPromptAsync_WhenModelFileDoesNotExist_ThrowsFileNotFoundException()
+    {
+        var missingModelPath = Path.Combine(Path.GetTempPath(), "MeetingLiveTests_" + Guid.NewGuid(), "missing-model.gguf");
+        ISummaryProvider provider = new LocalLlmSummaryProvider(missingModelPath);
+
+        var exception = await Assert.ThrowsAsync<FileNotFoundException>(async () =>
+        {
+            await foreach (var _ in provider.StreamPromptAsync("Write a checklist from evidence."))
+            {
+            }
+        });
+
+        Assert.Equal(missingModelPath, exception.FileName);
+    }
+
+    [Fact]
     public void Dispose_WhenModelWasNeverLoaded_DoesNotThrow()
     {
         var provider = new LocalLlmSummaryProvider(Path.Combine(Path.GetTempPath(), "never-loaded.gguf"));

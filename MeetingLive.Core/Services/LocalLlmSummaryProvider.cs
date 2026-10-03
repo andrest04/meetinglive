@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using LLama;
 using LLama.Common;
@@ -49,13 +50,36 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
     }
 
     public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
-        InferAsync(prompt, maxTokens: 512, temperature: 0.2f, cancellationToken);
+        InferAsync(prompt, PromptMaxTokens, PromptTemperature, cancellationToken);
+
+    public IAsyncEnumerable<string> StreamPromptAsync(string prompt, CancellationToken cancellationToken = default) =>
+        InferTokensAsync(prompt, PromptMaxTokens, PromptTemperature, cancellationToken);
+
+    private const int PromptMaxTokens = 512;
+    private const float PromptTemperature = 0.2f;
 
     private async Task<string> InferAsync(
         string prompt,
         int maxTokens,
         float temperature,
         CancellationToken cancellationToken)
+    {
+        var result = new StringBuilder();
+        await foreach (var token in InferTokensAsync(prompt, maxTokens, temperature, cancellationToken))
+            result.Append(token);
+
+        var raw = result.ToString().Trim();
+        if (raw.Length == 0)
+            throw new InvalidOperationException("The local model did not return any content.");
+
+        return raw;
+    }
+
+    private async IAsyncEnumerable<string> InferTokensAsync(
+        string prompt,
+        int maxTokens,
+        float temperature,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (!File.Exists(modelPath))
         {
@@ -77,15 +101,8 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
             SamplingPipeline = new DefaultSamplingPipeline { Temperature = temperature },
         };
 
-        var result = new StringBuilder();
         await foreach (var token in executor.InferAsync(prompt, inferenceParams, cancellationToken))
-            result.Append(token);
-
-        var raw = result.ToString().Trim();
-        if (raw.Length == 0)
-            throw new InvalidOperationException("The local model did not return any content.");
-
-        return raw;
+            yield return token;
     }
 
     private async Task<(LLamaWeights Weights, ModelParams Params)> EnsureLoadedAsync(CancellationToken cancellationToken)

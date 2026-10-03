@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -114,20 +115,7 @@ public sealed class XaiApiClient
         CancellationToken cancellationToken = default,
         string? reasoningEffort = null)
     {
-        if (string.IsNullOrWhiteSpace(modelId))
-            modelId = DefaultModelId;
-
-        var body = new ChatRequestDto(
-            modelId,
-            [new ChatMessageDto("user", prompt)],
-            0.3,
-            string.IsNullOrWhiteSpace(reasoningEffort) ? null : reasoningEffort.Trim());
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, ApiBaseUrl + "/chat/completions")
-        {
-            Content = new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json"),
-        };
-        ApplyBearer(request, accessToken);
+        using var request = BuildChatRequest(accessToken, modelId, prompt, reasoningEffort, stream: false);
         using var response = await _http.SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
 
@@ -147,6 +135,91 @@ public sealed class XaiApiClient
             throw new XaiException(XaiFailureKind.EmptyOutput, "Grok (xAI) did not return any content.");
 
         return content.Trim();
+    }
+
+    /// <summary>
+    /// Same request as <see cref="CompleteChatAsync"/> with <c>stream: true</c>; yields each
+    /// server-sent <c>choices[0].delta.content</c> until <c>data: [DONE]</c>.
+    /// </summary>
+    public async IAsyncEnumerable<string> StreamChatAsync(
+        string accessToken,
+        string modelId,
+        string prompt,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        string? reasoningEffort = null)
+    {
+        using var request = BuildChatRequest(accessToken, modelId, prompt, reasoningEffort, stream: true);
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var hasContent = false;
+        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        {
+            if (!line.StartsWith("data:", StringComparison.Ordinal))
+                continue;
+
+            var data = line["data:".Length..].Trim();
+            if (data == "[DONE]")
+                break;
+            if (data.Length == 0)
+                continue;
+
+            string? content;
+            try
+            {
+                var chunk = JsonSerializer.Deserialize<ChatStreamChunkDto>(data, JsonOptions);
+                content = chunk?.Choices is { Count: > 0 } choices ? choices[0].Delta?.Content : null;
+            }
+            catch (JsonException)
+            {
+                throw new XaiException(XaiFailureKind.RequestFailed, "Grok (xAI) returned an unexpected response.");
+            }
+
+            if (string.IsNullOrEmpty(content))
+                continue;
+
+            hasContent |= !string.IsNullOrWhiteSpace(content);
+            yield return content;
+        }
+
+        if (!hasContent)
+            throw new XaiException(XaiFailureKind.EmptyOutput, "Grok (xAI) did not return any content.");
+    }
+
+    private static HttpRequestMessage BuildChatRequest(
+        string accessToken,
+        string modelId,
+        string prompt,
+        string? reasoningEffort,
+        bool stream)
+    {
+        if (string.IsNullOrWhiteSpace(modelId))
+            modelId = DefaultModelId;
+
+        var body = new ChatRequestDto(
+            modelId,
+            [new ChatMessageDto("user", prompt)],
+            0.3,
+            string.IsNullOrWhiteSpace(reasoningEffort) ? null : reasoningEffort.Trim(),
+            stream ? true : null);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, ApiBaseUrl + "/chat/completions")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body, JsonOptions), Encoding.UTF8, "application/json"),
+        };
+        try
+        {
+            ApplyBearer(request, accessToken);
+        }
+        catch
+        {
+            request.Dispose();
+            throw;
+        }
+
+        return request;
     }
 
     /// <summary>
@@ -217,7 +290,8 @@ public sealed class XaiApiClient
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("messages")] IReadOnlyList<ChatMessageDto> Messages,
         [property: JsonPropertyName("temperature")] double Temperature,
-        [property: JsonPropertyName("reasoning_effort")] string? ReasoningEffort);
+        [property: JsonPropertyName("reasoning_effort")] string? ReasoningEffort,
+        [property: JsonPropertyName("stream")] bool? Stream = null);
 
     private sealed record ChatMessageDto(
         [property: JsonPropertyName("role")] string Role,
@@ -233,5 +307,23 @@ public sealed class XaiApiClient
     {
         [JsonPropertyName("message")]
         public ChatMessageDto? Message { get; set; }
+    }
+
+    private sealed class ChatStreamChunkDto
+    {
+        [JsonPropertyName("choices")]
+        public List<ChatStreamChoiceDto>? Choices { get; set; }
+    }
+
+    private sealed class ChatStreamChoiceDto
+    {
+        [JsonPropertyName("delta")]
+        public ChatDeltaDto? Delta { get; set; }
+    }
+
+    private sealed class ChatDeltaDto
+    {
+        [JsonPropertyName("content")]
+        public string? Content { get; set; }
     }
 }

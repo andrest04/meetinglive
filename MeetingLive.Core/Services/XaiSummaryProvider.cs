@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
@@ -41,6 +42,22 @@ namespace MeetingLive.Core.Services;
 
     public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
         CompleteAsync(prompt, cancellationToken);
+
+    public async IAsyncEnumerable<string> StreamPromptAsync(
+        string prompt,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var token = await session.GetAccessTokenAsync(cancellationToken);
+        await foreach (var chunk in api.StreamChatAsync(
+            token,
+            XaiApiClient.ResolveModelId(modelId, []),
+            prompt,
+            cancellationToken,
+            reasoningEffort))
+        {
+            yield return chunk;
+        }
+    }
 
     private async Task<string> CompleteAsync(string prompt, CancellationToken cancellationToken)
     {

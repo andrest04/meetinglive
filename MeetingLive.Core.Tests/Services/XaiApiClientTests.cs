@@ -50,6 +50,86 @@ public class XaiApiClientTests
     }
 
     [Fact]
+    public async Task CompleteChatAsync_DoesNotSendStreamFlag()
+    {
+        var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(
+            HttpStatusCode.OK,
+            """{"choices":[{"message":{"role":"assistant","content":"ok"}}]}"""));
+        var api = new XaiApiClient(new HttpClient(handler));
+
+        await api.CompleteChatAsync("token", "grok-4-fast", "hi");
+
+        using var document = JsonDocument.Parse(handler.LastRequestBody!);
+        Assert.False(document.RootElement.TryGetProperty("stream", out _));
+    }
+
+    [Fact]
+    public async Task StreamChatAsync_SendsStreamTrue_YieldsDeltaContentUntilDone()
+    {
+        var handler = new FakeHttpMessageHandler(_ => SseResponse(
+            """
+            data: {"choices":[{"delta":{"role":"assistant"}}]}
+
+            data: {"choices":[{"delta":{"content":"Hello"}}]}
+
+            : keep-alive
+
+            data: {"choices":[{"delta":{"content":" from Grok"}}]}
+
+            data: [DONE]
+
+            data: {"choices":[{"delta":{"content":"ignored"}}]}
+
+            """));
+        var api = new XaiApiClient(new HttpClient(handler));
+
+        var chunks = await CollectAsync(api.StreamChatAsync("secret-token", "grok-4-fast", "Summarize this", reasoningEffort: "low"));
+
+        Assert.Equal(["Hello", " from Grok"], chunks);
+        Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
+        Assert.Equal("https://api.x.ai/v1/chat/completions", handler.LastRequest.RequestUri!.ToString());
+        Assert.Equal(new AuthenticationHeaderValue("Bearer", "secret-token"), handler.LastRequest.Headers.Authorization);
+        using var document = JsonDocument.Parse(handler.LastRequestBody!);
+        Assert.True(document.RootElement.GetProperty("stream").GetBoolean());
+        Assert.Equal("grok-4-fast", document.RootElement.GetProperty("model").GetString());
+        Assert.Equal("low", document.RootElement.GetProperty("reasoning_effort").GetString());
+        Assert.Equal("Summarize this", document.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task StreamChatAsync_WhenUnauthorized_ThrowsFriendlyNotSignedIn()
+    {
+        var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(
+            HttpStatusCode.Unauthorized,
+            """{"error":"invalid_api_key","access_token":"should-not-leak"}"""));
+        var api = new XaiApiClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(
+            () => CollectAsync(api.StreamChatAsync("secret-token", "grok-4-fast", "hi")));
+
+        Assert.Equal(XaiFailureKind.NotSignedIn, exception.Kind);
+        Assert.DoesNotContain("should-not-leak", exception.Message);
+    }
+
+    [Fact]
+    public async Task StreamChatAsync_WhenNoContentArrives_ThrowsEmptyOutput()
+    {
+        var handler = new FakeHttpMessageHandler(_ => SseResponse(
+            """
+            data: {"choices":[{"delta":{"role":"assistant"}}]}
+
+            data: [DONE]
+
+            """));
+        var api = new XaiApiClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(
+            () => CollectAsync(api.StreamChatAsync("token", "grok-4-fast", "hi")));
+
+        Assert.Equal(XaiFailureKind.EmptyOutput, exception.Kind);
+    }
+
+    [Fact]
     public async Task ListModelsAsync_ReturnsSummaryChatIds_ExcludesImagineAgentsAndReasoning()
     {
         var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(
@@ -95,5 +175,18 @@ public class XaiApiClientTests
         string? selected, string[] listed, string expected)
     {
         Assert.Equal(expected, XaiApiClient.ResolveModelId(selected, listed));
+    }
+
+    private static HttpResponseMessage SseResponse(string body) => new(HttpStatusCode.OK)
+    {
+        Content = new StringContent(body, System.Text.Encoding.UTF8, "text/event-stream"),
+    };
+
+    private static async Task<List<string>> CollectAsync(IAsyncEnumerable<string> source)
+    {
+        var items = new List<string>();
+        await foreach (var item in source)
+            items.Add(item);
+        return items;
     }
 }
