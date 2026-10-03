@@ -18,15 +18,21 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 ## Constraints
 - C#12 classic `[ObservableProperty]` private-field syntax.
 - Strings via `x:Uid` / `AppStrings`, English + Spanish.
-- No streaming (provider API is request/response); no change to thread persistence format.
+- No change to thread persistence format.
+- Streaming (T8) is additive: `ISummaryProvider.StreamPromptAsync` default-interface method yields `CompletePromptAsync` once; local LLamaSharp and xAI override with real streaming; CLI providers keep the one-chunk fallback.
 
 ## Tasks
 - [x] T1 Core context: human-readable local dates (`yyyy-MM-dd HH:mm`) in the packed context; prompt tells the model to answer in Markdown and not mention context limits unless asked. Route: delegated (writer). Checks: RED/GREEN in `ChatContextPackerTests` / `ChatPromptBuilderTests`.
   - Commit `c5e8922`. RED: filtered chat tests `Failed: 2, Passed: 12`. GREEN: `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj` → `Failed: 0, Passed: 803`.
 - [x] T2 Optimistic send: clear the draft and show the user message plus a pending assistant row immediately; replace the pending row with the answer; on failure remove both, restore the draft, show the error. Route: delegated (writer). Checks: app build.
   - Commit `f5bc1f9`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`. Rollback only restores the draft when the optimistic rows are still present (a successful turn rebuilds `Messages`) and the composer is still empty.
-- [ ] T3 Chat XAML: assistant text via `MarkdownTextBlock`, user messages as right-aligned subtle bubbles, pending row with `ProgressRing` + "Thinking…", remove the stray toolbar spinner, taller transcript, auto-scroll on new rows. Route: delegated (writer). Checks: app build + launch.
-  - Commit `ab85004`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`; Core tests `Failed: 0, Passed: 803`. Removed unused `Chat_Sending`, added `Chat_Thinking.Text` (en/es). Launch check pending (parent).
+- [x] T3 Chat XAML: assistant text via `MarkdownTextBlock`, user messages as right-aligned subtle bubbles, pending row with `ProgressRing` + "Thinking…", remove the stray toolbar spinner, taller transcript, auto-scroll on new rows. Route: delegated (writer). Checks: app build + launch.
+  - Commit `ab85004`. `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64` → `0 Error(s)`; Core tests `Failed: 0, Passed: 803`. Removed unused `Chat_Sending`, added `Chat_Thinking.Text` (en/es). Parent launch check: sent a real question via `winapp ui`; user bubble + "Pensando…" appeared instantly, answer rendered bold + bullets, readable date, no context-count leak.
+- [ ] T4 Header actions: move History and New chat out of the composer row into the Expander header (right side); composer keeps Send, Personal tasks (when shown), Recipes. Route: delegated (writer). Checks: app build.
+- [ ] T5 Empty-state suggestions: when the open chat has no messages, show up to 4 recipe suggestions for the current scope as clickable chips above the composer; clicking one sends it. Route: delegated (writer). Checks: app build.
+- [ ] T6 Scope chip: show the chat scope (this meeting / this folder / all meetings) as an icon + label in the Expander header instead of plain text. Route: delegated (writer). Checks: app build.
+- [ ] T7 Clickable citations: pack `Id:` per meeting; prompt asks to cite meetings as `[Title, date](meeting://<id>)` using only context IDs; assistant `MarkdownTextBlock.LinkClicked` opens the meeting via `AppServices.Workspace.SelectMeeting` + `OpenSession(TabSummary)`; other http(s) links open in the browser. Route: delegated (writer). Checks: RED/GREEN `ChatContextPackerTests` / `ChatPromptBuilderTests`, app build.
+- [ ] T8 Streaming: `StreamPromptAsync` default method; real streaming for `LocalLlmSummaryProvider` (InferAsync tokens) and `XaiSummaryProvider` (`stream: true` SSE); chat appends chunks to the pending row (observable `Text`, batched on the UI thread), then persists the full answer. Route: delegated (writer). Checks: RED/GREEN provider tests, app build.
 
 ## Acceptance criteria
 - `**bold**` and lists render formatted in assistant answers.
@@ -34,7 +40,7 @@ Make the context-aware meeting chat feel responsive and readable: Markdown answe
 - Answers never quote ISO timestamps from context.
 
 ## Progress
-- Document created; branch `feat/chat-ux`.
+- Document created; branch `feat/chat-ux`. T1–T3 done and launch-verified. T4–T8 approved by the user ("vamos con todo").
 
 ## Next step
-T1.
+T4.
