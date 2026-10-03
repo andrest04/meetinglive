@@ -25,6 +25,44 @@ public class ChatPromptBuilderTests
     }
 
     [Fact]
+    public void Build_AnyScope_AsksToCiteMeetingsAsLinksUsingContextIdsOnly()
+    {
+        var prompt = ChatPromptBuilder.Build(
+            ChatScopeKind.AllMeetings,
+            "packed-context-token",
+            [],
+            "Which meeting covered pricing?");
+
+        Assert.Contains("(" + ChatPromptBuilder.MeetingLinkPrefix + "<Id>)", prompt);
+        Assert.Contains("Only cite Ids that appear in the context.", prompt);
+        Assert.Contains("Never write a raw Id outside a link.", prompt);
+    }
+
+    [Fact]
+    public void MeetingLink_RoundTripsThroughTryParseMeetingLink()
+    {
+        var id = Guid.NewGuid();
+
+        var link = ChatPromptBuilder.MeetingLink(id);
+
+        Assert.Equal(ChatPromptBuilder.MeetingLinkPrefix + id.ToString("N"), link);
+        Assert.True(ChatPromptBuilder.TryParseMeetingLink(link, out var parsed));
+        Assert.Equal(id, parsed);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("https://example.com/meeting/0123456789abcdef0123456789abcdef")]
+    [InlineData("https://meetinglive.local/meeting/not-a-guid")]
+    [InlineData("https://meetinglive.local/other/0123456789abcdef0123456789abcdef")]
+    public void TryParseMeetingLink_RejectsOtherLinks(string? link)
+    {
+        Assert.False(ChatPromptBuilder.TryParseMeetingLink(link, out var parsed));
+        Assert.Equal(Guid.Empty, parsed);
+    }
+
+    [Fact]
     public void Build_AnyScope_AsksForMarkdownAndReadableMeetingReferences()
     {
         var prompt = ChatPromptBuilder.Build(

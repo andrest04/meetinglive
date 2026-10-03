@@ -15,6 +15,24 @@ public static class ChatPromptBuilder
     public const string RewriteNotesInstruction =
         "Rewrite the notes from the packed meeting and return the rewritten notes as markdown. Do not save the file.";
 
+    /// <summary>
+    /// Citation links use https because the Markdown renderer only turns allow-listed schemes into links.
+    /// The host is never contacted: the app intercepts these links and opens the meeting.
+    /// </summary>
+    public const string MeetingLinkPrefix = "https://meetinglive.local/meeting/";
+
+    public static string MeetingLink(Guid meetingId) => MeetingLinkPrefix + meetingId.ToString("N");
+
+    public static bool TryParseMeetingLink(string? link, out Guid meetingId)
+    {
+        meetingId = Guid.Empty;
+        if (link is null || !link.StartsWith(MeetingLinkPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var id = link[MeetingLinkPrefix.Length..].TrimEnd('/');
+        return Guid.TryParse(id, out meetingId);
+    }
+
     public static string ScopeLabel(ChatScopeKind scopeKind) => scopeKind switch
     {
         ChatScopeKind.AllMeetings => "All meetings",
@@ -42,6 +60,10 @@ public static class ChatPromptBuilder
         builder.AppendLine("Answer in Markdown.");
         builder.AppendLine("Refer to meetings by title and a readable date (for example, \"Sprint review on Sep 1\").");
         builder.AppendLine("Do not mention how many meetings were included or omitted unless the user asks.");
+        builder.Append("When you refer to a meeting, cite it as a Markdown link: [Title, readable date](")
+            .Append(MeetingLinkPrefix)
+            .AppendLine("<Id>), using the meeting's Id from the context.");
+        builder.AppendLine("Only cite Ids that appear in the context. Never write a raw Id outside a link.");
         builder.Append("Scope: ").AppendLine(ScopeLabel(scopeKind));
 
         if (AsksToRewriteNotes(scopeKind, userMessage))

@@ -185,6 +185,28 @@ public class ChatContextPackerTests
     }
 
     [Fact]
+    public void Pack_MeetingScope_IncludesMeetingIdForCitations()
+    {
+        var meeting = Meeting("Sprint review", Recorded);
+
+        var packed = Pack(ChatScopeKind.Meeting, meetingId: meeting.Id, meetings: [meeting]);
+
+        Assert.Contains("Id: " + meeting.Id.ToString("N"), packed);
+    }
+
+    [Fact]
+    public void Pack_AllMeetings_IncludesEachMeetingId()
+    {
+        var first = Meeting("Planning", Recorded);
+        var second = Meeting("Retro", Recorded.AddDays(1));
+
+        var packed = Pack(ChatScopeKind.AllMeetings, meetings: [first, second]);
+
+        Assert.Contains("Id: " + first.Id.ToString("N"), packed);
+        Assert.Contains("Id: " + second.Id.ToString("N"), packed);
+    }
+
+    [Fact]
     public void Pack_MeetingScope_WhenMissing_SaysNotFound()
     {
         var other = Meeting("Unrelated session", Recorded, transcript: "OTHER_TRANSCRIPT_SECRET");
