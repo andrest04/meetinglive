@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
@@ -55,6 +56,8 @@ public partial class App : Application
     private CalendarReminderWatcher? _calendarReminderWatcher;
     private LiveCopilotWindow? _liveCopilotPill;
     private bool _mainWindowActive = true;
+    private bool _wasRecording;
+    private bool _handingOff;
 
     /// <summary>
     /// Initializes the singleton application object.
@@ -142,20 +145,46 @@ public partial class App : Application
             return;
 
         if (DispatcherQueue.HasThreadAccess)
-            UpdateLiveCopilotPill();
+            ApplyRecordingHandoff();
         else
-            DispatcherQueue.TryEnqueue(UpdateLiveCopilotPill);
+            DispatcherQueue.TryEnqueue(ApplyRecordingHandoff);
     }
 
     /// <summary>
-    /// The floating pill is visible only while a recording runs and the main window is not the
-    /// active window. It is created on first need, and shown without activation so it never takes
-    /// focus from the meeting app in front.
+    /// Minimizes and shows the started hint only on the false→true recording transition. Pause,
+    /// resume, import, discard, and stop do not take this path. The main window is not restored.
+    /// </summary>
+    private void ApplyRecordingHandoff()
+    {
+        var isRecording = AppServices.Recording.IsRecording;
+        var decision = LiveCopilotRecordingHandoff.Decide(_wasRecording, isRecording);
+        _wasRecording = isRecording;
+
+        if (decision.MinimizeMainWindow && Window.AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Minimize();
+
+        // After Minimize, so a reentrant activation event cannot leave the window marked active
+        // and hide the pill before the handoff show.
+        if (decision.MinimizeMainWindow)
+            _mainWindowActive = false;
+
+        _handingOff = decision.ShowStartedHint;
+        UpdateLiveCopilotPill();
+        if (decision.ShowStartedHint)
+            _liveCopilotPill?.ShowStartedHint();
+        _handingOff = false;
+    }
+
+    /// <summary>
+    /// The floating pill is visible while a recording runs and the main window is not the active
+    /// window, and also immediately on the start handoff before deactivation is observed. It is
+    /// created on first need, and shown without activation so it never takes focus from the meeting
+    /// app in front.
     /// </summary>
     private void UpdateLiveCopilotPill()
     {
         var recording = AppServices.Recording.IsRecording;
-        var show = recording && !_mainWindowActive;
+        var show = LiveCopilotRecordingHandoff.ShouldShowPill(recording, _mainWindowActive, _handingOff);
         if (!show && _liveCopilotPill is null)
             return;
 

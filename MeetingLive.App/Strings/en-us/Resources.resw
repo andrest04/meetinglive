@@ -569,6 +569,7 @@
   <data name="LiveCopilot_Grip.AutomationProperties.Name" xml:space="preserve"><value>Drag to move the live copilot</value></data>
   <data name="LiveCopilot_StatusRecording" xml:space="preserve"><value>REC</value></data>
   <data name="LiveCopilot_StatusPaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="LiveCopilot_StartedMessage" xml:space="preserve"><value>Recording started</value></data>
   <data name="LiveCopilot_ArmedBadge.AutomationProperties.Name" xml:space="preserve"><value>A question was detected</value></data>
   <data name="LiveCopilot_Expand.AutomationProperties.Name" xml:space="preserve"><value>Expand live copilot</value></data>
   <data name="LiveCopilot_Expand.ToolTipService.ToolTip" xml:space="preserve"><value>Expand live copilot</value></data>
