@@ -1,108 +1,85 @@
 using Microsoft.UI.Xaml;
-using Microsoft.Windows.AppNotifications;
-using Microsoft.Windows.AppNotifications.Builder;
+using MeetingLive.Core.Services;
 using MeetingLive_App;
 
 namespace MeetingLive_App.Services;
 
 /// <summary>
-/// While MeetingLive is running, poll for Zoom/Teams/Meet windows and offer a toast
-/// to start notes. Armed again only after those windows disappear.
+/// While MeetingLive is running, poll for Zoom/Teams/Meet windows and raise <see cref="MeetingDetected"/>
+/// once per call so the floating popup can offer to start recording. Armed again only after those
+/// windows disappear, which also raises <see cref="MeetingEnded"/>.
 /// </summary>
 internal sealed class MeetingCallWatcher : IDisposable
 {
-    public const string TakeNotesAction = "take-notes";
-
     private readonly DispatcherTimer _timer;
     private bool _armed = true;
-    private bool _notificationsReady;
+    private int _ticking;
+
+    /// <summary>A call window appeared while idle and the popup is allowed. Raised on the UI thread.</summary>
+    public event EventHandler? MeetingDetected;
+
+    /// <summary>The call windows are gone, so a popup left on screen should hide. Raised on the UI thread.</summary>
+    public event EventHandler? MeetingEnded;
 
     public MeetingCallWatcher()
     {
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _timer.Tick += (_, _) => Tick();
+        _timer.Tick += (_, _) => _ = TickAsync();
     }
 
-    public void Start()
+    public void Start() => _timer.Start();
+
+    public void Dispose() => _timer.Stop();
+
+    private async Task TickAsync()
     {
-        try
-        {
-            AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
-            AppNotificationManager.Default.Register();
-            _notificationsReady = true;
-        }
-        catch (Exception)
-        {
-            _notificationsReady = false;
-        }
-
-        _timer.Start();
-    }
-
-    public void Dispose()
-    {
-        _timer.Stop();
-        if (_notificationsReady)
-        {
-            try
-            {
-                AppNotificationManager.Default.NotificationInvoked -= OnNotificationInvoked;
-            }
-            catch (Exception)
-            {
-            }
-        }
-    }
-
-    private void Tick()
-    {
-        var inCall = MeetingWindowScanner.AnyMeetingWindow();
-        if (!inCall)
-        {
-            _armed = true;
-            return;
-        }
-
-        if (!_armed || AppServices.Workspace.IsCaptureActive)
-            return;
-
-        _armed = false;
-        AppServices.Workspace.OfferCallPrompt();
-        ShowToast();
-    }
-
-    private void ShowToast()
-    {
-        if (!_notificationsReady)
+        if (Interlocked.Exchange(ref _ticking, 1) == 1)
             return;
 
         try
         {
-            var notification = new AppNotificationBuilder()
-                .AddArgument("action", TakeNotesAction)
-                .AddText(AppStrings.Get("CallPrompt_Title"))
-                .AddText(AppStrings.Get("CallPrompt_Body"))
-                .AddButton(new AppNotificationButton(AppStrings.Get("CallPrompt_TakeNotes"))
-                    .AddArgument("action", TakeNotesAction))
-                .BuildNotification();
+            var inCall = MeetingWindowScanner.AnyMeetingWindow();
+            if (!inCall)
+            {
+                if (!_armed)
+                {
+                    _armed = true;
+                    MeetingEnded?.Invoke(this, EventArgs.Empty);
+                }
 
-            AppNotificationManager.Default.Show(notification);
+                return;
+            }
+
+            if (!_armed || AppServices.Workspace.IsCaptureActive)
+                return;
+
+            _armed = false;
+            AppServices.Workspace.OfferCallPrompt();
+
+            var popupEnabled = await LoadPopupEnabledAsync();
+            if (MeetingPopupPolicy.ShouldShow(popupEnabled, AppServices.Workspace.IsCaptureActive, alreadyPrompted: false))
+                MeetingDetected?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception)
         {
-            // Toast is best-effort; detection must never crash the app.
+            // Detection must never crash the app.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _ticking, 0);
         }
     }
 
-    private static void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
+    private static async Task<bool> LoadPopupEnabledAsync()
     {
-        if (!args.Arguments.TryGetValue("action", out var action) || action != TakeNotesAction)
-            return;
-
-        App.DispatcherQueue.TryEnqueue(() =>
+        try
         {
-            App.Window.Activate();
-            AppServices.Workspace.RequestTakeNotes();
-        });
+            return (await AppServices.Settings.LoadAsync()).MeetingPopupEnabled;
+        }
+        catch (Exception)
+        {
+            // An unreadable settings file keeps the default: the popup is on.
+            return true;
+        }
     }
 }

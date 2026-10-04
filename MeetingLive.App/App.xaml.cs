@@ -55,6 +55,7 @@ public partial class App : Application
     private MeetingCallWatcher? _callWatcher;
     private CalendarReminderWatcher? _calendarReminderWatcher;
     private LiveCopilotWindow? _liveCopilotPill;
+    private MeetingPromptWindow? _meetingPrompt;
     private bool _mainWindowActive = true;
     private bool _wasRecording;
     private bool _handingOff;
@@ -120,11 +121,15 @@ public partial class App : Application
             _liveCopilotPill = null;
             _callWatcher?.Dispose();
             _callWatcher = null;
+            _meetingPrompt?.Close();
+            _meetingPrompt = null;
             _calendarReminderWatcher?.Dispose();
             _calendarReminderWatcher = null;
         };
 
         _callWatcher = new MeetingCallWatcher();
+        _callWatcher.MeetingDetected += OnMeetingDetected;
+        _callWatcher.MeetingEnded += OnMeetingEnded;
         _callWatcher.Start();
         _calendarReminderWatcher = new CalendarReminderWatcher();
         _calendarReminderWatcher.Start();
@@ -132,6 +137,25 @@ public partial class App : Application
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);
     }
+
+    /// <summary>Shows the "Start recording" popup, created on first need. It is never activated.</summary>
+    private void OnMeetingDetected(object? sender, EventArgs e)
+    {
+        if (_meetingPrompt is null)
+        {
+            var prompt = new MeetingPromptWindow();
+            prompt.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_meetingPrompt, prompt))
+                    _meetingPrompt = null;
+            };
+            _meetingPrompt = prompt;
+        }
+
+        _meetingPrompt.Present();
+    }
+
+    private void OnMeetingEnded(object? sender, EventArgs e) => _meetingPrompt?.Dismiss();
 
     private void OnMainWindowActivated(object sender, WindowActivatedEventArgs args)
     {
@@ -159,6 +183,10 @@ public partial class App : Application
         var isRecording = AppServices.Recording.IsRecording;
         var decision = LiveCopilotRecordingHandoff.Decide(_wasRecording, isRecording);
         _wasRecording = isRecording;
+
+        // Recording has started, so the "Start recording" offer is moot.
+        if (isRecording)
+            _meetingPrompt?.Dismiss();
 
         if (decision.MinimizeMainWindow && Window.AppWindow.Presenter is OverlappedPresenter presenter)
             presenter.Minimize();

@@ -22,6 +22,13 @@
   <data name="CallPrompt_Title" xml:space="preserve"><value>Hay una llamada en curso</value></data>
   <data name="CallPrompt_Body" xml:space="preserve"><value>Toma notas en MeetingLive para no perder nada.</value></data>
   <data name="CallPrompt_TakeNotes" xml:space="preserve"><value>Tomar notas</value></data>
+  <data name="MeetingPrompt_Title.Text" xml:space="preserve"><value>Reunión detectada</value></data>
+  <data name="MeetingPrompt_Subtitle.Text" xml:space="preserve"><value>Grábala y toma notas con MeetingLive</value></data>
+  <data name="MeetingPrompt_Start.Content" xml:space="preserve"><value>Empezar a grabar</value></data>
+  <data name="MeetingPrompt_More.AutomationProperties.Name" xml:space="preserve"><value>Más opciones</value></data>
+  <data name="MeetingPrompt_More.ToolTipService.ToolTip" xml:space="preserve"><value>Más opciones</value></data>
+  <data name="MeetingPrompt_Dismiss.Text" xml:space="preserve"><value>Descartar</value></data>
+  <data name="MeetingPrompt_NeverAgain.Text" xml:space="preserve"><value>No volver a avisarme</value></data>
   <data name="SessionPage_Back.AutomationProperties.Name" xml:space="preserve"><value>Atrás</value></data>
   <data name="SessionPage_TabTranscript.Text" xml:space="preserve"><value>Transcripción</value></data>
   <data name="SessionPage_TabSummary.Text" xml:space="preserve"><value>Resumen</value></data>
