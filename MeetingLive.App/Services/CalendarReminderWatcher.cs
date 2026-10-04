@@ -38,7 +38,7 @@ internal sealed class CalendarReminderWatcher : IDisposable
             }
             catch (Exception)
             {
-                // MeetingCallWatcher registers the manager first. A second Register throws.
+                // Register throws when the manager is already registered. Notifications still work.
             }
 
             _notificationsReady = true;
