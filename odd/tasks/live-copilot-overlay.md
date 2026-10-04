@@ -56,7 +56,7 @@ Strategy: `ask-on-risk`. Forecast is about 1,300 authored lines (T1 ≈ 400, T2 
 
 - [x] T1 Core: session context and web line in the prompt, NeedsWeb Noul plus `JudgeNeedsWebAsync`, CLI `webSearch` args, provider ctor flag, tests. Real CLI web-flag check for Claude and Codex. Route: delegated (Sonnet writer). Trigger: two or more non-trivial files.
 - [x] T2 App: `CreateLiveAnswerProvider`, resolver live path, `AskLiveAsync` web decision and streaming, session context from Brief and title, `LiveAnswerUsedWeb` / `CanUseWebSearch` / `ForceWebSearch`. Route: delegated (Sonnet writer).
-- [ ] T3 App: `LiveCopilotWindow` pill and mini panel, `AppServices.Recording` singleton, lifetime wiring in `App.xaml.cs` / `MainWindow`, pill position settings, strings in en-us and es. Route: delegated (Sonnet writer).
+- [x] T3 App: `LiveCopilotWindow` pill and mini panel, `AppServices.Recording` singleton, lifetime wiring in `App.xaml.cs` / `MainWindow`, pill position settings, strings in en-us and es. Route: delegated (Sonnet writer).
 
 ## Checks
 
@@ -87,6 +87,16 @@ Strategy: `ask-on-risk`. Forecast is about 1,300 authored lines (T1 ≈ 400, T2 
 - Added `AppServices.CreateLiveAnswerProvider(kind, localModelPath, webSearch)`; `SummaryProviderResolver.ResolveAsync(..., bool webSearch = false)` routes through it only when true, so summaries and chat are unchanged.
 - `RecordingPageViewModel`: `ForceWebSearch`, `CanUseWebSearch`, `LiveAnswerUsedWeb`, `AskPresetCommand(string)`; typed questions ask `JudgeNeedsWebAsync` only when the provider supports web, web is not forced, TypeSafe is on and a key exists (any failure is false). Live answers stream via `StreamPromptAsync`, flushed every 80 ms.
 
+2026-10-04: T3 done (delegated Sonnet writer). Commit recorded in git log (`feat(record): add floating live copilot pill with mini panel`).
+
+- RED: `LiveCopilotPillPlacementTests` and the two `AppSettingsTests` round-trip tests first; the Core test project failed to compile (21 CS errors, missing `LiveCopilotPillPlacement` / `LiveCopilotPillX`). GREEN after.
+- `dotnet test ... --filter "FullyQualifiedName~LiveCopilotPillPlacement|FullyQualifiedName~AppSettings"`: Passed 36, Failed 0.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 877, Failed 0.
+- `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: 0 errors; warnings are all pre-existing (WMC1506, MVVMTK0045/0034), none in the files this task added.
+- Runtime (`winapp run ... --debug-output`, with a temporary reverted flag-file hook that forced the pill visible, no recording): app starts with no XAML parse error or new crash.log entry. The pill showed topmost at 240x48 bottom-right of the work area, expanded to 380x500 via its UIA button (screenshots checked), and `winapp ui drag` on the grip moved it and persisted `liveCopilotPillX/Y` to settings.json. Real recording, focus behavior and web search are NOT observed.
+- `AppServices.Recording` is a lazy singleton shared by `RecordingPage` (cached page, so one subscriber). If the pill asks before the page wired the setup resolvers, the VM sets `LiveCopilot_NeedsSetup` instead of "Setup cancelled".
+- Pill lifetime in `App.xaml.cs`: shown with `AppWindow.Show(activateWindow: false)` when `IsRecording` and the main window is deactivated; hidden when the main window activates; hidden and collapsed when recording stops; closed with the main window. `RecordingPage` got the same web toggle and web badge.
+
 ## Next step
 
-T3 via a Sonnet writer.
+Parent manual 4-step scenario (record, switch to another app and see the pill, expand and ask, stop), then re-verify Codex web search end to end once quota is back.

@@ -165,4 +165,30 @@ public class AppSettingsTests
 
         Assert.False(settings!.TypeSafeEnabled);
     }
+
+    [Fact]
+    public void LiveCopilotPillPosition_WhenUnsetOrJsonOmitsField_IsNull()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(settings);
+        Assert.Null(settings.LiveCopilotPillX);
+        Assert.Null(settings.LiveCopilotPillY);
+    }
+
+    [Fact]
+    public void LiveCopilotPillPosition_RoundTripsIncludingNegativeCoordinates()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(
+            new AppSettings { LiveCopilotPillX = -1500, LiveCopilotPillY = 320 },
+            options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.NotNull(settings);
+        Assert.Equal(-1500, settings.LiveCopilotPillX);
+        Assert.Equal(320, settings.LiveCopilotPillY);
+    }
 }

@@ -565,4 +565,31 @@
   <data name="Chat_DeleteThreadContent" xml:space="preserve"><value>Delete "{0}"? This cannot be undone.</value></data>
   <data name="Chat_DeleteThreadPrimary" xml:space="preserve"><value>Delete</value></data>
   <data name="Chat_DeleteThreadCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="LiveCopilot_Title" xml:space="preserve"><value>Live copilot</value></data>
+  <data name="LiveCopilot_Grip.AutomationProperties.Name" xml:space="preserve"><value>Drag to move the live copilot</value></data>
+  <data name="LiveCopilot_StatusRecording" xml:space="preserve"><value>REC</value></data>
+  <data name="LiveCopilot_StatusPaused" xml:space="preserve"><value>Paused</value></data>
+  <data name="LiveCopilot_ArmedBadge.AutomationProperties.Name" xml:space="preserve"><value>A question was detected</value></data>
+  <data name="LiveCopilot_Expand.AutomationProperties.Name" xml:space="preserve"><value>Expand live copilot</value></data>
+  <data name="LiveCopilot_Expand.ToolTipService.ToolTip" xml:space="preserve"><value>Expand live copilot</value></data>
+  <data name="LiveCopilot_Collapse.AutomationProperties.Name" xml:space="preserve"><value>Collapse live copilot</value></data>
+  <data name="LiveCopilot_Collapse.ToolTipService.ToolTip" xml:space="preserve"><value>Collapse</value></data>
+  <data name="LiveCopilot_OpenApp.AutomationProperties.Name" xml:space="preserve"><value>Open MeetingLive</value></data>
+  <data name="LiveCopilot_OpenApp.ToolTipService.ToolTip" xml:space="preserve"><value>Open MeetingLive</value></data>
+  <data name="LiveCopilot_Empty.Text" xml:space="preserve"><value>Ask a question below, or answer one MeetingLive detects.</value></data>
+  <data name="LiveCopilot_WebBadge.Text" xml:space="preserve"><value>🌐 Searched the web</value></data>
+  <data name="LiveCopilot_ChipMissed.Content" xml:space="preserve"><value>What did I miss?</value></data>
+  <data name="LiveCopilot_ChipMissed.AutomationProperties.Name" xml:space="preserve"><value>Ask what you missed in the last few minutes</value></data>
+  <data name="LiveCopilot_PromptMissed" xml:space="preserve"><value>What did I miss? Summarize the last few minutes.</value></data>
+  <data name="LiveCopilot_ChipExplain.Content" xml:space="preserve"><value>Explain simply</value></data>
+  <data name="LiveCopilot_ChipExplain.AutomationProperties.Name" xml:space="preserve"><value>Ask for the last point in simple terms</value></data>
+  <data name="LiveCopilot_PromptExplain" xml:space="preserve"><value>Explain the last point in simple terms.</value></data>
+  <data name="LiveCopilot_Send.AutomationProperties.Name" xml:space="preserve"><value>Ask the question</value></data>
+  <data name="LiveCopilot_Send.ToolTipService.ToolTip" xml:space="preserve"><value>Ask (Ctrl+Enter)</value></data>
+  <data name="LiveCopilot_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Search the web for the answer</value></data>
+  <data name="LiveCopilot_WebTooltipOn" xml:space="preserve"><value>Search the web for the answer</value></data>
+  <data name="LiveCopilot_WebTooltipOff" xml:space="preserve"><value>No web search with this provider</value></data>
+  <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Open MeetingLive to finish provider setup.</value></data>
+  <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Search the web for the answer</value></data>
+  <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Searched the web</value></data>
 </root>

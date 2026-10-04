@@ -149,6 +149,13 @@ public sealed class AppSettings
     /// <summary>User-resized NavigationView pane width in DIPs. Null uses the default.</summary>
     public double? NavigationPaneLength { get; set; }
 
+    /// <summary>Left edge, in physical screen pixels, where the user last left the floating live copilot pill.
+    /// Null means never moved: the pill opens at the bottom-right of the work area.</summary>
+    public int? LiveCopilotPillX { get; set; }
+
+    /// <summary>Top edge counterpart of <see cref="LiveCopilotPillX"/>.</summary>
+    public int? LiveCopilotPillY { get; set; }
+
     public const double DefaultNavigationPaneLength = 280;
     public const double MinNavigationPaneLength = 200;
     public const double MaxNavigationPaneLength = 480;

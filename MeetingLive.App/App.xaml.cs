@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,6 +9,7 @@ using Microsoft.UI.Xaml.Navigation;
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
+using MeetingLive_App.ViewModels;
 using Windows.Globalization;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -51,6 +53,8 @@ public partial class App : Application
 
     private MeetingCallWatcher? _callWatcher;
     private CalendarReminderWatcher? _calendarReminderWatcher;
+    private LiveCopilotWindow? _liveCopilotPill;
+    private bool _mainWindowActive = true;
 
     /// <summary>
     /// Initializes the singleton application object.
@@ -102,8 +106,15 @@ public partial class App : Application
         }
 
         Window.Activate();
+        Window.Activated += OnMainWindowActivated;
+        AppServices.Recording.PropertyChanged += OnRecordingPropertyChanged;
         Window.Closed += (_, _) =>
         {
+            Window.Activated -= OnMainWindowActivated;
+            AppServices.Recording.PropertyChanged -= OnRecordingPropertyChanged;
+            // Closing the pill with the main window lets the process exit.
+            _liveCopilotPill?.Close();
+            _liveCopilotPill = null;
             _callWatcher?.Dispose();
             _callWatcher = null;
             _calendarReminderWatcher?.Dispose();
@@ -117,6 +128,49 @@ public partial class App : Application
 
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);
+    }
+
+    private void OnMainWindowActivated(object sender, WindowActivatedEventArgs args)
+    {
+        _mainWindowActive = args.WindowActivationState != WindowActivationState.Deactivated;
+        UpdateLiveCopilotPill();
+    }
+
+    private void OnRecordingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(RecordingPageViewModel.IsRecording))
+            return;
+
+        if (DispatcherQueue.HasThreadAccess)
+            UpdateLiveCopilotPill();
+        else
+            DispatcherQueue.TryEnqueue(UpdateLiveCopilotPill);
+    }
+
+    /// <summary>
+    /// The floating pill is visible only while a recording runs and the main window is not the
+    /// active window. It is created on first need, and shown without activation so it never takes
+    /// focus from the meeting app in front.
+    /// </summary>
+    private void UpdateLiveCopilotPill()
+    {
+        var recording = AppServices.Recording.IsRecording;
+        var show = recording && !_mainWindowActive;
+        if (!show && _liveCopilotPill is null)
+            return;
+
+        if (_liveCopilotPill is null)
+        {
+            var pill = new LiveCopilotWindow();
+            pill.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_liveCopilotPill, pill))
+                    _liveCopilotPill = null;
+            };
+            _liveCopilotPill = pill;
+        }
+
+        _ = _liveCopilotPill.SetVisibleAsync(show, collapse: !recording);
     }
 
     /// <summary>

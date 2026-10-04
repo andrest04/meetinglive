@@ -1,5 +1,6 @@
 using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
+using MeetingLive_App.ViewModels;
 
 namespace MeetingLive_App.Services;
 
@@ -84,6 +85,14 @@ public static class AppServices
     public static MeetingJevService MeetingJev { get; } = new(TypeSafeApi, TypeSafeCredentials);
 
     public static WorkspaceService Workspace { get; } = new();
+
+    private static readonly Lazy<RecordingPageViewModel> LazyRecording = new(() => new RecordingPageViewModel());
+
+    /// <summary>
+    /// The one recording view-model, shared by <c>RecordingPage</c> and the floating live copilot pill so both
+    /// show the same session. Lazy because it must be created on the UI thread; first use is from there.
+    /// </summary>
+    public static RecordingPageViewModel Recording => LazyRecording.Value;
 
     public static MeetingRetranscriptionRunner Retranscription { get; } = new(Transcription, Meetings);
 

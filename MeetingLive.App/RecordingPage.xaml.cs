@@ -16,7 +16,7 @@ public sealed partial class RecordingPage : Page
 {
     private bool _stickToTranscriptEnd = true;
 
-    public RecordingPageViewModel ViewModel { get; } = new();
+    public RecordingPageViewModel ViewModel { get; } = AppServices.Recording;
 
     public RecordingPage()
     {
@@ -259,6 +259,9 @@ public sealed partial class RecordingPage : Page
     public static string LiveAskName() => AppStrings.Get("RecordPage_LiveAsk.AutomationProperties.Name");
 
     public static string LiveAskPlaceholder() => AppStrings.Get("RecordPage_LiveAsk.PlaceholderText");
+
+    public static string WebToggleTooltip(bool canUseWebSearch) =>
+        AppStrings.Get(canUseWebSearch ? "LiveCopilot_WebTooltipOn" : "LiveCopilot_WebTooltipOff");
 
     public static string LiveAnswerTooltip() => AppStrings.Get("RecordPage_LiveAnswerTooltip");
 

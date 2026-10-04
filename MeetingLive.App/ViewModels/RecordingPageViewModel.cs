@@ -512,6 +512,17 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private bool CanDismissArmedQuestion() => HasArmedQuestion;
 
+    /// <summary>
+    /// The setup resolvers are wired by <c>RecordingPage</c> when it loads. A question asked from the
+    /// floating pill before that happened has no way to show a setup dialog, so it reports that instead.
+    /// </summary>
+    private bool HasProviderSetupResolver(SummaryProviderKind kind) => kind switch
+    {
+        SummaryProviderKind.Local => EnsureSummaryModelAsync is not null,
+        SummaryProviderKind.Xai => EnsureXaiProviderAsync is not null,
+        _ => EnsureCliProviderAsync is not null,
+    };
+
     private async Task AskLiveAsync(bool typedOnly)
     {
         if (!IsRecording)
@@ -576,7 +587,9 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 PublishLiveAnswer(
                     generation,
                     answer: null,
-                    error: AppStrings.Get("Status_SetupCancelled"),
+                    error: HasProviderSetupResolver(providerKind)
+                        ? AppStrings.Get("Status_SetupCancelled")
+                        : AppStrings.Get("LiveCopilot_NeedsSetup"),
                     answering: false,
                     restoreArmed: clearedArmed ? armed : null,
                     restoreNeedsWeb: armedNeedsWeb);
