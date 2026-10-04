@@ -33,13 +33,16 @@ public static class SummaryProviderResolver
     /// <summary>
     /// Returns null when the gate for <paramref name="providerKind"/> was not satisfied (no local
     /// model chosen, CLI not available, xAI not signed in, or a setup dialog was cancelled) — the
-    /// caller then skips summarization/polishing.
+    /// caller then skips summarization/polishing. <paramref name="webSearch"/> is only for the live
+    /// answer path: it routes through <see cref="AppServices.CreateLiveAnswerProvider"/>, and every
+    /// other caller keeps the default so summaries and chat never get web arguments.
     /// </summary>
     public static async Task<ResolvedSummaryPipeline?> ResolveAsync(
         SummaryProviderKind providerKind,
         Func<Task<string?>>? ensureSummaryModelAsync,
         Func<SummaryProviderKind, Task<bool>>? ensureCliProviderAsync,
-        Func<Task<bool>>? ensureXaiProviderAsync)
+        Func<Task<bool>>? ensureXaiProviderAsync,
+        bool webSearch = false)
     {
         if (providerKind == SummaryProviderKind.Local)
         {
@@ -66,7 +69,9 @@ public static class SummaryProviderResolver
         var available = ensureCliProviderAsync is not null && await ensureCliProviderAsync(providerKind);
         return available
             ? new ResolvedSummaryPipeline(
-                AppServices.CreateSummaryProvider(providerKind, localModelPath: null),
+                webSearch
+                    ? AppServices.CreateLiveAnswerProvider(providerKind, localModelPath: null, webSearch: true)
+                    : AppServices.CreateSummaryProvider(providerKind, localModelPath: null),
                 providerKind,
                 LocalModelPath: null)
             : null;

@@ -50,6 +50,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private readonly List<TimeSpan> _highlights = [];
     private string _previousCommittedTranscript = string.Empty;
     private string _committedTranscript = string.Empty;
+    private static readonly TimeSpan LiveAnswerFlushInterval = TimeSpan.FromMilliseconds(80);
     private readonly HashSet<string> _dismissedQuestionBodies = new(StringComparer.Ordinal);
     private CancellationTokenSource? _liveAnswerCts;
     private int _liveAnswerGeneration;
@@ -203,6 +204,21 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     [ObservableProperty]
     private bool _isAnswering;
+
+    /// <summary>The user's web toggle: ask Claude Code or Codex to search the web for live answers.</summary>
+    [ObservableProperty]
+    private bool _forceWebSearch;
+
+    /// <summary>True when the selected summary provider can search the web (Claude Code or Codex).</summary>
+    [ObservableProperty]
+    private bool _canUseWebSearch;
+
+    /// <summary>True when the last completed live answer was asked with web search enabled.</summary>
+    [ObservableProperty]
+    private bool _liveAnswerUsedWeb;
+
+    /// <summary>Jev's NeedsWeb verdict for the currently armed question. Cleared with the arm.</summary>
+    private bool _armedNeedsWeb;
 
     public bool HasArmedQuestion => !string.IsNullOrWhiteSpace(ArmedQuestion);
 
@@ -403,7 +419,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 currentCommitted,
                 cancellationToken).ConfigureAwait(false);
 
-            App.DispatcherQueue.TryEnqueue(() => ApplyQuestionJudgment(generation, currentCommitted, armed?.Body));
+            App.DispatcherQueue.TryEnqueue(() => ApplyQuestionJudgment(generation, currentCommitted, armed?.Body, armed?.NeedsWeb ?? false));
         }
         catch (OperationCanceledException)
         {
@@ -429,7 +445,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         });
     }
 
-    private void ApplyQuestionJudgment(int generation, string judgedTranscript, string? armed)
+    private void ApplyQuestionJudgment(int generation, string judgedTranscript, string? armed, bool needsWeb)
     {
         if (generation != _liveQuestionGeneration || !IsRecording)
             return;
@@ -439,6 +455,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             return;
 
         ArmedQuestion = armed;
+        _armedNeedsWeb = needsWeb;
     }
 
     private CancellationTokenSource ReplaceLiveQuestionCancellation()
@@ -474,6 +491,18 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         _dismissedQuestionBodies.Add(ArmedQuestion);
         ArmedQuestion = string.Empty;
+        _armedNeedsWeb = false;
+    }
+
+    /// <summary>Asks a fixed prompt (a preset chip) through the typed-ask path.</summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task AskPresetAsync(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt) || !IsRecording)
+            return Task.CompletedTask;
+
+        LiveAskText = prompt.Trim();
+        return AskLiveAsync(typedOnly: true);
     }
 
     private bool CanConfirmLiveAnswer() =>
@@ -498,6 +527,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         var confirmPath = !typedOnly;
         var clearedArmed = confirmPath && armed.Length > 0;
+        var armedNeedsWeb = _armedNeedsWeb;
+        var questionIsArmed = typed.Length == 0;
         if (confirmPath)
             ArmedQuestion = string.Empty;
 
@@ -507,8 +538,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         IsAnswering = true;
         LiveAnswerError = string.Empty;
         LiveAnswerText = string.Empty;
+        LiveAnswerUsedWeb = false;
 
         var committed = _committedTranscript;
+        var forceWeb = ForceWebSearch;
 
         try
         {
@@ -517,11 +550,24 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 return;
 
             var providerKind = settings.ResolveSummaryProviderKind();
+            var supportsWeb = LiveAnswerWebPolicy.SupportsWebSearch(providerKind);
+            CanUseWebSearch = supportsWeb;
+
+            // Only ask Jev when the answer could actually use the web and the user did not force it.
+            var jevNeedsWeb = supportsWeb && !forceWeb
+                && (questionIsArmed
+                    ? armedNeedsWeb
+                    : await JudgeTypedQuestionNeedsWebAsync(settings, question, committed, token));
+            if (generation != _liveAnswerGeneration || token.IsCancellationRequested)
+                return;
+
+            var useWeb = LiveAnswerWebPolicy.ShouldUseWeb(supportsWeb, forceWeb, jevNeedsWeb);
             var resolved = await SummaryProviderResolver.ResolveAsync(
                 providerKind,
                 EnsureSummaryModelAsync,
                 EnsureCliProviderAsync,
-                EnsureXaiProviderAsync);
+                EnsureXaiProviderAsync,
+                webSearch: useWeb);
             if (generation != _liveAnswerGeneration || token.IsCancellationRequested)
                 return;
 
@@ -532,16 +578,19 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                     answer: null,
                     error: AppStrings.Get("Status_SetupCancelled"),
                     answering: false,
-                    restoreArmed: clearedArmed ? armed : null);
+                    restoreArmed: clearedArmed ? armed : null,
+                    restoreNeedsWeb: armedNeedsWeb);
                 return;
             }
 
             var prompt = LiveAnswerPromptBuilder.Build(
                 question,
                 LiveAnswerWindow.TakeRecent(committed, LiveAnswerWindow.Default),
-                settings.ResolveSummaryLanguage());
+                settings.ResolveSummaryLanguage(),
+                sessionContext: LiveAnswerWebPolicy.BuildSessionContext(MeetingTitle, MeetingBrief),
+                webSearch: useWeb);
             var answer = await Task.Run(
-                () => resolved.Provider.CompletePromptAsync(prompt, token),
+                () => StreamLiveAnswerAsync(resolved.Provider, prompt, generation, token),
                 token).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(answer))
             {
@@ -553,7 +602,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 return;
             }
 
-            PublishLiveAnswer(generation, answer, error: string.Empty, answering: false);
+            PublishLiveAnswer(generation, answer.Trim(), error: string.Empty, answering: false, usedWeb: useWeb);
         }
         catch (OperationCanceledException)
         {
@@ -569,12 +618,85 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
     }
 
+    /// <summary>
+    /// Typed questions have no armed verdict, so ask Jev off the UI thread. Any failure, a disabled
+    /// TypeSafe setting, or a missing key means no web (false), never an error for the user.
+    /// </summary>
+    private static Task<bool> JudgeTypedQuestionNeedsWebAsync(
+        AppSettings settings,
+        string question,
+        string committed,
+        CancellationToken cancellationToken)
+    {
+        if (!settings.TypeSafeEnabled)
+            return Task.FromResult(false);
+
+        return Task.Run(async () =>
+        {
+            try
+            {
+                var credentials = AppServices.TypeSafeCredentials.Load();
+                if (credentials is null || string.IsNullOrWhiteSpace(credentials.ApiKey))
+                    return false;
+
+                return await LiveQuestionJevJudge.JudgeNeedsWebAsync(
+                    AppServices.TypeSafeApi,
+                    credentials.ApiKey,
+                    question,
+                    committed,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs off the UI thread. Publishes the growing answer to the UI at most every
+    /// <see cref="LiveAnswerFlushInterval"/> and returns the full text.
+    /// </summary>
+    private async Task<string> StreamLiveAnswerAsync(
+        ISummaryProvider provider,
+        string prompt,
+        int generation,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new System.Text.StringBuilder();
+        var hasVisibleText = false;
+        var pushedLength = 0;
+        long lastPush = 0;
+        await foreach (var chunk in provider.StreamPromptAsync(prompt, cancellationToken).ConfigureAwait(false))
+        {
+            buffer.Append(chunk);
+            hasVisibleText |= !string.IsNullOrWhiteSpace(chunk);
+            if (!hasVisibleText)
+                continue;
+
+            if (pushedLength == 0 || Stopwatch.GetElapsedTime(lastPush) >= LiveAnswerFlushInterval)
+            {
+                PublishLiveAnswer(generation, buffer.ToString().TrimStart(), error: null, answering: true);
+                pushedLength = buffer.Length;
+                lastPush = Stopwatch.GetTimestamp();
+            }
+        }
+
+        return buffer.ToString();
+    }
+
     private void PublishLiveAnswer(
         int generation,
         string? answer,
         string? error,
         bool answering,
-        string? restoreArmed = null)
+        string? restoreArmed = null,
+        bool restoreNeedsWeb = false,
+        bool? usedWeb = null)
     {
         App.DispatcherQueue.TryEnqueue(() =>
         {
@@ -582,7 +704,12 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 return;
 
             if (restoreArmed is not null)
+            {
                 ArmedQuestion = restoreArmed;
+                _armedNeedsWeb = restoreNeedsWeb;
+            }
+            if (usedWeb is not null)
+                LiveAnswerUsedWeb = usedWeb.Value;
             if (answer is not null)
                 LiveAnswerText = answer;
             if (error is not null)
@@ -634,9 +761,11 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _questionJudgeBaseline = string.Empty;
         _dismissedQuestionBodies.Clear();
         ArmedQuestion = string.Empty;
+        _armedNeedsWeb = false;
         LiveAskText = string.Empty;
         LiveAnswerText = string.Empty;
         LiveAnswerError = string.Empty;
+        LiveAnswerUsedWeb = false;
     }
 
     private void OnMeetingDeleted(object? sender, Guid id)
@@ -1049,6 +1178,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         var settings = await AppServices.Settings.LoadAsync();
         ResetLiveAnswerSession();
+        CanUseWebSearch = LiveAnswerWebPolicy.SupportsWebSearch(settings.ResolveSummaryProviderKind());
 
         _currentMeetingId = _linkedMeetingId ?? Guid.NewGuid();
         _recordedAt = DateTimeOffset.Now;

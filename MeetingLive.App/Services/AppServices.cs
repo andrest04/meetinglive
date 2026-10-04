@@ -104,6 +104,18 @@ public static class AppServices
     };
 
     /// <summary>
+    /// Live-answer variant of <see cref="CreateSummaryProvider"/>: Claude Code and Codex are built
+    /// with provider-side web search when <paramref name="webSearch"/> is set; xAI and Local ignore
+    /// it. Only the live answer path uses this, so summaries and chat never receive web arguments.
+    /// </summary>
+    public static ISummaryProvider CreateLiveAnswerProvider(SummaryProviderKind kind, string? localModelPath, bool webSearch) => kind switch
+    {
+        SummaryProviderKind.ClaudeCode => CreateClaudeSummary(webSearch),
+        SummaryProviderKind.Codex => CreateCodexSummary(webSearch),
+        _ => CreateSummaryProvider(kind, localModelPath),
+    };
+
+    /// <summary>
     /// Creates a transcript polisher matching <paramref name="kind"/> so polish and summary
     /// use the same engine. <paramref name="localModelPath"/> is required for Local.
     /// </summary>
@@ -117,22 +129,24 @@ public static class AppServices
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown summary provider kind."),
     };
 
-    private static ClaudeCodeCliSummaryProvider CreateClaudeSummary()
+    private static ClaudeCodeCliSummaryProvider CreateClaudeSummary(bool webSearch = false)
     {
         var settings = LoadSettingsSnapshot();
         return new ClaudeCodeCliSummaryProvider(
             new CliProcessRunner(),
             settings.ResolveClaudeModelId(),
-            settings.ResolveClaudeEffort());
+            settings.ResolveClaudeEffort(),
+            webSearch);
     }
 
-    private static CodexCliSummaryProvider CreateCodexSummary()
+    private static CodexCliSummaryProvider CreateCodexSummary(bool webSearch = false)
     {
         var settings = LoadSettingsSnapshot();
         return new CodexCliSummaryProvider(
             new CliProcessRunner(),
             settings.ResolveCodexModelId(),
-            settings.ResolveCodexEffort());
+            settings.ResolveCodexEffort(),
+            webSearch);
     }
 
     private static ClaudeCodeCliTranscriptPolisher CreateClaudePolisher()

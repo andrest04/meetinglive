@@ -55,7 +55,7 @@ Strategy: `ask-on-risk`. Forecast is about 1,300 authored lines (T1 ≈ 400, T2 
 ## Tasks
 
 - [x] T1 Core: session context and web line in the prompt, NeedsWeb Noul plus `JudgeNeedsWebAsync`, CLI `webSearch` args, provider ctor flag, tests. Real CLI web-flag check for Claude and Codex. Route: delegated (Sonnet writer). Trigger: two or more non-trivial files.
-- [ ] T2 App: `CreateLiveAnswerProvider`, resolver live path, `AskLiveAsync` web decision and streaming, session context from Brief and title, `LiveAnswerUsedWeb` / `CanUseWebSearch` / `ForceWebSearch`. Route: delegated (Sonnet writer).
+- [x] T2 App: `CreateLiveAnswerProvider`, resolver live path, `AskLiveAsync` web decision and streaming, session context from Brief and title, `LiveAnswerUsedWeb` / `CanUseWebSearch` / `ForceWebSearch`. Route: delegated (Sonnet writer).
 - [ ] T3 App: `LiveCopilotWindow` pill and mini panel, `AppServices.Recording` singleton, lifetime wiring in `App.xaml.cs` / `MainWindow`, pill position settings, strings in en-us and es. Route: delegated (Sonnet writer).
 
 ## Checks
@@ -68,7 +68,7 @@ Strategy: `ask-on-risk`. Forecast is about 1,300 authored lines (T1 ≈ 400, T2 
 
 2026-10-04: Plan approved. Branch `feat/live-copilot-overlay` created from `main` at `136ed22`.
 
-2026-10-04: T1 done (delegated Sonnet writer). Commit: the `feat(core): add session context and jev-gated web search for live answers` commit on this branch (hash in `git log`).
+2026-10-04: T1 done (delegated Sonnet writer). Commit `e045096`. Parent spot check: filtered Core tests re-run, Passed 88, Failed 0. Review assess: high (`process_boundary`), due; user declined review for this candidate and asked to skip reviews for the rest of this feature ("salta todo"). Reviewed boundary stays `136ed22`.
 
 - RED: new tests first; Core test project failed to compile (34 CS errors) before implementation. GREEN after.
 - `dotnet test ... --filter "FullyQualifiedName~LiveAnswer|...LiveQuestion|...CliInvocation|...CliSummaryProvider"`: Passed 88, Failed 0.
@@ -78,6 +78,15 @@ Strategy: `ask-on-risk`. Forecast is about 1,300 authored lines (T1 ≈ 400, T2 
 - Codex form chosen: `--search exec -` (top-level `--search` flag, documented as "Enable live web search ... no per-call approval"; `codex exec --help` has none). End-to-end search NOT observed: in this env `codex exec` fails before the model (Windows sandbox `:root` read error), and with `-s danger-full-access` the model call returned "usage limit reached" (resets 6:00 PM). Argument parsing of `--search exec ... -` and `exec -c web_search="live" -` was accepted by the CLI in both cases. Re-verify once quota is back.
 - Judge: web Noul rides in the same request (`web_{i}` beside `line_{i}`); `JudgeAsync` returns `ArmedQuestion(Body, NeedsWeb)`; `JudgeNeedsWebAsync` added. App caller uses `.Body` only (NeedsWeb is T2).
 
+2026-10-04: T2 done (delegated Sonnet writer). Commit recorded in git log (`feat(record): stream live answers ...`).
+
+- RED: `LiveAnswerWebPolicyTests` first; Core test project failed to compile (CS0103, `LiveAnswerWebPolicy` missing). GREEN after.
+- `dotnet test ... --filter "FullyQualifiedName~LiveAnswerWebPolicy"`: Passed 19, Failed 0.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 863, Failed 0.
+- `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: 0 errors, 3 warnings (all pre-existing WMC1506 in other XAML files).
+- Added `AppServices.CreateLiveAnswerProvider(kind, localModelPath, webSearch)`; `SummaryProviderResolver.ResolveAsync(..., bool webSearch = false)` routes through it only when true, so summaries and chat are unchanged.
+- `RecordingPageViewModel`: `ForceWebSearch`, `CanUseWebSearch`, `LiveAnswerUsedWeb`, `AskPresetCommand(string)`; typed questions ask `JudgeNeedsWebAsync` only when the provider supports web, web is not forced, TypeSafe is on and a key exists (any failure is false). Live answers stream via `StreamPromptAsync`, flushed every 80 ms.
+
 ## Next step
 
-T2 via a Sonnet writer.
+T3 via a Sonnet writer.
