@@ -233,6 +233,12 @@ public sealed partial class SettingsPage : Page
             ViewModel.Calendar.SetNotificationsEnabledCommand.Execute(toggleSwitch.IsOn);
     }
 
+    private void MeetingPopupToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggleSwitch)
+            ViewModel.Calendar.SetMeetingPopupEnabledCommand.Execute(toggleSwitch.IsOn);
+    }
+
     private void CalendarVisibilityToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleSwitch toggleSwitch || toggleSwitch.DataContext is not CalendarVisibilityOption option)

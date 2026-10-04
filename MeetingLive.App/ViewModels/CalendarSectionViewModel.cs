@@ -33,6 +33,9 @@ public sealed partial class CalendarSectionViewModel : SettingsSectionViewModelB
     private bool _notificationsEnabled = true;
 
     [ObservableProperty]
+    private bool _meetingPopupEnabled = true;
+
+    [ObservableProperty]
     private string _calendarMessage = string.Empty;
 
     [ObservableProperty]
@@ -50,6 +53,7 @@ public sealed partial class CalendarSectionViewModel : SettingsSectionViewModelB
         try
         {
             NotificationsEnabled = settings.CalendarNotificationsEnabled;
+            MeetingPopupEnabled = settings.MeetingPopupEnabled;
             var result = await AppServices.Calendar.GetCalendarsAsync();
             ApplyList(result, settings);
         }
@@ -74,6 +78,16 @@ public sealed partial class CalendarSectionViewModel : SettingsSectionViewModelB
 
         NotificationsEnabled = isEnabled;
         await SaveSettingsAsync(settings => settings.CalendarNotificationsEnabled = isEnabled);
+    }
+
+    [RelayCommand]
+    private async Task SetMeetingPopupEnabledAsync(bool isEnabled)
+    {
+        if (_applying || isEnabled == MeetingPopupEnabled)
+            return;
+
+        MeetingPopupEnabled = isEnabled;
+        await SaveSettingsAsync(settings => settings.MeetingPopupEnabled = isEnabled);
     }
 
     public async Task SetCalendarEnabledAsync(CalendarVisibilityOption option, bool isEnabled)

@@ -451,6 +451,12 @@
                                   Toggled="CalendarNotificationsToggle_Toggled"
                                   AutomationProperties.AutomationId="ToggleCalendarNotifications" />
                 </controls:SettingsCard>
+                <controls:SettingsCard x:Uid="Settings_MeetingPopup"
+                                       HeaderIcon="{ui:FontIcon Glyph=&#xE720;}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.Calendar.MeetingPopupEnabled, Mode=OneWay}"
+                                  Toggled="MeetingPopupToggle_Toggled"
+                                  AutomationProperties.AutomationId="ToggleMeetingPopup" />
+                </controls:SettingsCard>
                 <controls:SettingsExpander x:Uid="Settings_Calendars"
                                            HeaderIcon="{ui:FontIcon Glyph=&#xE787;}"
                                            ItemsSource="{x:Bind ViewModel.Calendar.Calendars, Mode=OneWay}"

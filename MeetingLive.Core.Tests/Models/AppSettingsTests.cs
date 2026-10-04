@@ -119,6 +119,32 @@ public class AppSettingsTests
     }
 
     [Fact]
+    public void MeetingPopupEnabled_WhenUnset_DefaultsTrue()
+    {
+        Assert.True(new AppSettings().MeetingPopupEnabled);
+    }
+
+    [Fact]
+    public void MeetingPopupEnabled_WhenJsonOmitsField_DefaultsTrue()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.True(settings!.MeetingPopupEnabled);
+    }
+
+    [Fact]
+    public void MeetingPopupEnabled_RoundTripsFalse()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(new AppSettings { MeetingPopupEnabled = false }, options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.False(settings!.MeetingPopupEnabled);
+    }
+
+    [Fact]
     public void DisabledCalendarIds_WhenUnsetOrJsonOmitsField_IsEmpty()
     {
         Assert.Empty(new AppSettings().DisabledCalendarIds);

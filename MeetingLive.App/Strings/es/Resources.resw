@@ -193,6 +193,8 @@
   <data name="Settings_Calendar.Text" xml:space="preserve"><value>Calendario</value></data>
   <data name="Settings_CalendarNotifications.Header" xml:space="preserve"><value>Notificar un minuto antes de una reunión</value></data>
   <data name="Settings_CalendarNotifications.Description" xml:space="preserve"><value>Muestra una notificación cuando una reunión con dos o más personas está a punto de comenzar. Permanece en silencio mientras ya estás grabando.</value></data>
+  <data name="Settings_MeetingPopup.Header" xml:space="preserve"><value>Mostrar un aviso cuando empieza una llamada</value></data>
+  <data name="Settings_MeetingPopup.Description" xml:space="preserve"><value>Muestra un aviso pequeño con un botón para empezar a grabar cuando se detecta una llamada de Zoom, Teams o Meet. Permanece en silencio mientras ya estás grabando.</value></data>
   <data name="Settings_Calendars.Header" xml:space="preserve"><value>Calendarios</value></data>
   <data name="Settings_Calendars.Description" xml:space="preserve"><value>Desactiva un calendario para ocultarlo de Próximamente y de las notificaciones.</value></data>
   <data name="CalendarReminder_Body" xml:space="preserve"><value>Esta reunión está a punto de comenzar.</value></data>

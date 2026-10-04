@@ -112,6 +112,12 @@ public sealed class AppSettings
     public bool CalendarNotificationsEnabled { get; set; } = true;
 
     /// <summary>
+    /// Floating "Start recording" popup when a Zoom/Teams/Meet call is detected. Defaults to
+    /// <see langword="true"/>. A missing JSON field deserializes as true so older settings files stay on.
+    /// </summary>
+    public bool MeetingPopupEnabled { get; set; } = true;
+
+    /// <summary>
     /// Calendar ids hidden from Coming up and the reminder. Empty means every calendar is visible.
     /// A missing JSON field stays empty. The serializer writes this list like the other fields,
     /// including when it is empty — optional strings in this type are written even when null.

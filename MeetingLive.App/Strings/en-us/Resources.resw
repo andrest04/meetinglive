@@ -193,6 +193,8 @@
   <data name="Settings_Calendar.Text" xml:space="preserve"><value>Calendar</value></data>
   <data name="Settings_CalendarNotifications.Header" xml:space="preserve"><value>Notify one minute before a meeting</value></data>
   <data name="Settings_CalendarNotifications.Description" xml:space="preserve"><value>Shows a notification when a meeting with two or more people is about to start. Stays quiet while you are already recording.</value></data>
+  <data name="Settings_MeetingPopup.Header" xml:space="preserve"><value>Show a popup when a call starts</value></data>
+  <data name="Settings_MeetingPopup.Description" xml:space="preserve"><value>Shows a small popup with a Start recording button when a Zoom, Teams, or Meet call is detected. Stays quiet while you are already recording.</value></data>
   <data name="Settings_Calendars.Header" xml:space="preserve"><value>Calendars</value></data>
   <data name="Settings_Calendars.Description" xml:space="preserve"><value>Turn a calendar off to hide it from Coming up and notifications.</value></data>
   <data name="CalendarReminder_Body" xml:space="preserve"><value>This meeting is about to start.</value></data>
