@@ -95,4 +95,36 @@ public class CodexCliSummaryProviderTests
         Assert.Equal("## What you need to do\n\n- [ ] Send the deck", result);
         Assert.Equal("Write a checklist from evidence.", stdinCaptured);
     }
+
+    [Fact]
+    public async Task CompletePromptAsync_WhenWebSearchEnabled_PassesWebSearchArguments()
+    {
+        string? argumentsCaptured = null;
+        var runner = new FakeCliProcessRunner((_, arguments, _) =>
+        {
+            argumentsCaptured = arguments;
+            return new CliProcessResult(0, "answer", string.Empty);
+        });
+        var provider = new CodexCliSummaryProvider(runner, webSearch: true);
+
+        await provider.CompletePromptAsync("Who competes with Granola?");
+
+        Assert.Equal("--search exec -", argumentsCaptured);
+    }
+
+    [Fact]
+    public async Task CompletePromptAsync_WhenWebSearchDisabled_KeepsDefaultArguments()
+    {
+        string? argumentsCaptured = null;
+        var runner = new FakeCliProcessRunner((_, arguments, _) =>
+        {
+            argumentsCaptured = arguments;
+            return new CliProcessResult(0, "answer", string.Empty);
+        });
+        var provider = new CodexCliSummaryProvider(runner, webSearch: false);
+
+        await provider.CompletePromptAsync("What is a sprint?");
+
+        Assert.Equal("exec -", argumentsCaptured);
+    }
 }

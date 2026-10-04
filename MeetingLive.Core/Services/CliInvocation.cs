@@ -6,19 +6,22 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public static class CliInvocation
 {
-    public static string ClaudePrint(string? modelId, string? effort)
+    public static string ClaudePrint(string? modelId, string? effort, bool webSearch = false)
     {
         var arguments = "-p";
         if (!string.IsNullOrWhiteSpace(modelId))
             arguments += " --model " + Quote(modelId.Trim());
         if (!string.IsNullOrWhiteSpace(effort))
             arguments += " --effort " + effort.Trim();
+        if (webSearch)
+            arguments += " --tools WebSearch --allowedTools WebSearch";
         return arguments;
     }
 
-    public static string CodexExec(string? modelId, string? effort)
+    public static string CodexExec(string? modelId, string? effort, bool webSearch = false)
     {
-        var arguments = "exec -";
+        // --search is a top-level codex flag (absent from `codex exec --help`), so it must precede `exec`.
+        var arguments = webSearch ? "--search exec -" : "exec -";
         if (!string.IsNullOrWhiteSpace(modelId))
             arguments += " -m " + Quote(modelId.Trim());
         if (!string.IsNullOrWhiteSpace(effort))

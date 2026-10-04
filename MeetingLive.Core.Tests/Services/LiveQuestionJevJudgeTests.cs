@@ -38,7 +38,7 @@ public class LiveQuestionJevJudgeTests
         Assert.Contains("What is the rollback plan?", state.GetProperty("recent_transcript").GetString(), StringComparison.Ordinal);
         Assert.DoesNotContain("We shipped the release yesterday.", state.GetRawText(), StringComparison.Ordinal);
         var questions = document.RootElement.GetProperty("questions");
-        Assert.Single(questions.EnumerateObject());
+        Assert.Equal(2, questions.EnumerateObject().Count());
         var question = questions.GetProperty("line_0");
         Assert.Equal("noul", question.GetProperty("type").GetString());
         Assert.Equal("What is the rollback plan?", question.GetProperty("instructions").GetProperty("line").GetString());
@@ -64,9 +64,9 @@ public class LiveQuestionJevJudgeTests
 
         var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, line);
 
-        Assert.Equal("What is the rollback plan?", armed);
-        Assert.DoesNotContain("Speaker-", armed, StringComparison.Ordinal);
-        Assert.DoesNotContain("[", armed, StringComparison.Ordinal);
+        Assert.Equal("What is the rollback plan?", armed?.Body);
+        Assert.DoesNotContain("Speaker-", armed!.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("[", armed.Body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class LiveQuestionJevJudgeTests
 
         var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, line);
 
-        Assert.Equal("What is the rollback plan?", armed);
+        Assert.Equal("What is the rollback plan?", armed?.Body);
     }
 
     [Fact]
@@ -175,12 +175,12 @@ public class LiveQuestionJevJudgeTests
 
         var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, current);
 
-        Assert.Equal("Who owns the migration?", armed);
+        Assert.Equal("Who owns the migration?", armed?.Body);
         Assert.Single(handler.Requests);
         Assert.Equal("https://api.typesafe.ai/v1/systemone", handler.LastRequest!.RequestUri!.ToString());
         using var document = JsonDocument.Parse(handler.LastRequestBody!);
         var questions = document.RootElement.GetProperty("questions");
-        Assert.Equal(3, questions.EnumerateObject().Count());
+        Assert.Equal(6, questions.EnumerateObject().Count());
         Assert.Equal("noul", questions.GetProperty("line_0").GetProperty("type").GetString());
         Assert.Equal("noul", questions.GetProperty("line_1").GetProperty("type").GetString());
         Assert.Equal("noul", questions.GetProperty("line_2").GetProperty("type").GetString());
@@ -210,7 +210,7 @@ public class LiveQuestionJevJudgeTests
 
         var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, current);
 
-        Assert.Equal("What is the rollback plan?", armed);
+        Assert.Equal("What is the rollback plan?", armed?.Body);
         Assert.Single(handler.Requests);
     }
 
@@ -251,8 +251,133 @@ public class LiveQuestionJevJudgeTests
 
         var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, current);
 
-        Assert.Equal("What is the rollback plan?", armed);
-        Assert.NotEqual("Who owns the migration?", armed);
+        Assert.Equal("What is the rollback plan?", armed?.Body);
+        Assert.NotEqual("Who owns the migration?", armed?.Body);
+    }
+
+    [Fact]
+    public async Task JudgeAsync_WhenLineIsArmed_SendsWebNoulForEachLineInSameRequest()
+    {
+        var line = TranscriptStampFormatter.FormatLine(
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(6),
+            "Who are the main competitors of Granola?");
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("line_0", 0.9), ("web_0", 0.9)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, line);
+
+        Assert.Single(handler.Requests);
+        using var document = JsonDocument.Parse(handler.LastRequestBody!);
+        var web = document.RootElement.GetProperty("questions").GetProperty("web_0");
+        Assert.Equal("noul", web.GetProperty("type").GetString());
+        Assert.Equal("Who are the main competitors of Granola?", web.GetProperty("instructions").GetProperty("line").GetString());
+        Assert.Equal(LiveQuestionJevJudge.NeedsWebInstructions, web.GetProperty("instructions").GetProperty("question").GetString());
+        Assert.Equal(LiveQuestionJevJudge.WebTrueCriteria, web.GetProperty("criteria").GetProperty("true").GetString());
+        Assert.Equal(LiveQuestionJevJudge.WebFalseCriteria, web.GetProperty("criteria").GetProperty("false").GetString());
+    }
+
+    [Theory]
+    [InlineData(0.9, true)]
+    [InlineData(0.6, true)]
+    [InlineData(0.59, false)]
+    [InlineData(0.1, false)]
+    public async Task JudgeAsync_WhenArmed_NeedsWebFollowsWebThreshold(double webNoul, bool expected)
+    {
+        var line = TranscriptStampFormatter.FormatLine(TimeSpan.Zero, TimeSpan.FromSeconds(6), "What does Otter charge?");
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("line_0", 0.9), ("web_0", webNoul)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, line);
+
+        Assert.NotNull(armed);
+        Assert.Equal(expected, armed.NeedsWeb);
+        Assert.Equal(0.6, LiveQuestionJevJudge.WebThreshold);
+    }
+
+    [Fact]
+    public async Task JudgeAsync_WhenWebAnswerMissing_NeedsWebIsFalse()
+    {
+        var line = TranscriptStampFormatter.FormatLine(TimeSpan.Zero, TimeSpan.FromSeconds(6), "What is the rollback plan?");
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("line_0", 0.9)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, line);
+
+        Assert.NotNull(armed);
+        Assert.False(armed.NeedsWeb);
+    }
+
+    [Fact]
+    public async Task JudgeAsync_WhenSeveralLines_NeedsWebComesFromTheArmedLineOnly()
+    {
+        var first = TranscriptStampFormatter.FormatLine(TimeSpan.Zero, TimeSpan.FromSeconds(6), "What is the rollback plan?");
+        var second = TranscriptStampFormatter.FormatLine(TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(12), "Who owns the migration?");
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(
+            ("line_0", 0.9), ("web_0", 0.95),
+            ("line_1", 0.3), ("web_1", 0.1)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var armed = await LiveQuestionJevJudge.JudgeAsync(api, ApiKey, previousCommitted: null, string.Join("\n", first, second));
+
+        Assert.Equal("What is the rollback plan?", armed?.Body);
+        Assert.True(armed!.NeedsWeb);
+    }
+
+    [Fact]
+    public async Task JudgeNeedsWebAsync_WhenWebNoulIsHigh_ReturnsTrueWithOneRequest()
+    {
+        var current = TranscriptStampFormatter.FormatLine(TimeSpan.Zero, TimeSpan.FromSeconds(6), "We are talking about meeting notes tools.");
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("web", 0.8)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var needsWeb = await LiveQuestionJevJudge.JudgeNeedsWebAsync(api, ApiKey, "Who competes with Granola today?", current);
+
+        Assert.True(needsWeb);
+        Assert.Single(handler.Requests);
+        using var document = JsonDocument.Parse(handler.LastRequestBody!);
+        var questions = document.RootElement.GetProperty("questions");
+        Assert.Single(questions.EnumerateObject());
+        var web = questions.GetProperty("web");
+        Assert.Equal("Who competes with Granola today?", web.GetProperty("instructions").GetProperty("line").GetString());
+        Assert.Equal(LiveQuestionJevJudge.NeedsWebInstructions, web.GetProperty("instructions").GetProperty("question").GetString());
+        var state = document.RootElement.GetProperty("state");
+        Assert.Contains("meeting notes tools", state.GetProperty("recent_transcript").GetString(), StringComparison.Ordinal);
+        Assert.Equal("Who competes with Granola today?", state.GetProperty("new_lines").EnumerateArray().Single().GetString());
+    }
+
+    [Fact]
+    public async Task JudgeNeedsWebAsync_WhenWebNoulIsLow_ReturnsFalse()
+    {
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("web", 0.2)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var needsWeb = await LiveQuestionJevJudge.JudgeNeedsWebAsync(api, ApiKey, "What are the Agile Manifesto values?", currentCommitted: null);
+
+        Assert.False(needsWeb);
+    }
+
+    [Fact]
+    public async Task JudgeNeedsWebAsync_WhenAnswerMissing_ReturnsFalse()
+    {
+        var handler = new FakeHttpMessageHandler(_ => NoulResponse(("other", 0.9)));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var needsWeb = await LiveQuestionJevJudge.JudgeNeedsWebAsync(api, ApiKey, "Who competes with Granola today?", currentCommitted: null);
+
+        Assert.False(needsWeb);
+    }
+
+    [Fact]
+    public async Task JudgeNeedsWebAsync_WhenQuestionBlank_DoesNotCallHttp()
+    {
+        var handler = new FakeHttpMessageHandler(_ => throw new InvalidOperationException("HTTP should not be called."));
+        var api = new TypeSafeApiClient(new HttpClient(handler));
+
+        var needsWeb = await LiveQuestionJevJudge.JudgeNeedsWebAsync(api, ApiKey, "  ", currentCommitted: null);
+
+        Assert.False(needsWeb);
+        Assert.Empty(handler.Requests);
     }
 
     private static HttpResponseMessage NoulResponse(params (string Id, double Noul)[] answers)

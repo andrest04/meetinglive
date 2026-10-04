@@ -11,14 +11,15 @@ namespace MeetingLive.Core.Services;
 public sealed class ClaudeCodeCliSummaryProvider(
         ICliProcessRunner processRunner,
         string? modelId = null,
-        string? effort = null) : CliToolProviderBase(processRunner), ISummaryProvider
+        string? effort = null,
+        bool webSearch = false) : CliToolProviderBase(processRunner), ISummaryProvider
     {
         /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
         public const string ProviderId = "claude-code";
 
         protected override string ExecutableName => "claude";
         protected override TimeSpan Timeout { get; } = TimeSpan.FromMinutes(5);
-        protected override string Arguments { get; } = CliInvocation.ClaudePrint(modelId, effort);
+        protected override string Arguments { get; } = CliInvocation.ClaudePrint(modelId, effort, webSearch);
         protected override string ProviderDisplayName => CliFailureMapper.ClaudeCodeDisplayName;
 
     public async Task<SummaryResult> SummarizeAsync(

@@ -13,14 +13,15 @@ namespace MeetingLive.Core.Services;
     public sealed class CodexCliSummaryProvider(
         ICliProcessRunner processRunner,
         string? modelId = null,
-        string? effort = null) : CliToolProviderBase(processRunner), ISummaryProvider
+        string? effort = null,
+        bool webSearch = false) : CliToolProviderBase(processRunner), ISummaryProvider
     {
         /// <summary>Persisted as <see cref="MeetingRecord.SummaryProvider"/> when this provider ran.</summary>
         public const string ProviderId = "codex";
 
         protected override string ExecutableName => "codex";
         protected override TimeSpan Timeout { get; } = TimeSpan.FromMinutes(5);
-        protected override string Arguments { get; } = CliInvocation.CodexExec(modelId, effort);
+        protected override string Arguments { get; } = CliInvocation.CodexExec(modelId, effort, webSearch);
         protected override string ProviderDisplayName => CliFailureMapper.CodexDisplayName;
 
     public async Task<SummaryResult> SummarizeAsync(

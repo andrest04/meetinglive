@@ -403,7 +403,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
                 currentCommitted,
                 cancellationToken).ConfigureAwait(false);
 
-            App.DispatcherQueue.TryEnqueue(() => ApplyQuestionJudgment(generation, currentCommitted, armed));
+            App.DispatcherQueue.TryEnqueue(() => ApplyQuestionJudgment(generation, currentCommitted, armed?.Body));
         }
         catch (OperationCanceledException)
         {

@@ -14,6 +14,15 @@ public static class LiveQuestionJevJudge
     /// </summary>
     public const double ArmThreshold = 0.7;
 
+    /// <summary>
+    /// Starting code threshold for sending an armed question to a web-capable provider.
+    /// Not a measured accuracy number. A Noul is the probability that the answer is yes.
+    /// </summary>
+    public const double WebThreshold = 0.6;
+
+    /// <summary>An armed question body plus whether Jev thinks a good answer needs the web.</summary>
+    public sealed record ArmedQuestion(string Body, bool NeedsWeb);
+
     internal const string DirectQuestionInstructions =
         "Is this line a direct question that expects a factual or explanatory answer from someone in the room right now?";
 
@@ -23,11 +32,21 @@ public static class LiveQuestionJevJudge
     internal const string FalseCriteria =
         "A statement, acknowledgment, greeting, or a rhetorical check that people are following, such as \"does that make sense\", \"¿se entiende?\", \"right?\", or \"ok?\". It does not expect a factual answer.";
 
+    internal const string NeedsWebInstructions =
+        "Does a good answer to this question need current or external information that is not in the transcript and not stable general knowledge?";
+
+    internal const string WebTrueCriteria =
+        "Asks about competitors, prices, recent news, specific products or companies, current events, or live data that changes over time.";
+
+    internal const string WebFalseCriteria =
+        "Asks for a definition, a textbook concept, a stable fact such as the Agile Manifesto values, or anything the transcript already answers.";
+
     /// <summary>
     /// Judges lines that are new since <paramref name="previousCommitted"/>.
-    /// Returns the body of the last new line whose Noul is at least <see cref="ArmThreshold"/>, or null.
+    /// Returns the last new line whose Noul is at least <see cref="ArmThreshold"/>, or null.
+    /// The web Noul for every line rides in the same request, so there is no extra round trip.
     /// </summary>
-    public static async Task<string?> JudgeAsync(
+    public static async Task<ArmedQuestion?> JudgeAsync(
         TypeSafeApiClient api,
         string apiKey,
         string? previousCommitted,
@@ -45,7 +64,10 @@ public static class LiveQuestionJevJudge
         // One request, one Noul per new line. Questions run in parallel on the same small state.
         var questions = new Dictionary<string, TypeSafeQuestion>(bodies.Count);
         for (var i = 0; i < bodies.Count; i++)
+        {
             questions[QuestionId(i)] = DirectQuestion(bodies[i]);
+            questions[WebQuestionId(i)] = WebQuestion(bodies[i]);
+        }
 
         var result = await api.EvaluateAsync(
             apiKey,
@@ -57,7 +79,7 @@ public static class LiveQuestionJevJudge
             questions,
             cancellationToken);
 
-        string? armed = null;
+        ArmedQuestion? armed = null;
         for (var i = 0; i < bodies.Count; i++)
         {
             var noul = ReadNoul(result.Answers, QuestionId(i));
@@ -66,10 +88,43 @@ public static class LiveQuestionJevJudge
             if (noul is not double value || value < ArmThreshold)
                 continue;
 
-            armed = bodies[i];
+            // WebThreshold is a starting code policy too. A missing web answer means no web.
+            var needsWeb = ReadNoul(result.Answers, WebQuestionId(i)) is double web && web >= WebThreshold;
+            armed = new ArmedQuestion(bodies[i], needsWeb);
         }
 
         return armed;
+    }
+
+    /// <summary>
+    /// Judges whether a typed question needs the web. One request, one web Noul. A missing answer means false.
+    /// </summary>
+    public static async Task<bool> JudgeNeedsWebAsync(
+        TypeSafeApiClient api,
+        string apiKey,
+        string question,
+        string? currentCommitted,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(api);
+
+        if (string.IsNullOrWhiteSpace(question))
+            return false;
+
+        ct.ThrowIfCancellationRequested();
+
+        var body = question.Trim();
+        var result = await api.EvaluateAsync(
+            apiKey,
+            new JudgmentState
+            {
+                RecentTranscript = LiveAnswerWindow.TakeRecent(currentCommitted, LiveAnswerWindow.Default),
+                NewLines = [body],
+            },
+            new Dictionary<string, TypeSafeQuestion> { [TypedWebQuestionId] = WebQuestion(body) },
+            ct);
+
+        return ReadNoul(result.Answers, TypedWebQuestionId) is double value && value >= WebThreshold;
     }
 
     private static List<string> CollectNewBodies(string? previousCommitted, string? currentCommitted)
@@ -115,7 +170,27 @@ public static class LiveQuestionJevJudge
             },
         };
 
+    private static TypeSafeQuestion WebQuestion(string body) =>
+        new()
+        {
+            Type = "noul",
+            Instructions = new Dictionary<string, string>
+            {
+                ["line"] = body,
+                ["question"] = NeedsWebInstructions,
+            },
+            Criteria = new Dictionary<string, string>
+            {
+                ["true"] = WebTrueCriteria,
+                ["false"] = WebFalseCriteria,
+            },
+        };
+
+    private const string TypedWebQuestionId = "web";
+
     private static string QuestionId(int index) => $"line_{index}";
+
+    private static string WebQuestionId(int index) => $"web_{index}";
 
     private static double? ReadNoul(IReadOnlyDictionary<string, TypeSafeAnswer> answers, string id) =>
         answers.TryGetValue(id, out var answer) &&

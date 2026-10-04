@@ -247,4 +247,36 @@ public class ClaudeCodeCliSummaryProviderTests
         Assert.Equal("## What you need to do\n\n- [ ] Send the deck", result);
         Assert.Equal("Write a checklist from evidence.", stdinCaptured);
     }
+
+    [Fact]
+    public async Task CompletePromptAsync_WhenWebSearchEnabled_PassesWebSearchArguments()
+    {
+        string? argumentsCaptured = null;
+        var runner = new FakeCliProcessRunner((_, arguments, _) =>
+        {
+            argumentsCaptured = arguments;
+            return new CliProcessResult(0, "answer", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner, webSearch: true);
+
+        await provider.CompletePromptAsync("Who competes with Granola?");
+
+        Assert.Equal("-p --tools WebSearch --allowedTools WebSearch", argumentsCaptured);
+    }
+
+    [Fact]
+    public async Task CompletePromptAsync_WhenWebSearchDisabled_KeepsDefaultArguments()
+    {
+        string? argumentsCaptured = null;
+        var runner = new FakeCliProcessRunner((_, arguments, _) =>
+        {
+            argumentsCaptured = arguments;
+            return new CliProcessResult(0, "answer", string.Empty);
+        });
+        var provider = new ClaudeCodeCliSummaryProvider(runner, webSearch: false);
+
+        await provider.CompletePromptAsync("What is a sprint?");
+
+        Assert.Equal("-p", argumentsCaptured);
+    }
 }

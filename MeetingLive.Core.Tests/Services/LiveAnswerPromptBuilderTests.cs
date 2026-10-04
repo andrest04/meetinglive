@@ -52,4 +52,55 @@ public class LiveAnswerPromptBuilderTests
         Assert.Contains("Spanish", otherLanguage, StringComparison.Ordinal);
         Assert.DoesNotContain("French", otherLanguage, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Build_WhenSessionContextIsGiven_AddsContextBlockAndInterpretInstruction()
+    {
+        var prompt = LiveAnswerPromptBuilder.Build("what is a sprint?", "window text", "en", sessionContext: "Agile course, week 3");
+
+        Assert.Contains("Session context:", prompt, StringComparison.Ordinal);
+        Assert.Contains("Agile course, week 3", prompt, StringComparison.Ordinal);
+        Assert.Contains("interpret the question", prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Build_WhenSessionContextIsBlank_OmitsContextBlock(string? sessionContext)
+    {
+        var prompt = LiveAnswerPromptBuilder.Build("what is a sprint?", "window text", "en", sessionContext);
+
+        Assert.DoesNotContain("Session context:", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_WhenWebSearchIsTrue_AllowsWebSearchAndAsksForShortAnswer()
+    {
+        var prompt = LiveAnswerPromptBuilder.Build("who competes with Granola?", "window text", "en", webSearch: true);
+
+        Assert.Contains("web search", prompt, StringComparison.Ordinal);
+        Assert.Contains("competitors, prices, recent news", prompt, StringComparison.Ordinal);
+        Assert.Contains("keep the answer short", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build_WhenWebSearchIsFalse_SaysNothingAboutTheWeb()
+    {
+        var prompt = LiveAnswerPromptBuilder.Build("who competes with Granola?", "window text", "en", sessionContext: "Sales call");
+
+        Assert.DoesNotContain("web", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Build_WhenContextAndWebAreGiven_KeepsQuestionAndWindowSections()
+    {
+        var prompt = LiveAnswerPromptBuilder.Build("q?", "the window", "es", "Course topic", webSearch: true);
+
+        Assert.Contains("Course topic", prompt, StringComparison.Ordinal);
+        Assert.Contains("web search", prompt, StringComparison.Ordinal);
+        Assert.Contains("Question:", prompt, StringComparison.Ordinal);
+        Assert.Contains("Transcript window:", prompt, StringComparison.Ordinal);
+        Assert.Contains("the window", prompt, StringComparison.Ordinal);
+    }
 }
