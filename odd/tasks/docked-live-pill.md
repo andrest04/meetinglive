@@ -21,6 +21,6 @@ Strategy: ask-on-risk. Branch: `feat/docked-live-pill`. Forecast ~700 changed li
 
 ## Progress
 Route: delegated direct (one writer) — trigger: 2+ non-trivial files, UI + Core.
-Commits (hashes recorded below after the UI commit): T1 dbc2243 (dock math), T2 0bb8c00 (settings), T1b b27169a (expanded bounds), T3+T4 UI and window (single commit: the XAML handlers live in the window code-behind, so the two are not independently buildable).
+Commits (work-unit commits): T1 dbc2243 (dock math), T2 0bb8c00 (settings), T1b b27169a (expanded bounds), T3+T4 81efbaf UI and window (single commit: the XAML handlers live in the window code-behind, so the two are not independently buildable).
 Checks observed: `dotnet test MeetingLive.Core.Tests` 956 passed / 0 failed; `dotnet build MeetingLive.App -p:Platform=x64` 0 errors. T1 and T2 observed RED (compile errors) before GREEN; the expanded-bounds helper was written together with its tests (no separate RED).
 Not verified (writers cannot see the UI): capsule silhouette (SetWindowRgn), drag/snap, flip crossfade, chat anchoring, DPI/multi-monitor. T5 manual `winapp run` check is pending for the user.
