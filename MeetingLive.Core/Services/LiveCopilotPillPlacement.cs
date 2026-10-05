@@ -25,14 +25,4 @@ public static class LiveCopilotPillPlacement
             Math.Clamp(x, areaX, maxX),
             Math.Clamp(y, areaY, maxY));
     }
-
-    /// <summary>Bottom-right corner of the work area, inset by <paramref name="margin"/>, then clamped inside it.</summary>
-    public static PillPosition DefaultBottomRight(
-        int width, int height,
-        int areaX, int areaY, int areaWidth, int areaHeight,
-        int margin) =>
-        Clamp(
-            areaX + areaWidth - width - margin,
-            areaY + areaHeight - height - margin,
-            width, height, areaX, areaY, areaWidth, areaHeight);
 }

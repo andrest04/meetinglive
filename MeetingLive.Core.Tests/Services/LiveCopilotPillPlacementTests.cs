@@ -55,29 +55,4 @@ public class LiveCopilotPillPlacementTests
 
         Assert.Equal(new PillPosition(AreaX, AreaY), position);
     }
-
-    [Fact]
-    public void DefaultBottomRight_PlacesWindowAtBottomRightWithMargin()
-    {
-        var position = LiveCopilotPillPlacement.DefaultBottomRight(240, 48, AreaX, AreaY, AreaWidth, AreaHeight, margin: 24);
-
-        Assert.Equal(new PillPosition(1920 - 240 - 24, 1040 - 48 - 24), position);
-    }
-
-    [Fact]
-    public void DefaultBottomRight_WhenAreaHasNonZeroOrigin_OffsetsFromThatOrigin()
-    {
-        var position = LiveCopilotPillPlacement.DefaultBottomRight(240, 48, 100, 50, 1000, 600, margin: 16);
-
-        Assert.Equal(new PillPosition(100 + 1000 - 240 - 16, 50 + 600 - 48 - 16), position);
-    }
-
-    [Fact]
-    public void DefaultBottomRight_WhenMarginDoesNotFit_StillStaysInsideArea()
-    {
-        var position = LiveCopilotPillPlacement.DefaultBottomRight(300, 200, 0, 0, 320, 210, margin: 40);
-
-        Assert.True(position.X >= 0 && position.X + 300 <= 320);
-        Assert.True(position.Y >= 0 && position.Y + 200 <= 210);
-    }
 }

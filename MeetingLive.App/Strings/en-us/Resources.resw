@@ -584,6 +584,10 @@
   <data name="LiveCopilot_Expand.ToolTipService.ToolTip" xml:space="preserve"><value>Expand live copilot</value></data>
   <data name="LiveCopilot_Collapse.AutomationProperties.Name" xml:space="preserve"><value>Collapse live copilot</value></data>
   <data name="LiveCopilot_Collapse.ToolTipService.ToolTip" xml:space="preserve"><value>Collapse</value></data>
+  <data name="LiveCopilot_Pause.AutomationProperties.Name" xml:space="preserve"><value>Pause recording</value></data>
+  <data name="LiveCopilot_Resume.AutomationProperties.Name" xml:space="preserve"><value>Resume recording</value></data>
+  <data name="LiveCopilot_Stop.AutomationProperties.Name" xml:space="preserve"><value>Stop recording</value></data>
+  <data name="LiveCopilot_Stop.ToolTipService.ToolTip" xml:space="preserve"><value>Stop recording</value></data>
   <data name="LiveCopilot_OpenApp.AutomationProperties.Name" xml:space="preserve"><value>Open MeetingLive</value></data>
   <data name="LiveCopilot_OpenApp.ToolTipService.ToolTip" xml:space="preserve"><value>Open MeetingLive</value></data>
   <data name="LiveCopilot_Empty.Text" xml:space="preserve"><value>Ask a question below, or answer one MeetingLive detects.</value></data>

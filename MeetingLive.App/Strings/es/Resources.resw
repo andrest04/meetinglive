@@ -584,6 +584,10 @@
   <data name="LiveCopilot_Expand.ToolTipService.ToolTip" xml:space="preserve"><value>Expandir el copiloto en vivo</value></data>
   <data name="LiveCopilot_Collapse.AutomationProperties.Name" xml:space="preserve"><value>Contraer el copiloto en vivo</value></data>
   <data name="LiveCopilot_Collapse.ToolTipService.ToolTip" xml:space="preserve"><value>Contraer</value></data>
+  <data name="LiveCopilot_Pause.AutomationProperties.Name" xml:space="preserve"><value>Pausar la grabación</value></data>
+  <data name="LiveCopilot_Resume.AutomationProperties.Name" xml:space="preserve"><value>Reanudar la grabación</value></data>
+  <data name="LiveCopilot_Stop.AutomationProperties.Name" xml:space="preserve"><value>Detener la grabación</value></data>
+  <data name="LiveCopilot_Stop.ToolTipService.ToolTip" xml:space="preserve"><value>Detener la grabación</value></data>
   <data name="LiveCopilot_OpenApp.AutomationProperties.Name" xml:space="preserve"><value>Abrir MeetingLive</value></data>
   <data name="LiveCopilot_OpenApp.ToolTipService.ToolTip" xml:space="preserve"><value>Abrir MeetingLive</value></data>
   <data name="LiveCopilot_Empty.Text" xml:space="preserve"><value>Escribe una pregunta abajo o responde una que MeetingLive detecte.</value></data>
