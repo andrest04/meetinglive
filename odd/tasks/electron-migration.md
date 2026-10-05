@@ -4,7 +4,7 @@
 Port MeetingLive (WinUI 3 / C# 12 / .NET 10) to a 100% Electron app (Electron + React + TypeScript, no .NET sidecar). Mirror port, feature by feature, using the untouched WinUI app as the behavioral reference.
 
 ## Decisions (confirmed by the user)
-- Branch `feat/electron-migration`; new app lives in `/electron`; WinUI projects stay intact until parity.
+- Branch `feat/electron-migration` holds this plan; the new app lives in its own repo `E:\Code\meetinglive-electron` (sibling folder); WinUI projects stay intact until parity.
 - Windows first until full parity; macOS and Linux afterwards.
 - Everything must follow the official Electron docs (https://www.electronjs.org/docs/latest/): process model, security checklist, IPC, packaging. No decisions from memory; cite the doc URL in the task evidence.
 - No Next.js: the renderer is a plain web page without a server. Vite + React + TS.
@@ -20,8 +20,8 @@ Port MeetingLive (WinUI 3 / C# 12 / .NET 10) to a 100% Electron app (Electron + 
 - Reference inventory: Core 13,969 LOC, App ~8.6k LOC + 29 ViewModels, ~732 xUnit facts/theories, 27 specs in `odd/tasks/`.
 
 ## Tasks
-- [ ] T0 Close doc gaps: fetch electronforge.io Vite+TS template, `setAlwaysOnTop` levels, CSP sample, then pick scaffold (Forge vite-typescript vs electron-vite).
-- [ ] T1 Scaffold `/electron` (Electron + Vite + React + TS + Vitest), secure defaults, typed `contextBridge` API, i18n catalog (en/es).
+- [x] T0 Scaffold decision: electron-vite 5 + React + TS + electron-builder (research in session; Next.js rejected: no SSR/API routes in Electron, file:// asset-path issues). `setAlwaysOnTop` levels still to verify in T8.
+- [x] T1 Scaffold in the SEPARATE repo `E:\Code\meetinglive-electron` (commit 303a978): Electron 44, hexagonal layout (`docs/ARCHITECTURE.md`), lint-enforced dependency rules, `app://` protocol, strict CSP, fuses, typed IPC with sender validation, Vitest (17 tests pass; typecheck, lint, build ok). Pending from T1: i18n catalog (en/es), `build:unpack` smoke test of fuses/asar protocol, deny-all permission handler before mic work.
 - [ ] T2 Pure leaf logic + tests: AppSettings model, `LiveCopilotPillDock`/`Placement`, calendar helpers, chat prompt/context packers, folder helpers, WAV/level/normalizer utils, meeting-call detector/popup policy, prompt builders, catalogs.
 - [ ] T3 Persistence: AppPaths, settings service, JSON repos, Markdown meeting repository + formatter (format-compatible with existing files), library layout/migrations, safeStorage credential stores.
 - [ ] T4 Network clients: resumable downloader (SHA-256), TypeSafe, xAI + OAuth device flow, CLI runner/providers (claude, codex), Jev + live-question judge.
