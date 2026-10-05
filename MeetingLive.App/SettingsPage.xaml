@@ -15,7 +15,18 @@
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+    <!-- First load only: the content stays transparent (but laid out, so controls and bindings are
+         realized) until all local state is applied, so defaults are never painted. -->
+    <ProgressRing IsActive="{x:Bind ViewModel.IsInitialLoading, Mode=OneWay}"
+                  Visibility="{x:Bind local:SettingsPage.BoolToVisibility(ViewModel.IsInitialLoading), Mode=OneWay}"
+                  HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32"
+                  AutomationProperties.AutomationId="ProgressSettingsLoading" />
+
+    <ScrollViewer x:Name="ContentScroll"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Opacity="{x:Bind local:SettingsPage.RevealOpacity(ViewModel.IsInitialLoading), Mode=OneWay}"
+                  IsHitTestVisible="{x:Bind local:SettingsPage.Not(ViewModel.IsInitialLoading), Mode=OneWay}">
         <StackPanel Padding="24" Spacing="24" MaxWidth="720" HorizontalAlignment="Stretch">
 
             <TextBlock x:Uid="SettingsPage_Title" Style="{StaticResource TitleTextBlockStyle}" />
@@ -508,4 +519,5 @@
 
         </StackPanel>
     </ScrollViewer>
+    </Grid>
 </Page>

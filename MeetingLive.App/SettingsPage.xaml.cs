@@ -6,6 +6,7 @@ using MeetingLive.Core.Models;
 using MeetingLive.Core.Services;
 using MeetingLive_App.Services;
 using MeetingLive_App.ViewModels;
+using Windows.UI.ViewManagement;
 
 namespace MeetingLive_App;
 
@@ -27,6 +28,11 @@ public sealed partial class SettingsPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+
+        // Fade the content in when the first load reveals it, unless Windows animation effects are off.
+        ContentScroll.OpacityTransition = new UISettings().AnimationsEnabled
+            ? new ScalarTransition { Duration = TimeSpan.FromMilliseconds(150) }
+            : null;
         _ = ViewModel.LoadCommand.ExecuteAsync(null);
     }
 
@@ -254,6 +260,8 @@ public sealed partial class SettingsPage : Page
     }
 
     public static bool Not(bool value) => !value;
+
+    public static double RevealOpacity(bool isInitialLoading) => isInitialLoading ? 0 : 1;
 
     public static Visibility BoolToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 

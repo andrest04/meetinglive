@@ -47,15 +47,37 @@ public sealed partial class CalendarSectionViewModel : SettingsSectionViewModelB
 
     partial void OnCalendarMessageChanged(string value) => OnPropertyChanged(nameof(HasCalendarMessage));
 
-    public async Task LoadAsync(AppSettings settings)
+    /// <summary>Applies the toggles stored in settings.json (no I/O), so they are right on first paint.</summary>
+    public void ApplySettings(AppSettings settings)
     {
         _applying = true;
         try
         {
             NotificationsEnabled = settings.CalendarNotificationsEnabled;
             MeetingPopupEnabled = settings.MeetingPopupEnabled;
+        }
+        finally
+        {
+            _applying = false;
+        }
+    }
+
+    /// <summary>Network part: reads the calendar list. Existing rows stay until the result
+    /// arrives and are then replaced in one synchronous step.</summary>
+    public async Task LoadAsync(AppSettings settings)
+    {
+        try
+        {
             var result = await AppServices.Calendar.GetCalendarsAsync();
-            ApplyList(result, settings);
+            _applying = true;
+            try
+            {
+                ApplyList(result, settings);
+            }
+            finally
+            {
+                _applying = false;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -63,10 +85,6 @@ public sealed partial class CalendarSectionViewModel : SettingsSectionViewModelB
         catch (Exception)
         {
             ShowFailure(CalendarStoreFailure.AccessDenied);
-        }
-        finally
-        {
-            _applying = false;
         }
     }
 

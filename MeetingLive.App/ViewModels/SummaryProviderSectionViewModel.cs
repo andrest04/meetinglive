@@ -95,10 +95,23 @@ public sealed partial class SummaryProviderSectionViewModel : SettingsSectionVie
     /// SelectionChanged fired while the page is still loading is ignored.</summary>
     public void SetLoading(bool value) => _isLoading = value;
 
-    public async Task LoadAsync(AppSettings settings)
+    /// <summary>Applies everything that is known without network access: the provider kind, each
+    /// provider's saved model/effort and, for xAI, the credential state read from the local store
+    /// (so Grok never flashes as "not connected") plus a model list seeded with the saved model
+    /// (so the selection is stable while the real list loads). Call <see cref="LoadXaiAccountAsync"/>
+    /// afterwards for the network part.</summary>
+    public void ApplyLoadedSettings(AppSettings settings)
     {
         SelectedProviderKind = settings.ResolveSummaryProviderKind();
         _suppressXaiModelCommit = true;
+        if (SelectedProviderKind == SummaryProviderKind.Xai)
+        {
+            ApplyXaiCredentialStatus();
+            // The list must contain the saved model before it becomes SelectedItem, otherwise the
+            // ComboBox drops the selection.
+            if (IsXaiSignedIn && XaiModels.Count == 0 && !string.IsNullOrWhiteSpace(settings.SelectedXaiModelId))
+                XaiModels.Add(settings.SelectedXaiModelId);
+        }
         SelectedXaiModelId = settings.SelectedXaiModelId;
         SelectedXaiEffort = settings.ResolveXaiEffort();
         _suppressXaiModelCommit = false;
@@ -108,8 +121,37 @@ public sealed partial class SummaryProviderSectionViewModel : SettingsSectionVie
         SelectedCodexModelId = settings.ResolveCodexModelId();
         SelectedCodexEffort = settings.ResolveCodexEffort();
         _suppressCliInferenceCommit = false;
-        if (SelectedProviderKind == SummaryProviderKind.Xai)
-            await RefreshXaiAccountAsync();
+    }
+
+    /// <summary>Network part of the load (token refresh + model list). No-op unless xAI is the
+    /// selected provider; never throws.</summary>
+    public Task LoadXaiAccountAsync() =>
+        SelectedProviderKind == SummaryProviderKind.Xai ? RefreshXaiAccountAsync() : Task.CompletedTask;
+
+    /// <summary>True once the live model list has been fetched at least once for the current
+    /// credentials, so a later refresh keeps the "ready" detail instead of flashing "loading".</summary>
+    private bool _xaiModelsLoaded;
+
+    private void ApplyXaiCredentialStatus()
+    {
+        var kind = AppServices.XaiAuth.CredentialKind;
+        IsXaiSignedIn = kind is not null;
+        XaiStatusText = kind switch
+        {
+            XaiCredentialKind.OAuth => AppStrings.Get("Xai_StatusSuperGrok"),
+            XaiCredentialKind.ApiKey => AppStrings.Get("Xai_StatusApiKey"),
+            _ => AppStrings.Get("Xai_StatusSignedOut"),
+        };
+
+        if (!IsXaiSignedIn)
+        {
+            _xaiModelsLoaded = false;
+            XaiStatusDetail = AppStrings.Get("Xai_StatusSignedOutDetail");
+        }
+        else if (!_xaiModelsLoaded || string.IsNullOrEmpty(XaiStatusDetail))
+        {
+            XaiStatusDetail = AppStrings.Get("Xai_StatusLoadingModels");
+        }
     }
 
     [RelayCommand]
@@ -228,17 +270,7 @@ public sealed partial class SummaryProviderSectionViewModel : SettingsSectionVie
     [RelayCommand]
     private async Task RefreshXaiAccountAsync()
     {
-        var kind = AppServices.XaiAuth.CredentialKind;
-        IsXaiSignedIn = kind is not null;
-        XaiStatusText = kind switch
-        {
-            XaiCredentialKind.OAuth => AppStrings.Get("Xai_StatusSuperGrok"),
-            XaiCredentialKind.ApiKey => AppStrings.Get("Xai_StatusApiKey"),
-            _ => AppStrings.Get("Xai_StatusSignedOut"),
-        };
-        XaiStatusDetail = IsXaiSignedIn
-            ? AppStrings.Get("Xai_StatusLoadingModels")
-            : AppStrings.Get("Xai_StatusSignedOutDetail");
+        ApplyXaiCredentialStatus();
 
         if (!IsXaiSignedIn)
         {
@@ -257,22 +289,20 @@ public sealed partial class SummaryProviderSectionViewModel : SettingsSectionVie
             var resolved = XaiApiClient.ResolveModelId(settings.SelectedXaiModelId, models);
 
             _suppressXaiModelCommit = true;
-            XaiModels.Clear();
-            foreach (var id in models)
-                XaiModels.Add(id);
-            if (XaiModels.Count == 0)
-                XaiModels.Add(resolved);
-            SelectedXaiModelId = null;
-            SelectedXaiModelId = resolved;
+            MergeXaiModels(models, resolved);
+            if (!string.Equals(SelectedXaiModelId, resolved, StringComparison.Ordinal))
+                SelectedXaiModelId = resolved;
             _suppressXaiModelCommit = false;
 
             if (!string.Equals(settings.SelectedXaiModelId, resolved, StringComparison.Ordinal))
                 await SaveSettingsAsync(s => s.SelectedXaiModelId = resolved);
 
+            _xaiModelsLoaded = true;
             UpdateXaiReadyDetail();
         }
         catch (Exception ex)
         {
+            _xaiModelsLoaded = false;
             XaiStatusText = AppStrings.Get("Xai_StatusErrorTitle");
             XaiStatusDetail = ex.Message;
         }
@@ -280,6 +310,30 @@ public sealed partial class SummaryProviderSectionViewModel : SettingsSectionVie
         {
             IsXaiBusy = false;
             _suppressXaiModelCommit = false;
+        }
+    }
+
+    /// <summary>Makes <see cref="XaiModels"/> match the fetched list in place. The saved/selected
+    /// model is never removed while it is still wanted, so the ComboBox keeps its selection
+    /// instead of blanking and re-selecting.</summary>
+    private void MergeXaiModels(IReadOnlyList<string> models, string resolved)
+    {
+        var target = new List<string>(models);
+        if (!target.Contains(resolved))
+            target.Add(resolved);
+
+        for (var i = XaiModels.Count - 1; i >= 0; i--)
+        {
+            if (!target.Contains(XaiModels[i]))
+                XaiModels.RemoveAt(i);
+        }
+
+        for (var i = 0; i < target.Count; i++)
+        {
+            if (i < XaiModels.Count && XaiModels[i] == target[i])
+                continue;
+            if (!XaiModels.Contains(target[i]))
+                XaiModels.Insert(Math.Min(i, XaiModels.Count), target[i]);
         }
     }
 

@@ -26,7 +26,15 @@ public sealed partial class UiLanguageSectionViewModel : SettingsSectionViewMode
 
     public UiLanguageSectionViewModel()
     {
-        _selectedOption = Options[0];
+        // Seed synchronously from the language the resource system is already resolving (the persisted
+        // override is applied at startup), so the picker never shows English and then jumps.
+        _selectedOption = ResolveOption(ApplicationLanguages.Languages.FirstOrDefault());
+    }
+
+    private UiLanguageOption ResolveOption(string? languageTag)
+    {
+        string? matchedTag = UiLanguageResolver.MatchPrimarySubtag(languageTag, Options.Select(o => o.LanguageTag));
+        return Options.FirstOrDefault(o => o.LanguageTag == matchedTag) ?? Options[0];
     }
 
     /// <summary>
@@ -45,9 +53,7 @@ public sealed partial class UiLanguageSectionViewModel : SettingsSectionViewMode
             ? ApplicationLanguages.Languages.FirstOrDefault()
             : settings.UiLanguage;
 
-        string? matchedTag = UiLanguageResolver.MatchPrimarySubtag(effectiveTag, Options.Select(o => o.LanguageTag));
-
-        SelectedOption = Options.FirstOrDefault(o => o.LanguageTag == matchedTag) ?? Options[0];
+        SelectedOption = ResolveOption(effectiveTag);
     }
 
     /// <summary>

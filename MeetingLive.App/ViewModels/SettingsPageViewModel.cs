@@ -42,12 +42,24 @@ public partial class SettingsPageViewModel : ObservableObject
     /// snapshot loaded after navigating away is never applied to the sections.</summary>
     private bool _isPageVisible;
 
+    /// <summary>True only until the first successful local load has been applied. The page hides
+    /// its content behind a progress ring meanwhile so defaults are never painted; later visits
+    /// (the page is cached) already hold data and refresh silently.</summary>
+    [ObservableProperty]
+    private bool _isInitialLoading = true;
+
+    private bool _hasRevealed;
+
+    private bool _isNetworkLoadRunning;
+
     [RelayCommand]
     private async Task LoadAsync()
     {
         _isPageVisible = true;
+        IsInitialLoading = !_hasRevealed;
         IsLoading = true;
         Microphone.BeginLoad();
+        var localPhaseDone = false;
         try
         {
             // Paint the page (and the loading ring) before WMI / disk / WASAPI.
@@ -59,21 +71,25 @@ public partial class SettingsPageViewModel : ObservableObject
             if (!_isPageVisible)
                 return;
 
+            // Local phase: everything below needs no network, so it is all applied in this one
+            // synchronous run and the first frame the user sees already has the real values.
             UiLanguage.ApplyLoadedSettings(settings);
             LocalModel.ApplyLoadedModels(snapshot.Models, settings.SelectedSummaryModelId);
-            await SummaryProvider.LoadAsync(settings);
+            SummaryProvider.ApplyLoadedSettings(settings);
             await TypeSafe.LoadAsync(settings);
             Language.ApplyLoadedSettings(settings);
             TranscriptionEngine.ApplyLoadedSettings(
                 settings, snapshot.TranscriptionInstalled, snapshot.SpeakerDiarizationInstalled, snapshot.ExpectedBackend);
             TranscriptionEngine.StartObservingBackend();
             Microphone.ApplyLoadedDevices(snapshot.Microphones, settings.SelectedMicrophoneDeviceId);
-            if (!_isPageVisible)
-                return;
+            Calendar.ApplySettings(settings);
 
-            await Calendar.LoadAsync(settings);
-            if (!_isPageVisible)
-                return;
+            // Reveal. The network work below runs after this and shows its own busy state.
+            _hasRevealed = true;
+            localPhaseDone = true;
+            IsInitialLoading = false;
+            IsLoading = false;
+            Microphone.EndLoad();
 
             // Opening WASAPI is another hitch — start after this frame paints, and only
             // if the page is still visible when this deferred callback runs.
@@ -82,11 +98,41 @@ public partial class SettingsPageViewModel : ObservableObject
                 if (_isPageVisible)
                     Microphone.RestartLevelMeter();
             });
+
+            await LoadNetworkSectionsAsync(settings);
         }
         finally
         {
-            IsLoading = false;
-            Microphone.EndLoad();
+            if (!localPhaseDone)
+            {
+                IsLoading = false;
+                Microphone.EndLoad();
+            }
+
+            // Never leave the page stuck behind the ring (e.g. when settings.json could not be read).
+            IsInitialLoading = false;
+        }
+    }
+
+    /// <summary>Sections that need the network (xAI token refresh + model list, calendar list).
+    /// Runs after the page is revealed; each part is exception-safe on its own.</summary>
+    private async Task LoadNetworkSectionsAsync(AppSettings settings)
+    {
+        if (_isNetworkLoadRunning)
+            return;
+
+        _isNetworkLoadRunning = true;
+        try
+        {
+            await Task.WhenAll(SummaryProvider.LoadXaiAccountAsync(), Calendar.LoadAsync(settings));
+        }
+        catch (Exception)
+        {
+            // The xAI and calendar sections surface their own failures; nothing may fault the page.
+        }
+        finally
+        {
+            _isNetworkLoadRunning = false;
         }
     }
 
