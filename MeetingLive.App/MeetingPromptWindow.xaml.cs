@@ -4,7 +4,10 @@ using MeetingLive_App.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Input;
 using Windows.Graphics;
+using Windows.UI.ViewManagement;
 
 namespace MeetingLive_App;
 
@@ -16,9 +19,12 @@ namespace MeetingLive_App;
 public sealed partial class MeetingPromptWindow : Window
 {
     private const int AutoHideSeconds = 30;
-    private const int WidthDip = 420;
-    private const int HeightDip = 80;
+    private const int WidthDip = 480;
+    private const int HeightDip = 72;
     private const int EdgeMarginDip = 24;
+    private const double EntranceOffsetDip = 24;
+    private static readonly Duration EntranceDuration = new(TimeSpan.FromMilliseconds(280));
+    private static readonly Duration ExitDuration = new(TimeSpan.FromMilliseconds(150));
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hWnd);
@@ -30,6 +36,10 @@ public sealed partial class MeetingPromptWindow : Window
     private static extern int DwmSetWindowAttribute(nint hWnd, int attribute, ref int value, int size);
 
     private readonly DispatcherQueueTimer _autoHideTimer;
+    private readonly UISettings _uiSettings = new();
+    private Storyboard? _entrance;
+    private Storyboard? _exit;
+    private bool _dismissing;
 
     public MeetingPromptWindow()
     {
@@ -79,28 +89,131 @@ public sealed partial class MeetingPromptWindow : Window
             width, height, area.X, area.Y, area.Width, area.Height, (int)(EdgeMarginDip * scale));
         AppWindow.MoveAndResize(new RectInt32(target.X, target.Y, width, height));
 
+        // Cancel a fade-out still running from a previous dismissal before showing again.
+        _exit?.Stop();
+        _dismissing = false;
+        HoverOverlay.Opacity = 0;
+
+        if (AnimationsEnabled)
+        {
+            Card.Opacity = 0;
+            CardTranslate.X = EntranceOffsetDip;
+        }
+        else
+        {
+            Card.Opacity = 1;
+            CardTranslate.X = 0;
+        }
+
         AppWindow.Show(activateWindow: false);
         _autoHideTimer.Stop();
         _autoHideTimer.Start();
+
+        if (AnimationsEnabled)
+            PlayEntrance();
     }
 
-    /// <summary>Hides the popup. It stays alive so the next meeting can reuse it.</summary>
-    public void Dismiss()
+    /// <summary>
+    /// Hides the popup, fading it out first unless <paramref name="animate"/> is false or the user
+    /// disabled animations. It stays alive so the next meeting can reuse it.
+    /// </summary>
+    public void Dismiss(bool animate = true)
     {
         _autoHideTimer.Stop();
-        if (AppWindow.IsVisible)
+        if (!AppWindow.IsVisible)
+            return;
+
+        if (!animate || !AnimationsEnabled)
+        {
+            _exit?.Stop();
+            _entrance?.Stop();
+            _dismissing = false;
             AppWindow.Hide();
+            return;
+        }
+
+        if (_dismissing)
+            return;
+
+        _dismissing = true;
+        _entrance?.Stop();
+        PlayExit();
+    }
+
+    private bool AnimationsEnabled => _uiSettings.AnimationsEnabled;
+
+    private void PlayEntrance()
+    {
+        _entrance?.Stop();
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var fade = new DoubleAnimation { From = 0, To = 1, Duration = EntranceDuration, EasingFunction = ease };
+        var slide = new DoubleAnimation
+        {
+            From = EntranceOffsetDip, To = 0, Duration = EntranceDuration, EasingFunction = ease
+        };
+        Storyboard.SetTarget(fade, Card);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+        Storyboard.SetTarget(slide, CardTranslate);
+        Storyboard.SetTargetProperty(slide, "X");
+
+        _entrance = new Storyboard();
+        _entrance.Children.Add(fade);
+        _entrance.Children.Add(slide);
+        _entrance.Begin();
+    }
+
+    private void PlayExit()
+    {
+        var fade = new DoubleAnimation
+        {
+            To = 0, Duration = ExitDuration, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        Storyboard.SetTarget(fade, Card);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+
+        var exit = new Storyboard();
+        exit.Children.Add(fade);
+        exit.Completed += (_, _) =>
+        {
+            // Present() may have cancelled this fade-out; only hide when it still applies.
+            if (!_dismissing || !ReferenceEquals(_exit, exit))
+                return;
+
+            _dismissing = false;
+            AppWindow.Hide();
+        };
+        _exit = exit;
+        exit.Begin();
+    }
+
+    private void Card_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        HoverOverlay.Opacity = 1;
+        _autoHideTimer.Stop();
+    }
+
+    private void Card_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        HoverOverlay.Opacity = 0;
+        if (AppWindow.IsVisible && !_dismissing)
+        {
+            _autoHideTimer.Stop();
+            _autoHideTimer.Start();
+        }
     }
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
         _autoHideTimer.Stop();
+        _entrance?.Stop();
+        _exit?.Stop();
         Closed -= OnClosed;
     }
 
     private void Start_Click(object sender, RoutedEventArgs e)
     {
-        Dismiss();
+        Dismiss(animate: false);
 
         if (App.Window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } main)
             main.Restore();

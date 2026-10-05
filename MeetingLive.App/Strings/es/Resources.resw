@@ -23,7 +23,7 @@
   <data name="CallPrompt_Body" xml:space="preserve"><value>Toma notas en MeetingLive para no perder nada.</value></data>
   <data name="CallPrompt_TakeNotes" xml:space="preserve"><value>Tomar notas</value></data>
   <data name="MeetingPrompt_Title.Text" xml:space="preserve"><value>Reunión detectada</value></data>
-  <data name="MeetingPrompt_Subtitle.Text" xml:space="preserve"><value>Grábala y toma notas con MeetingLive</value></data>
+  <data name="MeetingPrompt_Subtitle.Text" xml:space="preserve"><value>Toma notas con MeetingLive</value></data>
   <data name="MeetingPrompt_Start.Content" xml:space="preserve"><value>Empezar a grabar</value></data>
   <data name="MeetingPrompt_More.AutomationProperties.Name" xml:space="preserve"><value>Más opciones</value></data>
   <data name="MeetingPrompt_More.ToolTipService.ToolTip" xml:space="preserve"><value>Más opciones</value></data>

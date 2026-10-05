@@ -11,8 +11,8 @@
         <Grid.Resources>
             <!-- The split button is two plain buttons on one accent surface, so they share accent-aware states. -->
             <SolidColorBrush x:Key="ButtonBackground" Color="Transparent" />
-            <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="SubtleFillColorSecondaryBrush" />
-            <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="SubtleFillColorTertiaryBrush" />
+            <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{ThemeResource TextOnAccentFillColorPrimary}" Opacity="0.16" />
+            <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{ThemeResource TextOnAccentFillColorPrimary}" Opacity="0.28" />
             <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
             <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
             <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
@@ -21,75 +21,100 @@
             <StaticResource x:Key="ButtonForegroundPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
         </Grid.Resources>
 
-        <Border Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+        <Border x:Name="Card"
+                Background="{ThemeResource SolidBackgroundFillColorBaseAltBrush}"
                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="{ThemeResource OverlayCornerRadius}"
-                Padding="12,0,12,0">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Image Grid.Column="0"
-                       Width="32"
-                       Height="32"
-                       VerticalAlignment="Center"
-                       Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
-                       AutomationProperties.AccessibilityView="Raw" />
-
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                    <TextBlock x:Uid="MeetingPrompt_Title"
-                               Style="{StaticResource BodyStrongTextBlockStyle}"
-                               TextTrimming="CharacterEllipsis"
-                               AutomationProperties.AutomationId="TxtMeetingPromptTitle" />
-                    <TextBlock x:Uid="MeetingPrompt_Subtitle"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextTrimming="CharacterEllipsis"
-                               AutomationProperties.AutomationId="TxtMeetingPromptSubtitle" />
-                </StackPanel>
-
-                <Border Grid.Column="2"
-                        VerticalAlignment="Center"
+                PointerEntered="Card_PointerEntered"
+                PointerExited="Card_PointerExited">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="CardTranslate" />
+            </Border.RenderTransform>
+            <Grid>
+                <!-- Lightens the card on hover; faded through the implicit opacity transition. -->
+                <Border x:Name="HoverOverlay"
+                        Opacity="0"
+                        IsHitTestVisible="False"
                         CornerRadius="{ThemeResource OverlayCornerRadius}"
-                        Background="{ThemeResource AccentFillColorDefaultBrush}">
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="BtnStart"
-                                x:Uid="MeetingPrompt_Start"
-                                Height="36"
-                                Padding="16,0"
-                                CornerRadius="8,0,0,8"
-                                Click="Start_Click"
-                                AutomationProperties.AutomationId="BtnMeetingPromptStart" />
-                        <Rectangle Width="1"
-                                   Height="20"
-                                   Fill="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                   Opacity="0.35"
-                                   AutomationProperties.AccessibilityView="Raw" />
-                        <Button x:Name="BtnMore"
-                                x:Uid="MeetingPrompt_More"
-                                Width="36"
-                                Height="36"
-                                Padding="0"
-                                CornerRadius="0,8,8,0"
-                                AutomationProperties.AutomationId="BtnMeetingPromptMore">
-                            <FontIcon Glyph="&#xE70D;" FontSize="12" AutomationProperties.AccessibilityView="Raw" />
-                            <Button.Flyout>
-                                <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                    <MenuFlyoutItem x:Uid="MeetingPrompt_Dismiss"
-                                                    Click="Dismiss_Click"
-                                                    AutomationProperties.AutomationId="MenuMeetingPromptDismiss" />
-                                    <MenuFlyoutItem x:Uid="MeetingPrompt_NeverAgain"
-                                                    Click="NeverAgain_Click"
-                                                    AutomationProperties.AutomationId="MenuMeetingPromptNeverAgain" />
-                                </MenuFlyout>
-                            </Button.Flyout>
-                        </Button>
-                    </StackPanel>
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                    <Border.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.15" />
+                    </Border.OpacityTransition>
                 </Border>
+
+                <Grid Padding="16,0,16,0" ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Width="40"
+                            Height="40"
+                            VerticalAlignment="Center"
+                            CornerRadius="{ThemeResource ControlCornerRadius}"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1">
+                        <Image Width="24"
+                               Height="24"
+                               Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                               AutomationProperties.AccessibilityView="Raw" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock x:Uid="MeetingPrompt_Title"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   TextTrimming="CharacterEllipsis"
+                                   AutomationProperties.AutomationId="TxtMeetingPromptTitle" />
+                        <TextBlock x:Uid="MeetingPrompt_Subtitle"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   AutomationProperties.AutomationId="TxtMeetingPromptSubtitle" />
+                    </StackPanel>
+
+                    <Border Grid.Column="2"
+                            VerticalAlignment="Center"
+                            CornerRadius="{ThemeResource OverlayCornerRadius}"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="BtnStart"
+                                    x:Uid="MeetingPrompt_Start"
+                                    Height="40"
+                                    Padding="16,0"
+                                    CornerRadius="8,0,0,8"
+                                    Click="Start_Click"
+                                    AutomationProperties.AutomationId="BtnMeetingPromptStart" />
+                            <Rectangle Width="1"
+                                       Height="20"
+                                       Fill="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                       Opacity="0.35"
+                                       AutomationProperties.AccessibilityView="Raw" />
+                            <Button x:Name="BtnMore"
+                                    x:Uid="MeetingPrompt_More"
+                                    Width="40"
+                                    Height="40"
+                                    Padding="0"
+                                    CornerRadius="0,8,8,0"
+                                    AutomationProperties.AutomationId="BtnMeetingPromptMore">
+                                <FontIcon Glyph="&#xE70D;" FontSize="12" AutomationProperties.AccessibilityView="Raw" />
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuFlyoutItem x:Uid="MeetingPrompt_Dismiss"
+                                                        Click="Dismiss_Click"
+                                                        AutomationProperties.AutomationId="MenuMeetingPromptDismiss" />
+                                        <MenuFlyoutItem x:Uid="MeetingPrompt_NeverAgain"
+                                                        Click="NeverAgain_Click"
+                                                        AutomationProperties.AutomationId="MenuMeetingPromptNeverAgain" />
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
         </Border>
     </Grid>
