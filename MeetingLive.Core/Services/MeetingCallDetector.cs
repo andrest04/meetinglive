@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace MeetingLive.Core.Services;
 
 /// <summary>
@@ -6,6 +8,10 @@ namespace MeetingLive.Core.Services;
 /// </summary>
 public static class MeetingCallDetector
 {
+    private static readonly Regex MeetCodePattern = new(
+        @"\b[a-z]{3}-[a-z]{4}-[a-z]{3}\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     public static bool IsMeeting(string? processName, string? windowTitle)
     {
         var process = (processName ?? string.Empty).Trim().ToLowerInvariant();
@@ -22,15 +28,10 @@ public static class MeetingCallDetector
         if (process is "teams" or "ms-teams")
             return ContainsAny(title, "Meeting", "Call");
 
-        if (process is "chrome" or "msedge" or "firefox" or "brave")
+        if (process is "chrome" or "msedge" or "firefox" or "brave" or "opera" or "vivaldi")
         {
-            return ContainsAny(
-                title,
-                "Google Meet",
-                "Meet -",
-                "Meet –",
-                "Zoom",
-                "Microsoft Teams");
+            // Only an in-call Meet tab counts: the landing page has no meeting code in its title.
+            return MeetCodePattern.IsMatch(title) && title.Contains("Meet", StringComparison.OrdinalIgnoreCase);
         }
 
         return false;
