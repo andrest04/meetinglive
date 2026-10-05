@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MeetingLive.Core.Models;
+using MeetingLive.Core.Services;
 
 namespace MeetingLive.Core.Tests.Models;
 
@@ -216,5 +217,52 @@ public class AppSettingsTests
         Assert.NotNull(settings);
         Assert.Equal(-1500, settings.LiveCopilotPillX);
         Assert.Equal(320, settings.LiveCopilotPillY);
+    }
+
+    [Fact]
+    public void LiveCopilotPillDock_WhenUnsetOrJsonOmitsFields_IsNullAndResolvesToMidRight()
+    {
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            "{}",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(settings);
+        Assert.Null(settings.LiveCopilotPillEdge);
+        Assert.Null(settings.LiveCopilotPillAlong);
+        Assert.Equal(DockEdge.Right, settings.ResolveLiveCopilotPillEdge());
+        Assert.Equal(0.5, settings.ResolveLiveCopilotPillAlong());
+    }
+
+    [Fact]
+    public void LiveCopilotPillDock_RoundTrips()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var json = JsonSerializer.Serialize(
+            new AppSettings { LiveCopilotPillEdge = "Bottom", LiveCopilotPillAlong = 0.25 },
+            options);
+        var settings = JsonSerializer.Deserialize<AppSettings>(json, options);
+
+        Assert.NotNull(settings);
+        Assert.Equal(DockEdge.Bottom, settings.ResolveLiveCopilotPillEdge());
+        Assert.Equal(0.25, settings.ResolveLiveCopilotPillAlong());
+    }
+
+    [Theory]
+    [InlineData(-2.0, 0.0)]
+    [InlineData(3.5, 1.0)]
+    [InlineData(double.NaN, 0.5)]
+    public void ResolveLiveCopilotPillAlong_ClampsOutOfRangeValues(double stored, double expected)
+    {
+        var settings = new AppSettings { LiveCopilotPillAlong = stored };
+
+        Assert.Equal(expected, settings.ResolveLiveCopilotPillAlong());
+    }
+
+    [Fact]
+    public void ResolveLiveCopilotPillEdge_WhenUnrecognized_FallsBackToRight()
+    {
+        var settings = new AppSettings { LiveCopilotPillEdge = "center" };
+
+        Assert.Equal(DockEdge.Right, settings.ResolveLiveCopilotPillEdge());
     }
 }

@@ -162,6 +162,23 @@ public sealed class AppSettings
     /// <summary>Top edge counterpart of <see cref="LiveCopilotPillX"/>.</summary>
     public int? LiveCopilotPillY { get; set; }
 
+    /// <summary>Screen edge the live copilot capsule is docked to, stored as its <see cref="Services.DockEdge"/>
+    /// name. Null means the default (right). Supersedes <see cref="LiveCopilotPillX"/>/<see cref="LiveCopilotPillY"/>,
+    /// which are no longer read.</summary>
+    public string? LiveCopilotPillEdge { get; set; }
+
+    /// <summary>Fractional position (0..1) of the capsule along <see cref="LiveCopilotPillEdge"/>. Null means centered.</summary>
+    public double? LiveCopilotPillAlong { get; set; }
+
+    public Services.DockEdge ResolveLiveCopilotPillEdge() =>
+        Services.LiveCopilotPillDock.ParseEdge(LiveCopilotPillEdge);
+
+    /// <summary>Resolves <see cref="LiveCopilotPillAlong"/>, clamped to 0..1; unset or non-finite means centered.</summary>
+    public double ResolveLiveCopilotPillAlong() =>
+        LiveCopilotPillAlong is { } along && double.IsFinite(along)
+            ? Math.Clamp(along, 0, 1)
+            : Services.LiveCopilotPillDock.DefaultAlong;
+
     public const double DefaultNavigationPaneLength = 280;
     public const double MinNavigationPaneLength = 200;
     public const double MaxNavigationPaneLength = 480;
