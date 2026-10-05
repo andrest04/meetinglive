@@ -183,6 +183,74 @@ public class LiveCopilotPillDockTests
         Assert.Equal(LiveCopilotPillDock.DefaultAlong, along);
     }
 
+    // Expanded window (capsule + chat panel): 64x240 capsule, 380x500 panel, 8 gap.
+    private static PillBounds Expanded(DockEdge edge, int capsuleX, int capsuleY, int capsuleW, int capsuleH) =>
+        LiveCopilotPillDock.ExpandedBounds(
+            edge, capsuleX, capsuleY, capsuleW, capsuleH, 380, 500, 8, AreaX, AreaY, AreaWidth, AreaHeight);
+
+    [Fact]
+    public void ExpandedBounds_RightEdge_KeepsCapsuleOnTheRightAndGrowsTowardTheCenter()
+    {
+        var capsule = new PillPosition(1920 - 64 - 12, 400);
+
+        var bounds = Expanded(DockEdge.Right, capsule.X, capsule.Y, 64, 240);
+
+        Assert.Equal(64 + 8 + 380, bounds.Width);
+        Assert.Equal(500, bounds.Height);
+        Assert.Equal(capsule.X + 64, bounds.X + bounds.Width);
+        Assert.Equal(capsule.Y + 120, bounds.Y + bounds.Height / 2);
+    }
+
+    [Fact]
+    public void ExpandedBounds_LeftEdge_KeepsCapsuleOnTheLeft()
+    {
+        var bounds = Expanded(DockEdge.Left, 12, 400, 64, 240);
+
+        Assert.Equal(12, bounds.X);
+        Assert.Equal(64 + 8 + 380, bounds.Width);
+    }
+
+    [Fact]
+    public void ExpandedBounds_TopEdge_OpensBelowTheCapsule()
+    {
+        var bounds = Expanded(DockEdge.Top, 800, 12, 272, 64);
+
+        Assert.Equal(12, bounds.Y);
+        Assert.Equal(64 + 8 + 500, bounds.Height);
+        Assert.Equal(380, bounds.Width);
+    }
+
+    [Fact]
+    public void ExpandedBounds_BottomEdge_OpensAboveTheCapsule()
+    {
+        var capsuleY = 1040 - 64 - 12;
+
+        var bounds = Expanded(DockEdge.Bottom, 800, capsuleY, 272, 64);
+
+        Assert.Equal(capsuleY + 64, bounds.Y + bounds.Height);
+        Assert.Equal(64 + 8 + 500, bounds.Height);
+    }
+
+    [Fact]
+    public void ExpandedBounds_CapsuleNearTheEnd_IsShiftedBackInsideTheArea()
+    {
+        // Capsule at the very bottom of the right edge: a 500 tall window cannot stay centered on it.
+        var bounds = Expanded(DockEdge.Right, 1920 - 64 - 12, 1040 - 240 - 12, 64, 240);
+
+        Assert.True(bounds.Y >= AreaY && bounds.Y + bounds.Height <= AreaY + AreaHeight);
+        Assert.Equal(500, bounds.Height);
+    }
+
+    [Fact]
+    public void ExpandedBounds_WhenPanelLargerThanArea_ShrinksToTheArea()
+    {
+        var bounds = LiveCopilotPillDock.ExpandedBounds(
+            DockEdge.Right, 400, 50, 64, 240, 380, 500, 8, 0, 0, 500, 300);
+
+        Assert.True(bounds.Width <= 500);
+        Assert.True(bounds.Height <= 300);
+    }
+
     [Theory]
     [InlineData("Left", DockEdge.Left)]
     [InlineData("right", DockEdge.Right)]

@@ -9,6 +9,9 @@ public enum DockEdge
     Bottom
 }
 
+/// <summary>Window rectangle in physical screen pixels.</summary>
+public readonly record struct PillBounds(int X, int Y, int Width, int Height);
+
 /// <summary>
 /// Pure dock math for the live copilot capsule: which edge a drop snaps to, where the capsule sits on
 /// an edge, and how far along that edge it is (0..1). The capsule is never free-floating, so only an
@@ -85,6 +88,37 @@ public static class LiveCopilotPillDock
             : (x - areaX - margin, TravelRange(areaWidth, width, margin));
 
         return range <= 0 ? DefaultAlong : Math.Clamp((double)offset / range, 0, 1);
+    }
+
+    /// <summary>
+    /// Bounds of the window while the chat panel is open: the capsule keeps its screen position and the
+    /// panel grows from it toward the screen center (a right-edge capsule opens leftward, a bottom-edge one
+    /// upward), centered on the capsule along the edge and shifted back inside the work area when needed.
+    /// The panel is whatever the window has beyond the capsule band plus <paramref name="gap"/>.
+    /// </summary>
+    public static PillBounds ExpandedBounds(
+        DockEdge edge, int capsuleX, int capsuleY, int capsuleWidth, int capsuleHeight,
+        int panelWidth, int panelHeight, int gap,
+        int areaX, int areaY, int areaWidth, int areaHeight)
+    {
+        int width, height, x, y;
+        if (IsVertical(edge))
+        {
+            width = Math.Min(capsuleWidth + gap + panelWidth, areaWidth);
+            height = Math.Min(Math.Max(capsuleHeight, panelHeight), areaHeight);
+            x = edge == DockEdge.Left ? capsuleX : capsuleX + capsuleWidth - width;
+            y = capsuleY + (capsuleHeight - height) / 2;
+        }
+        else
+        {
+            width = Math.Min(Math.Max(capsuleWidth, panelWidth), areaWidth);
+            height = Math.Min(capsuleHeight + gap + panelHeight, areaHeight);
+            x = capsuleX + (capsuleWidth - width) / 2;
+            y = edge == DockEdge.Top ? capsuleY : capsuleY + capsuleHeight - height;
+        }
+
+        var inside = LiveCopilotPillPlacement.Clamp(x, y, width, height, areaX, areaY, areaWidth, areaHeight);
+        return new PillBounds(inside.X, inside.Y, width, height);
     }
 
     /// <summary>Parses a persisted edge name, ignoring case; anything unknown yields <see cref="DefaultEdge"/>.</summary>
