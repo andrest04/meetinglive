@@ -30,7 +30,10 @@ internal static class MeetingWindowScanner
             {
                 using var process = Process.GetProcessById((int)processId);
                 if (MeetingCallDetector.IsMeeting(process.ProcessName, title.ToString()))
+                {
                     found = true;
+                    Debug.WriteLine($"[MeetingCallWatcher] window matched: {process.ProcessName} | {title}");
+                }
             }
             catch (ArgumentException)
             {

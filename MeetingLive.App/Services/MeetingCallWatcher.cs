@@ -13,6 +13,7 @@ internal sealed class MeetingCallWatcher : IDisposable
 {
     private readonly DispatcherTimer _timer;
     private bool _armed = true;
+    private bool _windowFound;
     private int _ticking;
 
     /// <summary>A call window appeared while idle and the popup is allowed. Raised on the UI thread.</summary>
@@ -36,39 +37,74 @@ internal sealed class MeetingCallWatcher : IDisposable
         if (Interlocked.Exchange(ref _ticking, 1) == 1)
             return;
 
+        var disarmedThisTick = false;
         try
         {
             var inCall = MeetingWindowScanner.AnyMeetingWindow();
+            if (inCall != _windowFound)
+            {
+                _windowFound = inCall;
+                Log(inCall ? "meeting window found" : "meeting window not found");
+            }
+
             if (!inCall)
             {
                 if (!_armed)
                 {
                     _armed = true;
+                    Log("armed (no meeting window left)");
                     MeetingEnded?.Invoke(this, EventArgs.Empty);
                 }
 
                 return;
             }
 
-            if (!_armed || AppServices.Workspace.IsCaptureActive)
+            if (!_armed)
                 return;
 
+            if (AppServices.Workspace.IsCaptureActive)
+            {
+                // Recording already runs for this call: stay quiet until it ends, even if capture stops mid-call.
+                _armed = false;
+                Log("disarmed, popup suppressed (capture active)");
+                return;
+            }
+
             _armed = false;
+            disarmedThisTick = true;
+            Log("disarmed (meeting started)");
             AppServices.Workspace.OfferCallPrompt();
 
             var popupEnabled = await LoadPopupEnabledAsync();
             if (MeetingPopupPolicy.ShouldShow(popupEnabled, AppServices.Workspace.IsCaptureActive, alreadyPrompted: false))
+            {
+                Log("MeetingDetected raised");
                 MeetingDetected?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                Log($"popup suppressed (enabled={popupEnabled}, captureActive={AppServices.Workspace.IsCaptureActive})");
+            }
+
+            disarmedThisTick = false;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Detection must never crash the app.
+            // Detection must never crash the app. A failure before the popup was handled re-arms
+            // so the next tick retries instead of silently losing this meeting.
+            if (disarmedThisTick)
+                _armed = true;
+
+            Log($"tick failed: {ex.GetType().Name}");
         }
         finally
         {
             Interlocked.Exchange(ref _ticking, 0);
         }
     }
+
+    private static void Log(string message) =>
+        System.Diagnostics.Debug.WriteLine($"[MeetingCallWatcher] {message}");
 
     private static async Task<bool> LoadPopupEnabledAsync()
     {

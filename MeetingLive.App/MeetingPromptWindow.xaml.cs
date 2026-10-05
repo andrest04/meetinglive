@@ -89,28 +89,33 @@ public sealed partial class MeetingPromptWindow : Window
             width, height, area.X, area.Y, area.Width, area.Height, (int)(EdgeMarginDip * scale));
         AppWindow.MoveAndResize(new RectInt32(target.X, target.Y, width, height));
 
-        // Cancel a fade-out still running from a previous dismissal before showing again.
+        // Cancel any storyboard still holding Card values from a previous show/dismissal, then reset
+        // to the visible resting state so a stale hold value can never keep the card at Opacity 0.
         _exit?.Stop();
+        _entrance?.Stop();
         _dismissing = false;
         HoverOverlay.Opacity = 0;
-
-        if (AnimationsEnabled)
-        {
-            Card.Opacity = 0;
-            CardTranslate.X = EntranceOffsetDip;
-        }
-        else
-        {
-            Card.Opacity = 1;
-            CardTranslate.X = 0;
-        }
+        Card.Opacity = 1;
+        CardTranslate.X = 0;
 
         AppWindow.Show(activateWindow: false);
         _autoHideTimer.Stop();
         _autoHideTimer.Start();
 
-        if (AnimationsEnabled)
+        if (!AnimationsEnabled)
+            return;
+
+        try
+        {
+            // The entrance storyboard starts from Opacity 0 itself; if it never runs the card stays visible.
             PlayEntrance();
+        }
+        catch (Exception)
+        {
+            _entrance?.Stop();
+            Card.Opacity = 1;
+            CardTranslate.X = 0;
+        }
     }
 
     /// <summary>
