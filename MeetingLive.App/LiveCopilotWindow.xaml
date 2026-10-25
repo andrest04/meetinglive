@@ -213,7 +213,7 @@
             <Border x:Name="CapsuleSurface"
                     Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
                     BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
-                    BorderThickness="1"
+                    BorderThickness="0"
                     CornerRadius="32" />
 
             <StackPanel x:Name="CapsuleStack"
@@ -326,7 +326,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Soft outline of the whole window (capsule or expanded card); never takes input. -->
+        <!-- Authoritative outer outline, inset from the native region by one physical pixel in code. -->
         <Border x:Name="WindowOutline"
                 IsHitTestVisible="False"
                 BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"

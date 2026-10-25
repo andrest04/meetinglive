@@ -46,6 +46,31 @@ public sealed partial class LiveCopilotWindow : Window
     private const int DwmWindowCornerPreference = 33;
     private const int DwmCornerDoNotRound = 1;
     private const int DwmCornerRound = 2;
+    private const int DwmBorderColor = 34;
+    private const int DwmColorNone = -2;
+    private const int GwlStyle = -16;
+    private const int WsCaption = 0x00C00000;
+    private const int WsThickFrame = 0x00040000;
+    private const uint SwpFrameChanged = 0x0020;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoZOrder = 0x0004;
+    private const uint SwpNoActivate = 0x0010;
+
+    // GWL_STYLE is a 32-bit LONG on x86, x64 and ARM64; these are not pointer slots.
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", ExactSpelling = true, SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+    private static extern int GetWindowStyle(nint hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", ExactSpelling = true, SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+    private static extern int SetWindowStyle(nint hWnd, int index, int style);
+
+    [DllImport("user32.dll", ExactSpelling = true, SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(nint hWnd, nint insertAfter, int x, int y, int width, int height, uint flags);
+
+    [DllImport("user32.dll", ExactSpelling = true, SetLastError = true, CallingConvention = CallingConvention.Winapi)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetClientRect(nint hWnd, out NativeRect rect);
 
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hWnd);
@@ -72,6 +97,15 @@ public sealed partial class LiveCopilotWindow : Window
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 
     /// <summary>One running window-rectangle animation, ticked by <see cref="_tweenTimer"/>.</summary>
@@ -142,6 +176,7 @@ public sealed partial class LiveCopilotWindow : Window
 
         // Keep it out of the taskbar and Alt+Tab so it never competes with the real meeting window.
         AppWindow.IsShownInSwitchers = false;
+        RemoveNativeFrame();
 
         // Ctrl+Enter must stay on these controls: a null owner would make the accelerator global.
         RootGrid.Loaded += (_, _) =>
@@ -176,6 +211,38 @@ public sealed partial class LiveCopilotWindow : Window
     public bool IsExpanded => _isExpanded;
 
     private bool Animated => _uiSettings.AnimationsEnabled;
+
+    private void RemoveNativeFrame()
+    {
+        // A fixed-size OverlappedPresenter can retain WS_DLGFRAME even with HasBorder=false.
+        // Remove both caption bits (WS_BORDER | WS_DLGFRAME), then invalidate cached nonclient metrics.
+        var style = GetWindowStyle(_hwnd, GwlStyle);
+        var readError = Marshal.GetLastPInvokeError();
+        if (style == 0 && readError != 0)
+        {
+            Debug.WriteLine($"Live copilot: cannot read window style ({readError}).");
+            return;
+        }
+
+        Marshal.SetLastPInvokeError(0);
+        var previous = SetWindowStyle(_hwnd, GwlStyle, style & ~(WsCaption | WsThickFrame));
+        var writeError = Marshal.GetLastPInvokeError();
+        if (previous == 0 && writeError != 0)
+        {
+            Debug.WriteLine($"Live copilot: cannot remove native frame ({writeError}).");
+            return;
+        }
+
+        if (!SetWindowPos(_hwnd, 0, 0, 0, 0, 0,
+            SwpFrameChanged | SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate))
+        {
+            Debug.WriteLine($"Live copilot: cannot refresh native frame ({Marshal.GetLastPInvokeError()}).");
+        }
+
+        // XAML owns the stroke; Windows 11 must not add another one. Older Windows ignores this.
+        var border = DwmColorNone;
+        _ = DwmSetWindowAttribute(_hwnd, DwmBorderColor, ref border, sizeof(int));
+    }
 
     private double Scale
     {
@@ -419,8 +486,27 @@ public sealed partial class LiveCopilotWindow : Window
     /// </summary>
     private void ApplyShape(int widthPx, int heightPx, bool expanded, double scale)
     {
+        // With the native frame removed, the XAML client and HWND use the same physical bounds.
+        // Do not silently shape a different rectangle if Windows reintroduces nonclient chrome.
+        if (!GetClientRect(_hwnd, out var client)
+            || client.Right - client.Left != widthPx || client.Bottom - client.Top != heightPx)
+        {
+            Debug.WriteLine("Live copilot: client and window bounds differ; refreshing native frame.");
+            RemoveNativeFrame();
+            if (!GetClientRect(_hwnd, out client)
+                || client.Right - client.Left != widthPx || client.Bottom - client.Top != heightPx)
+            {
+                UseFallbackShape();
+                return;
+            }
+        }
+
         var radiusDip = expanded ? ExpandedCornerDip : Math.Min(widthPx, heightPx) / scale / 2;
-        WindowOutline.CornerRadius = new CornerRadius(radiusDip);
+        // Keep the antialiased stroke inside the hard, integer-pixel HRGN cut at fractional DPI.
+        var insetDip = 1 / scale;
+        WindowOutline.Margin = new Thickness(insetDip);
+        WindowOutline.CornerRadius = new CornerRadius(Math.Max(0, radiusDip - insetDip));
+        CapsuleSurface.BorderThickness = new Thickness(expanded ? 1 : 0);
 
         var radiusPx = (int)Math.Round(radiusDip * scale);
         if (_region == (widthPx, heightPx, radiusPx))
@@ -430,7 +516,7 @@ public sealed partial class LiveCopilotWindow : Window
         var region = CreateRoundRectRgn(0, 0, widthPx + 1, heightPx + 1, radiusPx * 2, radiusPx * 2);
         if (region == 0)
         {
-            SetDwmCorners(DwmCornerRound);
+            UseFallbackShape();
             return;
         }
 
@@ -438,11 +524,21 @@ public sealed partial class LiveCopilotWindow : Window
         if (SetWindowRgn(_hwnd, region, true) == 0)
         {
             DeleteObject(region);
-            SetDwmCorners(DwmCornerRound);
+            UseFallbackShape();
             return;
         }
 
         _region = (widthPx, heightPx, radiusPx);
+        SetDwmCorners(DwmCornerDoNotRound);
+    }
+
+    private void UseFallbackShape()
+    {
+        // A failed resize must not leave an older, smaller region clipping the new layout.
+        if (SetWindowRgn(_hwnd, 0, true) == 0)
+            Debug.WriteLine("Live copilot: cannot clear the previous window region.");
+        _region = default;
+        SetDwmCorners(DwmCornerRound);
     }
 
     private void SetDwmCorners(int preference)
@@ -545,7 +641,8 @@ public sealed partial class LiveCopilotWindow : Window
         if (size.Width != rect.Width || size.Height != rect.Height)
         {
             AppWindow.MoveAndResize(rect);
-            ApplyShape(rect.Width, rect.Height, expanded: false, Scale);
+            var actualSize = AppWindow.Size;
+            ApplyShape(actualSize.Width, actualSize.Height, expanded: false, Scale);
         }
         else
         {
