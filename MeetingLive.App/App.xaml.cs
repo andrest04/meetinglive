@@ -152,27 +152,44 @@ public partial class App : Application
         if (_closeApproved)
             return;
 
-        var recording = AppServices.Recording;
-        if (!recording.RequiresCloseConfirmation && !recording.HasPendingSaves)
+        if (!HasWorkToProtect)
             return;
 
         args.Cancel = true;
+        if (await PrepareForExitAsync())
+        {
+            _closeApproved = true;
+            Window.Close();
+        }
+    }
+
+    private static bool HasWorkToProtect =>
+        AppServices.Recording.RequiresCloseConfirmation || AppServices.Recording.HasPendingSaves;
+
+    /// <summary>
+    /// The one gate before the process ends, for a window close or a restart. Returns true when
+    /// exiting cannot abandon a take. A second caller is refused while the first is still deciding.
+    /// </summary>
+    internal static Task<bool> TryPrepareForExitAsync() => ((App)Current).PrepareForExitAsync();
+
+    private async Task<bool> PrepareForExitAsync()
+    {
+        if (!HasWorkToProtect)
+            return true;
+
         if (_closeInProgress)
-            return;
+            return false;
 
         _closeInProgress = true;
         try
         {
-            if (await ConfirmAndSaveForCloseAsync(recording))
-            {
-                _closeApproved = true;
-                Window.Close();
-            }
+            return await ConfirmAndSaveForCloseAsync(AppServices.Recording);
         }
         catch (Exception ex)
         {
             // Staying open is the safe outcome: the take is still in the app.
             LogCloseFailure(ex);
+            return false;
         }
         finally
         {
@@ -180,7 +197,7 @@ public partial class App : Application
         }
     }
 
-    /// <summary>Returns true when the window may close. No path here discards the take.</summary>
+    /// <summary>Returns true when the app may exit. No path here discards the take.</summary>
     private static async Task<bool> ConfirmAndSaveForCloseAsync(RecordingPageViewModel recording)
     {
         BringMainWindowToFront();

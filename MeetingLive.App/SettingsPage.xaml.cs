@@ -67,6 +67,11 @@ public sealed partial class SettingsPage : Page
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 
+        // Restart ends the process with no window-closing event, so it passes the same gate as
+        // closing. Keeping the recording cancels the restart; the language applies on the next launch.
+        if (!await App.TryPrepareForExitAsync())
+            return;
+
         // AppInstance.Restart is the official Windows App SDK API for a packaged app to terminate
         // and relaunch itself with a fresh process/activation — unlike Process.Start or
         // Environment.Exit, which don't correctly restart a packaged MSIX app's identity. On

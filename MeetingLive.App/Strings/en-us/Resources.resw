@@ -611,7 +611,7 @@
   <data name="HistoryDelete_Busy" xml:space="preserve"><value>This meeting is still being recorded or processed. Try again when it finishes.</value></data>
   <data name="HistoryDelete_Failed" xml:space="preserve"><value>The meeting was not deleted. Close any program using its audio and try again: {0}</value></data>
   <data name="AppClose_Recording_Title" xml:space="preserve"><value>Stop recording before closing?</value></data>
-  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive is still recording. Stop and save keeps this take as a meeting, then closes the app. Any transcription or summary left unfinished can be run again from the meeting.</value></data>
+  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive is still recording. Stop and save keeps this take as a meeting, then closes or restarts the app. Any transcription or summary left unfinished can be run again from the meeting.</value></data>
   <data name="AppClose_Recording_StopAndSave" xml:space="preserve"><value>Stop and save</value></data>
   <data name="AppClose_Recording_Keep" xml:space="preserve"><value>Keep recording</value></data>
   <data name="AppClose_Saving_Title" xml:space="preserve"><value>Saving your recording</value></data>

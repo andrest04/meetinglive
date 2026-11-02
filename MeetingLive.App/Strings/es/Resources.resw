@@ -611,7 +611,7 @@
   <data name="HistoryDelete_Busy" xml:space="preserve"><value>Esta reunión todavía se está grabando o procesando. Inténtalo de nuevo cuando termine.</value></data>
   <data name="HistoryDelete_Failed" xml:space="preserve"><value>La reunión no se eliminó. Cierra cualquier programa que esté usando su audio e inténtalo de nuevo: {0}</value></data>
   <data name="AppClose_Recording_Title" xml:space="preserve"><value>¿Detener la grabación antes de cerrar?</value></data>
-  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive sigue grabando. Detener y guardar conserva esta toma como una reunión y luego cierra la aplicación. La transcripción o el resumen que queden sin terminar se pueden volver a ejecutar desde la reunión.</value></data>
+  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive sigue grabando. Detener y guardar conserva esta toma como una reunión y luego cierra o reinicia la aplicación. La transcripción o el resumen que queden sin terminar se pueden volver a ejecutar desde la reunión.</value></data>
   <data name="AppClose_Recording_StopAndSave" xml:space="preserve"><value>Detener y guardar</value></data>
   <data name="AppClose_Recording_Keep" xml:space="preserve"><value>Seguir grabando</value></data>
   <data name="AppClose_Saving_Title" xml:space="preserve"><value>Guardando la grabación</value></data>
