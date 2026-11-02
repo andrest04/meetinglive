@@ -410,6 +410,14 @@ public partial class SummaryPageViewModel : ObservableObject
         }
     }
 
+    /// <summary>Keeps the page's record in step with the editor. Summary generation and action-item
+    /// toggles save this record, so a stale copy would revert the notes on disk.</summary>
+    partial void OnNotesChanged(string value)
+    {
+        if (_record is not null)
+            _record.Notes = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
     partial void OnIsLoadingChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
 
     partial void OnHasSummaryChanged(bool value)
