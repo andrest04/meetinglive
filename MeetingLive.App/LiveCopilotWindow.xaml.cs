@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Graphics;
 using Windows.UI.ViewManagement;
@@ -805,6 +806,7 @@ public sealed partial class LiveCopilotWindow : Window
                     _ => PlacementMode.Top
                 }
             };
+            // Keep the startup hint on the tile, separate from the logo button's action tooltip.
             ToolTipService.SetToolTip(IconTile, tip);
             tip.IsOpen = true;
             _startedTip = tip;
@@ -904,6 +906,15 @@ public sealed partial class LiveCopilotWindow : Window
 
     private void Capsule_PointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        // A logo press belongs to the native button, never to the capsule's drag capture.
+        for (var source = e.OriginalSource as DependencyObject;
+             source is not null && source != CapsuleHost;
+             source = VisualTreeHelper.GetParent(source))
+        {
+            if (source == IconTile)
+                return;
+        }
+
         if (_tween is not null || !e.GetCurrentPoint(CapsuleHost).Properties.IsLeftButtonPressed)
             return;
 
