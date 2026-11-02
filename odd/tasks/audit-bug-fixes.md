@@ -68,10 +68,42 @@ T1 runtime scenarios, all pending:
 - [ ] Import stays disabled during the model load, and Record stays disabled during an import.
 
 ### T2 Audio capture (route: delegated; depends on T1 for UI wiring)
-- [ ] F2 Faulted pump leaves `StopAsync` throwing and `IsRecording` stuck (`AudioCaptureService.cs:136`).
-- [ ] F4 Dead microphone or loopback ignored mid-recording (`AudioCaptureService.cs:77`).
-- [ ] L2 Concurrent `StopAsync` calls race (`AudioCaptureService.cs:123`).
-- [ ] L4 `MicrophoneLevelMeterService` leaks `WasapiCapture` on failed start (`MicrophoneLevelMeterService.cs:25`).
+All four findings were real when re-read against the code. Boxes below mean unit-checked against fake devices, with a real pump and a real WAV file; no scenario was run in the app or on a real device.
+- [x] F2 Faulted pump leaves `StopAsync` throwing and `IsRecording` stuck (`AudioCaptureService.cs:136`). Every teardown step runs, the error still reaches the caller, and a header the disk refused is repaired. `CaptureFaulted` reports the fault while recording, and the page stops through `StopRecordingAsync`. `f4a41d4`.
+- [x] F4 Dead microphone or loopback ignored mid-recording (`AudioCaptureService.cs:77`). `CaptureSourceLost` carries the source and how many are left. The page warns and recording continues, with a separate warning when none are left. `f4a41d4`.
+- [x] L2 Concurrent `StopAsync` calls race (`AudioCaptureService.cs:123`). Stop is single flight, and later callers get the same task. `f4a41d4`.
+- [x] L4 `MicrophoneLevelMeterService` leaks `WasapiCapture` on failed start (`MicrophoneLevelMeterService.cs:25`). A capture that fails to start is released. `9d4250c`.
+
+T2 evidence:
+- Route: delegated direct, one writer. Trigger: several non-trivial files.
+- RED then GREEN: with seams and stubs only, 15 of 25 new tests failed. All 25 passed after the fix, and three repeated runs also passed. The 10 that passed in RED pin behavior that must not change, such as process-tree failures still stopping the recording.
+- Removing the header repair makes `PumpFault_StopRethrowsCleansUpAndLeavesReadableAudio` fail, so that test does prove a readable WAV after a simulated full disk.
+- App exception: the view model changes cannot be hosted by the test project, so they rely on the build and the runtime scenarios below.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 1012, Failed 0, Skipped 0.
+- `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: succeeded, 0 errors, 196 warnings.
+- `git diff --check`: clean.
+
+T2 decisions:
+- A process-tree failure still stops the recording, as it did. Only the microphone and system loopback warn and continue.
+- With no source left, the recording keeps running and says so, and the user decides when to stop. It writes silence until then.
+- A pump fault stops the take, because nothing more can reach the file.
+- The failure reason now stays in the pipeline's status lines, for `Error_OutputCaptureFailed` too. The next status would otherwise replace it at once. Source warnings are worded for the present, so they show only while recording.
+- `ShouldSurfaceOutputFailure` keeps its meaning and tests: whether a failure ends the recording. System loopback errors now go through `IsSourceLost`.
+- The new events are default interface members, so the test fake in `LiveTranscriptionServiceTests` needs no edit.
+- The new event types live in `IAudioCaptureService.cs`, because this task's edit surface had no room for new Core files.
+
+T2 known gaps:
+- Warnings show in the Record page status only. The edge-docked pill does not show them, so a user minimized to the pill sees nothing until they return. The pill was outside this task's surface.
+- A warning covers a source that stops with an error. A source that goes silent with no error is not detected.
+- Whether NAudio and Windows raise these errors on a real unplug, or survive it, cannot be proven here. Tests raise the event by hand.
+
+T2 runtime scenarios, all pending:
+- [ ] Unplug the microphone while recording: the warning appears, the app does not crash, the meeting audio keeps recording, and Stop produces a meeting.
+- [ ] Disable or unplug the output device with system loopback: the warning appears and the microphone keeps recording.
+- [ ] Lose both sources, or the only one: the "nothing is being captured" status appears, and Stop still saves what was recorded.
+- [ ] Pause, lose a source, and resume: the warning comes back after resuming.
+- [ ] Fill the disk during a recording, or record to a removable drive and pull it: the take stops, the reason stays visible, the WAV plays up to the failure, and a new recording can start.
+- [ ] Open Settings with the microphone held in exclusive mode by another app: no crash, and the meter works once the device is free.
 
 ### T3 Transcription engine and local summary (route: delegated)
 - [ ] F3 Deleting the engine with its DLL loaded half-deletes it (`NemoSpeechRuntimeManager.cs:71`).
@@ -97,6 +129,7 @@ T1 runtime scenarios, all pending:
 ## Progress
 - Baseline branch created at `8f31586`.
 - T1 implemented in `cbce619`, `a90533c`, `4592e39`, `e176f3c`, and `a8075e8`. Runtime scenarios are pending.
+- T2 implemented in `9d4250c` and `f4a41d4`. Runtime scenarios are pending.
 
 ## Next step
-T2.
+T3.
