@@ -60,6 +60,30 @@ public class MarkdownMeetingRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteAsync_WhenWavIsLocked_ThrowsAndKeepsTheMeetingSoItCanBeRetried()
+    {
+        var id = Guid.NewGuid();
+        var wavPath = AudioPath(id);
+        Directory.CreateDirectory(_tempDirectory);
+        await File.WriteAllTextAsync(wavPath, "wav");
+        var repo = new MarkdownMeetingRepository(_tempDirectory);
+        await repo.SaveAsync(CreateRecord(id, wavPath));
+
+        using (new FileStream(InboxAudioPath("Standup"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            await Assert.ThrowsAsync<IOException>(() => repo.DeleteAsync(id));
+
+            Assert.True(File.Exists(InboxMarkdownPath("Standup")));
+            Assert.NotNull(await repo.GetByIdAsync(id));
+        }
+
+        await repo.DeleteAsync(id);
+
+        Assert.False(File.Exists(InboxMarkdownPath("Standup")));
+        Assert.False(File.Exists(InboxAudioPath("Standup")));
+    }
+
+    [Fact]
     public async Task SaveAsync_WhenSummaryContainsMarkdownH2_RoundtripsFullSummary()
     {
         var id = Guid.NewGuid();
