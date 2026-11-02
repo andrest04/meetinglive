@@ -12,7 +12,16 @@ namespace MeetingLive.Core.Services;
 public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, IDisposable
 {
     private readonly object _gate = new();
-    private WasapiCapture? _capture;
+    private readonly Func<string?, IWaveIn> _createCapture;
+    private IWaveIn? _capture;
+
+    public MicrophoneLevelMeterService()
+        : this(deviceId => new WasapiCapture(MicrophoneDeviceResolver.Resolve(deviceId)))
+    {
+    }
+
+    /// <summary>Lets tests supply the capture device. No test host has real audio devices.</summary>
+    internal MicrophoneLevelMeterService(Func<string?, IWaveIn> createCapture) => _createCapture = createCapture;
 
     public event EventHandler<float>? LevelChanged;
 
@@ -20,25 +29,49 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
     {
         Stop();
 
+        IWaveIn? capture = null;
         try
         {
-            var capture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(deviceId));
+            capture = _createCapture(deviceId);
             capture.DataAvailable += OnDataAvailable;
             capture.RecordingStopped += OnRecordingStopped;
             capture.StartRecording();
-            _capture = capture;
+            lock (_gate)
+                _capture = capture;
         }
         catch (Exception)
         {
             // Device busy / unavailable / any WASAPI failure — the preview meter is best-effort
             // and must never crash Settings just because the level can't be shown right now.
-            _capture = null;
+            lock (_gate)
+                _capture = null;
+
+            DisposeFailedCapture(capture);
+        }
+    }
+
+    /// <summary>A capture that never started still holds its device, so it is released here.</summary>
+    private void DisposeFailedCapture(IWaveIn? capture)
+    {
+        if (capture is null)
+            return;
+
+        capture.DataAvailable -= OnDataAvailable;
+        capture.RecordingStopped -= OnRecordingStopped;
+
+        try
+        {
+            capture.Dispose();
+        }
+        catch (Exception)
+        {
+            // Best-effort, like the start it follows.
         }
     }
 
     public void Stop()
     {
-        WasapiCapture? capture;
+        IWaveIn? capture;
         lock (_gate)
         {
             capture = _capture;
@@ -65,7 +98,7 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
 
     private void OnDataAvailable(object? sender, WaveInEventArgs e)
     {
-        if (e.BytesRecorded == 0 || sender is not WasapiCapture capture)
+        if (e.BytesRecorded == 0 || sender is not IWaveIn capture)
             return;
 
         var level = ComputeRmsLevel(e.Buffer, e.BytesRecorded, capture.WaveFormat);
@@ -77,7 +110,7 @@ public sealed class MicrophoneLevelMeterService : IMicrophoneLevelMeterService, 
         // A capture that stops itself (device removed mid-preview) must still report silence
         // and get disposed rather than leaving Settings holding a dead capture instance.
         // Stop() may already own this instance — dispose only if we still hold it.
-        if (sender is not WasapiCapture capture)
+        if (sender is not IWaveIn capture)
             return;
 
         capture.DataAvailable -= OnDataAvailable;
