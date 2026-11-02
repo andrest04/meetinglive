@@ -266,6 +266,10 @@
   <data name="Status_CliMissing" xml:space="preserve"><value>Not found on PATH — install it before recording.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: could not start recording ({0}).</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>Recording stopped because the meeting audio failed: {0}</value></data>
+  <data name="Error_CaptureFaulted" xml:space="preserve"><value>Recording stopped because of an audio error: {0}. The audio captured so far was kept.</value></data>
+  <data name="Warning_MicrophoneLost" xml:space="preserve"><value>The microphone stopped working, so your voice isn't being recorded. Recording continues with the meeting audio.</value></data>
+  <data name="Warning_OutputAudioLost" xml:space="preserve"><value>The meeting audio stopped working, so the other side isn't being recorded. Recording continues with the microphone.</value></data>
+  <data name="Warning_NoAudioSourcesLeft" xml:space="preserve"><value>Nothing is being captured because no audio source is left. Stop the recording to keep what was saved so far.</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: couldn't import that audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error stopping the recording: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error processing the recording: {0}</value></data>
@@ -280,6 +284,8 @@
   <data name="Error_SaveActionItem" xml:space="preserve"><value>Error saving the action item: {0}</value></data>
   <data name="Error_DownloadModel" xml:space="preserve"><value>Error downloading the model: {0}</value></data>
   <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Download failed: {0}</value></data>
+  <data name="Error_EngineDeleteInUse" xml:space="preserve"><value>The engine is in use. Restart the app, then delete it.</value></data>
+  <data name="Error_EngineDeleteIncomplete" xml:space="preserve"><value>Part of the engine could not be removed. It may need to be downloaded again.</value></data>
   <data name="Error_EngineNotReady" xml:space="preserve"><value>Download finished but the transcription engine is still not ready.</value></data>
   <data name="MeetingTitleFormat" xml:space="preserve"><value>Meeting {0}</value></data>
   <data name="MeetingTitleDateFormat" xml:space="preserve"><value>d MMM, HH:mm</value></data>
@@ -369,7 +375,7 @@
   <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Set up to record</value></data>
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Set up recording before you start.</value></data>
 
-  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced.</value></data>
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced. The meeting keeps its audio, so you can retranscribe it.</value></data>
 
   <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Signed in with SuperGrok</value></data>
@@ -606,4 +612,17 @@
   <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Open MeetingLive to finish provider setup.</value></data>
   <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Search the web for the answer</value></data>
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Searched the web</value></data>
+  <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Saved with the live transcript. The final transcription failed: {0}</value></data>
+  <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: The meeting keeps its audio, so you can retranscribe it. Transcription failed: {0}</value></data>
+  <data name="HistoryDelete_Busy" xml:space="preserve"><value>This meeting is still being recorded or processed. Try again when it finishes.</value></data>
+  <data name="HistoryDelete_Failed" xml:space="preserve"><value>The meeting was not deleted. Close any program using its audio and try again: {0}</value></data>
+  <data name="AppClose_Recording_Title" xml:space="preserve"><value>Stop recording before closing?</value></data>
+  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive is still recording. Stop and save keeps this take as a meeting, then closes or restarts the app. Any transcription or summary left unfinished can be run again from the meeting.</value></data>
+  <data name="AppClose_Recording_StopAndSave" xml:space="preserve"><value>Stop and save</value></data>
+  <data name="AppClose_Recording_Keep" xml:space="preserve"><value>Keep recording</value></data>
+  <data name="AppClose_Saving_Title" xml:space="preserve"><value>Saving your recording</value></data>
+  <data name="AppClose_SaveFailed_Title" xml:space="preserve"><value>The recording could not be saved</value></data>
+  <data name="AppClose_SaveFailed_Content" xml:space="preserve"><value>The meeting was not saved. Its audio file stays in your meetings folder. Keep the app open to see the error on the Record page.</value></data>
+  <data name="AppClose_SaveFailed_CloseAnyway" xml:space="preserve"><value>Close anyway</value></data>
+  <data name="AppClose_SaveFailed_Stay" xml:space="preserve"><value>Keep open</value></data>
 </root>

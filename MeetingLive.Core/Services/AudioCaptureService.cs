@@ -17,16 +17,47 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     private static readonly TimeSpan HeaderFlushInterval = TimeSpan.FromSeconds(5);
 
-    private WasapiCapture? _micCapture;
+    private readonly Func<string?, IWaveIn> _createMicrophone;
+    private readonly Func<RecordingCaptureSources, IWaveIn> _createOutput;
+    private readonly Func<string, WaveFormat, WaveFileWriter> _createWriter;
+
+    private IWaveIn? _micCapture;
     private IWaveIn? _outputCapture;
     private WaveFileWriter? _writer;
     private CancellationTokenSource? _pumpCts;
     private Task? _pumpTask;
+    private string? _outputPath;
     private int _paused;
     private int _userStop;
+    private int _liveSources;
+    private volatile bool _isRecording;
     private volatile Exception? _outputFailure;
+    private volatile Exception? _pumpFailure;
+    private bool _outputIsProcessCapture;
 
-    public bool IsRecording { get; private set; }
+    private readonly object _stopGate = new();
+    private Task? _stopTask;
+
+    public AudioCaptureService()
+        : this(
+            deviceId => new WasapiCapture(MicrophoneDeviceResolver.Resolve(deviceId)),
+            CreateOutputCapture,
+            (path, format) => new WaveFileWriter(path, format))
+    {
+    }
+
+    /// <summary>Lets tests supply capture devices and the WAV sink. No test host has real audio devices.</summary>
+    internal AudioCaptureService(
+        Func<string?, IWaveIn> createMicrophone,
+        Func<RecordingCaptureSources, IWaveIn> createOutput,
+        Func<string, WaveFormat, WaveFileWriter> createWriter)
+    {
+        _createMicrophone = createMicrophone;
+        _createOutput = createOutput;
+        _createWriter = createWriter;
+    }
+
+    public bool IsRecording => _isRecording;
 
     public bool IsPaused => Volatile.Read(ref _paused) != 0;
 
@@ -34,14 +65,24 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     public event EventHandler<Exception>? OutputCaptureFailed;
 
+    public event EventHandler<CaptureSourceLostEventArgs>? CaptureSourceLost;
+
+    public event EventHandler<Exception>? CaptureFaulted;
+
     /// <summary>
-    /// A capture-thread failure is surfaced only when it is not the caller asking to stop
-    /// and the output is a process-loopback capture. System loopback keeps its historical
-    /// behavior (for example an output device change): the error is ignored and recording
-    /// continues. A null error is a normal stop.
+    /// Whether a capture-thread failure ends the recording, which happens only when it is not the
+    /// caller asking to stop and the output is a process-loopback capture. System loopback keeps
+    /// recording on an error, and reports it through <see cref="IsSourceLost"/> instead. A null
+    /// error is a normal stop.
     /// </summary>
     internal static bool ShouldSurfaceOutputFailure(Exception? error, bool userStop, bool isProcessCapture) =>
         error is not null && !userStop && isProcessCapture;
+
+    /// <summary>
+    /// Whether a source that stopped should be reported as lost. A null error is a normal stop,
+    /// and an error during the caller's own stop is only teardown.
+    /// </summary>
+    internal static bool IsSourceLost(Exception? error, bool userStop) => error is not null && !userStop;
 
     public void Start(string outputWavPath, string? microphoneDeviceId = null)
     {
@@ -56,7 +97,7 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         if (IsRecording)
             throw new InvalidOperationException("A recording is already in progress.");
 
-        WasapiCapture? micCapture = null;
+        IWaveIn? micCapture = null;
         IWaveIn? outputCapture = null;
         WaveFileWriter? writer = null;
         CancellationTokenSource? pumpCts = null;
@@ -65,6 +106,9 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         Volatile.Write(ref _paused, 0);
         Volatile.Write(ref _userStop, 0);
         _outputFailure = null;
+        _pumpFailure = null;
+        _outputIsProcessCapture = !sources.UsesSystemLoopback;
+        _liveSources = sources.CaptureMicrophone ? 2 : 1;
 
         try
         {
@@ -72,16 +116,15 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
             if (sources.CaptureMicrophone)
             {
-                micCapture = new WasapiCapture(MicrophoneDeviceResolver.Resolve(sources.MicrophoneDeviceId));
+                micCapture = _createMicrophone(sources.MicrophoneDeviceId);
                 var micBuffer = CreateBuffer(micCapture.WaveFormat);
                 micCapture.DataAvailable += (_, e) => micBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                micCapture.RecordingStopped += OnMicrophoneStopped;
                 mixer.AddMixerInput(ResampleToMixFormat(micBuffer.ToSampleProvider(), micCapture.WaveFormat));
             }
 
             // Exactly one output. Process scope must not also open system loopback.
-            outputCapture = sources.UsesSystemLoopback
-                ? new WasapiLoopbackCapture()
-                : new ProcessLoopbackCapture(sources.ProcessId);
+            outputCapture = _createOutput(sources);
 
             var outputBuffer = CreateBuffer(outputCapture.WaveFormat);
             outputCapture.DataAvailable += (_, e) => outputBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
@@ -89,10 +132,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             mixer.AddMixerInput(ResampleToMixFormat(outputBuffer.ToSampleProvider(), outputCapture.WaveFormat));
 
             var pcm16 = mixer.ToWaveProvider16();
-            writer = new WaveFileWriter(outputWavPath, pcm16.WaveFormat);
+            writer = _createWriter(outputWavPath, pcm16.WaveFormat);
 
             pumpCts = new CancellationTokenSource();
-            pumpTask = Task.Run(() => PumpLoop(pcm16, writer, pumpCts.Token));
+            pumpTask = Task.Run(() => RunPump(pcm16, writer, pumpCts.Token));
+
+            // A device can fail the moment it starts, and its handler cancels through this field.
+            _pumpCts = pumpCts;
 
             micCapture?.StartRecording();
             outputCapture.StartRecording();
@@ -100,13 +146,14 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             _micCapture = micCapture;
             _outputCapture = outputCapture;
             _writer = writer;
-            _pumpCts = pumpCts;
             _pumpTask = pumpTask;
-            IsRecording = true;
+            _outputPath = outputWavPath;
+            _isRecording = true;
         }
         catch
         {
-            DetachOutputStopped(outputCapture);
+            _pumpCts = null;
+            DetachSourceHandlers(micCapture, outputCapture);
             AbortFailedStart(micCapture, outputCapture, writer, pumpCts, pumpTask);
             throw;
         }
@@ -118,46 +165,111 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         StopAsync().GetAwaiter().GetResult();
     }
 
-    public async Task StopAsync()
+    /// <summary>Only one teardown ever runs. A caller that arrives during it gets the same task, so it
+    /// waits for the same outcome. Device stops can block, so they never run on the caller's thread.</summary>
+    public Task StopAsync()
     {
-        if (!IsRecording)
-            return;
+        lock (_stopGate)
+        {
+            if (_stopTask is not null)
+                return _stopTask;
 
-        Volatile.Write(ref _userStop, 1);
-        DetachOutputStopped(_outputCapture);
-        _micCapture?.StopRecording();
-        _outputCapture?.StopRecording();
+            if (!_isRecording)
+                return Task.CompletedTask;
 
-        _pumpCts?.Cancel();
-        if (_pumpTask is not null)
+            _stopTask = Task.Run(StopCoreAsync);
+            return _stopTask;
+        }
+    }
+
+    /// <summary>Every step runs whatever the earlier ones did, because a recording that keeps its
+    /// file and devices open cannot be transcribed or followed by another. The caller gets what killed
+    /// the recording if anything did, otherwise the first error teardown itself hit.</summary>
+    private async Task StopCoreAsync()
+    {
+        Exception? teardownError = null;
+        bool Attempt(Action step)
         {
             try
             {
-                await _pumpTask.ConfigureAwait(false);
+                step();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                teardownError ??= ex;
+                return false;
+            }
+        }
+
+        var micCapture = _micCapture;
+        var outputCapture = _outputCapture;
+        var writer = _writer;
+        var pumpCts = _pumpCts;
+        var pumpTask = _pumpTask;
+        var outputPath = _outputPath;
+
+        Volatile.Write(ref _userStop, 1);
+        DetachSourceHandlers(micCapture, outputCapture);
+        if (micCapture is not null)
+            Attempt(micCapture.StopRecording);
+        if (outputCapture is not null)
+            Attempt(outputCapture.StopRecording);
+        if (pumpCts is not null)
+            Attempt(pumpCts.Cancel);
+
+        if (pumpTask is not null)
+        {
+            try
+            {
+                await pumpTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 // Pump observes the token and exits; ignore if cancel surfaces.
             }
+            catch (Exception ex)
+            {
+                teardownError ??= ex;
+            }
         }
 
-        _writer?.Flush();
-        _writer?.Dispose();
-        _writer = null;
+        if (writer is not null)
+        {
+            var flushed = Attempt(writer.Flush);
+            var closed = Attempt(writer.Dispose);
 
-        _micCapture?.Dispose();
-        _outputCapture?.Dispose();
+            // The file closes even when the disk refuses the final write, and the audio on disk is
+            // still the meeting, so its sizes are rewritten if they never made it.
+            if (!(flushed && closed) && outputPath is not null)
+                _ = WavHeaderRepair.Repair(outputPath);
+        }
+
+        if (micCapture is not null)
+            Attempt(micCapture.Dispose);
+        if (outputCapture is not null)
+            Attempt(outputCapture.Dispose);
+        if (pumpCts is not null)
+            Attempt(pumpCts.Dispose);
+
         _micCapture = null;
         _outputCapture = null;
-
-        _pumpCts?.Dispose();
+        _writer = null;
         _pumpCts = null;
         _pumpTask = null;
-
-        IsRecording = false;
+        _outputPath = null;
         Volatile.Write(ref _paused, 0);
-        var failure = _outputFailure;
+
+        var failure = _pumpFailure ?? _outputFailure ?? teardownError;
+        _pumpFailure = null;
         _outputFailure = null;
+
+        lock (_stopGate)
+        {
+            _isRecording = false;
+            _stopTask = null;
+        }
+
         if (failure is not null)
             throw failure;
     }
@@ -176,8 +288,12 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     private void OnOutputCaptureStopped(object? sender, StoppedEventArgs e)
     {
-        if (!ShouldSurfaceOutputFailure(e.Exception, Volatile.Read(ref _userStop) != 0, sender is ProcessLoopbackCapture))
+        var userStop = Volatile.Read(ref _userStop) != 0;
+        if (!ShouldSurfaceOutputFailure(e.Exception, userStop, _outputIsProcessCapture))
+        {
+            ReportSourceStopped(CaptureSource.Output, e.Exception, userStop);
             return;
+        }
 
         _outputFailure = e.Exception;
         try
@@ -192,14 +308,33 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             OutputCaptureFailed?.Invoke(this, e.Exception);
     }
 
-    private void DetachOutputStopped(IWaveIn? capture)
+    private void OnMicrophoneStopped(object? sender, StoppedEventArgs e) =>
+        ReportSourceStopped(CaptureSource.Microphone, e.Exception, Volatile.Read(ref _userStop) != 0);
+
+    private void ReportSourceStopped(CaptureSource source, Exception? error, bool userStop)
     {
-        if (capture is not null)
-            capture.RecordingStopped -= OnOutputCaptureStopped;
+        if (!IsSourceLost(error, userStop))
+            return;
+
+        // Both endpoints of a headset can die together on separate capture threads.
+        var remaining = Math.Max(Interlocked.Decrement(ref _liveSources), 0);
+        CaptureSourceLost?.Invoke(this, new CaptureSourceLostEventArgs(source, remaining, error!));
     }
 
+    private void DetachSourceHandlers(IWaveIn? micCapture, IWaveIn? outputCapture)
+    {
+        if (micCapture is not null)
+            micCapture.RecordingStopped -= OnMicrophoneStopped;
+        if (outputCapture is not null)
+            outputCapture.RecordingStopped -= OnOutputCaptureStopped;
+    }
+
+    private static IWaveIn CreateOutputCapture(RecordingCaptureSources sources) => sources.UsesSystemLoopback
+        ? new WasapiLoopbackCapture()
+        : new ProcessLoopbackCapture(sources.ProcessId);
+
     private static void AbortFailedStart(
-        WasapiCapture? micCapture,
+        IWaveIn? micCapture,
         IWaveIn? outputCapture,
         WaveFileWriter? writer,
         CancellationTokenSource? pumpCts,
@@ -212,12 +347,19 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
             {
                 pumpTask.GetAwaiter().GetResult();
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
+                // The start failure is what the caller needs to see.
             }
         }
 
-        writer?.Dispose();
+        try
+        {
+            writer?.Dispose();
+        }
+        catch (Exception)
+        {
+        }
 
         try
         {
@@ -227,7 +369,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         {
         }
 
-        micCapture?.Dispose();
+        try
+        {
+            micCapture?.Dispose();
+        }
+        catch (Exception)
+        {
+        }
 
         try
         {
@@ -237,7 +385,14 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         {
         }
 
-        outputCapture?.Dispose();
+        try
+        {
+            outputCapture?.Dispose();
+        }
+        catch (Exception)
+        {
+        }
+
         pumpCts?.Dispose();
     }
 
@@ -253,6 +408,22 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
         return sourceFormat.SampleRate == MixFormat.SampleRate
             ? sample
             : new WdlResamplingSampleProvider(sample, MixFormat.SampleRate);
+    }
+
+    /// <summary>A dead pump means nothing more reaches the file, so say so now instead of at Stop.
+    /// The fault is kept for StopAsync, which closes the file and rethrows it.</summary>
+    private void RunPump(IWaveProvider source, WaveFileWriter writer, CancellationToken cancellationToken)
+    {
+        try
+        {
+            PumpLoop(source, writer, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _pumpFailure = ex;
+            if (Volatile.Read(ref _userStop) == 0)
+                CaptureFaulted?.Invoke(this, ex);
+        }
     }
 
     private void PumpLoop(IWaveProvider source, WaveFileWriter writer, CancellationToken cancellationToken)
@@ -340,7 +511,13 @@ public sealed class AudioCaptureService : IAudioCaptureService, IDisposable
 
     public void Dispose()
     {
-        if (IsRecording)
+        try
+        {
             Stop();
+        }
+        catch (Exception)
+        {
+            // Stop finished its teardown, and Dispose has nobody left to report the error to.
+        }
     }
 }

@@ -2,6 +2,19 @@ using MeetingLive.Core.Models;
 
 namespace MeetingLive.Core.Services;
 
+/// <summary>One input of a recording's mix.</summary>
+public enum CaptureSource
+{
+    Microphone,
+
+    /// <summary>System loopback or a process tree, whichever the recording opened.</summary>
+    Output,
+}
+
+/// <summary>A source died mid-recording. <paramref name="RemainingSources"/> counts the sources still
+/// capturing, so zero means the recording is only writing silence.</summary>
+public sealed record CaptureSourceLostEventArgs(CaptureSource Source, int RemainingSources, Exception Error);
+
 public interface IAudioCaptureService
 {
     bool IsRecording { get; }
@@ -18,6 +31,29 @@ public interface IAudioCaptureService
     /// cancelled so the file does not keep growing with silence.
     /// </summary>
     event EventHandler<Exception>? OutputCaptureFailed;
+
+    /// <summary>
+    /// Raised when a microphone or system-loopback source stops with an error after start. Recording
+    /// continues with whatever is left; the caller decides what to tell the user. Not raised for a
+    /// caller-initiated stop, nor for a process-tree failure, which is <see cref="OutputCaptureFailed"/>.
+    /// Raised on a capture thread.
+    /// </summary>
+    event EventHandler<CaptureSourceLostEventArgs>? CaptureSourceLost
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>
+    /// Raised when the WAV pump dies after start, for example on a full disk, so no more audio is being
+    /// written. The caller should stop: <see cref="StopAsync"/> closes the file so the audio already
+    /// written stays readable, and rethrows this error. Raised on the pump thread.
+    /// </summary>
+    event EventHandler<Exception>? CaptureFaulted
+    {
+        add { }
+        remove { }
+    }
 
     /// <summary>Starts capturing the microphone plus system loopback, mixed into a single 16 kHz mono WAV.
     /// <paramref name="microphoneDeviceId"/> is the <see cref="NAudio.CoreAudioApi.MMDevice.ID"/> of

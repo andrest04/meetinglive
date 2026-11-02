@@ -227,4 +227,161 @@ public class MeetingMarkdownFormatterTests
 
         Assert.IsType<FormatException>(exception);
     }
+
+    [Theory]
+    [InlineData("## Transcript")]
+    [InlineData("## Summary")]
+    [InlineData("## Action Items")]
+    [InlineData("## Jev")]
+    [InlineData("## Personal Notes")]
+    [InlineData("## Brief")]
+    [InlineData("## Follow-up")]
+    [InlineData("## Project plan")]
+    public void RenderThenParse_WhenNotesHoldASectionHeaderLine_KeepsEveryLineAndInventsNoSection(string headerLine)
+    {
+        var notes = $"Before\n{headerLine}\nAfter the heading\n\nLast line";
+        var record = Meeting();
+        record.Notes = notes;
+
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", MeetingMarkdownFormatter.Render(record));
+
+        Assert.Equal(notes, parsed.Notes);
+        Assert.Null(parsed.Summary);
+        Assert.Null(parsed.Transcript);
+        Assert.Empty(parsed.ActionItems);
+        Assert.Null(parsed.JevAnalysis);
+        Assert.Null(parsed.Brief);
+        Assert.Null(parsed.FollowUp);
+        Assert.Null(parsed.ProjectPlan);
+    }
+
+    [Fact]
+    public void RenderThenParse_WhenEveryTextSectionHoldsHeaderLines_KeepsEachSectionUnchanged()
+    {
+        var record = Meeting();
+        record.Brief = "Brief start\n## Summary\nBrief end";
+        record.Transcript = "Transcript start\n## Personal Notes\nTranscript end";
+        record.Summary = "Summary start\n## Action Items\nSummary end";
+        record.Notes = "Notes start\n## Project plan\nNotes end";
+        record.FollowUp = "Follow-up start\n## Transcript\nFollow-up end";
+        record.ProjectPlan = "Plan start\n## Follow-up\nPlan end";
+        record.ActionItems = [new ActionItem { Text = "Real item", IsDone = true }];
+
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", MeetingMarkdownFormatter.Render(record));
+
+        Assert.Equal(record.Brief, parsed.Brief);
+        Assert.Equal(record.Transcript, parsed.Transcript);
+        Assert.Equal(record.Summary, parsed.Summary);
+        Assert.Equal(record.Notes, parsed.Notes);
+        Assert.Equal(record.FollowUp, parsed.FollowUp);
+        Assert.Equal(record.ProjectPlan, parsed.ProjectPlan);
+        Assert.Equal("Real item", Assert.Single(parsed.ActionItems).Text);
+    }
+
+    [Fact]
+    public void RenderThenParse_WhenTrimmingExposesAHeaderLine_KeepsTheLine()
+    {
+        var record = Meeting();
+        record.Notes = "   ## Summary\nStill the notes";
+
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", MeetingMarkdownFormatter.Render(record));
+
+        Assert.Equal("## Summary\nStill the notes", parsed.Notes);
+        Assert.Null(parsed.Summary);
+    }
+
+    [Fact]
+    public void RenderThenParse_WhenTheBodyUsesCrLf_StillProtectsTheHeaderLine()
+    {
+        var record = Meeting();
+        record.Notes = "Before\r\n## Summary\r\nAfter";
+
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", MeetingMarkdownFormatter.Render(record));
+
+        Assert.Equal("Before\n## Summary\nAfter", parsed.Notes);
+        Assert.Null(parsed.Summary);
+    }
+
+    [Theory]
+    [InlineData("A\n## Summary\nB\n## Summary ##\nC\n## Summary ## ##\nD")]
+    [InlineData("Only a closed heading\n## Summary ##\nEnd")]
+    [InlineData("## Summary ## ##")]
+    public void RenderThenParse_WhenContentAlreadyLooksEscaped_RemainsUnchanged(string notes)
+    {
+        var record = Meeting();
+        record.Notes = notes;
+
+        var parsed = MeetingMarkdownFormatter.Parse("fake-path.md", MeetingMarkdownFormatter.Render(record));
+
+        Assert.Equal(notes, parsed.Notes);
+    }
+
+    [Fact]
+    public void Render_WhenAHeaderLineIsEscaped_StaysAReadableMarkdownHeading()
+    {
+        var record = Meeting();
+        record.Notes = "Before\n## Summary\nAfter";
+
+        var markdown = MeetingMarkdownFormatter.Render(record);
+
+        // A closing "##" is valid ATX syntax, so viewers still show the heading "Summary".
+        Assert.Contains("\n## Summary ##\n", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n## Summary\n", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_WithoutHeaderLinesInContent_ProducesTheExistingFormatByteForByte()
+    {
+        const string existing =
+            "---\n" +
+            "id: 11111111-1111-1111-1111-111111111111\n" +
+            "title: Standup\n" +
+            "recordedAt: 2026-09-01T12:00:00.0000000+00:00\n" +
+            "audioFilePath: \n" +
+            "---\n" +
+            "\n## Brief\n\nBrief text\n" +
+            "\n## Transcript\n\nHello there\n" +
+            "\n## Summary\n\n### Notes\nHello\n\n## Decisions\nShip it\n" +
+            "\n## Action Items\n\n- [ ] Follow up\n- [x] Done thing\n" +
+            "\n## Personal Notes\n\nA closed heading stays literal\n## Summary ##\nEnd\n" +
+            "\n## Follow-up\n\nSubject: hi\n" +
+            "\n## Project plan\n\n### Steps\nShip\n";
+
+        var parsed = MeetingMarkdownFormatter.Parse("existing.md", existing);
+
+        Assert.Equal("Brief text", parsed.Brief);
+        Assert.Equal("Hello there", parsed.Transcript);
+        Assert.Equal("### Notes\nHello\n\n## Decisions\nShip it", parsed.Summary);
+        Assert.Equal(2, parsed.ActionItems.Count);
+        Assert.Equal("A closed heading stays literal\n## Summary ##\nEnd", parsed.Notes);
+        Assert.Equal("Subject: hi", parsed.FollowUp);
+        Assert.Equal("### Steps\nShip", parsed.ProjectPlan);
+        Assert.Equal(existing, MeetingMarkdownFormatter.Render(parsed));
+    }
+
+    [Fact]
+    public void Parse_ExistingFileWithAHeaderLineInNotes_StillSplitsItTheOldWay()
+    {
+        const string existing =
+            "---\n" +
+            "id: 11111111-1111-1111-1111-111111111111\n" +
+            "title: Standup\n" +
+            "recordedAt: 2026-09-01T12:00:00.0000000+00:00\n" +
+            "audioFilePath: \n" +
+            "---\n" +
+            "\n## Personal Notes\n\nBefore\n## Summary\nAfter\n";
+
+        var parsed = MeetingMarkdownFormatter.Parse("existing.md", existing);
+
+        Assert.Equal("Before", parsed.Notes);
+        Assert.Equal("After", parsed.Summary);
+    }
+
+    private static MeetingRecord Meeting() => new()
+    {
+        Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        Title = "Standup",
+        RecordedAt = DateTimeOffset.Parse("2026-09-01T12:00:00.0000000+00:00"),
+        AudioFilePath = string.Empty,
+    };
 }

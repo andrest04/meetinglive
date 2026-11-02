@@ -266,6 +266,10 @@
   <data name="Status_CliMissing" xml:space="preserve"><value>No se encontró en el PATH: instálalo antes de grabar.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: no se pudo iniciar la grabación ({0}).</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>La grabación se detuvo porque falló el audio de la reunión: {0}</value></data>
+  <data name="Error_CaptureFaulted" xml:space="preserve"><value>La grabación se detuvo por un error de audio: {0}. Se conservó el audio capturado hasta ahora.</value></data>
+  <data name="Warning_MicrophoneLost" xml:space="preserve"><value>El micrófono dejó de funcionar, así que tu voz no se está grabando. La grabación continúa con el audio de la reunión.</value></data>
+  <data name="Warning_OutputAudioLost" xml:space="preserve"><value>El audio de la reunión dejó de funcionar, así que la otra parte no se está grabando. La grabación continúa con el micrófono.</value></data>
+  <data name="Warning_NoAudioSourcesLeft" xml:space="preserve"><value>No se está capturando nada porque no queda ninguna fuente de audio. Detén la grabación para conservar lo guardado hasta ahora.</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: no se pudo importar ese audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error al detener la grabación: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error al procesar la grabación: {0}</value></data>
@@ -280,6 +284,8 @@
   <data name="Error_SaveActionItem" xml:space="preserve"><value>Error al guardar el elemento de acción: {0}</value></data>
   <data name="Error_DownloadModel" xml:space="preserve"><value>Error al descargar el modelo: {0}</value></data>
   <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Error al descargar: {0}</value></data>
+  <data name="Error_EngineDeleteInUse" xml:space="preserve"><value>El motor está en uso. Reinicia la app y elimínalo después.</value></data>
+  <data name="Error_EngineDeleteIncomplete" xml:space="preserve"><value>No se pudo quitar parte del motor. Puede que debas descargarlo de nuevo.</value></data>
   <data name="Error_EngineNotReady" xml:space="preserve"><value>La descarga terminó, pero el motor de transcripción todavía no está listo.</value></data>
   <data name="MeetingTitleFormat" xml:space="preserve"><value>Reunión {0}</value></data>
   <data name="MeetingTitleDateFormat" xml:space="preserve"><value>d MMM, HH:mm</value></data>
@@ -369,7 +375,7 @@
   <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Configurar para grabar</value></data>
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Configura la grabación antes de comenzar.</value></data>
 
-  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: no se generó ninguna transcripción.</value></data>
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: no se generó ninguna transcripción. La reunión conserva su audio, así que puedes volver a transcribirla.</value></data>
 
   <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Sesión iniciada con SuperGrok</value></data>
@@ -606,4 +612,17 @@
   <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Abre MeetingLive para terminar de configurar el proveedor.</value></data>
   <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Buscar en la web para responder</value></data>
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Búsqueda en la web</value></data>
+  <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Guardada con la transcripción en vivo. La transcripción final falló: {0}</value></data>
+  <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: La reunión conserva su audio, así que puedes volver a transcribirla. La transcripción falló: {0}</value></data>
+  <data name="HistoryDelete_Busy" xml:space="preserve"><value>Esta reunión todavía se está grabando o procesando. Inténtalo de nuevo cuando termine.</value></data>
+  <data name="HistoryDelete_Failed" xml:space="preserve"><value>La reunión no se eliminó. Cierra cualquier programa que esté usando su audio e inténtalo de nuevo: {0}</value></data>
+  <data name="AppClose_Recording_Title" xml:space="preserve"><value>¿Detener la grabación antes de cerrar?</value></data>
+  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive sigue grabando. Detener y guardar conserva esta toma como una reunión y luego cierra o reinicia la aplicación. La transcripción o el resumen que queden sin terminar se pueden volver a ejecutar desde la reunión.</value></data>
+  <data name="AppClose_Recording_StopAndSave" xml:space="preserve"><value>Detener y guardar</value></data>
+  <data name="AppClose_Recording_Keep" xml:space="preserve"><value>Seguir grabando</value></data>
+  <data name="AppClose_Saving_Title" xml:space="preserve"><value>Guardando la grabación</value></data>
+  <data name="AppClose_SaveFailed_Title" xml:space="preserve"><value>No se pudo guardar la grabación</value></data>
+  <data name="AppClose_SaveFailed_Content" xml:space="preserve"><value>La reunión no se guardó. Su archivo de audio permanece en la carpeta de reuniones. Mantén la aplicación abierta para ver el error en la página Grabar.</value></data>
+  <data name="AppClose_SaveFailed_CloseAnyway" xml:space="preserve"><value>Cerrar de todos modos</value></data>
+  <data name="AppClose_SaveFailed_Stay" xml:space="preserve"><value>Mantener abierta</value></data>
 </root>

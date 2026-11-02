@@ -94,19 +94,22 @@ public sealed class MarkdownMeetingRepository : IMeetingRepository
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var path = FindMarkdownPath(id);
-        string? audioFilePath = null;
-        if (path is not null && File.Exists(path))
-        {
-            var markdown = await File.ReadAllTextAsync(path, cancellationToken);
-            audioFilePath = MeetingMarkdownFormatter.Parse(path, markdown).AudioFilePath;
-            File.Delete(path);
-            var sibling = Path.ChangeExtension(path, ".wav");
-            if (File.Exists(sibling))
-                File.Delete(sibling);
-        }
+        if (path is null || !File.Exists(path))
+            return;
 
+        var markdown = await File.ReadAllTextAsync(path, cancellationToken);
+        var audioFilePath = MeetingMarkdownFormatter.Parse(path, markdown).AudioFilePath;
+
+        // Audio first: a locked WAV throws while the Markdown still exists, so the meeting stays
+        // listed and the delete can be retried. The Markdown is the meeting's identity, so it goes last.
         if (!string.IsNullOrWhiteSpace(audioFilePath) && File.Exists(audioFilePath))
             File.Delete(audioFilePath);
+
+        var sibling = Path.ChangeExtension(path, ".wav");
+        if (File.Exists(sibling))
+            File.Delete(sibling);
+
+        File.Delete(path);
     }
 
     private string? FindMarkdownPath(Guid id)

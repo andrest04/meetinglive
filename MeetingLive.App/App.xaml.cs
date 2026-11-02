@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -59,6 +60,8 @@ public partial class App : Application
     private bool _mainWindowActive = true;
     private bool _wasRecording;
     private bool _handingOff;
+    private bool _closeApproved;
+    private bool _closeInProgress;
 
     /// <summary>
     /// Initializes the singleton application object.
@@ -112,6 +115,7 @@ public partial class App : Application
         Window.Activate();
         Window.Activated += OnMainWindowActivated;
         AppServices.Recording.PropertyChanged += OnRecordingPropertyChanged;
+        Window.AppWindow.Closing += OnMainWindowClosing;
         Window.Closed += (_, _) =>
         {
             Window.Activated -= OnMainWindowActivated;
@@ -136,6 +140,171 @@ public partial class App : Application
 
         if (migrationError is not null)
             await ShowMigrationFailureDialogAsync(migrationError);
+    }
+
+    /// <summary>
+    /// Holds the close while a take is being captured or saved. It decides synchronously, because
+    /// <see cref="AppWindowClosingEventArgs.Cancel"/> is read when this handler first returns, then
+    /// closes the window itself once the take is safe.
+    /// </summary>
+    private async void OnMainWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_closeApproved)
+            return;
+
+        if (!HasWorkToProtect)
+            return;
+
+        args.Cancel = true;
+        if (await PrepareForExitAsync())
+        {
+            _closeApproved = true;
+            Window.Close();
+        }
+    }
+
+    private static bool HasWorkToProtect =>
+        AppServices.Recording.RequiresCloseConfirmation || AppServices.Recording.HasPendingSaves;
+
+    /// <summary>
+    /// The one gate before the process ends, for a window close or a restart. Returns true when
+    /// exiting cannot abandon a take. A second caller is refused while the first is still deciding.
+    /// </summary>
+    internal static Task<bool> TryPrepareForExitAsync() => ((App)Current).PrepareForExitAsync();
+
+    private async Task<bool> PrepareForExitAsync()
+    {
+        if (!HasWorkToProtect)
+            return true;
+
+        if (_closeInProgress)
+            return false;
+
+        _closeInProgress = true;
+        try
+        {
+            return await ConfirmAndSaveForCloseAsync(AppServices.Recording);
+        }
+        catch (Exception ex)
+        {
+            // Staying open is the safe outcome: the take is still in the app.
+            LogCloseFailure(ex);
+            return false;
+        }
+        finally
+        {
+            _closeInProgress = false;
+        }
+    }
+
+    /// <summary>Returns true when the app may exit. No path here discards the take.</summary>
+    private static async Task<bool> ConfirmAndSaveForCloseAsync(RecordingPageViewModel recording)
+    {
+        BringMainWindowToFront();
+        var xamlRoot = Window.Content.XamlRoot;
+
+        if (recording.RequiresCloseConfirmation)
+        {
+            var confirm = AppDialogFactory.CreateConfirm(
+                xamlRoot,
+                AppStrings.Get("AppClose_Recording_Title"),
+                AppStrings.Get("AppClose_Recording_Content"),
+                AppStrings.Get("AppClose_Recording_StopAndSave"),
+                AppStrings.Get("AppClose_Recording_Keep"),
+                ContentDialogButton.Primary);
+
+            try
+            {
+                if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+                    return false;
+            }
+            catch (COMException)
+            {
+                // Another dialog is open, and only one can show. It is in front of the user now;
+                // they can answer it and close again.
+                return false;
+            }
+        }
+
+        if (await SaveWithProgressAsync(recording, xamlRoot))
+            return true;
+
+        var failed = AppDialogFactory.CreateConfirm(
+            xamlRoot,
+            AppStrings.Get("AppClose_SaveFailed_Title"),
+            AppStrings.Get("AppClose_SaveFailed_Content"),
+            AppStrings.Get("AppClose_SaveFailed_CloseAnyway"),
+            AppStrings.Get("AppClose_SaveFailed_Stay"),
+            ContentDialogButton.Close);
+        return await failed.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    private static async Task<bool> SaveWithProgressAsync(RecordingPageViewModel recording, XamlRoot xamlRoot)
+    {
+        var finished = false;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = xamlRoot,
+            Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style,
+            Title = AppStrings.Get("AppClose_Saving_Title"),
+            Content = new ProgressBar { IsIndeterminate = true },
+        };
+        dialog.Closing += (_, closing) => closing.Cancel = !finished;
+
+        Windows.Foundation.IAsyncOperation<ContentDialogResult>? showing = null;
+        try
+        {
+            showing = dialog.ShowAsync();
+        }
+        catch (COMException)
+        {
+            // Another dialog is open. The save does not depend on showing progress.
+        }
+
+        try
+        {
+            return await recording.SaveAndFinishForCloseAsync();
+        }
+        finally
+        {
+            finished = true;
+            if (showing is not null)
+            {
+                dialog.Hide();
+                try
+                {
+                    await showing;
+                }
+                catch (COMException)
+                {
+                    // The progress dialog never opened; the save result above still stands.
+                }
+            }
+        }
+    }
+
+    /// <summary>The window is minimized during a recording, and a dialog in it would go unseen.</summary>
+    private static void BringMainWindowToFront()
+    {
+        if (Window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
+
+        Window.Activate();
+    }
+
+    private static void LogCloseFailure(Exception exception)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.RootDirectory);
+            File.AppendAllText(
+                Path.Combine(AppPaths.RootDirectory, "crash.log"),
+                $"{DateTimeOffset.Now:o} close failed{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Never throw from the crash logger.
+        }
     }
 
     /// <summary>Shows the "Start recording" popup, created on first need. It is never activated.</summary>

@@ -196,10 +196,15 @@ public sealed partial class TranscriptionEngineSectionViewModel : SettingsSectio
     [RelayCommand]
     private void DeleteTranscriptionEngine()
     {
-        AppServices.NemotronModels.DeleteModel();
-        AppServices.NemoSpeechRuntime.DeleteRuntime();
+        var outcome = NemoSpeechRuntimeManager.DeleteEngine(AppServices.NemotronModels, AppServices.NemoSpeechRuntime);
         var hardware = AppServices.HardwareDetection.DetectHardware();
         RefreshTranscriptionStatus(hardware);
+
+        // After the refresh, which rewrites this caption with the backend status.
+        if (outcome == TranscriptionEngineDeletion.RuntimeInUse)
+            TranscriptionAccelerationCaption = AppStrings.Get("Error_EngineDeleteInUse");
+        else if (outcome == TranscriptionEngineDeletion.Incomplete)
+            TranscriptionAccelerationCaption = AppStrings.Get("Error_EngineDeleteIncomplete");
     }
 
     private void RefreshTranscriptionStatus(HardwareProfile hardware)

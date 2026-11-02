@@ -18,10 +18,22 @@ namespace MeetingLive_App.ViewModels;
 /// After Stop, the live draft is saved immediately; Nemotron re-reads the WAV in the
 /// background and replaces that transcript. Summary waits for the WAV pass.
 /// </summary>
-public partial class RecordingPageViewModel : ObservableObject, IRecordingPipelineCallbacks
+public partial class RecordingPageViewModel : ObservableObject
 {
+    private readonly RecordingSessionGate _session = new();
+
+    /// <summary>The stop or discard underway, so closing can wait for it instead of starting another.</summary>
+    private Task _stopTask = Task.CompletedTask;
+
     private readonly IAudioCaptureService _audioCapture = AppServices.AudioCapture;
+    private const string NoAudioSourcesLeftKey = "Warning_NoAudioSourcesLeft";
+
     private int _captureFailureNotified;
+    private string? _captureWarningKey;
+
+    /// <summary>Why this take ended badly. Its pipeline keeps showing this, because the next status
+    /// arrives at once and would otherwise wipe it before anyone can read it.</summary>
+    private string? _captureFailureMessage;
     private readonly IAudioImportService _audioImport = AppServices.AudioImport;
     private readonly ITranscriptionService _transcription = AppServices.Transcription;
     private static readonly string[] ImportFileExtensions =
@@ -43,7 +55,6 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private DispatcherQueueTimer? _elapsedTimer;
     private DispatcherQueueTimer? _copyConfirmationTimer;
     private DispatcherQueueTimer? _highlightFeedbackTimer;
-    private CancellationTokenSource? _processingCts;
     private TimeSpan _pausedDuration;
     private readonly Stopwatch _pauseClock = new();
     private string? _liveDraft;
@@ -1168,9 +1179,40 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             await StartRecordingAsync();
     }
 
-    private bool CanToggleRecording() => !IsProcessing;
+    private bool CanToggleRecording() => _session.CanToggle;
+
+    private void NotifySessionCommands()
+    {
+        ToggleRecordingCommand.NotifyCanExecuteChanged();
+        TogglePauseCommand.NotifyCanExecuteChanged();
+        DiscardRecordingCommand.NotifyCanExecuteChanged();
+        ImportAudioCommand.NotifyCanExecuteChanged();
+    }
 
     private async Task StartRecordingAsync()
+    {
+        if (!_session.TryBeginPreparing())
+            return;
+
+        NotifySessionCommands();
+        try
+        {
+            await StartRecordingCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusText = AppStrings.Format("Error_StartRecording", ex.Message);
+            TryStartMicPreview();
+        }
+        finally
+        {
+            // A no-op once capture started; otherwise the start was abandoned.
+            _session.CancelPreparing();
+            NotifySessionCommands();
+        }
+    }
+
+    private async Task StartRecordingCoreAsync()
     {
         if (EnsureRecordingReadyAsync is not null && !await EnsureRecordingReadyAsync())
         {
@@ -1197,7 +1239,8 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _recordedAt = DateTimeOffset.Now;
         _endedAt = default;
         AppPaths.EnsureDirectoriesExist();
-        _currentAudioPath = await CreateLibraryAudioPathAsync(_currentMeetingId, _recordedAt, MeetingTitle);
+        var audioPath = await CreateLibraryAudioPathAsync(_currentMeetingId, _recordedAt, MeetingTitle);
+        _currentAudioPath = audioPath;
 
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
@@ -1227,12 +1270,21 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
             StopMicPreview();
             _captureFailureNotified = 0;
+            _captureWarningKey = null;
+            _captureFailureMessage = null;
             _audioCapture.OutputCaptureFailed += OnOutputCaptureFailed;
+            _audioCapture.CaptureFaulted += OnCaptureFaulted;
+            _audioCapture.CaptureSourceLost += OnCaptureSourceLost;
             _audioCapture.PcmFrameAvailable += OnRecordingPcmFrame;
-            var audioPath = _currentAudioPath;
             await Task.Run(() => _audioCapture.Start(audioPath, sources));
-            StatusText = RecordingStatusText();
+            _session.MarkRecording();
             IsRecording = true;
+
+            // A failure in the moment before this point found nothing to stop.
+            if (Volatile.Read(ref _captureFailureNotified) != 0)
+                _ = StopRecordingAsync();
+            else
+                StatusText = RecordingStatusText();
         }
         catch (Exception ex)
         {
@@ -1248,7 +1300,19 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
     }
 
-    private async Task StopRecordingAsync()
+    /// <summary>Every path that ends a capture comes through here, so a capture failure and the user
+    /// pressing Stop share one stop. A caller that loses the race waits for the stop already running.</summary>
+    private Task StopRecordingAsync()
+    {
+        if (!_session.TryBeginStopping())
+            return _stopTask;
+
+        NotifySessionCommands();
+        _stopTask = StopRecordingCoreAsync();
+        return _stopTask;
+    }
+
+    private async Task StopRecordingCoreAsync()
     {
         CancelLiveAnswer();
         CancelLiveQuestionJudgment();
@@ -1260,14 +1324,26 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         catch (Exception ex)
         {
             if (_captureFailureNotified == 0)
-                StatusText = AppStrings.Format("Error_StopRecording", ex.Message);
+            {
+                _captureFailureMessage = AppStrings.Format("Error_StopRecording", ex.Message);
+                StatusText = _captureFailureMessage;
+            }
         }
 
         _endedAt = DateTimeOffset.Now;
 
         if (_liveSessionActive)
         {
-            _liveDraft = await Task.Run(() => _liveTranscription.Stop());
+            try
+            {
+                _liveDraft = await Task.Run(() => _liveTranscription.Stop());
+            }
+            catch (Exception)
+            {
+                // The take must still be processed; what was on screen is the best draft left.
+                _liveDraft = BlankToNull(LiveTranscriptText);
+            }
+
             _liveSessionActive = false;
         }
         else
@@ -1275,17 +1351,39 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             _liveDraft = null;
         }
 
-        _processingCts?.Dispose();
-        _processingCts = new CancellationTokenSource();
+        _session.MarkProcessing();
         IsProcessing = true;
-        ToggleRecordingCommand.NotifyCanExecuteChanged();
+        NotifySessionCommands();
         IsPaused = false;
         IsRecording = false;
-        _ = ProcessRecordingAsync(_processingCts.Token);
+        StartPipelineRun();
     }
 
     [RelayCommand(CanExecute = nameof(CanImportAudio))]
     private async Task ImportAudioAsync()
+    {
+        if (!_session.TryBeginPreparing())
+            return;
+
+        NotifySessionCommands();
+        try
+        {
+            await ImportAudioCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusText = AppStrings.Format("Error_ImportAudio", ex.Message);
+            TryStartMicPreview();
+        }
+        finally
+        {
+            // A no-op once processing started; otherwise the import was abandoned.
+            _session.CancelPreparing();
+            NotifySessionCommands();
+        }
+    }
+
+    private async Task ImportAudioCoreAsync()
     {
         if (EnsureRecordingReadyAsync is not null && !await EnsureRecordingReadyAsync())
         {
@@ -1350,14 +1448,13 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         _highlights.Clear();
         IsPaused = false;
 
-        _processingCts?.Dispose();
-        _processingCts = new CancellationTokenSource();
+        _session.MarkProcessing();
         IsProcessing = true;
-        ToggleRecordingCommand.NotifyCanExecuteChanged();
-        _ = ProcessRecordingAsync(_processingCts.Token);
+        NotifySessionCommands();
+        StartPipelineRun();
     }
 
-    private bool CanImportAudio() => !IsRecording && !IsProcessing;
+    private bool CanImportAudio() => _session.CanImport;
 
     private static PickerLocationId ResolveImportStartLocation()
     {
@@ -1399,7 +1496,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     [RelayCommand(CanExecute = nameof(CanTogglePause))]
     private void TogglePause()
     {
-        if (!IsRecording)
+        if (!_session.CanControlCapture)
             return;
 
         if (IsPaused)
@@ -1426,7 +1523,7 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         }
     }
 
-    private bool CanTogglePause() => IsRecording;
+    private bool CanTogglePause() => _session.CanControlCapture;
 
     [RelayCommand(CanExecute = nameof(CanHighlightMoment))]
     private void HighlightMoment()
@@ -1453,9 +1550,16 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     [RelayCommand(CanExecute = nameof(CanDiscardRecording))]
     private async Task DiscardRecordingAsync()
     {
-        if (!IsRecording)
+        if (!_session.TryBeginStopping())
             return;
 
+        NotifySessionCommands();
+        _stopTask = DiscardRecordingCoreAsync();
+        await _stopTask;
+    }
+
+    private async Task DiscardRecordingCoreAsync()
+    {
         CancelLiveAnswer();
         CancelLiveQuestionJudgment();
         DetachCaptureHandlers();
@@ -1471,7 +1575,15 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
         if (_liveSessionActive)
         {
-            await Task.Run(() => _liveTranscription.Stop());
+            try
+            {
+                await Task.Run(() => _liveTranscription.Stop());
+            }
+            catch (Exception)
+            {
+                // The take is being thrown away; its live draft does not matter.
+            }
+
             _liveSessionActive = false;
         }
 
@@ -1490,8 +1602,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
             }
         }
 
+        _session.MarkIdle();
         IsPaused = false;
         IsRecording = false;
+        NotifySessionCommands();
         LiveTranscriptText = string.Empty;
         _liveDraft = null;
         if (!_comingUpNoteOpen)
@@ -1503,101 +1617,12 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
         TryStartMicPreview();
     }
 
-    private bool CanDiscardRecording() => IsRecording;
+    private bool CanDiscardRecording() => _session.CanControlCapture;
 
     [RelayCommand(CanExecute = nameof(CanCancelProcessing))]
-    private void CancelProcessing() => _processingCts?.Cancel();
+    private void CancelProcessing() => _activeRun?.Cancel();
 
     private bool CanCancelProcessing() => IsProcessing;
-
-    /// <summary>Runs transcription, summary-provider resolution, summarization, and saving via
-    /// <see cref="RecordingPipelineOrchestrator"/>. This ViewModel only supplies the take's data
-    /// and the UI-owned readiness gates, then receives pipeline events back through
-    /// <see cref="IRecordingPipelineCallbacks"/> (implemented explicitly below) and reflects them
-    /// onto its own observable properties.</summary>
-    private async Task ProcessRecordingAsync(CancellationToken cancellationToken)
-    {
-        if (_currentAudioPath is null)
-        {
-            FinishProcessing(StatusText);
-            return;
-        }
-
-        var meetingId = _currentMeetingId;
-        var audioPath = _currentAudioPath;
-        var recordedAt = _recordedAt;
-        var endedAt = _endedAt;
-        var title = MeetingTitle;
-        var liveDraft = _liveDraft;
-        var pausedDuration = _pausedDuration;
-        var highlights = _highlights.ToArray();
-        var folderId = await ResolveSelectedFolderIdAsync();
-        var request = new RecordingPipelineRequest(
-            meetingId,
-            audioPath,
-            recordedAt,
-            endedAt,
-            title,
-            liveDraft,
-            pausedDuration,
-            folderId,
-            highlights,
-            _linkedCalendarEventId,
-            _linkedCalendarId,
-            _linkedSeriesId,
-            _linkedJoinUrl,
-            _linkedAttendees,
-            BlankToNull(MeetingBrief),
-            _linkedAgenda);
-
-        await _pipeline.RunAsync(
-            request,
-            EnsureSummaryModelAsync,
-            EnsureCliProviderAsync,
-            EnsureXaiProviderAsync,
-            this,
-            cancellationToken);
-    }
-
-    string? IRecordingPipelineCallbacks.CurrentSessionNotes => SessionNotes;
-
-    void IRecordingPipelineCallbacks.OnStatusChanged(string status) => StatusText = status;
-
-    void IRecordingPipelineCallbacks.OnTranscriptRefreshed(string transcript) => LiveTranscriptText = transcript;
-
-    void IRecordingPipelineCallbacks.OnMeetingSaved(MeetingRecord record)
-    {
-        if (LastMeeting is not null && LastMeeting.Id != record.Id)
-            return;
-
-        AppServices.Workspace.SetLastProcessed(record);
-        LastMeeting = record;
-    }
-
-    void IRecordingPipelineCallbacks.OnFinished(string status) => FinishProcessing(status);
-
-    void IRecordingPipelineCallbacks.OnTitleResetAndFinished(string status)
-    {
-        MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-        ClearCalendarLink();
-        FinishProcessing(status);
-    }
-
-    void IRecordingPipelineCallbacks.OnMeetingCompleted(Guid meetingId, string status)
-    {
-        if (LastMeeting?.Id == meetingId)
-            StatusText = status;
-    }
-
-    void IRecordingPipelineCallbacks.OnSummaryFailedAfterTranscriptSaved(Guid meetingId, string message)
-    {
-        MeetingTitle = AppStrings.MeetingTitle(DateTime.Now);
-        ClearCalendarLink();
-        if (IsProcessing)
-            FinishProcessing(message);
-        else if (LastMeeting?.Id == meetingId)
-            StatusText = message;
-    }
 
     partial void OnLastMeetingChanged(MeetingRecord? value)
     {
@@ -1754,9 +1779,9 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private void FinishProcessing(string status)
     {
         StatusText = status;
+        _session.MarkIdle();
         IsProcessing = false;
-        ToggleRecordingCommand.NotifyCanExecuteChanged();
-        ImportAudioCommand.NotifyCanExecuteChanged();
+        NotifySessionCommands();
         TryStartMicPreview();
     }
 
@@ -1809,19 +1834,48 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
     private void DetachCaptureHandlers()
     {
         _audioCapture.OutputCaptureFailed -= OnOutputCaptureFailed;
+        _audioCapture.CaptureFaulted -= OnCaptureFaulted;
+        _audioCapture.CaptureSourceLost -= OnCaptureSourceLost;
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
     }
 
-    private void OnOutputCaptureFailed(object? sender, Exception exception)
+    private void OnOutputCaptureFailed(object? sender, Exception exception) =>
+        StopForCaptureFailure("Error_OutputCaptureFailed", exception);
+
+    private void OnCaptureFaulted(object? sender, Exception exception) =>
+        StopForCaptureFailure("Error_CaptureFaulted", exception);
+
+    private void StopForCaptureFailure(string messageKey, Exception exception)
     {
         App.DispatcherQueue.TryEnqueue(() =>
         {
             if (Interlocked.Exchange(ref _captureFailureNotified, 1) != 0)
                 return;
 
-            StatusText = AppStrings.Format("Error_OutputCaptureFailed", exception.Message);
+            _captureFailureMessage = AppStrings.Format(messageKey, exception.Message);
+            StatusText = _captureFailureMessage;
             if (IsRecording)
                 _ = StopRecordingAsync();
+        });
+    }
+
+    private void OnCaptureSourceLost(object? sender, CaptureSourceLostEventArgs e)
+    {
+        var key = e.RemainingSources == 0
+            ? NoAudioSourcesLeftKey
+            : e.Source == CaptureSource.Microphone
+                ? "Warning_MicrophoneLost"
+                : "Warning_OutputAudioLost";
+
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            // Two sources can die together and arrive out of order. Nothing outranks "nothing is left".
+            if (_captureWarningKey == NoAudioSourcesLeftKey)
+                return;
+
+            _captureWarningKey = key;
+            if (IsRecording)
+                StatusText = AppStrings.Get(key);
         });
     }
 
@@ -2112,6 +2166,10 @@ public partial class RecordingPageViewModel : ObservableObject, IRecordingPipeli
 
     private string RecordingStatusText()
     {
+        // Resuming from a pause rewrites the status, and a lost source must stay on screen.
+        if (_captureWarningKey is not null)
+            return AppStrings.Get(_captureWarningKey);
+
         var noMic = SelectedRecordingMicrophone is { Kind: RecordingMicrophoneKind.None };
         if (AudioSources.IsAppSelected)
         {

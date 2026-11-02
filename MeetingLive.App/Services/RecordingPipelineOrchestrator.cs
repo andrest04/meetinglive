@@ -40,17 +40,28 @@ public sealed class RecordingPipelineOrchestrator(
         var folderId = request.FolderId;
 
         string? transcript = StampEndedHeader(request.LiveDraft, recordedAt, endedAt);
+        var meetingIsDurable = false;
         try
         {
+            // First, before anything that can fail: the take becomes a meeting that keeps its audio.
+            var existing = await meetings.GetByIdAsync(meetingId);
+            if (RecordingPipelineRules.ShouldSaveBeforeTranscribing(transcript, existing?.AudioFilePath, audioPath))
+            {
+                var hasDraft = !string.IsNullOrWhiteSpace(transcript);
+                await SaveProcessedMeetingAsync(
+                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId,
+                    hasDraft ? transcript : existing?.Transcript,
+                    summary: hasDraft ? null : existing?.Summary,
+                    actionItems: hasDraft ? [] : existing?.ActionItems ?? [],
+                    summaryProviderId: hasDraft ? null : existing?.SummaryProvider,
+                    callbacks);
+            }
+
+            meetingIsDurable = true;
+
             var transcriptionSettings = await AppServices.Settings.LoadAsync();
             var language = transcriptionSettings.ResolveTranscriptionLanguage();
-
-            if (!string.IsNullOrWhiteSpace(transcript))
-            {
-                await SaveProcessedMeetingAsync(
-                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null, callbacks);
-            }
+            string? transcriptionWarning = null;
 
             if (TranscriptionEngineInstaller.IsReady(AppServices.NemotronModels, AppServices.NemoSpeechRuntime))
             {
@@ -59,6 +70,7 @@ public sealed class RecordingPipelineOrchestrator(
                     Dispatch(() => callbacks.OnStatusChanged(AppStrings.Format("Status_TranscribingPercent", percent))));
 
                 string? wavTranscript = null;
+                Exception? transcriptionFailure = null;
                 try
                 {
                     wavTranscript = await transcription.TranscribeAsync(
@@ -74,27 +86,40 @@ public sealed class RecordingPipelineOrchestrator(
                 {
                     throw;
                 }
-                catch
+                catch (Exception ex)
                 {
-                    wavTranscript = null;
+                    transcriptionFailure = ex;
                 }
 
-                if (!string.IsNullOrWhiteSpace(wavTranscript))
+                switch (RecordingPipelineRules.ResolveTranscriptionStage(transcript, wavTranscript, transcriptionFailure is not null))
                 {
-                    var stamped = TranscriptStampFormatter.EnsureEndedHeader(wavTranscript, recordedAt, endedAt);
-                    transcript = stamped;
-                    Dispatch(() => callbacks.OnTranscriptRefreshed(stamped));
+                    case TranscriptionStageOutcome.OfflineTranscript:
+                        var stamped = TranscriptStampFormatter.EnsureEndedHeader(wavTranscript!, recordedAt, endedAt);
+                        transcript = stamped;
+                        Dispatch(() => callbacks.OnTranscriptRefreshed(stamped));
+                        break;
+
+                    case TranscriptionStageOutcome.LiveDraftAfterFailure:
+                        transcriptionWarning = AppStrings.Format(
+                            "Status_LiveDraftKeptTranscriptionFailed",
+                            CliFailureUserMessage.Format(transcriptionFailure!));
+                        break;
+
+                    case TranscriptionStageOutcome.FailedWithoutTranscript:
+                        var failed = AppStrings.Format(
+                            "Error_TranscriptionFailedAudioKept",
+                            CliFailureUserMessage.Format(transcriptionFailure!));
+                        Dispatch(() => callbacks.OnSavedWithoutTranscript(meetingId, failed));
+                        return;
+
+                    case TranscriptionStageOutcome.NoTranscript:
+                        Dispatch(() => callbacks.OnSavedWithoutTranscript(meetingId, AppStrings.Get("Error_NoTranscript")));
+                        return;
                 }
             }
             else if (string.IsNullOrWhiteSpace(transcript))
             {
-                Dispatch(() => callbacks.OnFinished(AppStrings.Get("Error_EngineNotReady")));
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(transcript))
-            {
-                Dispatch(() => callbacks.OnFinished(AppStrings.Get("Error_NoTranscript")));
+                Dispatch(() => callbacks.OnSavedWithoutTranscript(meetingId, AppStrings.Get("Error_EngineNotReady")));
                 return;
             }
 
@@ -107,7 +132,8 @@ public sealed class RecordingPipelineOrchestrator(
                 ensureSummaryModelAsync, ensureCliProviderAsync, ensureXaiProviderAsync);
             if (pipeline is null)
             {
-                Dispatch(() => callbacks.OnTitleResetAndFinished(AppStrings.Get("Status_DoneNoSummary")));
+                var doneNoSummary = transcriptionWarning ?? AppStrings.Get("Status_DoneNoSummary");
+                Dispatch(() => callbacks.OnTitleResetAndFinished(doneNoSummary));
                 return;
             }
 
@@ -141,40 +167,80 @@ public sealed class RecordingPipelineOrchestrator(
                 // Summary is already saved; do not take the summary-failed path.
             }
 
-            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, AppStrings.Get("Status_DoneWithSummary")));
+            var done = transcriptionWarning ?? AppStrings.Get("Status_DoneWithSummary");
+            Dispatch(() => callbacks.OnMeetingCompleted(meetingId, done));
         }
         catch (OperationCanceledException)
         {
             transcript = string.IsNullOrWhiteSpace(transcript)
                 ? StampEndedHeader(request.LiveDraft, recordedAt, endedAt)
                 : transcript;
-            if (transcript is not null)
+            if (string.IsNullOrWhiteSpace(transcript))
             {
-                await SaveProcessedMeetingAsync(
-                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null, callbacks);
-                Dispatch(() => callbacks.OnTitleResetAndFinished(AppStrings.Get("Status_CancelledTranscriptSaved")));
+                ReportNoTranscript(meetingId, meetingIsDurable, AppStrings.Get("Status_ProcessingCancelled"), callbacks);
+                return;
             }
-            else
+
+            if (await TrySaveTranscriptAfterFailureAsync(
+                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript, callbacks))
             {
-                Dispatch(() => callbacks.OnFinished(AppStrings.Get("Status_ProcessingCancelled")));
+                Dispatch(() => callbacks.OnTitleResetAndFinished(AppStrings.Get("Status_CancelledTranscriptSaved")));
             }
         }
         catch (Exception ex)
         {
             var friendly = CliFailureUserMessage.Format(ex);
-            if (transcript is not null)
+            if (string.IsNullOrWhiteSpace(transcript))
             {
-                await SaveProcessedMeetingAsync(
-                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
-                    summary: null, actionItems: [], summaryProviderId: null, callbacks);
+                ReportNoTranscript(meetingId, meetingIsDurable, AppStrings.Format("Error_ProcessRecording", friendly), callbacks);
+                return;
+            }
+
+            if (await TrySaveTranscriptAfterFailureAsync(
+                    request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript, callbacks))
+            {
                 var message = AppStrings.Format("Status_TranscriptSavedSummaryFailed", friendly);
                 Dispatch(() => callbacks.OnSummaryFailedAfterTranscriptSaved(meetingId, message));
             }
-            else
-            {
-                Dispatch(() => callbacks.OnFinished(AppStrings.Format("Error_ProcessRecording", friendly)));
-            }
+        }
+    }
+
+    /// <summary>The terminal report when no transcript exists: an already durable meeting keeps its
+    /// audio and ends the session; otherwise nothing was saved and the take stays on screen.</summary>
+    private static void ReportNoTranscript(
+        Guid meetingId, bool meetingIsDurable, string status, IRecordingPipelineCallbacks callbacks)
+    {
+        if (meetingIsDurable)
+            Dispatch(() => callbacks.OnSavedWithoutTranscript(meetingId, status));
+        else
+            Dispatch(() => callbacks.OnFinished(status));
+    }
+
+    /// <summary>A save from a failure handler hits the same store that may have caused the failure,
+    /// so it reports a terminal state itself rather than escaping and leaving the host processing.</summary>
+    private async Task<bool> TrySaveTranscriptAfterFailureAsync(
+        RecordingPipelineRequest request,
+        Guid meetingId,
+        string title,
+        DateTimeOffset recordedAt,
+        DateTimeOffset endedAt,
+        string audioPath,
+        Guid? folderId,
+        string transcript,
+        IRecordingPipelineCallbacks callbacks)
+    {
+        try
+        {
+            await SaveProcessedMeetingAsync(
+                request, meetingId, title, recordedAt, endedAt, audioPath, folderId, transcript,
+                summary: null, actionItems: [], summaryProviderId: null, callbacks);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            var status = AppStrings.Format("Error_ProcessRecording", CliFailureUserMessage.Format(ex));
+            Dispatch(() => callbacks.OnFinished(status));
+            return false;
         }
     }
 
@@ -204,13 +270,13 @@ public sealed class RecordingPipelineOrchestrator(
         DateTimeOffset endedAt,
         string audioPath,
         Guid? folderId,
-        string transcript,
+        string? transcript,
         string? summary,
         IReadOnlyList<ActionItem> actionItems,
         string? summaryProviderId,
         IRecordingPipelineCallbacks callbacks)
     {
-        transcript = StampEndedHeader(transcript, recordedAt, endedAt) ?? transcript;
+        transcript = StampEndedHeader(transcript, recordedAt, endedAt);
         var existing = await meetings.GetByIdAsync(meetingId);
         var record = new MeetingRecord
         {
@@ -219,7 +285,9 @@ public sealed class RecordingPipelineOrchestrator(
             RecordedAt = recordedAt,
             EndedAt = endedAt == default ? null : endedAt,
             AudioFilePath = audioPath,
-            Transcript = TranscriptHighlightApplicator.Apply(transcript, request.Highlights),
+            Transcript = string.IsNullOrWhiteSpace(transcript)
+                ? null
+                : TranscriptHighlightApplicator.Apply(transcript, request.Highlights),
             Summary = summary,
             ActionItems = actionItems,
             SummaryProvider = summaryProviderId,
@@ -265,8 +333,8 @@ public sealed class RecordingPipelineOrchestrator(
 /// </summary>
 public interface IRecordingPipelineCallbacks
 {
-    /// <summary>The host's session-notes text as of right now (it stays editable while processing
-    /// runs), read fresh at every save so a note typed mid-pipeline is not lost.</summary>
+    /// <summary>The notes that belong to this run, read fresh at every save so a note typed while the
+    /// run still owns the notes box is not lost. A later take's notes must never appear here.</summary>
     string? CurrentSessionNotes { get; }
 
     /// <summary>An interim status message (e.g. "Transcribing… 42%").</summary>
@@ -295,4 +363,9 @@ public interface IRecordingPipelineCallbacks
     /// surface <paramref name="message"/> depending on whether it is still mid-processing or has
     /// already moved on.</summary>
     void OnSummaryFailedAfterTranscriptSaved(Guid meetingId, string message);
+
+    /// <summary>The run ended with no new transcript, but the meeting exists and keeps its audio, so
+    /// it can be retranscribed. Hosts with a session to release override this; others treat it as
+    /// any terminal state.</summary>
+    void OnSavedWithoutTranscript(Guid meetingId, string status) => OnFinished(status);
 }

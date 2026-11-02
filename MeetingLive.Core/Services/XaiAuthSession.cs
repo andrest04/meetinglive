@@ -12,6 +12,11 @@ public sealed class XaiAuthSession
     private readonly Func<DateTimeOffset> _utcNow;
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
+    // Guards store writes and the version only, never network I/O, so sign-out does not wait for
+    // a refresh. A version change during a refresh means the user replaced what it was renewing.
+    private readonly object _credentialsGate = new();
+    private long _credentialsVersion;
+
     public XaiAuthSession(
         IXaiCredentialStore store,
         XaiOAuthClient oauth,
@@ -48,7 +53,13 @@ public sealed class XaiAuthSession
         await _refreshLock.WaitAsync(cancellationToken);
         try
         {
-            credentials = _store.Load();
+            long version;
+            lock (_credentialsGate)
+            {
+                version = _credentialsVersion;
+                credentials = _store.Load();
+            }
+
             if (credentials is null || string.IsNullOrWhiteSpace(credentials.AccessToken))
                 throw new XaiException(XaiFailureKind.NotSignedIn, XaiOAuthClient.NotSignedInMessage);
 
@@ -59,8 +70,21 @@ public sealed class XaiAuthSession
                 throw new XaiException(XaiFailureKind.NotSignedIn, XaiOAuthClient.NotSignedInMessage);
 
             var refreshed = await _oauth.RefreshAccessTokenAsync(credentials.RefreshToken, cancellationToken);
-            _store.Save(refreshed);
-            return refreshed.AccessToken;
+            lock (_credentialsGate)
+            {
+                if (version == _credentialsVersion)
+                {
+                    _store.Save(refreshed);
+                    return refreshed.AccessToken;
+                }
+
+                credentials = _store.Load();
+            }
+
+            if (credentials is null || string.IsNullOrWhiteSpace(credentials.AccessToken))
+                throw new XaiException(XaiFailureKind.NotSignedIn, XaiOAuthClient.NotSignedInMessage);
+
+            return credentials.AccessToken;
         }
         finally
         {
@@ -73,16 +97,32 @@ public sealed class XaiAuthSession
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new ArgumentException("API key is required.", nameof(apiKey));
 
-        _store.Save(new XaiCredentials(XaiCredentialKind.ApiKey, apiKey.Trim(), RefreshToken: null, ExpiresAt: null));
+        var credentials = new XaiCredentials(XaiCredentialKind.ApiKey, apiKey.Trim(), RefreshToken: null, ExpiresAt: null);
+        lock (_credentialsGate)
+        {
+            _credentialsVersion++;
+            _store.Save(credentials);
+        }
     }
 
     public void SaveOAuth(XaiCredentials credentials)
     {
         ArgumentNullException.ThrowIfNull(credentials);
-        _store.Save(credentials with { Kind = XaiCredentialKind.OAuth });
+        lock (_credentialsGate)
+        {
+            _credentialsVersion++;
+            _store.Save(credentials with { Kind = XaiCredentialKind.OAuth });
+        }
     }
 
-    public void SignOut() => _store.Clear();
+    public void SignOut()
+    {
+        lock (_credentialsGate)
+        {
+            _credentialsVersion++;
+            _store.Clear();
+        }
+    }
 
     private bool NeedsRefresh(XaiCredentials credentials)
     {
