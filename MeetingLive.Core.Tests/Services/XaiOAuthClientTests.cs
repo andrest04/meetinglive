@@ -130,4 +130,79 @@ public class XaiOAuthClientTests
 
         return result;
     }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError, "<html>Bad gateway</html>")]
+    [InlineData(HttpStatusCode.BadGateway, """{"error":"server_error"}""")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "")]
+    [InlineData(HttpStatusCode.TooManyRequests, """{"error":"rate_limited"}""")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":"invalid_grant"}""")]
+    [InlineData(HttpStatusCode.BadRequest, "<html>Blocked</html>")]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_request"}""")]
+    [InlineData(HttpStatusCode.Forbidden, "<html>Blocked</html>")]
+    [InlineData(HttpStatusCode.OK, "{}")]
+    [InlineData(HttpStatusCode.OK, "not json")]
+    public async Task RefreshAccessTokenAsync_WhenTheFailureIsNotAnAuthRejection_ReportsRequestFailed(
+        HttpStatusCode status, string body)
+    {
+        var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(status, body));
+        var client = new XaiOAuthClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => client.RefreshAccessTokenAsync("refresh-secret"));
+
+        Assert.Equal(XaiFailureKind.RequestFailed, exception.Kind);
+        Assert.DoesNotContain("not signed in", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("refresh-secret", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")]
+    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_client"}""")]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"unauthorized_client"}""")]
+    [InlineData(HttpStatusCode.Unauthorized, "")]
+    public async Task RefreshAccessTokenAsync_WhenAuthIsRejected_ReportsNotSignedIn(HttpStatusCode status, string body)
+    {
+        var handler = new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(status, body));
+        var client = new XaiOAuthClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => client.RefreshAccessTokenAsync("refresh-1"));
+
+        Assert.Equal(XaiFailureKind.NotSignedIn, exception.Kind);
+    }
+
+    [Fact]
+    public async Task RefreshAccessTokenAsync_OnNetworkError_ReportsRequestFailed()
+    {
+        var handler = new FakeHttpMessageHandler(_ => throw new HttpRequestException("No such host is known."));
+        var client = new XaiOAuthClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => client.RefreshAccessTokenAsync("refresh-1"));
+
+        Assert.Equal(XaiFailureKind.RequestFailed, exception.Kind);
+    }
+
+    [Fact]
+    public async Task RefreshAccessTokenAsync_OnHttpClientTimeout_ReportsRequestFailed()
+    {
+        var handler = new FakeHttpMessageHandler(_ => throw new TaskCanceledException("Timed out."));
+        var client = new XaiOAuthClient(new HttpClient(handler));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => client.RefreshAccessTokenAsync("refresh-1"));
+
+        Assert.Equal(XaiFailureKind.RequestFailed, exception.Kind);
+    }
+
+    [Fact]
+    public async Task RefreshAccessTokenAsync_WhenTheCallerCancels_StillThrowsCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        var handler = new FakeHttpMessageHandler(_ =>
+        {
+            cts.Cancel();
+            throw new OperationCanceledException(cts.Token);
+        });
+        var client = new XaiOAuthClient(new HttpClient(handler));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.RefreshAccessTokenAsync("refresh-1", cts.Token));
+    }
 }

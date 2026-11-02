@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -139,13 +140,38 @@ public sealed class XaiOAuthClient
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, TokenUrl) { Content = content };
-        using var response = await _http.SendAsync(request, cancellationToken);
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        try
+        {
+            using var response = await _http.SendAsync(request, cancellationToken);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            return ReadRefreshResponse(response.StatusCode, json, refreshToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw new XaiException(XaiFailureKind.RequestFailed, RefreshUnavailableMessage);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient's own timeout surfaces as a cancellation nobody asked for.
+            throw new XaiException(XaiFailureKind.RequestFailed, RefreshUnavailableMessage);
+        }
+    }
+
+    /// <summary>Only a real rejection means signed out. Anything else leaves the refresh token
+    /// valid as far as we know, so the user is told to retry instead of to sign in again.</summary>
+    private XaiCredentials ReadRefreshResponse(HttpStatusCode status, string json, string refreshToken)
+    {
+        if (status == HttpStatusCode.TooManyRequests || (int)status >= 500)
+            throw new XaiException(XaiFailureKind.RequestFailed, RefreshUnavailableMessage);
+
         var parsed = ParseTokenResponse(json, fallbackRefreshToken: refreshToken);
-        if (parsed.Credentials is null)
+        if (parsed.Credentials is not null && (int)status is >= 200 and < 300)
+            return parsed.Credentials;
+
+        if (status == HttpStatusCode.Unauthorized || parsed.Error is "invalid_grant" or "invalid_client" or "unauthorized_client")
             throw new XaiException(XaiFailureKind.NotSignedIn, NotSignedInMessage);
 
-        return parsed.Credentials;
+        throw new XaiException(XaiFailureKind.RequestFailed, RefreshUnavailableMessage);
     }
 
     private async Task<(XaiCredentials? Credentials, string? Error)> TryExchangeDeviceCodeAsync(
@@ -201,6 +227,9 @@ public sealed class XaiOAuthClient
 
     internal const string NotSignedInMessage =
         "You're not signed in to Grok (xAI). Sign in with SuperGrok or save an API key in Settings.";
+
+    internal const string RefreshUnavailableMessage =
+        "Grok (xAI) could not renew your sign-in right now. You are still signed in, so try again in a moment.";
 
     private sealed class DeviceCodeDto
     {
