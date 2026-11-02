@@ -96,4 +96,99 @@ public class XaiAuthSessionTests
 
         return $"{B64Url("""{"alg":"none"}""")}.{B64Url($"{{\"exp\":{expUnix}}}")}.sig";
     }
+
+    private static readonly DateTimeOffset Now = new(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+
+    private static InMemoryXaiCredentialStore ExpiredOAuthStore()
+    {
+        var store = new InMemoryXaiCredentialStore();
+        store.Save(new XaiCredentials(XaiCredentialKind.OAuth, "old-access", "old-refresh", Now.AddHours(-1)));
+        return store;
+    }
+
+    private static XaiAuthSession SessionOver(InMemoryXaiCredentialStore store, FakeHttpMessageHandler handler) =>
+        new(store, new XaiOAuthClient(new HttpClient(handler), utcNow: () => Now), utcNow: () => Now);
+
+    private static HttpResponseMessage RefreshedResponse() => FakeHttpMessageHandler.JsonResponse(
+        HttpStatusCode.OK,
+        """{"access_token":"new-access","refresh_token":"new-refresh","expires_in":3600}""");
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WhenSignedOutDuringRefresh_PersistsNothingAndReportsNotSignedIn()
+    {
+        var store = ExpiredOAuthStore();
+        XaiAuthSession session = null!;
+        session = SessionOver(store, new FakeHttpMessageHandler(_ =>
+        {
+            session.SignOut();
+            return RefreshedResponse();
+        }));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => session.GetAccessTokenAsync());
+
+        Assert.Equal(XaiFailureKind.NotSignedIn, exception.Kind);
+        Assert.Null(store.Load());
+        Assert.False(session.HasCredentials);
+    }
+
+    [Fact]
+    public async Task GetAccessTokenAsync_WhenAnApiKeyIsSavedDuringRefresh_KeepsTheApiKey()
+    {
+        var store = ExpiredOAuthStore();
+        XaiAuthSession session = null!;
+        session = SessionOver(store, new FakeHttpMessageHandler(_ =>
+        {
+            session.SaveApiKey("pasted-key");
+            return RefreshedResponse();
+        }));
+
+        var token = await session.GetAccessTokenAsync();
+
+        Assert.Equal("pasted-key", token);
+        Assert.Equal(XaiCredentialKind.ApiKey, store.Load()!.Kind);
+        Assert.Equal("pasted-key", store.Load()!.AccessToken);
+    }
+
+    [Fact]
+    public async Task SignOut_DuringAnInFlightRefresh_DoesNotWaitForTheNetwork()
+    {
+        var store = ExpiredOAuthStore();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new ManualResetEventSlim();
+        using (release)
+        {
+            var session = SessionOver(store, new FakeHttpMessageHandler(_ =>
+            {
+                requestStarted.TrySetResult();
+                release.Wait(TimeSpan.FromSeconds(30));
+                return RefreshedResponse();
+            }));
+
+            var refresh = Task.Run(() => session.GetAccessTokenAsync());
+            await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(30));
+
+            var signOut = Task.Run(session.SignOut);
+            var signedOutFirst = await Task.WhenAny(signOut, Task.Delay(TimeSpan.FromSeconds(30))) == signOut;
+            release.Set();
+
+            Assert.True(signedOutFirst);
+            await Assert.ThrowsAsync<XaiException>(() => refresh);
+            Assert.Null(store.Load());
+        }
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "")]
+    [InlineData(HttpStatusCode.TooManyRequests, """{"error":"rate_limited"}""")]
+    public async Task GetAccessTokenAsync_WhenRefreshFailsTransiently_KeepsTheStoredCredentials(HttpStatusCode status, string body)
+    {
+        var store = ExpiredOAuthStore();
+        var session = SessionOver(store, new FakeHttpMessageHandler(_ => FakeHttpMessageHandler.JsonResponse(status, body)));
+
+        var exception = await Assert.ThrowsAsync<XaiException>(() => session.GetAccessTokenAsync());
+
+        Assert.Equal(XaiFailureKind.RequestFailed, exception.Kind);
+        Assert.Equal("old-refresh", store.Load()!.RefreshToken);
+        Assert.True(session.HasCredentials);
+    }
 }
