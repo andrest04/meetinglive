@@ -284,6 +284,8 @@
   <data name="Error_SaveActionItem" xml:space="preserve"><value>Error al guardar el elemento de acción: {0}</value></data>
   <data name="Error_DownloadModel" xml:space="preserve"><value>Error al descargar el modelo: {0}</value></data>
   <data name="Error_DownloadFailedCaption" xml:space="preserve"><value>Error al descargar: {0}</value></data>
+  <data name="Error_EngineDeleteInUse" xml:space="preserve"><value>El motor está en uso. Reinicia la app y elimínalo después.</value></data>
+  <data name="Error_EngineDeleteIncomplete" xml:space="preserve"><value>No se pudo quitar parte del motor. Puede que debas descargarlo de nuevo.</value></data>
   <data name="Error_EngineNotReady" xml:space="preserve"><value>La descarga terminó, pero el motor de transcripción todavía no está listo.</value></data>
   <data name="MeetingTitleFormat" xml:space="preserve"><value>Reunión {0}</value></data>
   <data name="MeetingTitleDateFormat" xml:space="preserve"><value>d MMM, HH:mm</value></data>
