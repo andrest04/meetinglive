@@ -33,8 +33,12 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         DateTimeOffset? endedAt = null,
         SummaryEnhancementContext? enhancement = null)
     {
-        var prompt = CliSummaryPromptBuilder.Build(title, recordedAt, transcript, outputLanguage, endedAt, enhancement);
-        var raw = await InferAsync(prompt, maxTokens: 1024, temperature: 0.3f, cancellationToken);
+        var (weights, _) = await EnsureModelReadyAsync(cancellationToken);
+        var raw = await LocalLlmSummaryMapReduce.SummarizeAsync(
+            new LocalLlmSummaryRequest(title, recordedAt, transcript, outputLanguage, endedAt, enhancement),
+            text => weights.Tokenize(text, add_bos: true, special: true, Encoding.UTF8).Length,
+            (prompt, maxTokens, token) => InferAsync(prompt, maxTokens, SummaryTemperature, token),
+            cancellationToken);
         var (summaryMarkdown, actionItems, suggestedTitle) = SummaryMarkdownSplitter.Split(raw);
         return new SummaryResult(summaryMarkdown, actionItems, ProviderId, suggestedTitle);
     }
@@ -46,7 +50,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         string? outputLanguage = null)
     {
         var prompt = CliMeetingTitlePromptBuilder.Build(transcript, recordedAt, outputLanguage);
-        return InferAsync(prompt, maxTokens: 80, temperature: 0.3f, cancellationToken);
+        return InferAsync(prompt, maxTokens: 80, SummaryTemperature, cancellationToken);
     }
 
     public Task<string> CompletePromptAsync(string prompt, CancellationToken cancellationToken = default) =>
@@ -57,6 +61,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
 
     private const int PromptMaxTokens = 512;
     private const float PromptTemperature = 0.2f;
+    private const float SummaryTemperature = 0.3f;
 
     private async Task<string> InferAsync(
         string prompt,
@@ -81,14 +86,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
         float temperature,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        if (!File.Exists(modelPath))
-        {
-            throw new FileNotFoundException(
-                "The selected local summary model has not been downloaded yet. Download it from Settings first.",
-                modelPath);
-        }
-
-        var (weights, modelParams) = await EnsureLoadedAsync(cancellationToken);
+        var (weights, modelParams) = await EnsureModelReadyAsync(cancellationToken);
 
         var executor = new StatelessExecutor(weights, modelParams)
         {
@@ -105,6 +103,18 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
             yield return token;
     }
 
+    private Task<(LLamaWeights Weights, ModelParams Params)> EnsureModelReadyAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(modelPath))
+        {
+            throw new FileNotFoundException(
+                "The selected local summary model has not been downloaded yet. Download it from Settings first.",
+                modelPath);
+        }
+
+        return EnsureLoadedAsync(cancellationToken);
+    }
+
     private async Task<(LLamaWeights Weights, ModelParams Params)> EnsureLoadedAsync(CancellationToken cancellationToken)
     {
         if (_weights is not null && _modelParams is not null)
@@ -117,7 +127,7 @@ public sealed class LocalLlmSummaryProvider(string modelPath) : ISummaryProvider
             {
                 var modelParams = new ModelParams(modelPath)
                 {
-                    ContextSize = 4096,
+                    ContextSize = LocalLlmSummaryMapReduce.ContextTokens,
                 };
                 _weights = await LLamaWeights.LoadFromFileAsync(modelParams, cancellationToken);
                 _modelParams = modelParams;
