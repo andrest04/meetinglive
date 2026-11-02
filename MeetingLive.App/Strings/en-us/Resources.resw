@@ -369,7 +369,7 @@
   <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Set up to record</value></data>
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Set up recording before you start.</value></data>
 
-  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced.</value></data>
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: No transcript was produced. The meeting keeps its audio, so you can retranscribe it.</value></data>
 
   <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Signed in with SuperGrok</value></data>
@@ -606,4 +606,6 @@
   <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Open MeetingLive to finish provider setup.</value></data>
   <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Search the web for the answer</value></data>
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Searched the web</value></data>
+  <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Saved with the live transcript. The final transcription failed: {0}</value></data>
+  <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: The meeting keeps its audio, so you can retranscribe it. Transcription failed: {0}</value></data>
 </root>

@@ -369,7 +369,7 @@
   <data name="RecordingSetup_SetUpToRecord.Content" xml:space="preserve"><value>Configurar para grabar</value></data>
   <data name="Status_NeedsSetup" xml:space="preserve"><value>Configura la grabación antes de comenzar.</value></data>
 
-  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: no se generó ninguna transcripción.</value></data>
+  <data name="Error_NoTranscript" xml:space="preserve"><value>Error: no se generó ninguna transcripción. La reunión conserva su audio, así que puedes volver a transcribirla.</value></data>
 
   <data name="Xai_ProviderName" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Xai_StatusSuperGrok" xml:space="preserve"><value>Sesión iniciada con SuperGrok</value></data>
@@ -606,4 +606,6 @@
   <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Abre MeetingLive para terminar de configurar el proveedor.</value></data>
   <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Buscar en la web para responder</value></data>
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Búsqueda en la web</value></data>
+  <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Guardada con la transcripción en vivo. La transcripción final falló: {0}</value></data>
+  <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: La reunión conserva su audio, así que puedes volver a transcribirla. La transcripción falló: {0}</value></data>
 </root>
