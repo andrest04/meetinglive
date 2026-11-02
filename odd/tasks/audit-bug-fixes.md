@@ -106,10 +106,49 @@ T2 runtime scenarios, all pending:
 - [ ] Open Settings with the microphone held in exclusive mode by another app: no crash, and the meter works once the device is free.
 
 ### T3 Transcription engine and local summary (route: delegated)
-- [ ] F3 Deleting the engine with its DLL loaded half-deletes it (`NemoSpeechRuntimeManager.cs:71`).
-- [ ] F5 Local summary has no chunking for its 4096-token context (`LocalLlmSummaryProvider.cs:36`).
-- [ ] L1 `Lazy` caches a failed native load for the process (`NemoSpeechNativeLibrary.cs:72`).
-- [ ] L3 Partial runtime copy is accepted as installed (`NemoSpeechRuntimeManager.cs:123`).
+All four findings were real when re-read against the code. F3's delete failure and L3's partial copy also failed for real in tests before the fix. Boxes below mean unit-checked. No scenario was run in the app, and no real runtime or model was loaded.
+- [x] F3 Deleting the engine with its DLL loaded half-deletes it (`NemoSpeechRuntimeManager.cs:71`). The runtime goes first, after probing every file. A held file refuses with nothing removed, the model stays, and Settings says to restart. A failure partway reports it and the runtime stops reporting ready. `f034e18`.
+- [x] F5 Local summary has no chunking for its 4096-token context (`LocalLlmSummaryProvider.cs:36`). A transcript that fits is sent unchanged. A longer one becomes parts, notes, merged notes, and a final prompt with the same contract. `a40187e`.
+- [x] L1 `Lazy` caches a failed native load for the process (`NemoSpeechNativeLibrary.cs:72`). Failed loads cache nothing, successful ones stay, and loads run one at a time. `cc1c9a6`.
+- [x] L3 Partial runtime copy is accepted as installed (`NemoSpeechRuntimeManager.cs:123`). A marker beside the backend folder covers the whole promote, and a complete install with no marker stays ready. `f034e18`.
+
+T3 evidence:
+- Route: delegated direct, one writer. Trigger: several non-trivial files.
+- RED then GREEN, against stubs that kept the old behavior. L1: 3 of 5 new tests failed. F3 and L3: 10 of 14. F5: 11 of 13. All pass now. The ones that passed in RED pin behavior that must not change.
+- `DeleteRuntime_WhenTheLibraryIsReallyLoaded` loads a copy of a real system DLL under the runtime's name. It proves the probe sees the lock Windows holds on a loaded image, and that the delete works once the library is freed.
+- `InstallExtracted_WhenTheCopyFallbackFailsMidway` uses a real exclusive lock, so the move and the copy really fail after the library is copied. Before the fix that tree reported ready.
+- F5 runs against a fake model and a fake token counter. It proves the plan and the budget: every prompt fits, no line is left out, order holds, cancellation stops the next call. It does not prove `LLamaWeights.Tokenize` counts match the real context use, or the quality of merged summaries.
+- App exception: `TranscriptionEngineSectionViewModel` cannot be hosted by the test project, so the caption wiring relies on the build and the runtime scenarios below. The ordering it calls is in Core and tested.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 1044, Failed 0, Skipped 0.
+- `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: succeeded, 0 errors, 196 warnings.
+- `git diff --check`: clean.
+
+T3 decisions:
+- A held runtime refuses instead of staging a delete for the next launch. Staging needs a startup hook outside this task's surface and leaves a usable engine half-removed. Nothing loads the library at startup, so restarting and deleting works.
+- The marker is negative: it exists only during a promote or a delete. A required completion marker would force a re-download on every existing install.
+- `DeleteRuntime` keeps its signature and throws, so the test fakes need no edit. The ordering lives in `NemoSpeechRuntimeManager.DeleteEngine`, because `TranscriptionEngineInstaller.cs` was outside this task's surface.
+- Loads are serialized across all directories, because each one changes the process-wide DLL search path. `PublicationOnly` would have let them race.
+- Budgets use the model's tokenizer rather than the polisher's character count, because 3,500 characters can overflow in languages with costly characters.
+- The bound is 64 parts, many hours of speech. Over it, or when supplied notes, agenda, or template leave no room, the summary fails with a message before any inference. The failure goes through the existing summary failure path.
+- Supplied notes, agenda, and template reach only the final prompt, not the part prompts.
+
+T3 known gaps:
+- A partial copy left by an older version has no marker, so it still reports ready. It cannot be told apart without a file list of the zip, and no zip is available here.
+- If the delete fails partway and no runtime reports ready, the Delete button hides, because `SettingsPage.xaml` shows it only when installed. Download repairs it. A leftover model can then only be removed by downloading and deleting again.
+- The status caption has no text wrapping, so a long message can clip at narrow widths, and a later backend event replaces it. `SettingsPage.xaml` was outside this task's surface.
+- A part's notes are capped at 640 tokens. The prompt asks for about 300 words, but a model that ignores it has that part's notes cut.
+- `SuggestTitleAsync`, `CompletePromptAsync`, and `StreamPromptAsync` on the local provider still send their prompts unmeasured. The title path sends the whole transcript. These were not in F5's scope.
+- Long meetings make many inference calls, each loading a fresh context. Time on a CPU-only machine was not measured.
+
+T3 runtime scenarios, all pending:
+- [ ] Transcribe, then delete the engine in the same session: the "restart" caption appears, no crash, the engine still works, and the model is still there.
+- [ ] Restart without transcribing, then delete: runtime and model are gone, and Download appears.
+- [ ] Update over a complete existing install: the engine stays ready with no download.
+- [ ] Download the engine fresh, on a machine with Defender active if possible: it reports ready, and no `.incomplete` file stays in the NemoSpeech folder.
+- [ ] Break a dependency so the first load fails, fix it, and transcribe again without restarting: the second attempt works.
+- [ ] Summarize a meeting of an hour or more with the Local provider: a summary, action items, and a suggested title appear, and early and late content are both covered.
+- [ ] Summarize a short meeting with the Local provider: the result is as before.
+- [ ] Close the app during a long local summary: it winds down within the close window.
 
 ### T4 Data and integrations (route: delegated)
 - [ ] L5 Section parser truncates content at a header-like line (`MeetingMarkdownFormatter.cs:259`).
@@ -130,6 +169,7 @@ T2 runtime scenarios, all pending:
 - Baseline branch created at `8f31586`.
 - T1 implemented in `cbce619`, `a90533c`, `4592e39`, `e176f3c`, and `a8075e8`. Runtime scenarios are pending.
 - T2 implemented in `9d4250c` and `f4a41d4`. Runtime scenarios are pending.
+- T3 implemented in `cc1c9a6`, `f034e18`, and `a40187e`. Runtime scenarios are pending.
 
 ## Next step
-T3.
+T4.
