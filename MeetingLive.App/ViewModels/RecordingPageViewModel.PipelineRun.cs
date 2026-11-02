@@ -136,6 +136,7 @@ public partial class RecordingPageViewModel
         private readonly CancellationTokenSource _cancellation = new();
         private readonly TaskCompletionSource<bool> _firstSave = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly string? _captureFailure = page._captureFailureMessage;
         private string? _notes = notes;
 
         public Guid MeetingId { get; } = meetingId;
@@ -148,6 +149,9 @@ public partial class RecordingPageViewModel
         public Task Completion => _completion.Task;
 
         private bool OwnsSession => ReferenceEquals(page._activeRun, this);
+
+        private string WithCaptureFailure(string status) =>
+            _captureFailure is null ? status : $"{_captureFailure} {status}";
 
         private bool PageIsIdleOnThisMeeting =>
             page._session.Phase == RecordingSessionPhase.Idle && page.LastMeeting?.Id == MeetingId;
@@ -170,7 +174,7 @@ public partial class RecordingPageViewModel
         void IRecordingPipelineCallbacks.OnStatusChanged(string status)
         {
             if (OwnsSession)
-                page.StatusText = status;
+                page.StatusText = WithCaptureFailure(status);
         }
 
         void IRecordingPipelineCallbacks.OnTranscriptRefreshed(string transcript)
@@ -203,7 +207,7 @@ public partial class RecordingPageViewModel
         void IRecordingPipelineCallbacks.OnMeetingCompleted(Guid completedMeetingId, string status)
         {
             if (PageIsIdleOnThisMeeting)
-                page.StatusText = status;
+                page.StatusText = WithCaptureFailure(status);
         }
 
         void IRecordingPipelineCallbacks.OnSummaryFailedAfterTranscriptSaved(Guid failedMeetingId, string message) =>
@@ -214,8 +218,9 @@ public partial class RecordingPageViewModel
 
         private void EndOrReport(string status, bool resetForNextTake)
         {
-            if (!ReleaseSession(status, resetForNextTake) && PageIsIdleOnThisMeeting)
-                page.StatusText = status;
+            var shown = WithCaptureFailure(status);
+            if (!ReleaseSession(shown, resetForNextTake) && PageIsIdleOnThisMeeting)
+                page.StatusText = shown;
         }
 
         /// <summary>Hands the page back. A no-op for a run that already did, so its later callbacks

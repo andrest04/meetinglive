@@ -266,6 +266,10 @@
   <data name="Status_CliMissing" xml:space="preserve"><value>Not found on PATH — install it before recording.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: could not start recording ({0}).</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>Recording stopped because the meeting audio failed: {0}</value></data>
+  <data name="Error_CaptureFaulted" xml:space="preserve"><value>Recording stopped because of an audio error: {0}. The audio captured so far was kept.</value></data>
+  <data name="Warning_MicrophoneLost" xml:space="preserve"><value>The microphone stopped working, so your voice isn't being recorded. Recording continues with the meeting audio.</value></data>
+  <data name="Warning_OutputAudioLost" xml:space="preserve"><value>The meeting audio stopped working, so the other side isn't being recorded. Recording continues with the microphone.</value></data>
+  <data name="Warning_NoAudioSourcesLeft" xml:space="preserve"><value>Nothing is being captured because no audio source is left. Stop the recording to keep what was saved so far.</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: couldn't import that audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error stopping the recording: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error processing the recording: {0}</value></data>

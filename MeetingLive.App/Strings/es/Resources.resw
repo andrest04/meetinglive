@@ -266,6 +266,10 @@
   <data name="Status_CliMissing" xml:space="preserve"><value>No se encontró en el PATH: instálalo antes de grabar.</value></data>
   <data name="Error_StartRecording" xml:space="preserve"><value>Error: no se pudo iniciar la grabación ({0}).</value></data>
   <data name="Error_OutputCaptureFailed" xml:space="preserve"><value>La grabación se detuvo porque falló el audio de la reunión: {0}</value></data>
+  <data name="Error_CaptureFaulted" xml:space="preserve"><value>La grabación se detuvo por un error de audio: {0}. Se conservó el audio capturado hasta ahora.</value></data>
+  <data name="Warning_MicrophoneLost" xml:space="preserve"><value>El micrófono dejó de funcionar, así que tu voz no se está grabando. La grabación continúa con el audio de la reunión.</value></data>
+  <data name="Warning_OutputAudioLost" xml:space="preserve"><value>El audio de la reunión dejó de funcionar, así que la otra parte no se está grabando. La grabación continúa con el micrófono.</value></data>
+  <data name="Warning_NoAudioSourcesLeft" xml:space="preserve"><value>No se está capturando nada porque no queda ninguna fuente de audio. Detén la grabación para conservar lo guardado hasta ahora.</value></data>
   <data name="Error_ImportAudio" xml:space="preserve"><value>Error: no se pudo importar ese audio ({0}).</value></data>
   <data name="Error_StopRecording" xml:space="preserve"><value>Error al detener la grabación: {0}</value></data>
   <data name="Error_ProcessRecording" xml:space="preserve"><value>Error al procesar la grabación: {0}</value></data>

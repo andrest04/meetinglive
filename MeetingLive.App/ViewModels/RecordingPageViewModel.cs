@@ -26,7 +26,14 @@ public partial class RecordingPageViewModel : ObservableObject
     private Task _stopTask = Task.CompletedTask;
 
     private readonly IAudioCaptureService _audioCapture = AppServices.AudioCapture;
+    private const string NoAudioSourcesLeftKey = "Warning_NoAudioSourcesLeft";
+
     private int _captureFailureNotified;
+    private string? _captureWarningKey;
+
+    /// <summary>Why this take ended badly. Its pipeline keeps showing this, because the next status
+    /// arrives at once and would otherwise wipe it before anyone can read it.</summary>
+    private string? _captureFailureMessage;
     private readonly IAudioImportService _audioImport = AppServices.AudioImport;
     private readonly ITranscriptionService _transcription = AppServices.Transcription;
     private static readonly string[] ImportFileExtensions =
@@ -1263,12 +1270,21 @@ public partial class RecordingPageViewModel : ObservableObject
 
             StopMicPreview();
             _captureFailureNotified = 0;
+            _captureWarningKey = null;
+            _captureFailureMessage = null;
             _audioCapture.OutputCaptureFailed += OnOutputCaptureFailed;
+            _audioCapture.CaptureFaulted += OnCaptureFaulted;
+            _audioCapture.CaptureSourceLost += OnCaptureSourceLost;
             _audioCapture.PcmFrameAvailable += OnRecordingPcmFrame;
             await Task.Run(() => _audioCapture.Start(audioPath, sources));
-            StatusText = RecordingStatusText();
             _session.MarkRecording();
             IsRecording = true;
+
+            // A failure in the moment before this point found nothing to stop.
+            if (Volatile.Read(ref _captureFailureNotified) != 0)
+                _ = StopRecordingAsync();
+            else
+                StatusText = RecordingStatusText();
         }
         catch (Exception ex)
         {
@@ -1308,7 +1324,10 @@ public partial class RecordingPageViewModel : ObservableObject
         catch (Exception ex)
         {
             if (_captureFailureNotified == 0)
-                StatusText = AppStrings.Format("Error_StopRecording", ex.Message);
+            {
+                _captureFailureMessage = AppStrings.Format("Error_StopRecording", ex.Message);
+                StatusText = _captureFailureMessage;
+            }
         }
 
         _endedAt = DateTimeOffset.Now;
@@ -1815,19 +1834,48 @@ public partial class RecordingPageViewModel : ObservableObject
     private void DetachCaptureHandlers()
     {
         _audioCapture.OutputCaptureFailed -= OnOutputCaptureFailed;
+        _audioCapture.CaptureFaulted -= OnCaptureFaulted;
+        _audioCapture.CaptureSourceLost -= OnCaptureSourceLost;
         _audioCapture.PcmFrameAvailable -= OnRecordingPcmFrame;
     }
 
-    private void OnOutputCaptureFailed(object? sender, Exception exception)
+    private void OnOutputCaptureFailed(object? sender, Exception exception) =>
+        StopForCaptureFailure("Error_OutputCaptureFailed", exception);
+
+    private void OnCaptureFaulted(object? sender, Exception exception) =>
+        StopForCaptureFailure("Error_CaptureFaulted", exception);
+
+    private void StopForCaptureFailure(string messageKey, Exception exception)
     {
         App.DispatcherQueue.TryEnqueue(() =>
         {
             if (Interlocked.Exchange(ref _captureFailureNotified, 1) != 0)
                 return;
 
-            StatusText = AppStrings.Format("Error_OutputCaptureFailed", exception.Message);
+            _captureFailureMessage = AppStrings.Format(messageKey, exception.Message);
+            StatusText = _captureFailureMessage;
             if (IsRecording)
                 _ = StopRecordingAsync();
+        });
+    }
+
+    private void OnCaptureSourceLost(object? sender, CaptureSourceLostEventArgs e)
+    {
+        var key = e.RemainingSources == 0
+            ? NoAudioSourcesLeftKey
+            : e.Source == CaptureSource.Microphone
+                ? "Warning_MicrophoneLost"
+                : "Warning_OutputAudioLost";
+
+        App.DispatcherQueue.TryEnqueue(() =>
+        {
+            // Two sources can die together and arrive out of order. Nothing outranks "nothing is left".
+            if (_captureWarningKey == NoAudioSourcesLeftKey)
+                return;
+
+            _captureWarningKey = key;
+            if (IsRecording)
+                StatusText = AppStrings.Get(key);
         });
     }
 
@@ -2118,6 +2166,10 @@ public partial class RecordingPageViewModel : ObservableObject
 
     private string RecordingStatusText()
     {
+        // Resuming from a pause rewrites the status, and a lost source must stay on screen.
+        if (_captureWarningKey is not null)
+            return AppStrings.Get(_captureWarningKey);
+
         var noMic = SelectedRecordingMicrophone is { Kind: RecordingMicrophoneKind.None };
         if (AudioSources.IsAppSelected)
         {
