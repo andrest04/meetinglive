@@ -151,11 +151,48 @@ T3 runtime scenarios, all pending:
 - [ ] Close the app during a long local summary: it winds down within the close window.
 
 ### T4 Data and integrations (route: delegated)
-- [ ] L5 Section parser truncates content at a header-like line (`MeetingMarkdownFormatter.cs:259`).
-- [ ] L6 CLI stdin write sits outside the timeout and misclassifies a broken pipe (`CliProcessRunner.cs:71`).
-- [ ] L7 Any failed OAuth refresh reports "not signed in" (`XaiOAuthClient.cs:143`).
-- [ ] L8 Sign-out during refresh saves credentials back (`XaiAuthSession.cs:61`).
-- [ ] L9 Re-running a failed migration overwrites later edits (`MeetingsMigrationService.cs:38`).
+All five findings were real when re-read against the code. Boxes below mean unit-checked. No scenario was run in the app, and no real xAI call or real CLI was used.
+- [x] L5 Section parser truncates content at a header-like line (`MeetingMarkdownFormatter.cs:259`). A content line equal to a section header is saved with a closing `##`, and a `headerEscaping: 1` frontmatter key records it. `bf689bb`.
+- [x] L6 CLI stdin write sits outside the timeout and misclassifies a broken pipe (`CliProcessRunner.cs:71`). Stdin, stdout, stderr, and exit all run together under the timeout. A failing child reports its exit code and stderr. `c6d409a`.
+- [x] L7 Any failed OAuth refresh reports "not signed in" (`XaiOAuthClient.cs:143`). Only `invalid_grant`, `invalid_client`, `unauthorized_client`, and a 401 do. Network errors, timeouts, 5xx, 429, and unexpected responses say to retry. The stored refresh token is kept. `018af10`.
+- [x] L8 Sign-out during refresh saves credentials back (`XaiAuthSession.cs:61`). A refresh that finishes after sign-out or a replaced credential saves nothing. Sign-out does not wait for the network. `12830b2`.
+- [x] L9 Re-running a failed migration overwrites later edits (`MeetingsMigrationService.cs:38`). A re-run skips meetings already in the target, migrates the missing ones, and renames to the next free backup name. `4b1e5d7`.
+
+T4 evidence:
+- Route: delegated direct, one writer. Trigger: several non-trivial files.
+- RED then GREEN: with a path seam only for L9, 38 of the 73 tests in the five affected classes failed. All passed after the fixes. The new ones that passed in RED pin behavior that must not change, such as the existing format and real auth rejections.
+- L6 RED was real: the echo, hung-child, and cancel tests each hit the 30-second guard before the fix. They use real local processes (`cmd.exe`, `findstr.exe`, `ping.exe`). The focused CLI and session tests passed three more runs in a row.
+- `RunAsync_WhenChildHangsWithoutReadingStdin` proves the kill: the child's redirected file stays locked until the child is gone, and it can be deleted afterward.
+- L5 fixtures in the existing format: a file with no header lines re-renders byte for byte, and an old file with a header line in its notes still splits as before.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 1094, Failed 0, Skipped 0.
+- `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: succeeded, 0 errors, 196 warnings.
+- `git diff --check`: clean.
+- Size: 864 authored lines over five findings, of which 583 are tests. It exceeds the advisory per-task heuristic because each finding carries its own tests. Each commit stands alone.
+
+T4 decisions:
+- The closing `##` is valid Markdown for the same heading, so viewers still show it as a heading. The frontmatter key appears only when needed, so other meetings render unchanged and old files with a literal `## Summary ##` stay literal.
+- Exit 0 with undelivered input still throws an `IOException`, as it did. A summary from part of a prompt should not pass as a success.
+- A bare 401 means signed out, as in `XaiApiClient`. A bare 403 or a 400 with no OAuth error means retry, because a proxy can send those.
+- `XaiFailureKind.RequestFailed` is reused, so `XaiException.cs` needs no edit. No caller switches on the kind: Settings and the summary path show `exception.Message`, so the new message reaches the user with no App change.
+- Nothing clears stored credentials on a real rejection, as before. Settings keeps showing a signed-in account, and each call says to sign in again.
+- The legacy record loader became a delegate in the internal constructor, because `LegacyJsonMeetingRepository` reads the real `AppPaths` file and was outside this task's surface. Tests never touch the real path.
+
+T4 known gaps:
+- An old file already split by a header line stays split. That content was cut when the file was saved, and the brief required old files to parse the same way.
+- `SaveAsync` is not atomic. A crash partway through a migration write can leave a truncated meeting that parses, and a re-run skips it. The legacy data stays in the backup.
+- A file that cannot be read during a re-run counts as missing, so its legacy record is saved again as a second file.
+- Action item text is not escaped. Items are saved one per line and parsed line by line, so a newline inside one is the only way to reach this.
+- An expired refresh with a transient failure blocks the call even during the 120-second skew, when the old access token may still work.
+
+T4 runtime scenarios, all pending:
+- [ ] Type `## Summary` in Personal Notes, save, reopen, and restart: the notes are unchanged, and no Summary section appears.
+- [ ] Open a meeting saved before this change: it looks the same, and saving it again leaves the file unchanged.
+- [ ] Sign the Claude or Codex CLI out, then summarize a long meeting: the message says to sign in, not an unknown error.
+- [ ] Summarize a long meeting with a signed-in CLI: it works as before.
+- [ ] Disconnect the network with an expired SuperGrok token, then open Settings or summarize: the retry message appears, and it works once the network is back without signing in.
+- [ ] Revoke the SuperGrok session, then summarize: the "not signed in" message appears.
+- [ ] Sign out while a refresh is running: the account stays signed out after a restart.
+- [ ] With a `meetings.json` left by a failed migration, launch and edit a meeting, then launch again: the edit stays and a backup appears.
 
 ## Acceptance and checks
 - Each finding is fixed, or recorded here as not reproducible from the code with the reason.
@@ -170,6 +207,7 @@ T3 runtime scenarios, all pending:
 - T1 implemented in `cbce619`, `a90533c`, `4592e39`, `e176f3c`, and `a8075e8`. Runtime scenarios are pending.
 - T2 implemented in `9d4250c` and `f4a41d4`. Runtime scenarios are pending.
 - T3 implemented in `cc1c9a6`, `f034e18`, and `a40187e`. Runtime scenarios are pending.
+- T4 implemented in `bf689bb`, `c6d409a`, `018af10`, `12830b2`, and `4b1e5d7`. Runtime scenarios are pending.
 
 ## Next step
-T4.
+All tasks are implemented. Run the pending runtime scenarios, then choose the chain strategy for delivery. Push, pull request, and merge remain the user's decisions.
