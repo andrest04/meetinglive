@@ -29,15 +29,16 @@ All seven findings were real when re-read against the code. Boxes below mean bui
 - [x] F8 In-flight summary overwrites the next recording's notes, title, and calendar link (`RecordingPageViewModel.cs:1579`). Each `PipelineRun` holds its request and notes, and touches the page only while it owns the session. `cbce619`.
 - [x] F9 Persistence error leaves the app stuck in Processing (`RecordingPageViewModel.cs:1284`). Saves in the orchestrator's catch blocks are guarded, and every run has a terminal step queued behind its callbacks. `cbce619`.
 - [x] F10 `StopRecordingAsync` can run twice (`RecordingPageViewModel.cs:1823`). Stop and Discard pass through `RecordingSessionGate`; a second caller waits for the stop already running. `cbce619`.
-- [x] F11 Deleting a meeting during its pipeline crashes or resurrects it (`HistoryPageViewModel.cs:212`). A busy meeting is refused with a message, and a failed delete no longer crashes. `a90533c`.
-- [ ] F6 Closing the app during a recording abandons it (`App.xaml.cs:115`). Window close is fixed in `4592e39`. Reopened for one path: "Restart now" at `SettingsPage.xaml.cs:76` calls `AppInstance.Restart` with no guard, and that file is outside T1's authorized edit surface.
+- [x] F11 Deleting a meeting during its pipeline crashes or resurrects it (`HistoryPageViewModel.cs:212`). A busy meeting is refused with a message, and a failed delete no longer crashes (`a90533c`). The repository now deletes audio before Markdown, so a locked WAV leaves the meeting intact and the delete can be retried (`e176f3c`).
+- [x] F6 Closing the app during a recording abandons it (`App.xaml.cs:115`). Window close is fixed in `4592e39`. "Restart now" passes the same gate in `a8075e8`.
 - [x] L10 Import stays enabled while a recording starts (`RecordingPageViewModel.cs:1360`). Start and Import share the gate's Preparing phase. `cbce619`.
 
 T1 evidence:
 - Route: delegated direct, one writer. Trigger: several non-trivial files.
 - RED then GREEN for `RecordingSessionGate` and `RecordingPipelineRules`: 21 of 30 new tests failed against stubs, then all 30 passed.
 - App exception: `RecordingPipelineOrchestrator`, the view models, `HistoryPage`, and `App` cannot be hosted by the test project, so they rely on the build and the runtime scenarios below.
-- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 986, Failed 0, Skipped 0.
+- RED then GREEN for the locked WAV delete: with `FileShare.None` on the WAV, the Markdown was gone before the fix (`Assert.True` failed) and stays after it. Existing missing-WAV and already-gone tests still pass. `HistoryPageViewModel.DeleteAsync` is the only caller of the repository delete, and it already catches the `IOException`.
+- `dotnet test MeetingLive.Core.Tests/MeetingLive.Core.Tests.csproj`: Passed 987, Failed 0, Skipped 0.
 - `dotnet build MeetingLive.App/MeetingLive.App.csproj -p:Platform=x64`: succeeded, 0 errors, 196 warnings. Run at the tip only, not per commit.
 - `git diff --check`: clean.
 
@@ -49,8 +50,10 @@ T1 decisions:
 - `OnSavedWithoutTranscript` is a default interface method, so `MeetingRetranscriptionRunner` keeps its behavior without an edit.
 - Replacing the old `LastMeeting` check also lets a second recording in one app session appear on the Record page. The old check dropped its saves.
 
+- "Restart now" reuses the close confirmation. Choosing Keep recording cancels the restart, and the new language applies on the next launch.
+
 T1 known gaps:
-- `MarkdownMeetingRepository.DeleteAsync` removes the Markdown before the WAV, so a WAV held by another program still leaves the meeting half-deleted. The app now reports it. The file is outside T1's edit surface.
+- A meeting with two distinct audio files (its recorded path and a sibling WAV) can lose the first if the second is locked. The Markdown survives and the delete can be retried.
 - A closed process during Preparing can leave a partial import or a zero-length WAV. No meeting exists yet at that point.
 
 T1 runtime scenarios, all pending:
@@ -61,6 +64,7 @@ T1 runtime scenarios, all pending:
 - [ ] Start a second recording during the first one's summary: the first keeps its notes, the second keeps its title and calendar link.
 - [ ] Lose the output device mid-recording and press Stop at once: one meeting, processed once.
 - [ ] Delete a meeting during transcription: refused with the message, and it works once processing ends.
+- [ ] Change the language while recording, then Restart now: the close confirmation appears, Stop and save produces a meeting and restarts, and Keep recording cancels the restart.
 - [ ] Import stays disabled during the model load, and Record stays disabled during an import.
 
 ### T2 Audio capture (route: delegated; depends on T1 for UI wiring)
@@ -92,7 +96,7 @@ T1 runtime scenarios, all pending:
 
 ## Progress
 - Baseline branch created at `8f31586`.
-- T1 implemented in `cbce619`, `a90533c`, and `4592e39`. One open item: the language-restart path of F6. Runtime scenarios are pending.
+- T1 implemented in `cbce619`, `a90533c`, `4592e39`, `e176f3c`, and `a8075e8`. Runtime scenarios are pending.
 
 ## Next step
-Decide on the F6 restart guard in `MeetingLive.App/SettingsPage.xaml.cs`, then T2.
+T2.
