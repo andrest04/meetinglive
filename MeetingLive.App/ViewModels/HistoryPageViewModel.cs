@@ -207,10 +207,31 @@ public partial class HistoryPageViewModel : ObservableObject
         await LoadAsync();
     }
 
+    /// <summary>True while the recording or re-transcription pipeline may still write this meeting
+    /// or hold its audio open. Deleting then would fail on the open file or be undone by the next save.</summary>
+    public static bool IsMeetingBusy(Guid id) =>
+        AppServices.Recording.IsMeetingInUse(id)
+        || (AppServices.Retranscription.IsRunning && AppServices.Retranscription.MeetingId == id);
+
     public async Task DeleteAsync(Guid id)
     {
-        await _meetings.DeleteAsync(id);
-        AppServices.Workspace.NotifyDeleted(id);
+        if (IsMeetingBusy(id))
+        {
+            ShowStatus(AppStrings.Get("HistoryDelete_Busy"));
+            return;
+        }
+
+        try
+        {
+            await _meetings.DeleteAsync(id);
+            AppServices.Workspace.NotifyDeleted(id);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Another program can hold the audio open. The list reloads below to show what is left.
+            ShowStatus(AppStrings.Format("HistoryDelete_Failed", ex.Message));
+        }
+
         _restoreFolderId = _selectedFolderId;
         await LoadAsync();
         _restoreFolderId = null;

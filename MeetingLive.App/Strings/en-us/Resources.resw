@@ -608,4 +608,6 @@
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Searched the web</value></data>
   <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Saved with the live transcript. The final transcription failed: {0}</value></data>
   <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: The meeting keeps its audio, so you can retranscribe it. Transcription failed: {0}</value></data>
+  <data name="HistoryDelete_Busy" xml:space="preserve"><value>This meeting is still being recorded or processed. Try again when it finishes.</value></data>
+  <data name="HistoryDelete_Failed" xml:space="preserve"><value>The meeting could not be fully deleted: {0}</value></data>
 </root>

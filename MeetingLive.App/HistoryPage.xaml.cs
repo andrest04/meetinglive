@@ -119,6 +119,12 @@ public sealed partial class HistoryPage : Page
         if (sender is not FrameworkElement { Tag: Guid meetingId })
             return;
 
+        if (HistoryPageViewModel.IsMeetingBusy(meetingId))
+        {
+            ViewModel.ShowStatus(AppStrings.Get("HistoryDelete_Busy"));
+            return;
+        }
+
         var title = ViewModel.Meetings.FirstOrDefault(m => m.Id == meetingId)?.Title ?? string.Empty;
         var dialog = AppDialogFactory.CreateConfirm(
             XamlRoot,

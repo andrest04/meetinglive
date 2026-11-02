@@ -608,4 +608,6 @@
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Búsqueda en la web</value></data>
   <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Guardada con la transcripción en vivo. La transcripción final falló: {0}</value></data>
   <data name="Error_TranscriptionFailedAudioKept" xml:space="preserve"><value>Error: La reunión conserva su audio, así que puedes volver a transcribirla. La transcripción falló: {0}</value></data>
+  <data name="HistoryDelete_Busy" xml:space="preserve"><value>Esta reunión todavía se está grabando o procesando. Inténtalo de nuevo cuando termine.</value></data>
+  <data name="HistoryDelete_Failed" xml:space="preserve"><value>No se pudo eliminar la reunión por completo: {0}</value></data>
 </root>
