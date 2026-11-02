@@ -66,22 +66,24 @@ public sealed class CliProcessRunner : ICliProcessRunner
             throw new FileNotFoundException($"The executable '{fileName}' was not found.", fileName, ex);
         }
 
-        if (stdin is not null)
-        {
-            await process.StandardInput.WriteAsync(stdin);
-            process.StandardInput.Close();
-        }
-
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        // All pipes run at once: a child can block writing output until someone reads it, and it
+        // can stop reading a prompt far larger than the pipe buffer. The timeout covers all of them.
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(linkedCts.Token);
+        var stderrTask = process.StandardError.ReadToEndAsync(linkedCts.Token);
+        var stdinTask = stdin is null
+            ? Task.FromResult(true)
+            : WriteStdinAsync(process.StandardInput, stdin, linkedCts.Token);
+        var completion = Task.WhenAll(stdoutTask, stderrTask, stdinTask, process.WaitForExitAsync(linkedCts.Token));
 
         try
         {
-            await process.WaitForExitAsync(linkedCts.Token);
+            // WaitAsync returns at the deadline even if a blocked pipe call ignores its token.
+            await completion.WaitAsync(linkedCts.Token);
         }
         catch (OperationCanceledException)
         {
             TryKill(process);
+            _ = completion.ContinueWith(static task => _ = task.Exception, TaskScheduler.Default);
 
             if (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 throw new TimeoutException($"'{fileName}' did not exit within {timeout}.");
@@ -89,10 +91,45 @@ public sealed class CliProcessRunner : ICliProcessRunner
             throw;
         }
 
-        var standardOutput = await stdoutTask;
-        var standardError = await stderrTask;
+        // A failing child reports through its exit code and stderr. Exit 0 with a prompt it did
+        // not take in fully is not a success: its output may answer only part of the prompt.
+        if (!await stdinTask && process.ExitCode == 0)
+            throw new IOException($"'{fileName}' exited before reading all of its input.");
 
-        return new CliProcessResult(process.ExitCode, standardOutput, standardError);
+        return new CliProcessResult(process.ExitCode, await stdoutTask, await stderrTask);
+    }
+
+    /// <summary>Returns whether the whole input was delivered. A pipe the child closed is an
+    /// outcome here, not an error, so the child's own exit code and stderr can explain it.</summary>
+    private static async Task<bool> WriteStdinAsync(StreamWriter writer, string stdin, CancellationToken cancellationToken)
+    {
+        bool delivered;
+        try
+        {
+            await writer.WriteAsync(stdin.AsMemory(), cancellationToken);
+            await writer.FlushAsync(cancellationToken);
+            delivered = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // The caller kills the child. Closing here could block on a full pipe.
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+            delivered = false;
+        }
+
+        try
+        {
+            writer.Close();
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+            delivered = false;
+        }
+
+        return delivered;
     }
 
     private static void TryKill(Process process)
