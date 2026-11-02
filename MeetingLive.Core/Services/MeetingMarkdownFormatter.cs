@@ -28,6 +28,16 @@ internal static class MeetingMarkdownFormatter
     /// </summary>
     internal const string AttendeeSeparator = " | ";
 
+    /// <summary>
+    /// Frontmatter key written only when a text section holds a line equal to a section header.
+    /// Those lines are saved with a closing <see cref="HeaderEscapeSuffix"/>, which is valid
+    /// Markdown for the same heading, so only real section headers match exactly. Files without
+    /// the key are read literally, so every file written before it existed parses as it did.
+    /// </summary>
+    private const string HeaderEscapingKey = "headerEscaping";
+
+    private const string HeaderEscapeSuffix = " ##";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Renders a <see cref="MeetingRecord"/> as the frontmatter + sections
@@ -54,20 +64,23 @@ internal static class MeetingMarkdownFormatter
         AppendOptional(sb, "noteTemplateId", record.NoteTemplateId);
         if (record.Attendees.Count > 0)
             sb.Append("attendees: ").Append(string.Join(AttendeeSeparator, record.Attendees.Select(FrontmatterValue))).Append('\n');
+        var escapeHeaders = HoldsSectionHeaderLine(record);
+        if (escapeHeaders)
+            sb.Append(HeaderEscapingKey).Append(": 1\n");
         sb.Append("---\n");
 
-        AppendSection(sb, BriefHeader, record.Brief);
+        AppendSection(sb, BriefHeader, record.Brief, escapeHeaders);
 
         if (!string.IsNullOrEmpty(record.Transcript))
         {
             sb.Append('\n').Append(TranscriptHeader).Append('\n').Append('\n');
-            sb.Append(record.Transcript.Trim()).Append('\n');
+            sb.Append(SectionBody(record.Transcript, escapeHeaders)).Append('\n');
         }
 
         if (!string.IsNullOrEmpty(record.Summary))
         {
             sb.Append('\n').Append(SummaryHeader).Append('\n').Append('\n');
-            sb.Append(record.Summary.Trim()).Append('\n');
+            sb.Append(SectionBody(record.Summary, escapeHeaders)).Append('\n');
         }
 
         if (record.ActionItems.Count > 0)
@@ -85,11 +98,11 @@ internal static class MeetingMarkdownFormatter
         if (!string.IsNullOrEmpty(record.Notes))
         {
             sb.Append('\n').Append(PersonalNotesHeader).Append('\n').Append('\n');
-            sb.Append(record.Notes.Trim()).Append('\n');
+            sb.Append(SectionBody(record.Notes, escapeHeaders)).Append('\n');
         }
 
-        AppendSection(sb, FollowUpHeader, record.FollowUp);
-        AppendSection(sb, ProjectPlanHeader, record.ProjectPlan);
+        AppendSection(sb, FollowUpHeader, record.FollowUp, escapeHeaders);
+        AppendSection(sb, ProjectPlanHeader, record.ProjectPlan, escapeHeaders);
 
         return sb.ToString();
     }
@@ -156,14 +169,21 @@ internal static class MeetingMarkdownFormatter
             ? ParseAttendees(attendeesText)
             : [];
 
-        var transcript = ExtractSection(lines, bodyStart, TranscriptHeader);
-        var summary = ExtractSection(lines, bodyStart, SummaryHeader);
+        var escapedHeaders = frontmatter.ContainsKey(HeaderEscapingKey);
+        string? TextSection(string header)
+        {
+            var body = ExtractSection(lines, bodyStart, header);
+            return escapedHeaders ? UnescapeHeaderLines(body) : body;
+        }
+
+        var transcript = TextSection(TranscriptHeader);
+        var summary = TextSection(SummaryHeader);
         var actionItemsBody = ExtractSection(lines, bodyStart, ActionItemsHeader);
         var actionItems = actionItemsBody is null ? [] : ActionItemParser.Parse(actionItemsBody);
-        var notes = ExtractSection(lines, bodyStart, PersonalNotesHeader);
-        var brief = ExtractSection(lines, bodyStart, BriefHeader);
-        var followUp = ExtractSection(lines, bodyStart, FollowUpHeader);
-        var projectPlan = ExtractSection(lines, bodyStart, ProjectPlanHeader);
+        var notes = TextSection(PersonalNotesHeader);
+        var brief = TextSection(BriefHeader);
+        var followUp = TextSection(FollowUpHeader);
+        var projectPlan = TextSection(ProjectPlanHeader);
         var jevBody = ExtractSection(lines, bodyStart, JevHeader);
         MeetingJevAnalysis? jevAnalysis = null;
         if (jevBody is not null)
@@ -205,14 +225,50 @@ internal static class MeetingMarkdownFormatter
         };
     }
 
-    private static void AppendSection(StringBuilder sb, string header, string? body)
+    private static void AppendSection(StringBuilder sb, string header, string? body, bool escapeHeaders)
     {
         if (string.IsNullOrWhiteSpace(body))
             return;
 
         sb.Append('\n').Append(header).Append('\n').Append('\n');
-        sb.Append(body.Trim()).Append('\n');
+        sb.Append(SectionBody(body, escapeHeaders)).Append('\n');
     }
+
+    private static string SectionBody(string body, bool escapeHeaders)
+    {
+        var trimmed = body.Trim();
+        return escapeHeaders ? EscapeHeaderLines(trimmed) : trimmed;
+    }
+
+    private static bool HoldsSectionHeaderLine(MeetingRecord record)
+    {
+        string?[] bodies = [record.Brief, record.Transcript, record.Summary, record.Notes, record.FollowUp, record.ProjectPlan];
+        return bodies.Any(body => body is not null && SplitLines(body.Trim()).Any(IsMeetingSectionHeader));
+    }
+
+    /// <summary>Adds one closing suffix to every header line and to every line that already looks
+    /// escaped, so <see cref="UnescapeHeaderLines"/> gets the original back in all cases.</summary>
+    private static string EscapeHeaderLines(string body) =>
+        string.Join('\n', SplitLines(body).Select(line => IsEscapableHeaderLine(line) ? line + HeaderEscapeSuffix : line));
+
+    private static string? UnescapeHeaderLines(string? body) =>
+        body is null
+            ? null
+            : string.Join('\n', SplitLines(body).Select(line =>
+                line.EndsWith(HeaderEscapeSuffix, StringComparison.Ordinal) && IsEscapableHeaderLine(line)
+                    ? line[..^HeaderEscapeSuffix.Length]
+                    : line));
+
+    private static bool IsEscapableHeaderLine(string line)
+    {
+        var bare = line;
+        while (bare.EndsWith(HeaderEscapeSuffix, StringComparison.Ordinal))
+            bare = bare[..^HeaderEscapeSuffix.Length];
+
+        return IsMeetingSectionHeader(bare);
+    }
+
+    private static string[] SplitLines(string text) => text.Replace("\r\n", "\n").Split('\n');
 
     private static void AppendOptional(StringBuilder sb, string key, string? value)
     {
