@@ -19,7 +19,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
     /// unloaded while they are still running. Keep one load per runtime bin for the
     /// process lifetime — never <see cref="NativeLibrary.Free"/>.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, Lazy<NemoSpeechNativeLibrary>> Loaded = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly NativeLibraryLoadCache<NemoSpeechNativeLibrary> Loaded = new();
 
     private readonly NativeLibraryHandle _libraryHandle;
     private readonly CreateDelegate _create;
@@ -68,12 +68,7 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
 
     public static NemoSpeechNativeLibrary Load(string runtimeBinDirectory)
     {
-        var key = Path.GetFullPath(runtimeBinDirectory);
-        return Loaded.GetOrAdd(
-            key,
-            dir => new Lazy<NemoSpeechNativeLibrary>(
-                () => LoadNew(dir),
-                LazyThreadSafetyMode.ExecutionAndPublication)).Value;
+        return Loaded.GetOrLoad(Path.GetFullPath(runtimeBinDirectory), LoadNew);
     }
 
     private static NemoSpeechNativeLibrary LoadNew(string runtimeBinDirectory)
@@ -473,4 +468,32 @@ internal sealed class NemoSpeechNativeLibrary : IDisposable
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate IntPtr LastErrorDelegate();
+}
+
+/// <summary>
+/// Process-lifetime cache of loaded native libraries. A successful load is kept for the
+/// process; a failed one caches nothing, so the next caller tries again after the user
+/// fixes a missing dependency or a scanner releases the file. Loads run one at a time
+/// across all keys because each one changes the process-wide DLL search path.
+/// </summary>
+internal sealed class NativeLibraryLoadCache<T> where T : class
+{
+    private readonly ConcurrentDictionary<string, T> _loaded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _loadGate = new();
+
+    public T GetOrLoad(string directory, Func<string, T> load)
+    {
+        if (_loaded.TryGetValue(directory, out var cached))
+            return cached;
+
+        lock (_loadGate)
+        {
+            if (_loaded.TryGetValue(directory, out cached))
+                return cached;
+
+            var library = load(directory);
+            _loaded[directory] = library;
+            return library;
+        }
+    }
 }
