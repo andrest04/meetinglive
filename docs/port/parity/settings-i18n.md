@@ -342,3 +342,15 @@ Third audit:
 - Row 22 stays `pending-real-validation`: a real relaunch has not been observed. Driving it needs a launcher outside the Playwright process in an unattended run; not attempted.
 - Rejected: all four models carrying `Recommended` is the hardware fit rating, true on a 16 GB machine and informative on a smaller one. The `API key saved.` bar is the transient confirmation the C# page shows after saving and closes itself after 4 s. The em dash in the English `Settings_SummaryModels.Description` and `Status_CliMissing` comes from the C# resource strings reused as is; changing them would break the converter parity check. `Ui_` names for 114 (log level `error` for a missing key) differ from the spec wording only in severity; no behavior depends on it. Unlocalized refresh error text is what spec 2.5 asks for. The generic `settings.update` channel accepting any value stays as recorded (reads are strict). Bug 13 stays as recorded: an out of list value shows and is passed on as saved.
 - 75 stays `pending-xai-module`: the shipped build has no SuperGrok sign in; the renderer path is now tested with a double.
+
+## Audit round 4 decisions
+
+Fixed with tests: item 36 (PATHEXT is split on `;` with no filter, so an empty or trailing-`;` value also tries the plain name, as C# does); item 13 (option order, tags and identical labels in both locales asserted; stale doc comment fixed); item 46 (blank and whitespace values for model, effort and provider); item 31 (the provider radio moves at once and snaps back if the save is refused); items 28/33/38 (card description text and the Grok block below the radios asserted).
+
+Rejected or deferred, with reason:
+- Item 22 relaunch and exit gates: a real second process cannot be observed in an unattended run; stays pending-real-validation. No production module registers an exit gate yet (recording owns that).
+- Item 75 and the OAuth halves of 61/62/64: SuperGrok device-code sign in and token refresh belong to the xai module; the button stays hidden by decision (row 60).
+- Bug 19 TypeSafe copy, item 124 slots, item 126 note-template port: owned by the jev-typesafe, recording, calendar-detection and notes modules.
+- Item 117 progress-bar names and item 118 key cross-check breadth: the Ui_*Name keys are consumed by the owning modules; the speaker bar is not drawn here. Left as recorded.
+- Row 12 is stale only in wording; behavior is asserted.
+- Design notes (gap-8 spacing, em dash in a reused key, Ui_SettingsSaveFailed wording on refresh failure): follow the document-column direction; reused keys are not new copy.

@@ -6,7 +6,7 @@ export type UiLanguageTag = (typeof UI_LANGUAGE_TAGS)[number];
 
 /**
  * The picker options, in order. Labels are endonyms: they never change with the UI language, so
- * they are spelled here and not looked up (spec 2.1). `labelKey` names the matching catalog key.
+ * each `labelKey` names a catalog key whose text is the same in every locale (spec 2.1).
  */
 export const UI_LANGUAGE_OPTIONS: readonly {
   readonly tag: UiLanguageTag;

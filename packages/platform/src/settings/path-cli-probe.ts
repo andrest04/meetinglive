@@ -31,9 +31,7 @@ export class PathCliProbe implements CliPathProbe {
     const windows = platform === 'win32';
     const separator = this.options.pathSeparator ?? (windows ? ';' : ':');
     const pathValue = windows ? (env.PATH ?? env.Path ?? '') : (env.PATH ?? '');
-    const extensions = windows
-      ? (env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').filter((ext) => ext !== '')
-      : [''];
+    const extensions = windows ? (env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';') : [''];
     for (const dir of pathValue.split(separator)) {
       if (dir.trim() === '') continue;
       for (const ext of extensions) {

@@ -45,6 +45,26 @@ describe('PathCliProbe (spec 2.2)', () => {
     expect(await probe.isOnPath('claude')).toBe(false);
   });
 
+  it('Windows: an empty PATHEXT or a trailing ; also tries the plain name, as C# does (item 36)', async () => {
+    touch('bin', 'claude');
+    const bin = path.join(dir, 'bin');
+    expect(
+      await new PathCliProbe({ platform: 'win32', env: { PATH: bin, PATHEXT: '' } }).isOnPath(
+        'claude',
+      ),
+    ).toBe(true);
+    expect(
+      await new PathCliProbe({ platform: 'win32', env: { PATH: bin, PATHEXT: '.EXE;' } }).isOnPath(
+        'claude',
+      ),
+    ).toBe(true);
+    expect(
+      await new PathCliProbe({ platform: 'win32', env: { PATH: bin, PATHEXT: '.EXE' } }).isOnPath(
+        'claude',
+      ),
+    ).toBe(false);
+  });
+
   it('skips blank PATH entries and a missing PATH', async () => {
     touch('bin', 'claude.exe');
     const sep = ';';

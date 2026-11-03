@@ -5,6 +5,7 @@ import {
   matchPrimarySubtag,
   resolveCulture,
   resolveUiLanguage,
+  UI_LANGUAGE_OPTIONS,
 } from './ui-language';
 
 describe('resolveCulture', () => {
@@ -97,5 +98,14 @@ describe('locale of a tag', () => {
     expect(catalogLocaleFor('es_MX')).toBe('es');
     expect(catalogLocaleFor('fr')).toBeNull();
     expect(catalogLocaleFor(null)).toBeNull();
+  });
+});
+
+describe('UI_LANGUAGE_OPTIONS (item 13)', () => {
+  it('has exactly en-US then es, with the same label key in both locales', () => {
+    expect(UI_LANGUAGE_OPTIONS.map((o) => [o.tag, o.locale, o.labelKey])).toEqual([
+      ['en-US', 'en', 'Settings_LanguageEnglish'],
+      ['es', 'es', 'Settings_LanguageSpanish'],
+    ]);
   });
 });

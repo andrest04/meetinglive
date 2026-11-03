@@ -772,6 +772,41 @@ describe('Settings page', () => {
     expect(screen.queryByText(/No se encontró/)).toBeNull();
   });
 
+  it('moves the radio before the save and reload answer (31)', async () => {
+    let releaseSave: (value: unknown) => void = () => undefined;
+    install({
+      'settings.getPage': () => pageDto({ provider: 'Local' }),
+      'settings.setSummaryProvider': () =>
+        new Promise((resolve) => {
+          releaseSave = resolve;
+        }),
+    });
+    mount();
+    expect(await screen.findByRole('radio', { name: /Local/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: /Codex/ }));
+    expect(screen.getByRole('radio', { name: /Codex/ })).toBeChecked();
+    await act(async () => {
+      releaseSave({ status: 'saved', settings: {}, feedback: null });
+      await Promise.resolve();
+    });
+  });
+
+  it('shows the card description and, for Grok, its own block below the radios (33, 38)', async () => {
+    install({
+      'settings.getPage': () => pageDto({ provider: 'Xai', capabilities: allOn }),
+      'settings.xai.refresh': () => xai(),
+    });
+    mount();
+    const radios = await screen.findByRole('radiogroup');
+    expect(
+      screen.getByText(
+        'Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI. Grok (xAI) signs in with SuperGrok or an API key.',
+      ),
+    ).toBeInTheDocument();
+    const status = await screen.findByText('Not signed in');
+    expect(radios.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('draws only the block of the chosen provider (38)', async () => {
     for (const [provider, expected] of [
       ['Local', { claude: false, codex: false, local: true, status: false }],

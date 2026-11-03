@@ -168,6 +168,14 @@ describe('format specifiers (item 109, 110)', () => {
   });
 });
 
+describe('language picker labels are endonyms (item 13)', () => {
+  it('read English and Español in both UI languages', () => {
+    for (const catalog of [en, es] as Record<string, string>[]) {
+      expect(UI_LANGUAGE_OPTIONS.map((o) => catalog[o.labelKey])).toEqual(['English', 'Español']);
+    }
+  });
+});
+
 describe('keys the settings domain points at (item 116, 118)', () => {
   const keys = [
     ...UI_LANGUAGE_OPTIONS.map((o) => o.labelKey),

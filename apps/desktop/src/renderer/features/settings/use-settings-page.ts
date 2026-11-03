@@ -186,6 +186,10 @@ export function useSettingsPage(): SettingsPageModel {
 
   const setProvider = useCallback(
     async (kind: string): Promise<void> => {
+      // The radio moves at once; `commit` puts it back to what is saved if the save is refused.
+      setPage((current) =>
+        current ? { ...current, provider: kind as typeof current.provider } : current,
+      );
       const outcome = await commit(window.vozella.invoke('settings.setSummaryProvider', { kind }));
       if (outcome?.status === 'saved' && kind === 'Xai') await refreshXai();
     },

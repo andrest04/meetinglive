@@ -105,6 +105,23 @@ describe('resolvers', () => {
     expect(resolveClaudeModelId({ ...defaults, selectedClaudeModelId: 'opus' })).toBe('opus');
   });
 
+  it('stored blank or whitespace values resolve to the defaults (item 46)', () => {
+    for (const blankValue of ['', '  ']) {
+      expect(resolveClaudeModelId({ ...defaults, selectedClaudeModelId: blankValue })).toBe(
+        'sonnet',
+      );
+      expect(resolveClaudeEffort({ ...defaults, selectedClaudeEffort: blankValue })).toBe('low');
+      expect(resolveCodexModelId({ ...defaults, selectedCodexModelId: blankValue })).toBe(
+        'gpt-5.6',
+      );
+      expect(resolveCodexEffort({ ...defaults, selectedCodexEffort: blankValue })).toBe('low');
+      expect(resolveXaiEffort({ ...defaults, selectedXaiEffort: blankValue })).toBe('low');
+      expect(resolveSummaryProviderKind({ ...defaults, selectedSummaryProvider: blankValue })).toBe(
+        'Local',
+      );
+    }
+  });
+
   it('summary provider parses case-sensitively and defaults to Local', () => {
     const p = (value: string | null) =>
       resolveSummaryProviderKind({ ...defaults, selectedSummaryProvider: value });
