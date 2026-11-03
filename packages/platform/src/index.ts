@@ -37,3 +37,4 @@ export * from './transcription/wav-frame-reader';
 export * from './transcription/zip-extractor';
 export * from './fakes/fake-asr-engine';
 export * from './fakes/fake-engine-stores';
+export * from './summaries/cli-process-runner';

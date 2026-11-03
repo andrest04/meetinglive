@@ -26,6 +26,11 @@ export class PathCliProbe implements CliPathProbe {
   constructor(private readonly options: PathCliProbeOptions = {}) {}
 
   async isOnPath(executable: string): Promise<boolean> {
+    return (await this.resolve(executable)) !== null;
+  }
+
+  /** The full path of the first match on PATH, or null. The runner launches this path (B11). */
+  async resolve(executable: string): Promise<string | null> {
     const env = this.options.env ?? process.env;
     const platform = this.options.platform ?? process.platform;
     const windows = platform === 'win32';
@@ -35,9 +40,10 @@ export class PathCliProbe implements CliPathProbe {
     for (const dir of pathValue.split(separator)) {
       if (dir.trim() === '') continue;
       for (const ext of extensions) {
-        if (await isFile(nodePath.join(dir, executable + ext))) return true;
+        const candidate = nodePath.join(dir, executable + ext);
+        if (await isFile(candidate)) return candidate;
       }
     }
-    return false;
+    return null;
   }
 }

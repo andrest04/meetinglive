@@ -19,6 +19,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | CLI argv builders, B30 validation, legacy string form (S04) | `packages/core/src/summaries/cli-invocation.ts` |
 | CLI provider base, Claude Code and Codex providers, web-search factories (S04) | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts` |
 | `FakeCliProcessRunner` test double (S04) | `packages/core/src/summaries/test-kit.ts` (not exported from the index) |
+| Node CLI process runner, `.cmd` wrapper, tree kill (S05) | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts` |
+| PATH lookup with `resolve()` (S05, shared with Settings) | `packages/platform/src/settings/path-cli-probe.ts` |
 | Catalog key parity test (S03) | `apps/desktop/src/main/summary-failure-catalog.test.ts` |
 
 ## Decisions
@@ -42,6 +44,10 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **B31 kept for parity (S04).** Five minute timeout (`CLI_TIMEOUT_MS`) and the whole transcript in one prompt; no chunking for CLI providers, per spec. The timeout is injectable through `timeoutMs`. Very long meetings can still time out and show the TimedOut message.
 - **Web search only by factory (S04, item 71).** `createClaudeCodeProvider` and `createCodexProvider` never add search. `create...WebSearchProvider` is for the live-answer path only. Summaries, titles and prompts use the plain ones.
 - **Stdin encoding (S04).** The provider passes the prompt as a string; S05's runner must write it as UTF-8 without a BOM (item 58, B24).
+- **One PATH lookup (S05).** `PathCliProbe.resolve()` returns the full path and `isOnPath` is `resolve() !== null`; the runner and Settings share it.
+- **Runner takes the S03 port shape (S05).** `NodeCliProcessRunner.run(file, args, stdin, timeoutMs, cancel)`, positional as `CliProcessRunner` defines it. `file` is a bare name resolved on PATH.
+- **cmd.exe wrapper (S05, B11).** A resolved `.cmd`/`.bat` is launched as `cmd.exe /d /s /c "<quoted list>"` with verbatim arguments. An argument containing `"`, `%`, CR, LF or NUL is refused instead of escaped, because cmd.exe cannot escape them safely. The prompt is on stdin only.
+- **Fake CLI (S05).** Tests use a Node script launched through a generated `.cmd` shim and through a copy of `node.exe` as the plain `.exe`, written under `VOZELLA_DATA_ROOT`. No real claude or codex is run.
 - **Part and merge prompts (S01)** take the English language name (`toEnglishLanguageName`), as `BuildPartPrompt` and `BuildMergePrompt` do, and are used by S10.
 
 ## Parity items
@@ -117,6 +123,21 @@ Contract: both providers run `describeSummaryProviderContract`. Ported tests: Cl
 
 Pending-real-validation: S04 ran only against `FakeCliProcessRunner`. The real `claude` and `codex` flags (`--effort`, `--tools`, `--allowedTools`, `--search`, `-c model_reasoning_effort`) were not run against the installed CLIs.
 
+### CLI process runner (S05)
+
+| # | Item | Status | Notes |
+| --- | --- | --- | --- |
+| 58 | Stdin written as UTF-8 bytes, no BOM, flushed and closed | done | First bytes checked on the fake child. |
+| 63 | `isOnPath`: PATH split, blank entries skipped, PATHEXT default `.EXE;.CMD;.BAT` | done | Shared `PathCliProbe`. |
+| 64 | `resolveExecutable` returns the full path | improved | New `resolve()`; the resolved path is what is launched (B11). |
+| 65 | Stdout, stderr, stdin write and exit awaited together under one deadline | done | 4 MB prompt echoed back, no deadlock. |
+| 66 | Closed stdin is "not delivered"; success with undelivered stdin throws, non-zero returns | done | Node reports the closed pipe as an EOF error in the end callback, which counts as not delivered. |
+| 67 | Spawn ENOENT becomes a not found error (`code` kept) | done | Classified NotInstalled. |
+| 68 | Timeout kills the tree and throws `CliTimeoutError` | done | `taskkill /T /F` on Windows, process group elsewhere. Pid asserted gone, also for a `.cmd`. |
+| 69 | Cancellation kills the tree and rethrows `CancelledError` | done | Also while stdin is blocked. |
+
+Real `claude` and `codex` invocation: pending-real-validation.
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -126,6 +147,8 @@ Pending-real-validation: S04 ran only against `FakeCliProcessRunner`. The real `
 - **B10** (S02): Spanish auto titles (`Reunión {0}`) are placeholders when the catalog formats are supplied, so they are renamed on summarize.
 - **B27** (S01): headings are keyed by language code, unknown codes fall back to Spanish on purpose and this is documented and tested against `SUMMARY_LANGUAGES`.
 - **B30** (S04): model and effort are validated and passed as separate argv items; no shell string is ever built.
+- **B11** (S05): the resolved path is launched; `.cmd`/`.bat` go through an explicit cmd.exe wrapper with quoted arguments and no user text in a shell string.
+- **B24** (S05): stdin is UTF-8 with no byte order mark, tested on the fake child.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -135,6 +158,7 @@ Pending-real-validation: S04 ran only against `FakeCliProcessRunner`. The real `
 - S10 and S11 throw `SummaryError` (`LocalModelMissing`, `LocalEmpty`, `NotesTooLong`, `TranscriptTooLong` with `[parts, 64]`, `CannotCondense`) instead of English messages. S13 and S14 show failures with `formatFailure`.
 - Pending-real-validation: none for S03; the classification keyword lists were not checked against real CLI output.
 - S05's runner must accept an argv array, write stdin as UTF-8 without BOM, and implement `isOnPath` and the launch of the resolved path (B11). S12 builds providers with `createClaudeCodeProvider` and `createCodexProvider` from the resolved model and effort. The live-answer path (chat module) uses the `...WebSearchProvider` factories. S13 shows `InvalidCliOptionError` text as a plain error.
+- S12 builds `new NodeCliProcessRunner()` (exported from `@vozella/platform`) and gives it to the CLI providers; S19's CLI check can use `isOnPath`. Real CLI flags and a real `.cmd` install of claude/codex stay pending-real-validation.
 - Token budgeting that uses the part and merge prompts: S10.
 
 ## Dropped by the owner
