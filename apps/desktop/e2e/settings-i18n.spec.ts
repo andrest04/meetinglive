@@ -15,10 +15,11 @@ test('the settings page services work in the real app, on a throwaway data root'
       provider: 'Local',
       transcriptionLanguage: 'es',
       summaryLanguage: 'es',
-      // The fake native build supplies the machine, the CLI, the downloads and the account.
+      // The fake native build supplies the machine, the CLI, and the downloads.
       hardware: { totalRamGb: 16 },
       cliStatus: null,
-      capabilities: { xaiAccount: true, xaiSignIn: false, localModels: true },
+      capabilities: { localModels: true },
+      providerNotice: null,
     });
     // Opening the page wrote nothing.
     expect(fs.existsSync(path.join(launched.dataRoot, 'app', 'settings.json'))).toBe(false);
@@ -75,14 +76,17 @@ test('the settings page services work in the real app, on a throwaway data root'
       ),
     ).toEqual({ status: 'ignored', reason: 'unknown-model' });
 
-    // The xAI double: save a key, see models, sign out. No network, no real account.
-    const saved = await page.evaluate(() =>
-      window.vozella.invoke('settings.xai.saveApiKey', { key: 'not-a-real-key' }),
+    // The xAI channels were removed (owner decision 2026-11-03).
+    const xaiAnswer = await page.evaluate(() =>
+      (window.vozella.invoke as (name: string, input: unknown) => Promise<unknown>)(
+        'settings.xai.refresh',
+        {},
+      ).then(
+        () => 'answered',
+        () => 'refused',
+      ),
     );
-    expect(saved).toMatchObject({ status: 'saved', view: { signedIn: true } });
-    expect(await page.evaluate(() => window.vozella.invoke('settings.xai.signIn', {}))).toEqual({
-      status: 'unavailable',
-    });
+    expect(xaiAnswer).toBe('refused');
 
     // Restart is asked through the exit gate; nothing is registered, so it would relaunch.
     // The relaunch itself is not exercised here.
@@ -111,6 +115,38 @@ test('a damaged settings file gives defaults and a notice that names where it wa
     expect(
       (await page.evaluate(() => window.vozella.invoke('settings.getPage', {}))).notices,
     ).toEqual([]);
+  } finally {
+    await launched.close();
+    fs.rmSync(dataRoot, { recursive: true, force: true });
+  }
+});
+
+test('a settings file that still selects Xai loads, shows the notice and keeps its fields', async () => {
+  const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vozella-e2e-xai-'));
+  fs.mkdirSync(path.join(dataRoot, 'app'), { recursive: true });
+  const file = path.join(dataRoot, 'app', 'settings.json');
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      selectedSummaryProvider: 'Xai',
+      selectedXaiModelId: 'grok-4.3',
+      futureField: true,
+    }),
+  );
+  const launched = await launchApp({ VOZELLA_DATA_ROOT: dataRoot });
+  try {
+    const page = await launched.app.firstWindow();
+    await expect(page.getByRole('navigation', { name: /main|principal/i })).toBeVisible();
+    const view = await page.evaluate(() => window.vozella.invoke('settings.getPage', {}));
+    expect(view).toMatchObject({ provider: 'Xai', providerNotice: 'xai-removed' });
+    await page.evaluate(() =>
+      window.vozella.invoke('settings.setSummaryProvider', { kind: 'Codex' }),
+    );
+    expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toMatchObject({
+      selectedSummaryProvider: 'Codex',
+      selectedXaiModelId: 'grok-4.3',
+      futureField: true,
+    });
   } finally {
     await launched.close();
     fs.rmSync(dataRoot, { recursive: true, force: true });

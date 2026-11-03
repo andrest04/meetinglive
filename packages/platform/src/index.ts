@@ -26,7 +26,6 @@ export * from './library/library-runtime';
 export * from './fakes/fake-settings-ports';
 export * from './settings/download-to-file';
 export * from './settings/file-local-model-store';
-export * from './settings/file-xai-account';
 export * from './settings/path-cli-probe';
 export * from './settings/settings-runtime';
 export * from './settings/system-hardware-probe';

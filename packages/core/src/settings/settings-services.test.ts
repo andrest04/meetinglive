@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CancelSignal } from '../cancel';
-import { InMemorySettingsStore, type AppSettings, type SettingsStore } from '../library';
+import { InMemorySettingsStore, type SettingsStore } from '../library';
 import { SettingsCommands } from './commands';
 import { LocalModelsService, type ModelEvent } from './local-models';
-import type { LocalModelStore, XaiAccountPort, XaiCredentialKind } from './ports';
+import type { LocalModelStore } from './ports';
 import { SUMMARY_MODELS, type SummaryModelInfo } from './summary-models';
-import { XaiAccountService } from './xai-account';
 
 const first = SUMMARY_MODELS[1]!;
 const second = SUMMARY_MODELS[2]!;
@@ -29,11 +28,19 @@ describe('SettingsCommands: summary provider', () => {
   it('selecting the current provider is a no-op, Local being the default', async () => {
     const { commands: c } = commands();
     expect(await c.setSummaryProvider('Local')).toEqual({ status: 'ignored', reason: 'unchanged' });
-    await c.setSummaryProvider('Xai');
-    expect(await c.setSummaryProvider('Xai')).toEqual({ status: 'ignored', reason: 'unchanged' });
   });
 
-  it('B2: only the four exact names are accepted', async () => {
+  it('refuses the removed Xai provider and keeps what is saved', async () => {
+    const { store, commands: c } = commands();
+    expect(await c.setSummaryProvider('Xai')).toEqual({ status: 'ignored', reason: 'invalid' });
+    expect((await store.load()).selectedSummaryProvider).toBeNull();
+    await store.update({ selectedSummaryProvider: 'Xai' });
+    expect(await c.setSummaryProvider('Xai')).toEqual({ status: 'ignored', reason: 'invalid' });
+    expect((await store.load()).selectedSummaryProvider).toBe('Xai');
+    expect(await c.setSummaryProvider('Codex')).toMatchObject({ status: 'saved' });
+  });
+
+  it('B2: only the three available exact names are accepted', async () => {
     const { store, commands: c } = commands();
     for (const bad of ['codex', '1', '99', ' Codex', '', 'Local ']) {
       expect(await c.setSummaryProvider(bad)).toEqual({ status: 'ignored', reason: 'invalid' });
@@ -42,7 +49,7 @@ describe('SettingsCommands: summary provider', () => {
   });
 });
 
-describe('SettingsCommands: Claude, Codex and xAI options', () => {
+describe('SettingsCommands: Claude and Codex options', () => {
   it('saves one field and answers with the feedback line', async () => {
     const { store, commands: c } = commands();
     const result = await c.setCliOption({ provider: 'claude', field: 'model', value: 'opus' });
@@ -72,31 +79,12 @@ describe('SettingsCommands: Claude, Codex and xAI options', () => {
     expect(await set('max')).toMatchObject({ status: 'saved' });
   });
 
-  it('max is a Claude effort but not a Codex or xAI one', async () => {
+  it('max is a Claude effort but not a Codex one', async () => {
     const { commands: c } = commands();
     expect(await c.setCliOption({ provider: 'codex', field: 'effort', value: 'max' })).toEqual({
       status: 'ignored',
       reason: 'invalid',
     });
-    expect(await c.setCliOption({ provider: 'xai', field: 'effort', value: 'max' })).toEqual({
-      status: 'ignored',
-      reason: 'invalid',
-    });
-    expect(await c.setCliOption({ provider: 'xai', field: 'effort', value: 'none' })).toMatchObject(
-      { status: 'saved' },
-    );
-  });
-
-  it('an xAI model is any non blank id and is compared with the saved one', async () => {
-    const { store, commands: c } = commands();
-    expect(
-      await c.setCliOption({ provider: 'xai', field: 'model', value: 'grok-4.3' }),
-    ).toMatchObject({ status: 'saved', feedback: { args: ['grok-4.3 · low'] } });
-    expect(await c.setCliOption({ provider: 'xai', field: 'model', value: 'grok-4.3' })).toEqual({
-      status: 'ignored',
-      reason: 'unchanged',
-    });
-    expect((await store.load()).selectedXaiModelId).toBe('grok-4.3');
   });
 
   it('B13: a stored value outside the list counts as the current value', async () => {
@@ -430,233 +418,5 @@ describe('LocalModelsService: rows', () => {
     expect(rows.missingActiveId).toBe('old-model.gguf');
     expect(rows.rows.every((r) => !r.active)).toBe(true);
     expect(rows.rows.every((r) => r.fit === null)).toBe(true);
-  });
-});
-
-// -------------------------------------------------------------------------- xAI
-
-class FakeXai implements XaiAccountPort {
-  kind: XaiCredentialKind | null = null;
-  modelsOnServer: string[] = ['grok-4.3', 'grok-4.6'];
-  listError: Error | null = null;
-  tokenCalls = 0;
-  savedKey: string | null = null;
-  signedOut = 0;
-
-  credentialKind() {
-    return Promise.resolve(this.kind);
-  }
-  getAccessToken() {
-    this.tokenCalls += 1;
-    return Promise.resolve('token');
-  }
-  listModels() {
-    return this.listError ? Promise.reject(this.listError) : Promise.resolve(this.modelsOnServer);
-  }
-  saveApiKey(key: string) {
-    this.savedKey = key;
-    this.kind = 'ApiKey';
-    return Promise.resolve();
-  }
-  signOut() {
-    this.signedOut += 1;
-    this.kind = null;
-    return Promise.resolve();
-  }
-}
-
-function xai(settings: Partial<AppSettings> = {}) {
-  const port = new FakeXai();
-  const store = new InMemorySettingsStore();
-  const service = new XaiAccountService({ port, store });
-  return { port, store, service, ready: store.update(settings) };
-}
-
-describe('XaiAccountService', () => {
-  it('without a port the account is unavailable', async () => {
-    const service = new XaiAccountService({ port: null, store: new InMemorySettingsStore() });
-    expect(await service.status()).toMatchObject({ available: false, signedIn: false });
-  });
-
-  it('signed out: title, detail, no models', async () => {
-    const { service } = xai();
-    expect(await service.status()).toMatchObject({
-      available: true,
-      signedIn: false,
-      credentialKind: null,
-      title: 'signed-out',
-      detail: { kind: 'signed-out' },
-      models: [],
-      modelsLoaded: false,
-    });
-  });
-
-  it('status reads only the local store and seeds the saved model, saying that models are loading', async () => {
-    const { service, port, ready } = xai({ selectedXaiModelId: 'grok-4.3' });
-    await ready;
-    port.kind = 'OAuth';
-    expect(await service.status()).toMatchObject({
-      signedIn: true,
-      title: 'super-grok',
-      detail: { kind: 'loading-models' },
-      models: ['grok-4.3'],
-      selectedModelId: 'grok-4.3',
-      effort: 'low',
-    });
-    expect(port.tokenCalls).toBe(0);
-  });
-
-  it('refresh: lists models, resolves the id, persists it when it differs, says ready', async () => {
-    const { service, port, store, ready } = xai({ selectedXaiModelId: 'grok-gone' });
-    await ready;
-    port.kind = 'ApiKey';
-    const view = await service.refresh();
-    expect(view).toMatchObject({
-      title: 'api-key',
-      models: ['grok-4.3', 'grok-4.6'],
-      modelsLoaded: true,
-      selectedModelId: 'grok-4.6',
-      detail: { kind: 'ready', model: 'grok-4.6', effort: 'low' },
-    });
-    expect((await store.load()).selectedXaiModelId).toBe('grok-4.6');
-  });
-
-  it('refresh keeps a saved id that is listed and does not write', async () => {
-    const { service, port, store, ready } = xai({ selectedXaiModelId: 'GROK-4.3' });
-    await ready;
-    port.kind = 'OAuth';
-    const view = await service.refresh();
-    expect(view.selectedModelId).toBe('GROK-4.3');
-    expect((await store.load()).selectedXaiModelId).toBe('GROK-4.3');
-  });
-
-  it('refresh signed out clears the model list', async () => {
-    const { service, port } = xai();
-    port.kind = 'ApiKey';
-    await service.refresh();
-    port.kind = null;
-    expect(await service.refresh()).toMatchObject({ models: [], signedIn: false });
-    expect(port.tokenCalls).toBe(1);
-  });
-
-  it('B14: a failed refresh keeps the account and the old models and carries the raw message', async () => {
-    const { service, port } = xai();
-    port.kind = 'ApiKey';
-    await service.refresh();
-    port.listError = new Error('ECONNRESET');
-    expect(await service.refresh()).toMatchObject({
-      signedIn: true,
-      title: 'error',
-      detail: { kind: 'error', message: 'ECONNRESET' },
-      models: ['grok-4.3', 'grok-4.6'],
-      modelsLoaded: false,
-      canRetry: true,
-    });
-  });
-
-  it('refresh is single flight', async () => {
-    const { service, port } = xai();
-    port.kind = 'ApiKey';
-    const [a, b] = await Promise.all([service.refresh(), service.refresh()]);
-    expect(a).toEqual(b);
-    expect(port.tokenCalls).toBe(1);
-  });
-
-  it('B12: a refresh that started before a key swap cannot publish its old models', async () => {
-    const { service, port, store } = xai();
-    port.kind = 'ApiKey';
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let calls = 0;
-    port.listModels = async () => {
-      calls += 1;
-      if (calls === 1) {
-        await gate;
-        return ['old-model'];
-      }
-      return ['new-model'];
-    };
-    const stale = service.refresh();
-    const saving = service.saveApiKey('xai-new');
-    release();
-    await stale;
-    const result = await saving;
-    expect(calls).toBe(2);
-    expect(result).toMatchObject({ status: 'saved', view: { models: ['new-model'] } });
-    expect((await service.status()).models).toEqual(['new-model']);
-    expect((await store.load()).selectedXaiModelId).toBe('new-model');
-  });
-
-  it('B12: a stale refresh that lands last does not write its old model over the new choice', async () => {
-    const { service, port, store } = xai();
-    port.kind = 'ApiKey';
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let calls = 0;
-    port.listModels = async () => {
-      calls += 1;
-      if (calls === 1) {
-        await gate;
-        return ['old-model'];
-      }
-      return ['new-model'];
-    };
-    const stale = service.refresh();
-    await service.saveApiKey('xai-new');
-    expect((await store.load()).selectedXaiModelId).toBe('new-model');
-    release();
-    await stale;
-    expect((await store.load()).selectedXaiModelId).toBe('new-model');
-  });
-
-  it('save key: blank is a no-op, otherwise stores, refreshes and says so', async () => {
-    const { service, port } = xai();
-    expect(await service.saveApiKey('   ')).toEqual({ status: 'ignored' });
-    expect(port.savedKey).toBeNull();
-    const result = await service.saveApiKey('  xai-abc  ');
-    expect(port.savedKey).toBe('xai-abc');
-    expect(result).toMatchObject({
-      status: 'saved',
-      feedback: { key: 'Xai_FeedbackApiKey', args: [] },
-      view: { signedIn: true, title: 'api-key', modelsLoaded: true },
-    });
-  });
-
-  it('B12: a failing credential store is returned as a value', async () => {
-    const { service, port } = xai();
-    port.saveApiKey = () => Promise.reject(new Error('encryption unavailable'));
-    expect(await service.saveApiKey('k')).toEqual({
-      status: 'failed',
-      message: 'encryption unavailable',
-    });
-    port.signOut = () => Promise.reject(new Error('locked'));
-    expect(await service.signOut()).toEqual({ status: 'failed', message: 'locked' });
-  });
-
-  it('sign out clears the account, refreshes and says so', async () => {
-    const { service, port } = xai();
-    port.kind = 'OAuth';
-    await service.refresh();
-    const result = await service.signOut();
-    expect(result).toMatchObject({
-      status: 'signed-out',
-      feedback: { key: 'Xai_FeedbackSignedOut' },
-      view: { signedIn: false, models: [] },
-    });
-  });
-
-  it('the ready detail follows a model or effort change', async () => {
-    const { service, port, store, ready } = xai();
-    await ready;
-    port.kind = 'ApiKey';
-    await service.refresh();
-    await store.update({ selectedXaiModelId: 'grok-4.3', selectedXaiEffort: 'high' });
-    expect(await service.status()).toMatchObject({
-      detail: { kind: 'ready', model: 'grok-4.3', effort: 'high' },
-    });
   });
 });

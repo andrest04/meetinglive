@@ -14,31 +14,18 @@ import {
   settingsSetMeetingLanguage,
   settingsSetSummaryProvider,
   settingsSetUiLanguage,
-  settingsXaiRefresh,
-  settingsXaiSaveApiKey,
-  settingsXaiSignIn,
-  settingsXaiSignOut,
   type ModelEventDto,
 } from '@vozella/contracts';
-import { type XaiAccountView } from '@vozella/core';
 import type { SettingsRuntime } from '@vozella/platform';
 import type { LocaleState } from '../i18n/locale-state';
 import type { Broadcast } from './library-handlers';
 import { registerRequest, type IpcServerDeps } from './ipc-server';
-
-/** What the xAI module supplies for the SuperGrok device code sign in. */
-export type XaiSignInResult =
-  | { readonly status: 'signed-in' }
-  | { readonly status: 'cancelled' }
-  | { readonly status: 'failed'; readonly message: string };
 
 export interface SettingsHandlerDeps {
   readonly server: IpcServerDeps;
   readonly runtime: SettingsRuntime;
   readonly locale: LocaleState;
   readonly broadcast: Broadcast;
-  /** Registered by the xAI module. Without it `settings.xai.signIn` answers `unavailable`. */
-  readonly xaiSignIn?: () => Promise<XaiSignInResult>;
 }
 
 /** Forwards model download progress to every window. Pass it to `SettingsRuntime` as `notifyModel`. */
@@ -89,22 +76,6 @@ export function registerSettingsHandlers(deps: SettingsHandlerDeps): void {
   });
   registerRequest(server, settingsModelsSelect, ({ fileName }) => runtime.models.select(fileName));
   registerRequest(server, settingsModelsDelete, ({ fileName }) => runtime.models.delete(fileName));
-
-  registerRequest(server, settingsXaiRefresh, () => runtime.xai.refresh());
-  registerRequest(server, settingsXaiSaveApiKey, ({ key }) => runtime.xai.saveApiKey(key));
-  registerRequest(server, settingsXaiSignOut, () => runtime.xai.signOut());
-  registerRequest(server, settingsXaiSignIn, async () => {
-    const signIn = deps.xaiSignIn;
-    if (!signIn || !runtime.capabilities.xaiSignIn) return { status: 'unavailable' as const };
-    const result = await signIn();
-    if (result.status !== 'signed-in') return result;
-    const view: XaiAccountView = await runtime.xai.refresh();
-    return {
-      status: 'signed-in' as const,
-      feedback: { key: 'Xai_FeedbackSignedIn' as const, args: [] },
-      view,
-    };
-  });
 
   registerRequest(server, i18nGetLocale, () => ({
     tag: locale.tag,

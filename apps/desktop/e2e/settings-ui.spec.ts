@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { launchApp, type LaunchedApp } from './launch';
 
 // The Settings page in the real window, on the fake native build and a throwaway data root.
-// Nothing here talks to a real CLI, a real xAI account or the network.
+// Nothing here talks to a real CLI or the network.
 
 let launched: LaunchedApp;
 let page: Page;
@@ -89,38 +89,14 @@ test('Claude Code shows the PATH check and saves model and effort one field at a
   await expect(page.getByRole('combobox', { name: 'Model' })).toContainText('gpt-5.6');
 });
 
-test('Grok: a saved key lists models, the model is chosen, and sign out clears them', async () => {
-  await page.getByRole('radio', { name: 'Grok (xAI)' }).click();
-  await expect(page.getByText('Not signed in')).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Model' })).toBeDisabled();
-  // The fake build has no SuperGrok flow, so the button is not offered.
-  await expect(page.getByRole('button', { name: 'Sign in with SuperGrok' })).toHaveCount(0);
-
-  const key = page.getByRole('textbox', { name: 'API key' });
-  await expect(key).toHaveAttribute('type', 'password');
-  await page.getByRole('button', { name: 'Show key' }).click();
-  await expect(key).toHaveAttribute('type', 'text');
-  await page.getByRole('button', { name: 'Hide key' }).click();
-  const save = page.getByRole('button', { name: 'Save', exact: true });
-  await expect(save).toBeDisabled();
-  await key.fill('not-a-real-key');
-  await save.click();
-  await expect(page.getByText('API key saved.', { exact: true })).toBeVisible();
-  await expect(key).toHaveValue('');
-  await expect(page.getByText('API key saved', { exact: true })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Model' })).toBeEnabled();
-  await expect(page.getByText(/Ready\. Using grok-4\.6 · low\./)).toBeVisible();
-
-  await choose('Model', 'grok-4.3');
-  await expect(page.getByText('Saved. Using grok-4.3 · low.')).toBeVisible();
-  await expect.poll(() => settingsFile().selectedXaiModelId).toBe('grok-4.3');
-  // The key itself is never in settings.json.
-  expect(JSON.stringify(settingsFile())).not.toContain('not-a-real-key');
-
-  await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByText('Signed out of Grok (xAI).')).toBeVisible();
-  await expect(page.getByText('Not signed in')).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Model' })).toBeDisabled();
+test('Grok is not offered as a provider', async () => {
+  await expect(page.getByRole('radio', { name: 'Local (on this device)' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Grok/ })).toHaveCount(0);
+  await expect(
+    page
+      .getByRole('radiogroup', { name: 'Choose where summaries are generated' })
+      .getByRole('radio'),
+  ).toHaveCount(3);
 });
 
 test('meeting language and summary language are saved on their own', async () => {

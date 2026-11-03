@@ -5,12 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { CancelSource, SUMMARY_MODELS, type LocalModelStore } from '@vozella/core';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  FakeCliProbe,
-  FakeHardwareProbe,
-  FakeLocalModelStore,
-  FakeXaiAccount,
-} from '../fakes/fake-settings-ports';
+import { FakeCliProbe, FakeHardwareProbe, FakeLocalModelStore } from '../fakes/fake-settings-ports';
 import { JsonSettingsStore } from '../library/json-settings-store';
 import { FileLocalModelStore } from './file-local-model-store';
 import { SettingsRuntime } from './settings-runtime';
@@ -23,7 +18,7 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-function runtime(options: { os?: string[]; xai?: FakeXaiAccount; models?: LocalModelStore } = {}) {
+function runtime(options: { os?: string[]; models?: LocalModelStore } = {}) {
   const settingsFile = path.join(dir, 'settings.json');
   const runtimeNotices: string[] = [];
   const holder: { runtime?: SettingsRuntime } = {};
@@ -45,7 +40,6 @@ function runtime(options: { os?: string[]; xai?: FakeXaiAccount; models?: LocalM
     notifyModel: () => undefined,
     hardware: new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'GPU', gpuVramGb: 8 }),
     cli: new FakeCliProbe(new Set(['claude'])),
-    ...(options.xai ? { xaiAccount: options.xai } : {}),
     ...(options.models ? { modelStore: options.models } : {}),
   });
   holder.runtime = created;
@@ -111,39 +105,39 @@ describe('SettingsRuntime over the real settings file', () => {
     expect((await r.page.load()).notices).toEqual([]);
   });
 
-  it('the extension points are off until a module registers behind them', async () => {
-    const without = await runtime().runtime.page.load();
-    expect(without.capabilities).toEqual({
-      xaiAccount: false,
-      xaiSignIn: false,
-      localModels: true,
+  it('offers local models and no account controls', async () => {
+    const snapshot = await runtime().runtime.page.load();
+    expect(snapshot.capabilities).toEqual({ localModels: true });
+    expect(snapshot.providerNotice).toBeNull();
+  });
+
+  it('a settings file that still selects Xai loads, shows the notice and keeps every field on a re-save', async () => {
+    const { runtime: r, settingsFile } = runtime();
+    fs.writeFileSync(
+      settingsFile,
+      JSON.stringify({
+        selectedSummaryProvider: 'Xai',
+        selectedXaiModelId: 'grok-4.3',
+        selectedXaiEffort: 'high',
+        someFutureField: [1, 2],
+      }),
+    );
+    const snapshot = await r.page.load();
+    expect(snapshot.provider).toBe('Xai');
+    expect(snapshot.providerNotice).toBe('xai-removed');
+    expect(await r.commands.setSummaryProvider('Xai')).toEqual({
+      status: 'ignored',
+      reason: 'invalid',
     });
-    expect(without.xai.available).toBe(false);
-    const xai = new FakeXaiAccount();
-    const withXai = await runtime({ xai }).runtime.page.load();
-    expect(withXai.capabilities).toMatchObject({ xaiAccount: true, xaiSignIn: false });
-    expect(withXai.xai).toMatchObject({ available: true, signedIn: false });
-  });
-
-  it('item 102: no secret reaches settings.json', async () => {
-    const xai = new FakeXaiAccount();
-    const { runtime: r, settingsFile } = runtime({ xai });
-    await r.commands.setSummaryProvider('Xai');
-    await r.xai.saveApiKey('xai-super-secret-key');
-    await r.xai.refresh();
-    const text = fs.readFileSync(settingsFile, 'utf8');
-    expect(text).not.toContain('xai-super-secret-key');
-    expect(text).not.toMatch(/apikey|api_key|token/i);
-  });
-
-  it('selecting xAI and refreshing persists the resolved model', async () => {
-    const xai = new FakeXaiAccount();
-    xai.kind = 'ApiKey';
-    const { runtime: r, store } = runtime({ xai });
-    await r.commands.setSummaryProvider('Xai');
-    const view = await r.xai.refresh();
-    expect(view).toMatchObject({ selectedModelId: 'grok-4.6', modelsLoaded: true });
-    expect((await store.load()).selectedXaiModelId).toBe('grok-4.6');
+    expect(await r.commands.setSummaryProvider('Codex')).toMatchObject({ status: 'saved' });
+    const saved = JSON.parse(fs.readFileSync(settingsFile, 'utf8')) as Record<string, unknown>;
+    expect(saved).toMatchObject({
+      selectedSummaryProvider: 'Codex',
+      selectedXaiModelId: 'grok-4.3',
+      selectedXaiEffort: 'high',
+      someFutureField: [1, 2],
+    });
+    expect((await r.page.load()).providerNotice).toBeNull();
   });
 
   it('restart goes through the exit gate', async () => {

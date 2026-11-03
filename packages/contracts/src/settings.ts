@@ -17,7 +17,7 @@ export type SummaryProviderDto = z.infer<typeof summaryProviderSchema>;
 export const cliStatusSchema = z.enum(['detected', 'missing']);
 
 export const feedbackSchema = z.object({
-  key: z.enum(['Xai_FeedbackModel', 'Xai_FeedbackApiKey', 'Xai_FeedbackSignedOut']),
+  key: z.literal('Xai_FeedbackModel'),
   args: z.array(z.string()).readonly(),
 });
 export type FeedbackDto = z.infer<typeof feedbackSchema>;
@@ -60,34 +60,12 @@ export const modelRowSchema = z.object({
 });
 export type ModelRowDto = z.infer<typeof modelRowSchema>;
 
-export const xaiAccountViewSchema = z.object({
-  available: z.boolean(),
-  signedIn: z.boolean(),
-  credentialKind: z.enum(['OAuth', 'ApiKey']).nullable(),
-  title: z.enum(['signed-out', 'super-grok', 'api-key', 'error']),
-  detail: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('none') }),
-    z.object({ kind: z.literal('signed-out') }),
-    z.object({ kind: z.literal('loading-models') }),
-    z.object({ kind: z.literal('ready'), model: z.string(), effort: z.string() }),
-    z.object({ kind: z.literal('error'), message: z.string() }),
-  ]),
-  models: z.array(z.string()).readonly(),
-  modelsLoaded: z.boolean(),
-  selectedModelId: z.string().nullable(),
-  effort: z.string(),
-  canRetry: z.boolean(),
-});
-export type XaiAccountViewDto = z.infer<typeof xaiAccountViewSchema>;
-
 export const settingsPageSchema = z.object({
   settings: appSettingsSchema,
   uiLanguage: uiLanguageTagSchema,
   provider: summaryProviderSchema,
   claude: providerOptionsSchema,
   codex: providerOptionsSchema,
-  xaiEffort: z.string(),
-  xaiEffortOptions: z.array(z.string()).readonly(),
   cliStatus: cliStatusSchema.nullable(),
   transcriptionLanguage: z.string(),
   summaryLanguage: z.string(),
@@ -102,11 +80,10 @@ export const settingsPageSchema = z.object({
     rows: z.array(modelRowSchema).readonly(),
     missingActiveId: z.string().nullable(),
   }),
-  xai: xaiAccountViewSchema,
+  /** 'xai-removed' when the saved provider is Xai, which no longer exists (owner decision 2026-11-03). */
+  providerNotice: z.literal('xai-removed').nullable(),
   /** Which controls a module behind them has made real. The page offers nothing else. */
   capabilities: z.object({
-    xaiAccount: z.boolean(),
-    xaiSignIn: z.boolean(),
     localModels: z.boolean(),
   }),
   notices: z
@@ -133,7 +110,7 @@ export const settingsSetSummaryProvider = defineRequest('settings.setSummaryProv
 
 export const settingsSetCliOption = defineRequest('settings.setCliOption', {
   input: z.object({
-    provider: z.enum(['claude', 'codex', 'xai']),
+    provider: z.enum(['claude', 'codex']),
     field: z.enum(['model', 'effort']),
     value: z.string().max(300),
   }),
@@ -207,52 +184,6 @@ export type ModelEventDto = z.infer<typeof modelEventSchema>;
 
 export const settingsModelEvent = defineEvent('settings.modelEvent', {
   payload: modelEventSchema,
-});
-
-// ---------------------------------------------------------------------- xAI
-
-const xaiActionOutcome = z.discriminatedUnion('status', [
-  z.object({
-    status: z.enum(['saved', 'signed-out']),
-    feedback: feedbackSchema,
-    view: xaiAccountViewSchema,
-  }),
-  z.object({ status: z.literal('ignored') }),
-  z.object({ status: z.literal('failed'), message: z.string() }),
-]);
-
-/** Network phase: asks xAI for the models. The view says why it failed when it does. */
-export const settingsXaiRefresh = defineRequest('settings.xai.refresh', {
-  input: empty,
-  output: xaiAccountViewSchema,
-});
-
-export const settingsXaiSaveApiKey = defineRequest('settings.xai.saveApiKey', {
-  input: z.object({ key: z.string().max(2000) }),
-  output: xaiActionOutcome,
-});
-
-export const settingsXaiSignOut = defineRequest('settings.xai.signOut', {
-  input: empty,
-  output: xaiActionOutcome,
-});
-
-/**
- * The SuperGrok device code sign in belongs to the xAI module. Until it registers one this answers
- * `unavailable`, and the page does not offer the button (`capabilities.xaiSignIn`).
- */
-export const settingsXaiSignIn = defineRequest('settings.xai.signIn', {
-  input: empty,
-  output: z.discriminatedUnion('status', [
-    z.object({
-      status: z.literal('signed-in'),
-      feedback: z.object({ key: z.literal('Xai_FeedbackSignedIn'), args: z.array(z.string()) }),
-      view: xaiAccountViewSchema,
-    }),
-    z.object({ status: z.literal('cancelled') }),
-    z.object({ status: z.literal('failed'), message: z.string() }),
-    z.object({ status: z.literal('unavailable') }),
-  ]),
 });
 
 // -------------------------------------------------------- language and restart

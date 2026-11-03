@@ -6,7 +6,6 @@ import {
   CLAUDE_MODELS,
   CODEX_EFFORTS,
   CODEX_MODELS,
-  XAI_EFFORTS,
   optionsIncluding,
 } from './inference-options';
 import {
@@ -30,7 +29,6 @@ import {
   type HardwareProfile,
   type SummaryModelInfo,
 } from './summary-models';
-import { DEFAULT_XAI_MODEL_ID, mergeModelList, resolveXaiModelId } from './xai';
 
 const defaults = readSettings({});
 
@@ -334,53 +332,6 @@ describe('note templates', () => {
   });
 });
 
-describe('xai model resolution', () => {
-  it.each([
-    [null, ['grok-4.3', 'grok-4.6'], 'grok-4.6'],
-    ['', ['grok-4.3'], 'grok-4.3'],
-    ['grok-4.3', ['grok-4.3', 'grok-4.6'], 'grok-4.3'],
-    ['grok-imagine-image', ['grok-4.6'], 'grok-4.6'],
-    [null, [], 'grok-4.6'],
-  ])('(%j, %j) gives %s', (selected, listed, expected) => {
-    expect(resolveXaiModelId(selected, listed)).toBe(expected);
-  });
-
-  it('the saved id wins ignoring case and keeps its own casing', () => {
-    expect(resolveXaiModelId('GROK-4.3', ['grok-4.3', 'grok-4.6'])).toBe('GROK-4.3');
-  });
-
-  it('preferred order, listed casing, then the first listed', () => {
-    expect(resolveXaiModelId(null, ['x', 'Grok-4.3', 'grok-4.7'])).toBe('grok-4.7');
-    expect(resolveXaiModelId(null, ['x', 'Grok-4.5'])).toBe('Grok-4.5');
-    expect(resolveXaiModelId(null, ['zeta', 'alpha'])).toBe('zeta');
-    expect(DEFAULT_XAI_MODEL_ID).toBe('grok-4.6');
-  });
-
-  it('an empty list gives the default whatever was saved', () => {
-    expect(resolveXaiModelId('grok-9', [])).toBe('grok-4.6');
-  });
-});
-
-describe('xai model list merge', () => {
-  it('removes absent entries and inserts missing ones at their index', () => {
-    expect(mergeModelList(['a', 'b', 'c'], ['b', 'd'], 'b')).toEqual(['b', 'd']);
-    expect(mergeModelList(['b'], ['a', 'b', 'c'], 'b')).toEqual(['a', 'b', 'c']);
-  });
-
-  it('always keeps the resolved id, appended when it is not listed', () => {
-    expect(mergeModelList([], ['a'], 'z')).toEqual(['a', 'z']);
-    expect(mergeModelList(['z'], [], 'z')).toEqual(['z']);
-  });
-
-  it('does not reorder entries that are present but out of place', () => {
-    expect(mergeModelList(['b', 'a'], ['a', 'b'], 'a')).toEqual(['b', 'a']);
-  });
-
-  it('never returns an empty list when the resolved id is set', () => {
-    expect(mergeModelList(['old'], ['new'], 'new').length).toBeGreaterThan(0);
-  });
-});
-
 describe('B13: stored values that are not in the list', () => {
   it('the options keep the stored value so the control is never blank', () => {
     expect(optionsIncluding(CLAUDE_MODELS, 'gpt-9')).toEqual([...CLAUDE_MODELS, 'gpt-9']);
@@ -394,7 +345,6 @@ describe('inference lists', () => {
     expect(CLAUDE_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
     expect(CODEX_MODELS).toEqual(['gpt-5.4', 'gpt-5.5', 'gpt-5.6', 'gpt-5.6-sol']);
     expect(CODEX_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh']);
-    expect(XAI_EFFORTS).toEqual(['none', 'low', 'medium', 'high', 'xhigh']);
   });
 });
 

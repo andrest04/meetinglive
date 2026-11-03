@@ -5,7 +5,6 @@ import { Button, Notice, RadioGroup, SectionHeader, Select, SettingRow } from '.
 import { LocalModels } from './LocalModels';
 import { ProviderMark } from './ProviderMark';
 import type { SettingsPageModel } from './use-settings-page';
-import { XaiAccount } from './XaiAccount';
 
 interface OptionKeys {
   header: 'Settings_ClaudeOptions.Header' | 'Settings_CodexOptions.Header';
@@ -83,7 +82,8 @@ function CliOptions({
 /**
  * Where summaries are made, and the options of whichever provider is chosen. The blocks sit below
  * the choice so the choice never moves (spec 2.2 to 2.5). Controls whose module is not present
- * (`capabilities`) are not drawn.
+ * (`capabilities`) are not drawn. A settings file that still names the removed Grok provider shows a
+ * notice and no selected radio, so the user picks another one.
  */
 export function ProviderSection({
   page,
@@ -95,7 +95,7 @@ export function ProviderSection({
   const t = useT();
   const { provider, capabilities } = page;
 
-  const label = (text: string, kind: 'ClaudeCode' | 'Codex' | 'Xai' | 'Local') => (
+  const label = (text: string, kind: 'ClaudeCode' | 'Codex' | 'Local') => (
     <span className="inline-flex items-center gap-2">
       <ProviderMark kind={kind} />
       {text}
@@ -116,12 +116,12 @@ export function ProviderSection({
             {t('Settings_SummaryProviderCard.Header')}
           </span>
           <span className="max-w-prose text-ui text-ink-muted">
-            {t('Settings_SummaryProviderCard.Description')}
+            {t('Ui_SummaryProviderCardDescription')}
           </span>
         </div>
         <RadioGroup
           label={t('Settings_SummaryProviderCard.Header')}
-          value={provider}
+          value={provider === 'Xai' ? '' : provider}
           onValueChange={(kind) => {
             void model.setProvider(kind);
           }}
@@ -129,12 +129,15 @@ export function ProviderSection({
             { value: 'Local', label: label(t('Settings_ProviderLocal.Text'), 'Local') },
             { value: 'ClaudeCode', label: label(t('Settings_ProviderClaude.Text'), 'ClaudeCode') },
             { value: 'Codex', label: label(t('Settings_ProviderCodex.Text'), 'Codex') },
-            ...(capabilities.xaiAccount || provider === 'Xai'
-              ? [{ value: 'Xai' as const, label: label(t('Settings_ProviderXai.Text'), 'Xai') }]
-              : []),
           ]}
         />
       </div>
+
+      {page.providerNotice === 'xai-removed' ? (
+        <Notice tone="warning" className="mt-3">
+          {t('Ui_SummaryProviderXaiRemoved')}
+        </Notice>
+      ) : null}
 
       {page.cliStatus ? (
         <div className="flex items-center gap-3 pt-3 text-ui-lg text-ink-muted">
@@ -200,45 +203,6 @@ export function ProviderSection({
               onCancel={model.cancelModel}
               onDelete={(fileName) => {
                 void model.deleteModel(fileName);
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {provider === 'Xai' && capabilities.xaiAccount ? (
-        <div className="flex flex-col pt-5">
-          <SectionHeader
-            level={3}
-            title={t('Settings_XaiAccount.Header')}
-            description={
-              capabilities.xaiSignIn
-                ? t('Settings_XaiAccount.Description')
-                : t('Ui_XaiAccountApiKeyOnly')
-            }
-          />
-          <div className="pt-1">
-            <XaiAccount
-              view={page.xai}
-              effort={page.xaiEffort}
-              effortOptions={page.xaiEffortOptions}
-              busy={model.xaiBusy}
-              canSignIn={capabilities.xaiSignIn}
-              onSignIn={() => {
-                void model.signInXai();
-              }}
-              onSignOut={() => {
-                void model.signOutXai();
-              }}
-              onRetry={() => {
-                void model.refreshXai();
-              }}
-              onSaveKey={model.saveXaiApiKey}
-              onModel={(id) => {
-                model.setCliOption('xai', 'model', id);
-              }}
-              onEffort={(value) => {
-                model.setCliOption('xai', 'effort', value);
               }}
             />
           </div>

@@ -6,22 +6,24 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ## Where things are
 
-| Concern                                                                                                   | Code                                                                                                                |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Summary, title, part and merge prompt builders; enhancement context; language names and headings (S01)    | `packages/core/src/summaries/prompt-builders.ts` (tests beside it)                                                  |
-| Response splitter (S02)                                                                                   | `packages/core/src/summaries/summary-splitter.ts`                                                                   |
-| Action item parser and renderer (S02)                                                                     | `packages/core/src/summaries/action-items.ts`                                                                       |
-| Title normalization and placeholder check (S02)                                                           | `packages/core/src/summaries/suggested-title.ts`                                                                    |
-| Provider port, result, default stream, cancellation (S03)                                                 | `packages/core/src/summaries/provider.ts`                                                                           |
-| Provider contract test helper, reused by S04 and S11 (S03)                                                | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
-| CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03) | `packages/core/src/summaries/cli-failure.ts`                                                                        |
-| Failure codes, key maps, `formatFailure` (S03)                                                            | `packages/core/src/summaries/cli-failure-messages.ts`                                                               |
-| CLI argv builders, B30 validation, legacy string form (S04)                                               | `packages/core/src/summaries/cli-invocation.ts`                                                                     |
-| CLI provider base, Claude Code and Codex providers, web-search factories (S04)                            | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts`                                                   |
-| `FakeCliProcessRunner` test double (S04)                                                                  | `packages/core/src/summaries/test-kit.ts` (not exported from the index)                                             |
-| Node CLI process runner, `.cmd` wrapper, tree kill (S05)                                                  | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts`                     |
-| PATH lookup with `resolve()` (S05, shared with Settings)                                                  | `packages/platform/src/settings/path-cli-probe.ts`                                                                  |
-| Catalog key parity test (S03)                                                                             | `apps/desktop/src/main/summary-failure-catalog.test.ts`                                                             |
+| Concern                                                                                                             | Code                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Summary, title, part and merge prompt builders; enhancement context; language names and headings (S01)              | `packages/core/src/summaries/prompt-builders.ts` (tests beside it)                                                  |
+| Response splitter (S02)                                                                                             | `packages/core/src/summaries/summary-splitter.ts`                                                                   |
+| Action item parser and renderer (S02)                                                                               | `packages/core/src/summaries/action-items.ts`                                                                       |
+| Title normalization and placeholder check (S02)                                                                     | `packages/core/src/summaries/suggested-title.ts`                                                                    |
+| Provider port, result, default stream, cancellation (S03)                                                           | `packages/core/src/summaries/provider.ts`                                                                           |
+| Provider contract test helper, reused by S04 and S11 (S03)                                                          | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
+| CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03)           | `packages/core/src/summaries/cli-failure.ts`                                                                        |
+| Failure codes, key maps, `formatFailure` (S03)                                                                      | `packages/core/src/summaries/cli-failure-messages.ts`                                                               |
+| CLI argv builders, B30 validation, legacy string form (S04)                                                         | `packages/core/src/summaries/cli-invocation.ts`                                                                     |
+| CLI provider base, Claude Code and Codex providers, web-search factories (S04)                                      | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts`                                                   |
+| `FakeCliProcessRunner` test double (S04)                                                                            | `packages/core/src/summaries/test-kit.ts` (not exported from the index)                                             |
+| Node CLI process runner, `.cmd` wrapper, tree kill (S05)                                                            | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts`                     |
+| PATH lookup with `resolve()` (S05, shared with Settings)                                                            | `packages/platform/src/settings/path-cli-probe.ts`                                                                  |
+| Provider availability: `isProviderAvailable`, `UNAVAILABLE_SUMMARY_PROVIDERS`, `AvailableSummaryProviderKind` (S07) | `packages/core/src/library/settings.ts`                                                                             |
+| Settings page `providerNotice` and the removed-provider notice (S07)                                                | `packages/core/src/settings/page-service.ts`; `apps/desktop/src/renderer/features/settings/ProviderSection.tsx`     |
+| Catalog key parity test (S03)                                                                                       | `apps/desktop/src/main/summary-failure-catalog.test.ts`                                                             |
 
 ## Decisions
 
@@ -159,6 +161,29 @@ Sizes (Content-Length from a HEAD on 2026-11-03): 1B 807694464, E2B 3106738272, 
 
 Decision: a second `download()` for a file already in flight now returns the first call's outcome instead of `ignored: already-downloading`. The contract enum keeps that value; nothing returns it.
 
+### Retire xAI/Grok (S07)
+
+| #       | Item                                                                                                                                                            | Status  | Notes                                                                                                                                                                                                                                                      |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 142     | xAI gate passes when credentials exist, else opens the sign-in dialog                                                                                           | dropped | owner decision 2026-11-03, may return later. The gate (S12) has no xAI branch.                                                                                                                                                                             |
+| 146-171 | Every xAI constant, request, stream, status mapping, model list, `ResolveModelId`, OAuth, refresh, JWT, session, credential store and file format, dialog flows | dropped | owner decision 2026-11-03, may return later. Deleted: `settings/xai.ts`, `settings/xai-account.ts`, `XaiAccountPort`, `file-xai-account.ts`, `FakeXaiAccount`, the four `settings.xai.*` channels and handlers, `XaiAccount.tsx`, the Grok radio and mark. |
+| 177-181 | xAI status line, account refresh with model merge, B29 guard, API key and sign out toasts, offline seeding                                                      | dropped | owner decision 2026-11-03, may return later. `Feedback` keeps only `Xai_FeedbackModel`, which the Claude Code and Codex model line still uses.                                                                                                             |
+| S07-1   | A `settings.json` that selects `Xai` still loads, with `selectedXaiModelId`, `selectedXaiEffort` and every unknown field, and re-saves without losing them      | done    | `AppSettings` keeps the two Xai fields. Tests: core `settings.test.ts`, platform `settings-runtime.test.ts` (real file store), desktop handler test and e2e `settings-i18n.spec.ts`.                                                                       |
+| S07-2   | `resolveSummaryProviderKind` returns `'Xai'` as a known but unavailable value; `isProviderAvailable(kind)`                                                      | done    | `SUMMARY_PROVIDERS` still lists `Xai`; `UNAVAILABLE_SUMMARY_PROVIDERS` and `AvailableSummaryProviderKind` are new. S12 must refuse an unavailable kind and never fall back to Local.                                                                       |
+| S07-3   | Settings page DTO field `providerNotice` (`'xai-removed'` or null)                                                                                              | done    | Set when the saved provider is `Xai`. The page shows a notice (`Ui_SummaryProviderXaiRemoved`, en and es) and no selected radio. Picking another provider clears it. `setSummaryProvider('Xai')` is refused.                                               |
+| S07-4   | `xaiCredentialsFilePath` stays in `AppPaths` for on-disk compatibility                                                                                          | done    | Nothing reads, writes or deletes `xai-credentials.bin`. A test still pins the path.                                                                                                                                                                        |
+| S07-5   | No `settings.xai.*` channel is registered                                                                                                                       | done    | Contract test, handler test (registered handler names) and e2e (the call is refused).                                                                                                                                                                      |
+
+Dropped tests (reason: owner decision 2026-11-03, may return later): `XaiApiClientTests`, `XaiAuthSessionTests`, `XaiOAuthClientTests`, `XaiSummaryProviderTests`, `FileDpapiXaiCredentialStoreTests`, the XaiJwt gap, the xAI dialog view model gap. Ported tests removed with the code: `file-xai-account.test.ts`, the xAI parts of `settings-services.test.ts`, `catalogs.test.ts`, `settings-handlers.test.ts`, `SettingsRoute.test.tsx` and the Grok cases of the three settings e2e specs.
+
+Decisions (S07):
+
+- **Catalog keys are generated.** `en.json` and `es.json` are produced by `scripts/convert-strings.mjs` from the WinUI resources, and a test checks them byte for byte, so the unused `Xai_*`, `XaiAuth*`, `Settings_Xai*`, `Settings_ProviderXai`, `ComboXaiModel` and `Setup_Xai*` keys cannot be deleted from those two files without editing the converter or the WinUI resources. Both are outside this package's edit surface. The keys stay, nothing reads them, and `i18n-catalog-checks.test.ts` lists them in one `REMOVED_PROVIDER_KEYS` pattern. `Xai_FeedbackModel` is still used.
+- **Hand written keys removed.** `Ui_XaiSignInFailed`, `Ui_XaiSignedOutApiKeyOnly`, `Ui_XaiAccountApiKeyOnly`, `Ui_ShowKey` and `Ui_HideKey` (only the API key field used them) are gone from `ui.en.json` and `ui.es.json`. `Ui_XaiRetry` stays: the Settings load error and the engine setup dialog use it as a generic retry.
+- **Card description.** `Settings_SummaryProviderCard.Description` mentions Grok and is generated, so the page now reads the new `Ui_SummaryProviderCardDescription` (the same sentence without Grok). The old key is in the removed-provider pattern.
+- **Contract kept wide.** `summaryProviderSchema` still accepts `Xai` so the page DTO can report a legacy selection; `settings.setCliOption` no longer accepts `xai`.
+- **Fake native build.** `apps/desktop/src/main/index.ts` no longer builds an xAI account and no longer imports `safeStorage`.
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -173,6 +198,7 @@ Decision: a second `download()` for a file already in flight now returns the fir
 - **B17** (S06): a failed hardware read is not cached for the process; the rating can ignore VRAM when the runtime has no GPU backend.
 - **B18** (S06): pinned byte size (and SHA-256 for the 1B file) verified before the atomic move; "downloaded" needs the pinned size; resume by Range; one transfer per model shared by every caller.
 - **B20** (S06): catalog labels are keys, asserted by a test.
+- **B1, B14, B22, B23, B29** (S07): dropped with the xAI provider, reason: owner decision 2026-11-03, may return later. B22 for `settings.json` was already done by the settings module's atomic write; the xAI credentials file and the custom template file are no longer written by this app.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -186,6 +212,10 @@ Decision: a second `download()` for a file already in flight now returns the fir
 - Token budgeting that uses the part and merge prompts: S10.
 
 - S06 to S12: pass `{ gpuOffload }` from the chosen llama backend (S08) to `rateFor` and `LocalModelsService.rows`; the Settings page and the wizard (S18) both call the one `LocalModelsService` so they share its in-flight map. Hashes for the three Gemma files are not pinned.
+
+- S12 and the generation gate: `isProviderAvailable(kind)` is false for `Xai`. The gate and factory must report the removed provider (offer the Settings page, text `Ui_SummaryProviderXaiRemoved`) and never build the Local provider for it. `AvailableSummaryProviderKind` is the type to switch on.
+- S18 and S19: the wizard and CLI setup must not offer Grok; `Setup_XaiName` and `Setup_XaiHint` are unused catalog keys.
+- Final review: `scripts/convert-strings.mjs` could take an exclusion list so the unused `Xai*` keys leave `en.json` and `es.json` (see the S07 decisions).
 
 ## Dropped by the owner
 

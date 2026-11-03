@@ -5,8 +5,6 @@ import type {
   HardwareProfile,
   LocalModelStore,
   SummaryModelInfo,
-  XaiAccountPort,
-  XaiCredentialKind,
 } from '@vozella/core';
 
 /** A machine that never changes. */
@@ -58,36 +56,6 @@ export class FakeLocalModelStore implements LocalModelStore {
 
   delete(model: SummaryModelInfo): Promise<void> {
     this.files.delete(model.fileName);
-    return Promise.resolve();
-  }
-}
-
-/** An xAI account held in memory. Never touches the network or a real credential. */
-export class FakeXaiAccount implements XaiAccountPort {
-  kind: XaiCredentialKind | null = null;
-  models: string[] = ['grok-4.3', 'grok-4.6'];
-  listError: Error | null = null;
-
-  credentialKind(): Promise<XaiCredentialKind | null> {
-    return Promise.resolve(this.kind);
-  }
-
-  getAccessToken(): Promise<string> {
-    return Promise.resolve('fake-token');
-  }
-
-  listModels(): Promise<readonly string[]> {
-    return this.listError ? Promise.reject(this.listError) : Promise.resolve(this.models);
-  }
-
-  saveApiKey(key: string): Promise<void> {
-    if (key.trim() === '') return Promise.reject(new Error('The key is empty.'));
-    this.kind = 'ApiKey';
-    return Promise.resolve();
-  }
-
-  signOut(): Promise<void> {
-    this.kind = null;
     return Promise.resolve();
   }
 }

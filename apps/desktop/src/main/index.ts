@@ -19,8 +19,6 @@ import {
   FakeHardwareProbe,
   FakeSpeechEngine,
   FakeLocalModelStore,
-  FakeXaiAccount,
-  FileXaiAccount,
   ForbiddenDataRootError,
   LibraryRuntime,
   readWavDurationSeconds,
@@ -40,7 +38,6 @@ import {
   nativeTheme,
   net,
   protocol,
-  safeStorage,
   session,
   shell,
 } from 'electron';
@@ -297,7 +294,7 @@ function main(): void {
     : new SystemHardwareProbe();
 
   // Settings page services. In the fake native build the machine, the CLIs, the model downloads
-  // and the xAI account are doubles, so nothing touches the network or a real account.
+  // are doubles, so nothing touches the network.
   const settings: SettingsRuntime = new SettingsRuntime({
     store: library.settings,
     appDataDirectory: paths.appData,
@@ -320,23 +317,8 @@ function main(): void {
     notifyModel: modelEventBridge(broadcast),
     hardware,
     ...(fakeNative
-      ? {
-          cli: new FakeCliProbe(new Set(['claude'])),
-          modelStore: new FakeLocalModelStore(),
-          xaiAccount: new FakeXaiAccount(),
-        }
-      : {
-          // The key is encrypted with the OS (DPAPI through safeStorage) in its own file, so
-          // a WinUI credentials file in a shared folder is never overwritten.
-          xaiAccount: new FileXaiAccount({
-            filePath: path.join(paths.appData, 'xai-credentials.safe.bin'),
-            cipher: {
-              encrypt: (plain) => safeStorage.encryptStringAsync(plain),
-              decrypt: async (blob) =>
-                (await safeStorage.decryptStringAsync(Buffer.from(blob))).result,
-            },
-          }),
-        }),
+      ? { cli: new FakeCliProbe(new Set(['claude'])), modelStore: new FakeLocalModelStore() }
+      : {}),
   });
 
   function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {

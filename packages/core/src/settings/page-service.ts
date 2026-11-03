@@ -4,8 +4,8 @@ import {
   resolveClaudeModelId,
   resolveCodexEffort,
   resolveCodexModelId,
+  isProviderAvailable,
   resolveSummaryProviderKind,
-  resolveXaiEffort,
   type AppSettings,
   type SettingsStore,
   type SummaryProviderKind,
@@ -17,14 +17,14 @@ import {
   CODEX_EFFORTS,
   CODEX_MODELS,
   optionsIncluding,
-  XAI_EFFORTS,
 } from './inference-options';
 import { resolveMeetingLanguageCode, resolveSummaryLanguageCode } from './languages';
 import type { LocalModelsService, ModelRows } from './local-models';
 import type { PendingNotice, SettingsNotices } from './notices';
 import type { CliPathProbe, HardwareProbe, SettingsCapabilities } from './ports';
 import type { HardwareProfile } from './summary-models';
-import type { XaiAccountService, XaiAccountView } from './xai-account';
+
+export type ProviderNotice = 'xai-removed';
 
 export type CliStatus = 'detected' | 'missing';
 
@@ -43,16 +43,15 @@ export interface SettingsPageSnapshot {
   readonly provider: SummaryProviderKind;
   readonly claude: ProviderOptions;
   readonly codex: ProviderOptions;
-  readonly xaiEffort: string;
-  readonly xaiEffortOptions: readonly string[];
-  /** For the selected CLI provider only; null for Local and xAI. */
+  /** For the selected CLI provider only; null for Local and a removed provider. */
   readonly cliStatus: CliStatus | null;
   readonly transcriptionLanguage: string;
   readonly summaryLanguage: string;
   /** Null when the machine could not be read. */
   readonly hardware: HardwareProfile | null;
   readonly models: ModelRows;
-  readonly xai: XaiAccountView;
+  /** 'xai-removed' when the saved provider is Xai, which no longer exists. The page asks for another. */
+  readonly providerNotice: ProviderNotice | null;
   readonly capabilities: SettingsCapabilities;
   readonly notices: readonly PendingNotice[];
 }
@@ -62,7 +61,6 @@ export interface SettingsPageDeps {
   readonly osLanguages: () => readonly string[];
   readonly hardware: HardwareProbe;
   readonly models: LocalModelsService;
-  readonly xai: XaiAccountService;
   readonly cli: CliPathProbe;
   readonly notices: SettingsNotices;
   readonly capabilities: SettingsCapabilities;
@@ -83,9 +81,8 @@ export class SettingsPageService {
       this.deps.hardware.detect().catch(() => null),
     ]);
     const provider = resolveSummaryProviderKind(settings);
-    const [models, xai, cliStatus] = await Promise.all([
+    const [models, cliStatus] = await Promise.all([
       this.deps.models.rows(hardware),
-      this.deps.xai.status(),
       this.detectCli(provider),
     ]);
     const claudeModel = resolveClaudeModelId(settings);
@@ -108,14 +105,12 @@ export class SettingsPageService {
         modelOptions: optionsIncluding(CODEX_MODELS, codexModel),
         effortOptions: optionsIncluding(CODEX_EFFORTS, codexEffort),
       },
-      xaiEffort: resolveXaiEffort(settings),
-      xaiEffortOptions: optionsIncluding(XAI_EFFORTS, resolveXaiEffort(settings)),
       cliStatus,
       transcriptionLanguage: resolveMeetingLanguageCode(settings.transcriptionLanguage),
       summaryLanguage: resolveSummaryLanguageCode(settings.summaryLanguage),
       hardware,
       models,
-      xai,
+      providerNotice: isProviderAvailable(provider) ? null : 'xai-removed',
       capabilities: this.deps.capabilities,
       notices: this.deps.notices.pending(),
     };

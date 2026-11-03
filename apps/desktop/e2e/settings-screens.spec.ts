@@ -62,15 +62,6 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByText('Detected on PATH.')).toBeVisible();
     await shot(`settings-claude-${theme}`);
 
-    await page.getByRole('radio', { name: 'Grok (xAI)' }).click();
-    await expect(page.getByText('Not signed in')).toBeVisible();
-    await shot(`settings-grok-signed-out-${theme}`);
-    await page.getByRole('textbox', { name: 'API key' }).fill('not-a-real-key');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText(/Ready\. Using/)).toBeVisible();
-    await shot(`settings-grok-signed-in-${theme}`);
-    await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page.getByText('Not signed in')).toBeVisible();
     await page.getByRole('radio', { name: 'Local (on this device)' }).click();
   });
 }

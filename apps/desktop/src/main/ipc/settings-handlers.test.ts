@@ -8,7 +8,6 @@ import {
   FakeCliProbe,
   FakeHardwareProbe,
   FakeLocalModelStore,
-  FakeXaiAccount,
   JsonSettingsStore,
   SettingsRuntime,
 } from '@vozella/platform';
@@ -16,11 +15,7 @@ import { LocaleState, resolveStartupLanguage } from '../i18n/locale-state';
 import { mainCatalogs } from '../i18n/main-catalogs';
 import type { IpcEventLike } from '../security/trusted-origin';
 import type { IpcMainLike } from './ipc-server';
-import {
-  modelEventBridge,
-  registerSettingsHandlers,
-  type XaiSignInResult,
-} from './settings-handlers';
+import { modelEventBridge, registerSettingsHandlers } from './settings-handlers';
 
 const logger = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 const event: IpcEventLike = {
@@ -38,8 +33,6 @@ afterEach(() => {
 
 interface Options {
   os?: string[];
-  xai?: FakeXaiAccount;
-  signIn?: () => Promise<XaiSignInResult>;
   models?: FakeLocalModelStore;
   relaunch?: () => void;
 }
@@ -63,7 +56,6 @@ async function setup(options: Options = {}) {
     hardware: new FakeHardwareProbe({ totalRamGb: 16, gpuName: null, gpuVramGb: null }),
     cli: new FakeCliProbe(new Set(['codex'])),
     modelStore: options.models ?? new FakeLocalModelStore(),
-    ...(options.xai ? { xaiAccount: options.xai, xaiSignIn: options.signIn !== undefined } : {}),
   });
   const locale = new LocaleState(
     await resolveStartupLanguage(() => store.load(), osLanguages),
@@ -74,7 +66,6 @@ async function setup(options: Options = {}) {
     runtime,
     locale,
     broadcast,
-    ...(options.signIn ? { xaiSignIn: options.signIn } : {}),
   });
   const call = async (name: string, input: unknown = {}) =>
     (await handlers.get(name)?.(event as never, input)) as {
@@ -82,7 +73,7 @@ async function setup(options: Options = {}) {
       value?: Record<string, unknown>;
       error?: { code: string };
     };
-  return { call, events, runtime, locale, settingsFile, store };
+  return { call, events, runtime, locale, settingsFile, store, registered: [...handlers.keys()] };
 }
 
 describe('settings handlers', () => {
@@ -94,7 +85,8 @@ describe('settings handlers', () => {
     expect(page.value).toMatchObject({
       provider: 'Local',
       uiLanguage: 'en-US',
-      capabilities: { xaiAccount: false, xaiSignIn: false, localModels: true },
+      capabilities: { localModels: true },
+      providerNotice: null,
     });
     expect(fs.existsSync(t.settingsFile)).toBe(false);
   });
@@ -244,63 +236,30 @@ describe('settings handlers', () => {
     });
   });
 
-  it('the xAI controls do nothing until the xAI module registers an account', async () => {
+  it('registers no xai channel, and a saved Xai provider shows the notice until another is chosen', async () => {
     const t = await setup();
-    expect((await t.call('settings.xai.refresh')).value).toMatchObject({ available: false });
-    expect((await t.call('settings.xai.saveApiKey', { key: 'abc' })).value).toEqual({
+    for (const name of ['refresh', 'saveApiKey', 'signOut', 'signIn']) {
+      expect(t.registered).not.toContain(`settings.xai.${name}`);
+    }
+    expect(t.registered.filter((name) => /xai/i.test(name))).toEqual([]);
+    fs.writeFileSync(
+      t.settingsFile,
+      JSON.stringify({ selectedSummaryProvider: 'Xai', selectedXaiModelId: 'grok-4.3' }),
+    );
+    const page = await t.call('settings.getPage');
+    expect(settingsPageSchema.safeParse(page.value).success).toBe(true);
+    expect(page.value).toMatchObject({ provider: 'Xai', providerNotice: 'xai-removed' });
+    expect((await t.call('settings.setSummaryProvider', { kind: 'Xai' })).value).toEqual({
       status: 'ignored',
+      reason: 'invalid',
     });
-    expect((await t.call('settings.xai.signIn')).value).toEqual({ status: 'unavailable' });
-  });
-
-  it('xAI: save a key, see models, sign out', async () => {
-    const xai = new FakeXaiAccount();
-    const t = await setup({ xai });
-    await t.call('settings.setSummaryProvider', { kind: 'Xai' });
-    const saved = await t.call('settings.xai.saveApiKey', { key: '  xai-key  ' });
-    expect(saved.value).toMatchObject({
+    expect((await t.call('settings.setSummaryProvider', { kind: 'Local' })).value).toMatchObject({
       status: 'saved',
-      feedback: { key: 'Xai_FeedbackApiKey' },
-      view: { signedIn: true, models: ['grok-4.3', 'grok-4.6'], selectedModelId: 'grok-4.6' },
     });
-    const out = await t.call('settings.xai.signOut');
-    expect(out.value).toMatchObject({
-      status: 'signed-out',
-      feedback: { key: 'Xai_FeedbackSignedOut' },
-      view: { signedIn: false, models: [] },
+    expect((await t.call('settings.getPage')).value).toMatchObject({ providerNotice: null });
+    expect(JSON.parse(fs.readFileSync(t.settingsFile, 'utf8'))).toMatchObject({
+      selectedXaiModelId: 'grok-4.3',
     });
-  });
-
-  it('B14: a refresh that fails reports the account as signed in with a retry', async () => {
-    const xai = new FakeXaiAccount();
-    xai.kind = 'ApiKey';
-    xai.listError = new Error('ENOTFOUND api.x.ai');
-    const t = await setup({ xai });
-    expect((await t.call('settings.xai.refresh')).value).toMatchObject({
-      signedIn: true,
-      title: 'error',
-      canRetry: true,
-      detail: { kind: 'error', message: 'ENOTFOUND api.x.ai' },
-    });
-  });
-
-  it('sign in is offered only when the xAI module supplies it', async () => {
-    const xai = new FakeXaiAccount();
-    const signIn = vi.fn((): Promise<XaiSignInResult> => {
-      xai.kind = 'OAuth';
-      return Promise.resolve({ status: 'signed-in' });
-    });
-    const t = await setup({ xai, signIn });
-    expect((await t.call('settings.getPage')).value).toMatchObject({
-      capabilities: { xaiAccount: true, xaiSignIn: true },
-    });
-    expect((await t.call('settings.xai.signIn')).value).toMatchObject({
-      status: 'signed-in',
-      feedback: { key: 'Xai_FeedbackSignedIn' },
-      view: { signedIn: true, title: 'super-grok' },
-    });
-    signIn.mockResolvedValueOnce({ status: 'cancelled' });
-    expect((await t.call('settings.xai.signIn')).value).toEqual({ status: 'cancelled' });
   });
 
   it('restart asks the exit gate and reports a refusal or a failed relaunch', async () => {
@@ -333,5 +292,11 @@ describe('settings handlers', () => {
     });
     expect(bad.ok).toBe(false);
     expect(bad.error?.code).toBe('invalid-input');
+    const xai = await t.call('settings.setCliOption', {
+      provider: 'xai',
+      field: 'model',
+      value: 'x',
+    });
+    expect(xai.ok).toBe(false);
   });
 });

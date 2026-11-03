@@ -6,7 +6,6 @@ import { SettingsNotices } from './notices';
 import { SettingsPageService } from './page-service';
 import type { CliPathProbe, HardwareProbe, LocalModelStore } from './ports';
 import type { HardwareProfile } from './summary-models';
-import { XaiAccountService } from './xai-account';
 
 const hardware: HardwareProfile = { totalRamGb: 16, gpuName: 'GPU', gpuVramGb: 8 };
 
@@ -35,10 +34,9 @@ function page(
     osLanguages: () => options.os ?? ['en-US'],
     hardware: options.hardware ?? { detect: () => Promise.resolve(hardware) },
     models: new LocalModelsService({ store: modelStore, settings: store, notify: () => undefined }),
-    xai: new XaiAccountService({ port: null, store }),
     cli: probe,
     notices,
-    capabilities: { xaiAccount: false, xaiSignIn: false, localModels: true },
+    capabilities: { localModels: true },
   });
   return { store, service, notices, files };
 }
@@ -54,10 +52,10 @@ describe('SettingsPageService.load', () => {
       summaryLanguage: 'es',
       claude: { model: 'sonnet', effort: 'low' },
       codex: { model: 'gpt-5.6', effort: 'low' },
-      xaiEffort: 'low',
       cliStatus: null,
       hardware,
-      capabilities: { localModels: true, xaiAccount: false },
+      capabilities: { localModels: true },
+      providerNotice: null,
     });
     expect(await store.load()).toMatchObject({ uiLanguage: null, selectedSummaryProvider: null });
   });
@@ -94,6 +92,25 @@ describe('SettingsPageService.load', () => {
     expect((await service.load()).cliStatus).toBe('missing');
     await store.update({ selectedSummaryProvider: 'Xai' });
     expect((await service.load()).cliStatus).toBeNull();
+  });
+
+  it('a saved Xai provider is reported as removed, never as Local', async () => {
+    const { service, store } = page();
+    await store.update({
+      selectedSummaryProvider: 'Xai',
+      selectedXaiModelId: 'grok-4.3',
+      selectedXaiEffort: 'high',
+    });
+    const snapshot = await service.load();
+    expect(snapshot.provider).toBe('Xai');
+    expect(snapshot.providerNotice).toBe('xai-removed');
+    expect(snapshot.cliStatus).toBeNull();
+    const kept = await store.load();
+    expect(kept).toMatchObject({
+      selectedSummaryProvider: 'Xai',
+      selectedXaiModelId: 'grok-4.3',
+      selectedXaiEffort: 'high',
+    });
   });
 
   it('B15: detection can be asked again after the CLI is installed', async () => {
@@ -147,11 +164,10 @@ describe('SettingsPageService.load', () => {
     expect((await service.load()).models.missingActiveId).toBe('gemma-4-E2B-it-Q4_K_M.gguf');
   });
 
-  it('carries the xAI account view and the notices', async () => {
+  it('carries the notices', async () => {
     const { service, notices } = page();
     notices.add({ kind: 'settings-recovered', keptAs: 'settings.json.corrupt' });
     const snapshot = await service.load();
-    expect(snapshot.xai).toMatchObject({ available: false });
     expect(snapshot.notices).toEqual([
       { id: 'settings-recovered', kind: 'settings-recovered', keptAs: 'settings.json.corrupt' },
     ]);
