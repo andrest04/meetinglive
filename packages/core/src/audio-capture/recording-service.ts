@@ -131,6 +131,7 @@ export class AudioCaptureService {
     this.deps.preflight?.(sources);
 
     this.paused = false;
+    this.resetLevelWindow();
     this.userStop = false;
     this.outputFailure = undefined;
     this.pumpFailure = undefined;
@@ -188,11 +189,17 @@ export class AudioCaptureService {
   }
 
   pause(): void {
-    if (this.recording) this.paused = true;
+    if (this.recording) {
+      this.paused = true;
+      this.resetLevelWindow();
+    }
   }
 
   resume(): void {
-    if (this.recording) this.paused = false;
+    if (this.recording) {
+      this.paused = false;
+      this.resetLevelWindow();
+    }
   }
 
   /** Single flight: every caller gets the same task and the same outcome. */
@@ -254,6 +261,7 @@ export class AudioCaptureService {
     this.cancel = undefined;
     this.pump = undefined;
     this.paused = false;
+    this.resetLevelWindow();
 
     const failure = this.pumpFailure ?? this.outputFailure ?? teardownError;
     this.pumpFailure = undefined;
@@ -303,6 +311,11 @@ export class AudioCaptureService {
     this.cancel = undefined;
     this.pump = undefined;
     this.handles = undefined;
+  }
+
+  private resetLevelWindow(): void {
+    this.micLevelPeak = 0;
+    this.micLevelFrames = 0;
   }
 
   private noteMicrophoneLevel(pcm: Uint8Array): void {

@@ -10,6 +10,7 @@ import {
   audioRecordingPause,
   audioRecordingResume,
   audioRecordingStart,
+  audioRecordingState,
   audioRecordingStop,
   audioSourcesCloseFallback,
   audioSourcesDismissSuggestion,
@@ -56,7 +57,8 @@ export function registerAudioHandlers(deps: AudioHandlerDeps): void {
   );
   registerRequest(server, audioSourcesCloseFallback, () => controller.closeFallback());
   registerRequest(server, audioPreviewStart, ({ deviceId }) => {
-    controller.startPreview(deviceId);
+    // Spec item 92: the preview never competes with a take for the microphone.
+    if (!takes.busy) controller.startPreview(deviceId);
     return { started: true as const };
   });
   registerRequest(server, audioPreviewStop, () => {
@@ -83,6 +85,7 @@ export function registerAudioHandlers(deps: AudioHandlerDeps): void {
   registerRequest(server, audioRecordingStart, ({ title, microphone }) =>
     takes.start(title, microphone),
   );
+  registerRequest(server, audioRecordingState, () => ({ phase: takes.currentPhase }));
   registerRequest(server, audioRecordingPause, async () => ({ paused: await takes.pause() }));
   registerRequest(server, audioRecordingResume, async () => ({ resumed: await takes.resume() }));
   registerRequest(server, audioRecordingStop, () => takes.stop());

@@ -129,7 +129,7 @@ fn details_for(pid: u32) -> Option<ProcessDetails> {
                 start_time_utc_ms: None,
             });
         };
-        let mut buf = vec![0u16; 1024];
+        let mut buf = vec![0u16; 32_768];
         let mut len = buf.len() as u32;
         let exe_path = QueryFullProcessImageNameW(
             handle,

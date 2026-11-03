@@ -106,6 +106,16 @@ export const audioRecordingStart = defineRequest('audio.recording.start', {
     z.object({ started: z.literal(false), code: z.string().nullable(), message: z.string() }),
   ]),
 });
+/**
+ * Where the take stands in main. The Record page asks when it opens, so a take that kept running
+ * while the user visited another page can still be paused, resumed and stopped.
+ */
+export const audioRecordingState = defineRequest('audio.recording.state', {
+  input: empty,
+  output: z.object({
+    phase: z.enum(['idle', 'starting', 'recording', 'paused', 'stopping', 'importing']),
+  }),
+});
 export const audioRecordingPause = defineRequest('audio.recording.pause', {
   input: empty,
   output: z.object({ paused: z.boolean() }),

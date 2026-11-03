@@ -81,6 +81,28 @@ describe('audio worker rpc', () => {
     expect(level?.type === 'recording-level' && level.level).toBeGreaterThan(0);
   }, 10_000);
 
+  it('stops a running recording on shutdown and finalizes the file (item 47)', async () => {
+    const { rpc, handle } = setup();
+    const target = path.join(dir, 'shutdown.wav');
+    await rpc({
+      method: 'recordStart',
+      path: target,
+      sources: {
+        captureMicrophone: false,
+        microphoneDeviceId: null,
+        output: 'SystemLoopback',
+        processId: 0,
+      },
+    });
+    await sleep(300);
+    await handle({ type: 'shutdown' });
+    const bytes = fs.readFileSync(target);
+    expect(bytes.length).toBeGreaterThan(46);
+    expect(bytes.readUInt32LE(4)).toBe(bytes.length - 8);
+    // A second shutdown with nothing running does not throw.
+    await expect(handle({ type: 'shutdown' })).resolves.toBeUndefined();
+  }, 10_000);
+
   it('answers a refused request with a code the page can map (C7)', async () => {
     const base = createNativePorts({ fake: true });
     const { rpc } = setup({ ...base, osBuild: new FakeOsBuild(19_045) });

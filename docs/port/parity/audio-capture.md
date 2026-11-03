@@ -403,3 +403,27 @@ Not observed: the new start line and the zeroed meters in a refreshed screenshot
 - **Recording module:** replace the end of a take (a WAV in the Inbox) with the meeting record and the pipeline: `RecordingTakes.stop` and `importPicked` are the seams. Read frames with `onRecordingFrame` for live ASR and apply `pausedSeconds` as the clock skew (34), and call `repairWavFile` before transcribing any WAV.
 - **Calendar and others:** nothing.
 - **Pending real validation:** Windows 10 builds 19041 to 20347 for process capture; real Teams, Zoom and browser calls; headset hot swap and long-session drift; a microphone with more than two channels; mp3, m4a and other Media Foundation formats; packaged builds of the addon.
+
+## Audit round 2
+
+Fixed, with tests:
+
+- **Take survives leaving the Record page (33, 49, 57, 60):** new channel `audio.recording.state`; `useTake` asks main on mount and picks up `recording` or `paused`, so Stop, Pause, Resume and the failure notice work again. Tests: `use-take.test.tsx` (3 cases), `audio-handlers.test.ts`.
+- **92 Settings preview during a take:** main refuses `audio.preview.start` while a take is busy, covering both pages. Test: `audio-handlers.test.ts`.
+- **Stale pick race in `useMicrophones`:** `choose` bumps the reload generation. Tests: `use-microphones.test.tsx` (also covers 100 and 102).
+- **C4 frozen bar while paused:** the Meter shows 0 while paused. Test: `RecordingStatusLine.test.tsx`.
+- **Level window stale across start, stop, pause, resume:** reset on each. Test: `recording-service.test.ts`.
+- **36, 42, 35 proof:** tests added for the pump cancel published before devices start (RED observed with the assignment removed), teardown order, and throwing mic/output stop plus removal during an aborted start.
+- **47:** worker shutdown with a recording running finalizes the file (`audio-worker-rpc.test.ts`).
+- **153, 154:** IEEE float repair, block align 0, empty data (`wav-format.test.ts`).
+- **S7:** the executable path buffer is 32768 wide. No unit test (Windows API only); pending real validation.
+
+Rejected or deferred, with the reason:
+
+- **S2 (default device change):** the C# app also reports the source lost, and the user can stop and record again. Re-opening mid-take needs a native re-open path and a seam in the mixer; deferred to a later module, the lost-source warning stays.
+- **S6, S9, S11:** the identity of an app is its exe path and the session list comes from the default endpoint, as in C#. Changing roll-up rules or enumerating every endpoint changes what the picker lists and needs a real multi-device run; there is none here. S11: two instances of one exe cannot be told apart after a restart, so the first one is kept deterministically.
+- **Rust tests for 82, 83, 85, 115, 117, S12, and >2 channel capture (15, C2):** they need real COM endpoints; the crate has no fake. Left as pending-real-validation. The downmix itself is covered by the resampler test.
+- **34 (pause skew to the live pass):** the live pass has no clock skew input and the accumulator dropped ClockSkew on purpose, so the value is returned but unused. Decision: not applied.
+- **148, 39 preview restart after a failed start/import:** follows from `active={idle}`, already covered by the idle toggle test; no extra test added.
+- **Design notes (signal red, existing em dash keys, `processId` max, mainProcessId fallback):** not changed in this round; the em dash keys belong to other modules.
+- **Screenshots:** all of docs/port/screens/audio-capture were regenerated from the current build (no Notes field, zeroed meters while recording). Signal red for live recording was not applied here.

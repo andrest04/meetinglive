@@ -187,6 +187,20 @@ describe('audio handlers', () => {
     expect(takes.rememberPick).toHaveBeenCalledWith(null);
   });
 
+  it('reports where the take stands and starts no preview while a take runs (item 92)', async () => {
+    const { call, takes, controller } = setup();
+    Object.assign(takes, { currentPhase: 'paused', busy: true });
+    expect(await call('audio.recording.state', {})).toMatchObject({
+      ok: true,
+      value: { phase: 'paused' },
+    });
+    expect(await call('audio.preview.start', { deviceId: null })).toMatchObject({ ok: true });
+    expect(controller.startPreview).not.toHaveBeenCalled();
+    Object.assign(takes, { currentPhase: 'idle', busy: false });
+    await call('audio.preview.start', { deviceId: 'x' });
+    expect(controller.startPreview).toHaveBeenCalledWith('x');
+  });
+
   it('starts, pauses, resumes and stops a take through the take object', async () => {
     const { call, takes } = setup();
     const micInput = { kind: 'SystemDefault', deviceId: null };

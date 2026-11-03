@@ -37,7 +37,7 @@ export function RecordingStatusLine({
     <div className="flex flex-col gap-2" data-testid="recording-status">
       <Notice tone={warning ? 'warning' : 'info'}>{text}</Notice>
       <Meter
-        value={microphone ? level : 0}
+        value={microphone && !paused ? level : 0}
         label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
       />
     </div>

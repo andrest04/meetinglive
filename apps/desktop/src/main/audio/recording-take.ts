@@ -56,7 +56,7 @@ export interface PickedFile {
   readonly recordedAtMs: number;
 }
 
-type Phase = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping' | 'importing';
+export type Phase = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping' | 'importing';
 
 /**
  * One take at a time: a recording from Record to Stop, or one import (the capture half of the
@@ -76,6 +76,10 @@ export class RecordingTakes {
   private liveDraft: string | null = null;
 
   constructor(private readonly deps: RecordingTakesDeps) {}
+
+  get currentPhase(): Phase {
+    return this.phase;
+  }
 
   get busy(): boolean {
     return this.phase !== 'idle';

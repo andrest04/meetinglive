@@ -127,6 +127,24 @@ export function useTake(): Take {
     [move, stopWith],
   );
 
+  // A take keeps running in main while the user visits another page. Coming back, the page asks
+  // main where the take stands and picks the controls up again (spec items 33, 49, 57, 60).
+  useEffect(() => {
+    let alive = true;
+    window.vozella.invoke('audio.recording.state', {}).then(
+      (state) => {
+        if (!alive || current.current !== 'idle') return;
+        if (state.phase === 'recording' || state.phase === 'paused') move(state.phase);
+      },
+      () => {
+        // No answer: the page starts idle, as before.
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [move]);
+
   // The page handles only the first output or writer failure: it shows the message and stops.
   // It listens from the start call on: a notice that comes before the start answer is kept and
   // acted on as soon as the take is running.

@@ -11,7 +11,8 @@ function install(handlers: Record<string, Handler>) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
   const listeners = new Set<(payload: unknown) => void>();
   const invoke = vi.fn((name: string, input: Record<string, unknown>) => {
-    calls.push({ name, input });
+    // The state query on mount is not part of what a test counts.
+    if (name !== 'audio.recording.state') calls.push({ name, input });
     const handler = handlers[name];
     if (!handler) return Promise.resolve({});
     try {
@@ -44,6 +45,54 @@ function install(handlers: Record<string, Handler>) {
 afterEach(() => {
   cleanup();
   Reflect.deleteProperty(window, 'vozella');
+});
+
+describe('useTake after leaving the page', () => {
+  it('picks up a take that kept running in main, and can pause and stop it', async () => {
+    const calls = install({
+      'audio.recording.state': () => ({ phase: 'recording' }),
+      'audio.recording.pause': () => ({ paused: true }),
+      'audio.recording.stop': () => ({
+        path: 'C://Lib//Inbox//a.wav',
+        recordedAtMs: 1,
+        pausedSeconds: 0,
+        error: null,
+      }),
+    });
+    const { result } = renderHook(() => useTake());
+    await act(() => Promise.resolve());
+    expect(result.current.phase).toBe('recording');
+    await act(() => result.current.pause());
+    expect(result.current.phase).toBe('paused');
+    await act(() => result.current.stop());
+    expect(result.current.phase).toBe('idle');
+    expect(calls.some((c) => c.name === 'audio.recording.stop')).toBe(true);
+  });
+
+  it('stops the take when an output failure arrives after coming back', async () => {
+    const calls = install({
+      'audio.recording.state': () => ({ phase: 'paused' }),
+      'audio.recording.stop': () => ({
+        path: 'a.wav',
+        recordedAtMs: 1,
+        pausedSeconds: 0,
+        error: null,
+      }),
+    });
+    const { result } = renderHook(() => useTake());
+    await act(() => Promise.resolve());
+    calls.emit({ kind: 'output-failed', message: 'disk full' });
+    await act(() => Promise.resolve());
+    expect(calls.some((c) => c.name === 'audio.recording.stop')).toBe(true);
+    expect(result.current.phase).toBe('idle');
+  });
+
+  it('stays idle when main has no take or does not answer', async () => {
+    install({ 'audio.recording.state': () => ({ phase: 'idle' }) });
+    const { result } = renderHook(() => useTake());
+    await act(() => Promise.resolve());
+    expect(result.current.phase).toBe('idle');
+  });
 });
 
 describe('useTake', () => {

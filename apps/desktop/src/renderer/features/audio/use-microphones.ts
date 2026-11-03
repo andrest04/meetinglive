@@ -62,6 +62,8 @@ export function useMicrophones(): MicrophonesModel {
 
   const choose = useCallback((choice: MicrophoneChoiceDto) => {
     touched.current = choice;
+    // An answer to a reload that started before this pick carries the old choice: drop it.
+    generation.current += 1;
     setSelected(choice);
     window.vozella.invoke('audio.microphones.remember', { choice }).catch(() => {
       // A locked settings file must not break picking.

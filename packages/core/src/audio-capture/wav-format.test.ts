@@ -131,6 +131,21 @@ describe('analyzeWav', () => {
     expect(analyzeWav(source(file)).status).toBe('Unsupported');
   });
 
+  it('repairs IEEE float and refuses a block align of 0 (item 153)', () => {
+    const body = audio(100);
+    const float = plain(0, 0, body);
+    new DataView(float.buffer).setUint16(20, 3, true); // IEEE float, align 2 from the helper
+    expect(analyzeWav(source(float)).status).toBe('NeedsRepair');
+    const noAlign = plain(0, 0, body);
+    new DataView(noAlign.buffer).setUint16(32, 0, true);
+    expect(analyzeWav(source(noAlign)).status).toBe('Unsupported');
+  });
+
+  it('does not call a data size of 0 broken when less than one frame follows (item 154)', () => {
+    const file = plain(36, 0, new Uint8Array(0));
+    expect(analyzeWav(source(file)).status).toBe('Valid');
+  });
+
   it('refuses files above 4 GiB', () => {
     expect(analyzeWav({ length: 0x1_0000_0001, read: () => new Uint8Array(0) }).status).toBe(
       'Unsupported',

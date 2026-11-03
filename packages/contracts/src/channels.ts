@@ -116,6 +116,7 @@ export const requestChannels = {
   [audio.audioPreviewStop.name]: audio.audioPreviewStop,
   [audio.audioImportPickFile.name]: audio.audioImportPickFile,
   [audio.audioRecordingStart.name]: audio.audioRecordingStart,
+  [audio.audioRecordingState.name]: audio.audioRecordingState,
   [audio.audioRecordingPause.name]: audio.audioRecordingPause,
   [audio.audioRecordingResume.name]: audio.audioRecordingResume,
   [audio.audioRecordingStop.name]: audio.audioRecordingStop,

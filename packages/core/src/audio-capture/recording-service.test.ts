@@ -10,7 +10,7 @@ import {
 import { FakeCapturePort, FakeWavWriter, ManualPumpClock, flush } from './recording-test-kit';
 
 interface Rig {
-  readonly service: AudioCaptureService;
+  service: AudioCaptureService;
   readonly port: FakeCapturePort;
   readonly writer: FakeWavWriter;
   readonly clock: ManualPumpClock;
@@ -527,5 +527,110 @@ describe('stop', () => {
     await r.clock.advance(400);
     await expect(r.service.stop()).rejects.toThrow();
     await expect(r.service.stop()).resolves.toBeUndefined();
+  });
+});
+
+describe('level window and teardown proof', () => {
+  it('starts every take, and every pause and resume, with an empty 100 ms level window', async () => {
+    const r = rig();
+    const levels: number[] = [];
+    r.service.setListeners({ onMicrophoneLevel: (l) => levels.push(l) });
+    await r.service.start('a.wav', withMic);
+    // Three loud frames, then a pause: the partial window must not leak into the resume.
+    for (let i = 0; i < 3; i += 1) r.port.mic?.emit(30000);
+    r.service.pause();
+    r.service.resume();
+    for (let i = 0; i < 4; i += 1) r.port.mic?.emit(0);
+    expect(levels).toEqual([]);
+    r.port.mic?.emit(0);
+    expect(levels).toEqual([0]);
+    // A stop mid-window does not carry into the next take either.
+    for (let i = 0; i < 3; i += 1) r.port.mic?.emit(30000);
+    await r.service.stop();
+    r.port.sessions.length = 0;
+    await r.service.start('b.wav', withMic);
+    for (let i = 0; i < 5; i += 1) r.port.mic?.emit(0);
+    expect(levels).toEqual([0, 0]);
+  });
+
+  it('lets a device that fails during start cancel the pump (item 36)', async () => {
+    const r = rig();
+    const original = r.port.start.bind(r.port);
+    r.port.start = (source, onFrame, onStopped) => {
+      if (source.kind === 'process') onStopped?.(new Error('device lost at once'));
+      return original(source, onFrame, onStopped);
+    };
+    await r.service.start('a.wav', processTreeSources(false, null, 4242));
+    expect(r.outputFailed.map((e) => e.message)).toEqual(['device lost at once']);
+    await r.clock.advance(2000);
+    expect(r.writer.chunks.length).toBeLessThanOrEqual(1);
+  });
+
+  it('tears down in the spec order: devices, pump, flush, close (item 42)', async () => {
+    const r = rig();
+    await r.service.start('a.wav', withMic);
+    const order: string[] = [];
+    const mic = r.port.mic!;
+    const output = r.port.output!;
+    const micStop = mic.stop.bind(mic);
+    const outputStop = output.stop.bind(output);
+    mic.stop = () => {
+      order.push('mic');
+      return micStop();
+    };
+    output.stop = () => {
+      order.push('output');
+      return outputStop();
+    };
+    const flushWriter = r.writer.flush.bind(r.writer);
+    const closeWriter = r.writer.close.bind(r.writer);
+    r.writer.flush = () => {
+      order.push('flush');
+      flushWriter();
+    };
+    r.writer.close = () => {
+      order.push('close');
+      closeWriter();
+    };
+    await r.service.stop();
+    expect(order).toEqual(['mic', 'output', 'flush', 'close']);
+  });
+
+  it('does not write after the pump is awaited: nothing lands once flush has run (item 42)', async () => {
+    const r = rig();
+    await r.service.start('a.wav', systemOnly);
+    await r.clock.advance(300);
+    let afterFlush = -1;
+    const flushWriter = r.writer.flush.bind(r.writer);
+    r.writer.flush = () => {
+      afterFlush = r.writer.chunks.length;
+      flushWriter();
+    };
+    await r.service.stop();
+    expect(r.writer.chunks).toHaveLength(afterFlush);
+  });
+
+  it('swallows a throwing microphone or output stop and a throwing file removal when a start aborts (item 35)', async () => {
+    const r = rig();
+    const original = r.port.start.bind(r.port);
+    r.port.start = async (source, onFrame, onStopped) => {
+      if (source.kind === 'system') throw new Error('device failed');
+      const session = await original(source, onFrame, onStopped);
+      session.stop = () => {
+        throw new Error('mic stop failed');
+      };
+      return session;
+    };
+    r.service = new AudioCaptureService({
+      sources: r.port,
+      clock: r.clock,
+      createWriter: () => r.writer,
+      removeFile: () => {
+        throw new Error('remove failed');
+      },
+      repairWav: () => undefined,
+    });
+    await expect(r.service.start('a.wav', withMic)).rejects.toThrow('device failed');
+    expect(r.service.isRecording).toBe(false);
   });
 });

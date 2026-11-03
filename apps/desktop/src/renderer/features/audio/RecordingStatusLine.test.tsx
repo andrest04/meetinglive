@@ -56,6 +56,16 @@ describe('RecordingStatusLine', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Paused. The break is not recorded.');
   });
 
+  it('zeroes the level bar while paused (C4)', () => {
+    const emit = installApi();
+    const { rerender } = render(view());
+    emit('audio.recording.level', { level: 80 });
+    const meter = () => screen.getByRole('meter', { name: 'Microphone level' });
+    expect(meter()).toHaveAttribute('aria-valuenow', '80');
+    rerender(view({ paused: true }));
+    expect(meter()).toHaveAttribute('aria-valuenow', '0');
+  });
+
   it('keeps a lost-source warning over the plain text, also after a resume', () => {
     const emit = installApi();
     const { rerender } = render(view({ paused: true }));
