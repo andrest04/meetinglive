@@ -10,10 +10,17 @@ import {
   type PayloadInputOf,
   type ThemePreference,
 } from '@vozella/contracts';
-import { MeetingBusyRegistry, Workspace } from '@vozella/core';
+import {
+  FakeModelStore,
+  FakeRuntimeStore,
+  MeetingBusyRegistry,
+  Workspace,
+  type HardwareProbe,
+} from '@vozella/core';
 import {
   FakeCliProbe,
   FakeHardwareProbe,
+  FakeSpeechEngine,
   FakeLocalModelStore,
   FakeXaiAccount,
   FileXaiAccount,
@@ -24,6 +31,8 @@ import {
   RotatingFileLogger,
   SettingsRuntime,
   SystemClock,
+  SystemHardwareProbe,
+  TranscriptionRuntime,
   type RunMode,
 } from '@vozella/platform';
 import {
@@ -52,6 +61,9 @@ import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
+import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
+import { TranscriptionController } from './transcription/transcription-controller';
+import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
@@ -171,6 +183,17 @@ function main(): void {
       }),
   });
 
+  const asr = new AsrWorkerHost({
+    logger: logger.child('asr'),
+    spawn: () =>
+      forkUtilityWorker({
+        name: 'asr',
+        modulePath: path.join(__dirname, 'workers', 'asr.js'),
+        env: {},
+        logger: logger.child('asr'),
+      }),
+  });
+
   app.on('second-instance', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -207,6 +230,7 @@ function main(): void {
       new Promise<void>((resolve) => setTimeout(resolve, 3000)),
     ])
       .then(() => audio.dispose())
+      .then(() => asr.dispose())
       .catch((error: unknown) => {
         logger.error('audio worker dispose failed', { error });
       })
@@ -265,6 +289,11 @@ function main(): void {
     },
   });
 
+  // One hardware read per process, shared by the Settings page and the transcription engine.
+  const hardware: HardwareProbe = fakeNative
+    ? new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 })
+    : new SystemHardwareProbe();
+
   // Settings page services. In the fake native build the machine, the CLIs, the model downloads
   // and the xAI account are doubles, so nothing touches the network or a real account.
   const settings: SettingsRuntime = new SettingsRuntime({
@@ -278,9 +307,9 @@ function main(): void {
       setImmediate(() => app.quit());
     },
     notifyModel: modelEventBridge(broadcast),
+    hardware,
     ...(fakeNative
       ? {
-          hardware: new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 }),
           cli: new FakeCliProbe(new Set(['claude'])),
           modelStore: new FakeLocalModelStore(),
           xaiAccount: new FakeXaiAccount(),
@@ -441,6 +470,47 @@ function main(): void {
     });
     app.on('before-quit', () => {
       audioController.dispose();
+    });
+
+    // Transcription: the engine runs in its own process; the controller serves the pages and
+    // gives the recording module the live pass and the offline pass.
+    const transcription = new TranscriptionRuntime({
+      transcriptionModelsDirectory: library.paths.transcriptionModelsDirectory,
+      nemoSpeechDirectory: library.paths.nemoSpeechDirectory,
+      engine: fakeNative ? new FakeSpeechEngine() : asr,
+      hardware: () => hardware.detect(),
+      logger: logger.child('transcription'),
+      ...(fakeNative
+        ? { stores: { models: new FakeModelStore(), runtimes: new FakeRuntimeStore() } }
+        : {}),
+    });
+    const transcriptionController = new TranscriptionController({
+      runtime: transcription,
+      settings: library.settings,
+      meetings: library.meetings,
+      busy,
+      broadcast,
+      logger: logger.child('transcription'),
+      t: (key, ...args) => locale.t(key, ...args),
+      onRecordingFrames: (listener) =>
+        audio.onPush((event) => {
+          if (event.type === 'recording-frame') listener(event.pcm);
+        }),
+      fileExists: (file) => fs.existsSync(file),
+      onMeetingChanged: (id) => {
+        workspace.notifyMeetingChanged(id);
+      },
+    });
+    registerTranscriptionHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: transcriptionController,
+    });
+    app.on('before-quit', () => {
+      transcriptionController.dispose();
     });
 
     mainWindow = createMainWindow({

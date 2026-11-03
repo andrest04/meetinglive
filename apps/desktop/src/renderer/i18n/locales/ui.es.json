@@ -46,5 +46,10 @@
   "Ui_MicDefaultTitle": "Micrófono predeterminado",
   "Ui_MicDefaultDescription": "Se usa en las grabaciones, salvo que elijas otro en la página Grabar.",
   "Ui_TakeSaved": "Guardado como {0} en la Bandeja de entrada.",
-  "Ui_TakeStarting": "Iniciando la grabación. Puede tardar unos segundos."
+  "Ui_TakeStarting": "Iniciando la grabación. Puede tardar unos segundos.",
+  "Ui_EngineStageRuntimeCuda": "Descargando el tiempo de ejecución NVIDIA CUDA",
+  "Ui_EngineStageRuntimeCpu": "Descargando el tiempo de ejecución NVIDIA CPU",
+  "Ui_EngineStageRuntimeCpuFallback": "Descargando el tiempo de ejecución NVIDIA CPU como respaldo",
+  "Ui_EngineStageModel": "Descargando el modelo Nemotron 3.5 ASR",
+  "Ui_SpeakerModelMissing": "Las etiquetas de hablante están activadas, pero el modelo de hablantes no está instalado, así que las transcripciones no tendrán etiquetas."
 }

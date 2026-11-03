@@ -27,7 +27,7 @@ export const SORTFORMER_MODEL: PinnedFile = {
   displayName: 'Sortformer 4-speaker v2',
   url: 'https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2/resolve/5240a64075176943f677d30fa2171c780229f341/diar_streaming_sortformer_4spk-v2.q8_0.gguf',
   sha256: '0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a',
-  bytes: 0,
+  bytes: 147_075_776,
 };
 
 export const NEMO_RUNTIME_VERSION = 'v0.3.0';

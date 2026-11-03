@@ -6,8 +6,10 @@ import {
   TranscriptionService,
   type AsrEngine,
   type AudioFrameReader,
+  type EngineModelStore,
   type HardwareProfile,
   type Logger,
+  type RuntimeStore,
 } from '@vozella/core';
 import { NemotronModelStore, type ModelStoreOptions } from './model-store';
 import { NemoSpeechRuntimeManager, type RuntimeManagerOptions } from './runtime-manager';
@@ -24,27 +26,33 @@ export interface TranscriptionRuntimeOptions {
   /** Test seams for the stores. */
   readonly models?: Partial<ModelStoreOptions>;
   readonly runtimes?: Partial<RuntimeManagerOptions>;
+  /** Replaces the file based stores (the fake native build). */
+  readonly stores?: { readonly models: EngineModelStore; readonly runtimes: RuntimeStore };
 }
 
 /** Everything the transcription module builds from paths and an engine (spec 3.4 to 3.11). */
 export class TranscriptionRuntime {
   readonly status = new AsrBackendStatus();
-  readonly models: NemotronModelStore;
-  readonly runtimes: NemoSpeechRuntimeManager;
+  readonly models: EngineModelStore;
+  readonly runtimes: RuntimeStore;
   readonly installer: TranscriptionEngineInstaller;
   readonly factory: NemoSpeechRecognizerFactory;
   readonly offline: TranscriptionService;
   readonly live: LiveTranscriptionService;
 
   constructor(options: TranscriptionRuntimeOptions) {
-    this.models = new NemotronModelStore({
-      directory: options.transcriptionModelsDirectory,
-      ...options.models,
-    });
-    this.runtimes = new NemoSpeechRuntimeManager({
-      root: options.nemoSpeechDirectory,
-      ...options.runtimes,
-    });
+    this.models =
+      options.stores?.models ??
+      new NemotronModelStore({
+        directory: options.transcriptionModelsDirectory,
+        ...options.models,
+      });
+    this.runtimes =
+      options.stores?.runtimes ??
+      new NemoSpeechRuntimeManager({
+        root: options.nemoSpeechDirectory,
+        ...options.runtimes,
+      });
     this.installer = new TranscriptionEngineInstaller({
       models: this.models,
       runtimes: this.runtimes,

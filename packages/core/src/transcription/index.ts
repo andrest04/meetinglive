@@ -16,3 +16,5 @@ export * from './recognizer-factory';
 export * from './retranscription';
 export * from './stamp-format';
 export * from './test-kit';
+export * from './pcm';
+export * from './install-labels';

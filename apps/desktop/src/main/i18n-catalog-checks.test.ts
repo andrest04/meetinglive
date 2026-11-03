@@ -3,6 +3,8 @@ import path from 'node:path';
 import {
   CLI_STATUS_KEYS,
   FIT_LABEL_KEYS,
+  INSTALL_STAGE_LABEL_KEYS,
+  SPEAKER_MODEL_MISSING_KEY,
   SETTINGS_MESSAGE_KEYS,
   SETTINGS_SECTIONS,
   NOTE_TEMPLATE_BUILT_INS,
@@ -166,6 +168,8 @@ describe('keys the settings domain points at (item 116, 118)', () => {
     ...Object.values(FIT_LABEL_KEYS),
     ...NOTE_TEMPLATE_BUILT_INS.map((t) => t.labelKey),
     ...Object.values(CLI_STATUS_KEYS),
+    ...Object.values(INSTALL_STAGE_LABEL_KEYS),
+    SPEAKER_MODEL_MISSING_KEY,
     ...Object.values(SETTINGS_MESSAGE_KEYS),
     ...SETTINGS_SECTIONS.flatMap((section) =>
       section.headingKey === null ? [] : [section.headingKey],
