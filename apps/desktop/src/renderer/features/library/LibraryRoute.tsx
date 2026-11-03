@@ -278,7 +278,10 @@ export function LibraryRoute() {
                 onChange={(event) => {
                   library.setNoteText(event.target.value);
                 }}
-                className="max-h-30 min-h-9 w-full border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
+                onBlur={() => {
+                  void library.saveNote();
+                }}
+                className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
               />
             </Field>
           ) : null}

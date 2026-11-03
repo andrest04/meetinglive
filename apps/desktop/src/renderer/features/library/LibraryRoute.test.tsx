@@ -344,6 +344,21 @@ describe('folder note', () => {
     });
   });
 
+  it('stores a typed note after a pause, with no other trigger (B16)', async () => {
+    const { api, user } = await mount(seed);
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    await user.type(screen.getByRole('textbox', { name: 'Folder notes' }), ' typed');
+    await waitFor(
+      async () => {
+        expect((await api.folders.getAll()).find((f) => f.id === UNI)?.note).toBe(
+          'Fall term typed',
+        );
+      },
+      { timeout: 3000 },
+    );
+    expect(api.calls.filter((c) => c.name === 'library.setFolderNote')).toHaveLength(1);
+  });
+
   it('saves a typed note when the page is left, and on pagehide', async () => {
     const { api, user } = await mount(seed);
     await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));

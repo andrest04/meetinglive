@@ -57,6 +57,7 @@ export interface LibraryModel {
   readonly destinations: readonly MoveDestination[];
   readonly setQuery: (value: string) => void;
   readonly setNoteText: (value: string) => void;
+  readonly saveNote: () => Promise<void>;
   readonly setExpandedIds: (ids: ReadonlySet<string>) => void;
   readonly dismissStatus: () => void;
   readonly showStatus: (message: StatusMessage) => void;
@@ -78,6 +79,9 @@ export interface LibraryModel {
   readonly openMeeting: (meetingId: string, tab: 'Transcript' | 'Summary') => void;
   readonly goRecord: () => void;
 }
+
+/** Idle time after the last keystroke before the folder note is stored. */
+export const NOTE_AUTOSAVE_MS = 400;
 
 function noteOf(folder: FolderDto | undefined): string {
   return folder?.note ?? '';
@@ -174,6 +178,17 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
     },
     [persistNote, setNoteText, setSelected],
   );
+
+  // Autosave while typing (B16): a window closed from the last-window path destroys the renderer
+  // before a page-hide invoke can reach main, so the note must already be stored by then.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void persistNote();
+    }, NOTE_AUTOSAVE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [noteText, persistNote]);
 
   // First load, live refresh, and the save of the note when the page goes away (B16).
   useEffect(() => {
@@ -281,6 +296,7 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
     destinations,
     setQuery,
     setNoteText,
+    saveNote: persistNote,
     setExpandedIds,
     dismissStatus: () => {
       setStatus(null);

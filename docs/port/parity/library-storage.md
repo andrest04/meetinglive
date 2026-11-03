@@ -334,3 +334,10 @@ Not changed, on purpose: B4 (kept, now reported), B23 (same order as the WinUI a
 - Fixed: #132 version, #109 select-first on right click, #60 and B4 skipped files named in the notice, #110 main waits for in-flight library writes on quit (status moved to pending-real-validation).
 - Design, fixed: Library and Settings page titles use the 20px heading (`quiet`) while the document keeps the large title; the search field hides Chromium's native clear button; the folder notes field is a borderless single line that shows its border on focus.
 - Design, not changed: dates in the mono face sit at the far right with the row's `more` slot reserved. Rejected for now: the slot keeps rows aligned and keyboard reachable; low severity, decided without a user to ask.
+
+## Second audit round decisions
+
+- #110 and B16: the note is now autosaved 400 ms after the last keystroke and on blur, besides folder change, unmount and `pagehide`, so it no longer depends on a page-hide invoke reaching main. Covered by a component test and `e2e/library-close.spec.ts`. Observed: that e2e also passes on the previous code when windows are closed with `BrowserWindow.close()`, so the audit's loss was not reproduced here; the autosave removes the dependency anyway. Status stays pending-real-validation for a manual close with the window button.
+- Fixed: the folder notes box kept `resize-y` and `min-h-16` because `cn` does not merge Tailwind classes; it is now a borderless auto-sized single line without a grip.
+- Fixed: screenshots in `docs/port/screens/library-storage/` regenerated from the current build (20px page title, borderless note, version 1.0.0).
+- Not a Library defect: items 113, 117 and 118 depend on the Session module; 155 and 156 stay unverified.
