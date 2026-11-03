@@ -1,8 +1,8 @@
-# Parity ledger: settings-i18n (domain and integration half)
+# Parity ledger: settings-i18n (domain, integration and user interface)
 
-Spec: `docs/port/specs/settings-i18n.md`. Section 8 has 126 items; every one is below. The Settings page itself (screens, dialogs, animation) is the UI half and is not built yet.
+Spec: `docs/port/specs/settings-i18n.md`. Section 8 has 126 items; every one is below. The Settings page is built (user interface half); rows that said `open-ui` now carry their final status.
 
-Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped`, `pending-real-validation`, and `open-ui` (the logic, data and strings exist; the screen that shows it is the UI half). A note after `open-ui` says what is already there.
+Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped`, `pending-real-validation`. `open-ui` is no longer used: every row has its final status.
 
 ## Where things are
 
@@ -29,7 +29,14 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | Channels | `packages/contracts/src/settings.ts` |
 | Handlers, locale state, startup language, single instance | `apps/desktop/src/main/ipc/settings-handlers.ts`, `main/i18n/`, `main/bootstrap/single-instance.ts`, `main/index.ts` |
 | Catalog checks (counts, placeholders, specifiers, references) | `apps/desktop/src/main/i18n-catalog-checks.test.ts` |
-| Real-window checks | `apps/desktop/e2e/settings-i18n.spec.ts` |
+| Real-window checks (services) | `apps/desktop/e2e/settings-i18n.spec.ts` |
+| Page state: one snapshot, checked commands, download events, feedback timer | `apps/desktop/src/renderer/features/settings/use-settings-page.ts` |
+| Page and blocks | `features/settings/SettingsRoute.tsx`, `LanguageSection.tsx`, `ProviderSection.tsx`, `LocalModels.tsx`, `XaiAccount.tsx`, `MeetingLanguageSection.tsx`, `ProviderMark.tsx` |
+| First paint language, live switch | `main.tsx` (`i18n.getLocale`), `i18n/I18nProvider.tsx` (`i18n.localeChanged`) |
+| Kit additions | `ui/RadioGroup.tsx` (`layout="rows"`, `trailing`), `ui/layout.tsx` (`SectionHeader compact`, smaller level 3) |
+| Component tests | `features/settings/SettingsRoute.test.tsx` (10 cases) |
+| Real-window UI checks, axe in both themes | `e2e/settings-ui.spec.ts` (8 cases); `e2e/shell.spec.ts` language test updated |
+| Screenshots (opt in with `VOZELLA_SCREENSHOTS=1`) | `e2e/settings-screens.spec.ts` to `docs/port/screens/settings-i18n/` |
 
 ## Decisions
 
@@ -53,34 +60,34 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 1 | open-ui | `SETTINGS_SECTIONS` gives the blocks, their order and owners. Column width, padding and spacing are layout |
+| 1 | done | Blocks follow `SETTINGS_SECTIONS` inside the 720 px shell column, `gap-8` between blocks, hairline rows (`features/settings/SettingsRoute.tsx`) |
 | 2 | done | `SettingsPage_Title.Text`, used by the existing route |
-| 3 | open-ui | Ring and hidden content before the first reveal. `settings.getPage` is the local phase |
-| 4 | open-ui | Later visits call `settings.getPage` again; it is read-only and cheap |
-| 5 | open-ui | CSS fade with `prefers-reduced-motion` |
+| 3 | improved | A skeleton of text lines under the page title (name `Ui_SettingsLoading`) instead of a 32 px ring, and no content is drawn until the first answer, so defaults never paint (`SettingsRoute.test.tsx`) |
+| 4 | improved | The route is not cached: each visit mounts the page, which reads `settings.getPage` again. Decision: with no view model to keep alive, a fresh read is the simpler way to show what is saved |
+| 5 | improved | No fade: content replaces the skeleton in one step. Decision: a 150 ms fade on a settings list adds nothing, and nothing here animates, so reduced motion has nothing to turn off |
 | 6 | done | `SettingsPageService.load` reads settings and hardware together (`Promise.all`). The ring painting first is UI |
-| 7 | open-ui | `load` writes nothing and starts nothing, so a load the page abandons has no effect. The page ignores the late answer. The microphone meter belongs to its module |
-| 8 | open-ui | One snapshot object carries every section's data, so order of apply is a rendering choice |
+| 7 | done | `alive` ref: an answer that arrives after the page unmounted changes nothing. The load writes nothing (e2e: no `settings.json` after opening) |
+| 8 | done | One `SettingsPageDto` in state; every block draws from it in one render |
 | 9 | done | The network phase is its own request (`settings.xai.refresh`), single flight, and a failure is a value in the view, never a rejection. Calendar loading belongs to its module |
 | 10 | improved | B18. A failed read rejects with the message; the UI shows `Ui_SettingsLoadFailed` and clears the ring in `finally` |
 | 11 | improved | The commands ignore a value equal to the current one, so an echo from a programmatic load cannot save anything or show feedback. No suppression flag is needed on the domain side |
-| 12 | open-ui | Microphone meter and ASR backend observation belong to the audio and transcription modules |
+| 12 | dropped | Not this module: the microphone meter and the ASR backend belong to audio-capture and transcription, which mount in their slots. Nothing is drawn for them here |
 
 ### App UI language
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 13 | open-ui | `UI_LANGUAGE_OPTIONS`: `en-US`, `es`, endonym keys `Settings_LanguageEnglish`, `Settings_LanguageSpanish` that read the same in both languages |
-| 14 | open-ui | Keys exist and are checked in both locales |
-| 15 | open-ui | `i18n.getLocale` and `settings.getPage.uiLanguage` give the answer. The renderer provider still reads `localStorage` and `navigator.languages`; it must take the first paint from `i18n.getLocale` |
+| 13 | done | `LanguageSection`: Select with the two endonyms, English then Español (`settings-ui.spec.ts`) |
+| 14 | done | Header and description keys used as is; Spanish rendering seen in `settings-es-light.png` |
+| 15 | done | `main.tsx` asks `i18n.getLocale` before the first render and passes it to `I18nProvider`; `localStorage` no longer holds the language. A window with no bridge falls back to the OS language (component tests only) |
 | 16 | done | `getPage.uiLanguage` is the saved tag or the OS match by primary subtag; nothing is saved on load (tested) |
 | 17 | done | `setUiLanguage` of the shown language returns `ignored: unchanged` |
-| 18 | open-ui | Main saves, then switches its own locale and pushes `i18n.localeChanged`. The renderer must listen and switch |
-| 19 | open-ui | Four `SettingsLanguageRestart_*` keys exist. Default button Restart now |
-| 20 | open-ui | Nothing to do on the domain side |
+| 18 | done | `I18nProvider` listens to `i18n.localeChanged` and switches every string at once (e2e: html `lang` and the headings turn Spanish without a restart) |
+| 19 | done | Dialog with the four keys; Restart now takes focus (e2e). It opens after the switch, so it is already in the new language |
+| 20 | done | Later closes the dialog and calls nothing; the language already applies (`SettingsRoute.test.tsx`) |
 | 21 | done | `app.restart` asks the exit gate first; refusal returns `refused` and relaunches nothing (`page-service.test.ts`, `settings-handlers.test.ts`) |
 | 22 | pending-real-validation | Failure is returned as `failed` with the message (B10). A real relaunch, and the new process getting the single-instance lock, were not exercised: doing it in a test would start a second real app. Needs one manual restart |
-| 23 | open-ui | Main applies the saved or OS language before the first window (`resolveStartupLanguage`; read failure and blank leave the OS language; e2e observed the saved `es`). The renderer locale still has to start from it |
+| 23 | done | Main applies the saved language before the first window (earlier) and the renderer now starts from it |
 | 24 | done | Every formatter takes an explicit locale; nothing reads a machine culture |
 
 ### Locale resolution
@@ -95,17 +102,17 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 28 | open-ui | Provider names and label keys exist. Brand icons are gap 1 in `_gaps.md` and belong to the UI half |
+| 28 | done | `ProviderMark.tsx`: Claude, Codex and Grok paths copied verbatim from the XAML, 16 px, `aria-hidden`. Local uses a lucide Cpu so the four labels align. Decision: Claude keeps `#D97757` as the one brand color on the page (gap 1 asks for it); Codex and Grok use the text color; forced colors turn all three into `CanvasText` |
 | 29 | improved | B2. Only the four exact names; everything else is `Local` |
 | 30 | done | `setSummaryProvider` of the current provider is `ignored` |
-| 31 | open-ui | Saves the exact name. The immediate UI update is the page's |
-| 32 | open-ui | The page calls `settings.xai.refresh` after selecting xAI |
-| 33 | open-ui | Keys exist |
-| 34 | open-ui | `getPage.cliStatus` is set only for Claude Code and Codex |
-| 35 | open-ui | `CLI_STATUS_KEYS`; both strings exist in both locales |
+| 31 | done | A radio change calls `settings.setSummaryProvider` and then reads the page, so every control matches what is saved |
+| 32 | done | Choosing Grok calls `settings.xai.refresh` after the save. A page that opens with Grok chosen and signed in refreshes once (`SettingsRoute.test.tsx`) |
+| 33 | done | Keys used |
+| 34 | done | The status line shows only when `cliStatus` is not null (Claude Code and Codex) |
+| 35 | done | e2e: Claude Code `Detected on PATH.`, Codex `Not found on PATH` |
 | 36 | done | `PathCliProbe` (`settings-adapters.test.ts`): PATHEXT, default `.EXE;.CMD;.BAT`, plain name elsewhere, blank entries skipped, directories do not count. Asynchronous |
 | 37 | done | `cliExecutableName` throws `RangeError` for other kinds |
-| 38 | open-ui | The page shows blocks by `provider` |
+| 38 | done | `ProviderSection` draws the block of the chosen provider below the radios |
 
 ### Claude Code and Codex options
 
@@ -116,8 +123,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 41 | done | `CODEX_MODELS`, default `gpt-5.6` |
 | 42 | done | `CODEX_EFFORTS`, default `low` |
 | 43 | done | `setCliOption` ignores blank, unchanged and unknown values and saves one field. The loading flag is covered by the no-op on unchanged |
-| 44 | open-ui | The saved outcome carries `feedback: Xai_FeedbackModel` with `<model> · <effort>`; the bar and its 4 s timer are UI |
-| 45 | open-ui | Expanders, headers, descriptions and icons |
+| 44 | improved | The saved outcome's `feedback` shows in a Notice under the provider section, closable, and a 4 s timer (`FEEDBACK_MS`) closes it. e2e sees `Saved. Using opus · low.`. The timer itself has no test |
+| 45 | improved | No expander: a small heading and its description sit above the rows, always open. Decision: the expanders were always expanded in WinUI, so the chevron had no use |
 | 46 | done | Resolvers return the defaults for blank values (`settings.test.ts`, `page-service.test.ts`) |
 
 ### Local models
@@ -125,25 +132,25 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | # | Status | Notes |
 | --- | --- | --- |
 | 47 | done | `SUMMARY_MODELS`: names, URLs, sizes, RAM, keys, ascending order |
-| 48 | open-ui | Rows carry display name, speed, quality and use-case keys, `fileSizeGb`, `fit`; `formatModelSize` gives `0.8`, `3.1`, `5`, `7.1` (`7,1` in Spanish) |
-| 49 | open-ui | `rateFor` and its boundaries are tested. Badge colors are UI |
-| 50 | open-ui | `downloaded` is in the row |
-| 51 | open-ui | `downloaded` and `downloading` are in the row |
-| 52 | open-ui | Same |
+| 48 | done | Name, fit badge, `Model_SpeedQuality` with the size (`3.1 GB`, `3,1 GB` in Spanish seen in `settings-restart-prompt-es-light.png`) |
+| 49 | improved | Fit badges are an outline with the word; no green, amber or red fill. Decision: stack.md allows color only for tokens, and the word already carries the meaning |
+| 50 | done | The radio is disabled until the file exists; Delete shows for a downloaded model |
+| 51 | done | Download is replaced by Cancel download while it runs |
+| 52 | done | Same |
 | 53 | improved | `LocalModelsService.download`: percent 0 to 100, flags cleared on every outcome, `cancel` added. The file is written as `.part` and moved into place only when complete |
-| 54 | open-ui | B5. The failure is a value and a `failed` event with the message; progress is reset. `Ui_ModelDownloadFailed` shows it |
+| 54 | done | A failed download shows `Ui_ModelDownloadFailed` with the model name and the message (`SettingsRoute.test.tsx`); progress resets |
 | 55 | done | Downloading does not select (tested) |
 | 56 | done | Delete clears `selectedSummaryModelId` only for the active model. A file that cannot be removed returns `failed` and keeps the selection |
 | 57 | done | `select` needs a catalog model whose file exists; reselecting is a no-op |
 | 58 | improved | B17. Transfers live in the service, `rows()` reports `downloading` and `percent`, and a second download of the same file is refused |
-| 59 | open-ui | Keys exist |
-| 60 | open-ui | The ids `RadioSelectModel_<file>`, `BtnDownloadModel_<file>`, `BtnDeleteModel_<file>` are for the UI half to keep |
+| 59 | done | Keys used |
+| 60 | improved | The AutomationIds do not exist in a web page. The radio, Download and Delete are reached by role and name (`settings-ui.spec.ts`) |
 
 ### Grok (xAI)
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 61 | open-ui | `XaiAccountView` has the title, detail, signed-in flag; the buttons follow `signedIn` and `capabilities.xaiSignIn` |
+| 61 | done | `XaiAccount.tsx`: status row with title, detail, a check when signed in, Sign in or Sign out. Sign in only when `capabilities.xaiSignIn` |
 | 62 | done | Title and detail kinds for OAuth, ApiKey, none; loading-models only until models are loaded for these credentials (`settings-services.test.ts`) |
 | 63 | done | `status()` reads only the local store and seeds the saved model |
 | 64 | done | `refresh()`: token, models, `resolveXaiModelId`, `mergeModelList`, persist when it differs, ready detail |
@@ -151,15 +158,15 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 66 | done | Removes absent, inserts at index, keeps the resolved id, does not reorder |
 | 67 | improved | B14. Title `error`, raw message in the detail, `signedIn` stays true (the credentials are there), models kept, `canRetry` true |
 | 68 | done | A signed-out refresh clears the list |
-| 69 | open-ui | Disable the combos when `signedIn` is false |
+| 69 | done | Model and effort Selects are disabled while signed out (e2e) |
 | 70 | done | `none, low, medium, high, xhigh`, default `low` |
 | 71 | done | `setCliOption` for xAI; `status()` rebuilds the ready detail from the saved values |
-| 72 | open-ui | Masked input with peek and the Save enable rule |
-| 73 | open-ui | `saveApiKey` trims, hands it to the port, refreshes, returns `Xai_FeedbackApiKey`. Clearing the box is UI. Storing the key replaces OAuth credentials: the port's job |
+| 72 | done | Password input with a Show key and Hide key button (peek) and Save, disabled while blank (e2e) |
+| 73 | done | Save clears the box on success, refreshes the models and shows `Xai_FeedbackApiKey`. The key never reaches `settings.json` (e2e asserts it) |
 | 74 | done | `signOut` returns `Xai_FeedbackSignedOut` and a refreshed signed-out view |
 | 75 | pending-real-validation | `settings.xai.signIn` is wired and tested with a double. The device code flow and a real account belong to the xAI module |
-| 76 | open-ui | Bar, close, 4 s timer. The three providers produce `feedback` |
-| 77 | open-ui | Key exists |
+| 76 | done | The same Notice serves Claude, Codex and Grok |
+| 77 | done | Key used |
 
 ### Meeting and summary language
 
@@ -172,7 +179,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 82 | done | `setMeetingLanguage` ignores the current code and saves only its own field |
 | 83 | done | The resolvers read the freshly loaded settings, with no cache |
 | 84 | done | `engineLocaleFor` table, trim, lowercase, blank and unknown give `auto` |
-| 85 | open-ui | Description key exists. The English headings invariant belongs to the summaries module |
+| 85 | done | Description shown with the picker. The English headings invariant stays with the summaries module |
 | 86 | improved | B9. The catalog holds keys, not text |
 
 ### Note templates
@@ -236,7 +243,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 124 | open-ui | `SETTINGS_SECTIONS` names each slot and owner; other modules write through `settings.update` (one lock). Mounting is UI |
+| 124 | done | The page draws the blocks marked `built` in order and nothing for a `slot`; a module adds its block to `SettingsRoute` at the position `SETTINGS_SECTIONS` gives it |
 | 125 | done | `SettingsRuntime.exitGates.register(gate)`; `RestartService` asks it. The recording module registers its gate |
 | 126 | done | `HardwareProbe`, `LocalModelStore`, `XaiAccountPort`, `CliPathProbe` in `settings/ports.ts`, with adapters and doubles. The note template store is passed to `noteTemplateOptions` |
 
@@ -271,14 +278,12 @@ Decided, not a code change: 7.19 (see Decisions). Not changed on purpose: 7.22 (
 
 ## Left for other modules
 
-**UI half of this module**
-- Build the Settings blocks listed as `built` in `SETTINGS_SECTIONS` and mount slots for the others. Every `open-ui` row above says what to call.
-- Start the renderer language from `i18n.getLocale`, listen to `i18n.localeChanged`, and call `app.restart` from the prompt; show a failed restart with `Ui_RestartFailed`. The provider today reads `localStorage` and `navigator.languages`.
-- Show `getPage.notices` (recovered settings), a `getPage` rejection (`Ui_SettingsLoadFailed`), model failures and `Ui_ModelMissing` when `missingActiveId` is set.
-- Subscribe to `settings.modelEvent` for download progress. Offer Cancel (`settings.models.cancel`) and decide whether delete needs a confirmation (the WinUI page had none).
-- Offer the xAI controls only when `capabilities.xaiAccount` is true, and the sign in button only when `capabilities.xaiSignIn` is true.
-- Call `settings.detectCli` for a Check again control (`Ui_CliCheckAgain`).
-- Brand icons (gap 1 in `_gaps.md`).
+**UI half of this module (done)**
+- The blocks marked `built` are drawn in `SETTINGS_SECTIONS` order. Slots draw nothing until their module adds its block to `SettingsRoute`.
+- The renderer language starts from `i18n.getLocale`, follows `i18n.localeChanged`, and `app.restart` runs from the prompt; a failed restart shows `Ui_RestartFailed`, a refused one changes nothing.
+- Notices, a failed read with Try again, model failures, `Ui_ModelMissing`, the Cancel download button, delete busy, the xAI controls behind `capabilities`, Check again, and the brand marks are all in.
+- Decision: Delete asks no confirmation, as in the WinUI page. The file can be downloaded again, and the choice returns to none, which the page says.
+- Data root note: choosing a folder is unchanged from library-storage. A production build with no `VOZELLA_DATA_ROOT` accepts any folder, including an existing MeetingLive one, and the Data block shows `Ui_LibraryFolderShared` when it does; dev, test and the env override refuse it. No run here touched a MeetingLive folder.
 
 **xAI module**: implement `XaiAccountPort` (credential store with `safeStorage`, token refresh, model list, API key replacing OAuth credentials), pass it as `xaiAccount` to `SettingsRuntime`, and pass `xaiSignIn` to `registerSettingsHandlers`.
 
@@ -297,4 +302,8 @@ Decided, not a code change: 7.19 (see Decisions). Not changed on purpose: 7.22 (
 - Real `claude` and `codex` on PATH. The probe is tested with temporary folders and a fake PATH, not with the user's installs.
 - The GPU registry value on other machines (Intel only, AMD, no GPU). The parser handles numbers, byte arrays and missing values in tests.
 - Chromium's own UI language (native context menus, spell check) still follows the OS; the app draws its own menus.
-- Spanish rendering of the page (no UI yet).
+- Spanish rendering was seen in a screenshot, not read by a Spanish speaker.
+- An in-flight download in the real window: the fake store finishes at once, so the progress bar and Cancel are covered by a component test with a held request and an injected event, not by a screenshot.
+- Forced-colors rendering of the page, screen readers, and a high-DPI window. axe reports no serious or critical issue in both themes; the Claude mark colour and the radio rows in forced colors were not looked at.
+- The 4 s feedback timer has no test.
+- A real relaunch from the prompt (22), a real Hugging Face download, a real xAI account and real CLIs on PATH, as before.
