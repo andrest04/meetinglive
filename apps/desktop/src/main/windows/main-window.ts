@@ -3,12 +3,15 @@ import { appFocusChanged } from '@vozella/contracts';
 import { BrowserWindow } from 'electron';
 import { sendEvent } from '../ipc/ipc-server';
 import { APP_ENTRY_URL } from '../security/trusted-origin';
+import { titleBarOverlayFor, windowBackground, type ResolvedTheme } from './title-bar-theme';
 
 export interface MainWindowOptions {
   /** Vite dev server URL, only set when running `electron-vite dev`. */
   readonly devServerUrl: string | undefined;
   /** Hide the window (automated runs and smoke checks). */
   readonly showOnReady: boolean;
+  /** Theme at creation, so the first paint and the caption buttons already match. */
+  readonly theme: ResolvedTheme;
 }
 
 export function createMainWindow(options: MainWindowOptions): BrowserWindow {
@@ -18,7 +21,9 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     minWidth: 720,
     minHeight: 480,
     show: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: windowBackground(options.theme),
+    titleBarStyle: 'hidden',
+    titleBarOverlay: titleBarOverlayFor(options.theme),
     title: 'Vozella',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

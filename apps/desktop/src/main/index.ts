@@ -2,9 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { AppInfo } from '@vozella/contracts';
+import type { AppInfo, ThemePreference } from '@vozella/contracts';
 import { ForbiddenDataRootError, RotatingFileLogger, type RunMode } from '@vozella/platform';
-import { app, dialog, ipcMain, net, protocol, session } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, session } from 'electron';
 import { bootstrapDataRoots, type BootstrappedPaths } from './bootstrap/data-roots';
 import { isFakeNative, resolveRunMode } from './bootstrap/run-mode';
 import { installGlobalErrorHandling } from './errors/global-errors';
@@ -18,8 +18,12 @@ import {
   type IpcEventLike,
   type TrustedOrigins,
 } from './security/trusted-origin';
-import type { BrowserWindow } from 'electron';
 import { createMainWindow } from './windows/main-window';
+import {
+  titleBarOverlayFor,
+  windowBackground,
+  type ResolvedTheme,
+} from './windows/title-bar-theme';
 import { AudioWorkerHost } from './workers/audio-worker-host';
 import { forkUtilityWorker } from './workers/electron-worker-process';
 import { resolveNativeAddonPath } from './workers/native-addon-path';
@@ -168,6 +172,21 @@ function main(): void {
     },
   });
 
+  const resolvedTheme = (): ResolvedTheme => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+
+  /** Applies the user's choice to nativeTheme (so prefers-color-scheme follows) and the chrome. */
+  const setThemePreference = (preference: ThemePreference): ResolvedTheme => {
+    nativeTheme.themeSource = preference;
+    return resolvedTheme();
+  };
+  nativeTheme.on('updated', () => {
+    const theme = resolvedTheme();
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.setTitleBarOverlay(titleBarOverlayFor(theme));
+      window.setBackgroundColor(windowBackground(theme));
+    }
+  });
+
   void app.whenReady().then(() => {
     serveRendererFromAppScheme();
     hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
@@ -175,6 +194,7 @@ function main(): void {
     registerHandlers({
       logger,
       info,
+      setThemePreference,
       nativeSelfTest: () => audio.ping(),
       server: {
         ipc: ipcMain,
@@ -183,7 +203,11 @@ function main(): void {
       },
     });
 
-    mainWindow = createMainWindow({ devServerUrl, showOnReady: mode !== 'test' });
+    mainWindow = createMainWindow({
+      devServerUrl,
+      showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
+      theme: resolvedTheme(),
+    });
     const id = mainWindow.webContents.id;
     windowIds.add(id);
     mainWindow.on('closed', () => {

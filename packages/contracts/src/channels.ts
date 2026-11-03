@@ -45,6 +45,18 @@ export const diagnosticsNativeSelfTest = defineRequest('diagnostics.nativeSelfTe
   }),
 });
 
+export const themePreferenceSchema = z.enum(['system', 'light', 'dark']);
+export type ThemePreference = z.infer<typeof themePreferenceSchema>;
+
+/**
+ * Sets the window chrome theme. The main process applies it to nativeTheme (so
+ * prefers-color-scheme follows) and recolors the title bar overlay.
+ */
+export const appSetThemePreference = defineRequest('app.setThemePreference', {
+  input: z.object({ preference: themePreferenceSchema }),
+  output: z.object({ resolved: z.enum(['light', 'dark']) }),
+});
+
 export const appFocusChanged = defineEvent('app.focusChanged', {
   payload: z.object({ focused: z.boolean() }),
 });
@@ -53,6 +65,7 @@ export const requestChannels = {
   [appGetInfo.name]: appGetInfo,
   [appReportRendererError.name]: appReportRendererError,
   [diagnosticsNativeSelfTest.name]: diagnosticsNativeSelfTest,
+  [appSetThemePreference.name]: appSetThemePreference,
 } as const;
 
 export const eventChannels = {
