@@ -324,3 +324,10 @@ Left for other modules:
 
 - Not verified: a real call window, high contrast on the bar, a screen reader pass.
 - The final review should run the whole e2e suite; only this module's specs ran here.
+
+## Audit follow-up
+
+- A8 (134): added tests asserting a select and a locked take never call dismissSuggestion; only the close button does. Fixed.
+- meeting-popup e2e "no popup while recording": state leaked from the Start test, which auto-starts a take. The test now stops a running take first. Fixed.
+- W7 CSS durations and reduced-motion, hover reshow, multi-DPI popup placement: rejected as test gaps. Not observable in unit tests or a single-display e2e; the phase logic is covered and the ledger wording on W7 tests is limited to that.
+- Calendar section label and Take notes button weight: rejected, taste only; Calendar settings cut by owner decision 2026-11-03, may return later.

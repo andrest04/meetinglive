@@ -156,6 +156,12 @@ test('Start requests take notes and brings the main window to the front', async 
 
 test('no popup shows while a take is recording', async () => {
   await main.getByRole('link', { name: 'Record' }).click();
+  // The previous test's Start request auto-starts a take; end it so this one begins idle.
+  const stop = main.getByRole('button', { name: 'Stop' });
+  if (await stop.isVisible()) {
+    await stop.click();
+    await expect(main.getByRole('button', { name: 'Record' })).toBeEnabled();
+  }
   await expect(main.getByRole('heading', { level: 2, name: 'Sources' })).toBeVisible();
   await main.getByRole('button', { name: 'Record' }).click();
   await expect(main.getByTestId('recording-status')).toContainText('Recording');
