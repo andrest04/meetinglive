@@ -1,6 +1,6 @@
 # Parity ledger: transcription
 
-Spec: `docs/port/specs/transcription.md`. Section 8 has 116 items; every one is below. This is the domain and integration half: the engine install, the ASR worker, the live and offline passes, the accumulator and text rules, re-transcription and the main-process channels. The user interface half (setup dialog, Settings section, Session page re-transcription) reads the channels described under What the UI half gets.
+Spec: `docs/port/specs/transcription.md`. Section 8 has 116 items; every one is below. This is the domain and integration half: the engine install, the ASR worker, the live and offline passes, the accumulator and text rules, re-transcription and the main-process channels. The user interface half (setup dialog, Settings section, live pane, Session page re-transcription) is built on those channels and described under User interface.
 
 Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped` (reason given), `pending-real-validation` (what is needed). Three more mark work that belongs elsewhere and has its data ready: `open-ui` (the user interface half draws or wires it), `open-recording` (the recording module calls it) and `open-other` (the summary or local-inference module owns it).
 
@@ -53,10 +53,10 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | #   | Status  | Note                                                                                                                                                      |
 | --- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | done    | `TranscriptionEngineInstaller.isReady`; the speaker model is not part of it. `status().ready` carries it                                                  |
-| 2   | open-ui | The dialog is the UI half's. `transcription.ensureEngine` returns `ready`, `cancelled` or `failed`, which decide whether recording starts                 |
-| 3   | open-ui | Strings `EngineSetup*` exist in en and es                                                                                                                 |
-| 4   | open-ui | The dialog calls `ensureEngine` when it opens                                                                                                             |
-| 5   | open-ui | The event `transcription.installProgress` carries `stage` and `percent`; `INSTALL_STAGE_LABEL_KEYS` names the words. The page joins them with two spaces |
+| 2 | done | `EngineSetupDialog` (`features/transcription`). Record asks `getStatus` first; the dialog opens only when the engine is not ready, and Record starts only after `ready`. Cancel, Escape and the close button cancel the transfer and leave the page as it was, with "Setup cancelled." |
+| 3 | improved | All `EngineSetup*` strings used. The hint is the dialog description. The failure bar keeps its title (`EngineSetup_Failed.Title`) and the raw message; the separate "Download failed." status line is not drawn while the bar is open, since it said the same |
+| 4 | done | The dialog calls `ensureEngine` when it opens, once per opening. A late answer of an older run cannot close a dialog opened afterwards (test) |
+| 5 | improved | One overall bar (`stepIndex` and `stepCount` spread the stages, B21) with the percent in mono, the stage words from `INSTALL_STAGE_LABEL_KEYS` and "Step 1 of 2". The two-space join is not kept: HTML collapses it and the percent has its own place |
 | 6   | done    | After the download the controller re-checks `isReady` and answers `failed` with `Error_EngineNotReady` in the app language. Test in the controller suite |
 | 7   | done    | `cancelInstall` cancels the token; the outcome is `cancelled`, no message                                                                                 |
 | 8   | done    | Any other error is `failed` with the raw message. The "Download failed." status line is the page's                                                        |
@@ -66,7 +66,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | #   | Status         | Note                                                                                                                                                  |
 | --- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 9   | done           | `startLive` returns `{active:false}` when `liveTranscriptionEnabled` is off; the recording module calls it                                            |
-| 10  | open-recording | "Loading transcription model..." and `Error_StartRecording` are shown by the take. `LiveTranscriptionService.start` disposes the recognizer on failure |
+| 10 | improved | `RecordingTakes` calls `startLive` after the capture starts and `stopLive` at Stop. If the live pass cannot start the capture is stopped and the take fails with `Error_StartRecording`. The page shows "Loading transcription model..." while it starts. The draft is kept in `lastLiveDraft` for the recording module (nothing saves it yet) |
 | 11  | done           | `pcm16ToFloat32` of the recording frames, 16 kHz                                                                                                      |
 | 12  | done           | Queue of 8, drop-oldest, `pushFrame` returns at once. Test with a blocked push. Real run: 0 ms dropped in 13.1 s                                      |
 | 13  | done           | Totals and drops per session, reset by `start`                                                                                                        |
@@ -127,7 +127,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 57  | done     | Precedence tested with all flags set                                                                                                               |
 | 58  | done     | The saved transcript is replaced only after the pass has text; failure, empty text and cancel leave it. Controller tests                           |
 | 59  | done     | Idle state is restored before `finished` is raised                                                                                                 |
-| 60  | open-ui  | Strings exist in en and es. The confirmation dialog and result notices are the Session page's. The meeting is marked busy while a run is going     |
+| 60 | improved | `RetranscribeControl` on the Session page: availability, confirmation naming the meeting, status with percent and Cancel, notices for the five outcomes. Added: a quiet reason next to the disabled button (no audio, busy, engine missing). The Session page is still the library hand-off placeholder, so the control sits under its title |
 
 ### Backend selection and status
 
@@ -144,13 +144,13 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 69  | done     | `setLiveEnabled`; no-op when unchanged                                                                                                                       |
 | 70  | improved | B7. Download first; a failed or cancelled download leaves the labels off                                                                                     |
-| 71  | open-ui  | The download uses stage `speaker-model` (label key `Status_DownloadingSpeakerModel`). The failure value stays in the page                                    |
+| 71 | done | Speaker model row with Download and Delete; progress from the `speaker-model` stage; a failure stays visible as "Download failed: ... Speaker labels stay off." until the next action |
 | 72  | improved | B22. A locked file is a `failed` value with the message. A deleted model turns the setting off                                                               |
-| 73  | open-ui  | `ensureEngine` and `installProgress`; the caption "Download failed: {0}" is the page's                                                                       |
+| 73 | done | Settings Download uses `ensureEngine` with the stage progress; a failure replaces the acceleration caption with "Download failed: {0}" |
 | 74  | done     | `deleteEngine` answers `Deleted`, `RuntimeInUse` or `Incomplete`; the status is published afterwards. Strings `Error_EngineDeleteInUse` and `...Incomplete` exist |
-| 75  | open-ui  | `status.expectedBackend` and `status.usage.backend` give the four captions                                                                                   |
-| 76  | open-ui  | `status.usage.fallbackReason` (raw)                                                                                                                          |
-| 77  | open-ui  | `status.liveDroppedPercent`; the 5 percent threshold is `LIVE_DROP_WARNING_PERCENT` (strictly above)                                                         |
+| 75 | done | The four captions, from `status.expectedBackend` and `status.usage.backend` (unit tests for all four) |
+| 76 | done | Warning bar with the raw reason (unit test). Not observed with a real CUDA failure |
+| 77 | done | Caption up to 5 percent, warning above it, nothing before a live session has stopped; the number follows the app language (unit tests) |
 | 78  | improved | The main process pushes `statusChanged` when the backend or the drops change, so the page needs no polling or subscription management                         |
 | 79  | improved | B6. `deleteEngine` also removes the speaker model                                                                                                            |
 
@@ -218,6 +218,27 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 115 | done   | `InferenceCatalog` equivalents live in settings-i18n (`inference-options.ts`)   |
 | 116 | done   | The keys of section 2 exist in both locales; the catalog tests check them       |
 
+## User interface
+
+Code: `apps/desktop/src/renderer/features/transcription` (containers and hooks; the kit in `ui/` is reused as is). Screens: `docs/port/screens/transcription/` (light and dark). Tests: unit (`*.test.tsx`) and `e2e/transcription-ui.spec.ts` on the fake native build; screenshots with `VOZELLA_SCREENSHOTS=1 pnpm --filter @vozella/desktop exec playwright test transcription-screens`.
+
+| Piece | What it does |
+| --- | --- |
+| `EngineSetupDialog` | Record gate (spec 2.1, 2.2): starts the download, overall bar, stage words, raw failure, Try again (added; the WinUI dialog had none), Cancel |
+| `TranscriptionSection` | Settings block (2.6): engine state, Download, Delete, processor caption, CUDA fallback warning, live drops, live switch, speaker labels switch, speaker model Download and Delete. The language rows stay in the meeting language block (settings-i18n) |
+| `LiveTranscript` | Record pane (2.3): committed lines in ink, interim suffix muted, timestamp column in mono, speaker as S1 to S4, follows the bottom unless the reader scrolled up, keyboard scrollable. A line says the preview is off when the setting is off |
+| `RetranscribeControl` | Session page (2.5): confirm, progress, cancel, outcome notice |
+| `useEngineStatus`, `useEngineInstall`, `useRetranscription` | Status read once and replaced by pushes; one install at a time with a generation counter so an older run never moves the state |
+
+## UI decisions
+
+13. **The Record gate lives in the Record page** (a few lines: `getStatus`, dialog, then `begin`). The recording module keeps it when it takes the page over. If `getStatus` itself fails the dialog opens and shows the failure.
+14. **A recording starts the live pass from the main process.** `RecordingTakes` takes a `live` port that the composition root fills with the transcription controller. The recording module replaces it with the full pipeline; until then the draft is only kept in memory (`lastLiveDraft`).
+15. **A new download after a cancel waits for the cancelled one, then starts again** (controller fix, test `a download asked for right after a cancel starts again...`). Before, a second `ensureEngine` inside the cancel window joined the dying transfer and got `cancelled`. Found by the screenshot run.
+16. **Fake native build knobs** for e2e: `VOZELLA_FAKE_ENGINE_STEP_MS` (visible download steps, cancellable), `VOZELLA_FAKE_ENGINE_FAIL` (message of every failure) and `VOZELLA_FAKE_ENGINE_INSTALLED=1`. Default is the old instant behavior.
+17. **Settings buttons carry the row name** ("Delete Nemotron 3.5 ASR Streaming 0.6B") so three Delete buttons are not three identical names for a screen reader.
+18. **Copy.** Fourteen new `Ui_*` strings in en and es (installed state, On and Off, step, live waiting and off, three re-transcription reasons, status name, speaker model, speaker labels stay off). Everything else reuses existing keys.
+
 ## Bugs fixed (section 7)
 
 Each has a regression test. A mutation check reverted the fix and ran the suite: B3, B6, B8, B10, B13, B14, B18 and B20 each turned one test red.
@@ -251,10 +272,10 @@ Not changed: B2 (see Left for other modules), B15 (local polisher), B23 (GPU cho
 
 ## Left for other modules
 
-- **Recording module.** Call `startLive` after the capture starts and `stopLive` at Stop (keep the returned draft). Call `transcribeFile` after Stop and after import, with the progress and a `CancelSource`. Show "Loading transcription model..." while `startLive` runs and `Error_StartRecording` if it throws. Use `resolveTranscriptionStage` and `ensureEndedHeader` for the saved transcript and `applyHighlights` with the marks of the take. Gate Record on `status().ready` and open the setup dialog when it is false.
+- **Recording module.** `startLive` and `stopLive` are already called by `RecordingTakes`; take `lastLiveDraft` as the draft. Call `transcribeFile` after Stop and after import, with the progress and a `CancelSource`. Use `resolveTranscriptionStage` and `ensureEndedHeader` for the saved transcript and `applyHighlights` with the marks of the take. The Record gate and the setup dialog are built (decision 13).
 - **Summary module.** Plug into `RetranscriptionPipeline` so a re-transcription also regenerates the summary (today it ends as `TranscriptOnly` and the summary is kept). Provide the note template text through `templateInstructions` and the failure text through `formatFailure` (`CliFailureUserMessage`).
 - **Polish (B2, B15).** The four providers, their selection, the call from the pipeline, and the local model chunk budget. `TranscriptPolisher`, `buildPolishPrompt`, `splitTimestampedChunks` and `polishOrKeep` are ready.
-- **UI half.** The setup dialog, the Settings Transcription section, the Session page re-transcription flow and the live transcript pane. Data and events are under What the UI half gets.
+- **Session page.** The transcript and summary tabs belong to the session module. When it lands, mount `RetranscribeControl` in its header and reload the meeting from `onFinished`.
 - **Library.** CRLF in the meeting file if byte parity of transcripts matters; the accumulator now produces `\n`.
 - **Packaging.** koffi is already external and unpacked in `electron-builder.config.mjs`. A packaged build running the ASR worker was not tried.
 
@@ -298,6 +319,10 @@ Live, Streaming geometry, gave the same shape (Speaker-1, Speaker-2, then an unt
 Electron: the ASR utility process (`vozella-asr`) loaded the library through koffi, re-transcribed a saved meeting, replaced its transcript, kept its summary, reported `usage.backend: cpu`, and `deleteEngine` then answered `RuntimeInUse`.
 
 ## Not verified
+
+- **UI half.** Observed in the real Electron window on the fake native build only: the engine and the downloads are doubles, the live text is the fake script. The CUDA fallback warning and the live drops warning are covered by unit tests with scripted status, not by a real engine. Forced-colors rendering, a screen reader and a high-DPI window were not tried (axe: no serious or critical violations on the dialog open and failed, the live pane and the Settings page, light and dark).
+- **Red first.** The pure helpers (`live-lines`) and the components were written together with their tests; red was observed for the live hook in `RecordingTakes` and for the cancel-then-download controller fix.
+- **settings-ui flake.** The flaky test `meeting language and summary language are saved on their own` failed 1 in 3 runs of its file also with the new Settings block hidden, so it predates this half; it passes alone.
 
 - **Windows 10.** Not available.
 - **The 509 MB CUDA zip end to end.** Its checksum is the one GitHub reports and the file in the spikes folder matches it. The download, extraction and promote of the real CPU zip was run (from the spike copy, through the production manager); the CUDA zip was not pushed through the same path, and neither zip was downloaded from GitHub in this run.
