@@ -6,12 +6,15 @@ export function SectionHeader({
   description,
   action,
   level = 2,
+  quiet = false,
   className,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
   level?: 1 | 2 | 3;
+  /** A page of lists and settings: the heading keeps its level but not the document's large title. */
+  quiet?: boolean;
   className?: string;
 }) {
   const Heading = `h${level}` as const;
@@ -21,7 +24,7 @@ export function SectionHeader({
         <Heading
           className={cn(
             'font-semibold tracking-[-0.01em] text-ink',
-            level === 1 ? 'text-title tracking-[-0.02em]' : 'text-heading',
+            level === 1 && !quiet ? 'text-title tracking-[-0.02em]' : 'text-heading',
           )}
         >
           {title}

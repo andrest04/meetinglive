@@ -24,6 +24,7 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
 import { INBOX_NODE_ID, buildTreeNodes } from './folder-visuals';
 import { MeetingList } from './MeetingList';
+import { describeSkipped } from './format';
 import { useLibrary, type StatusMessage } from './use-library';
 
 /** At or above this width of the page area the folder pane stays open beside the list. */
@@ -170,7 +171,7 @@ export function LibraryRoute() {
   return (
     <section ref={layoutRef} className="relative flex flex-col gap-5">
       <div className="flex items-end justify-between gap-4">
-        <SectionHeader level={1} title={t('HistoryPage_Title.Text')} />
+        <SectionHeader level={1} quiet title={t('HistoryPage_Title.Text')} />
         <div className="flex shrink-0 items-center gap-2">
           {wide ? null : (
             <IconButton
@@ -205,14 +206,14 @@ export function LibraryRoute() {
               : t('Ui_LibraryFolderFailed', library.problem.message ?? library.problem.reason)}
           </Notice>
         ) : null}
-        {library.skippedCount > 0 && !skippedDismissed ? (
+        {library.skipped.length > 0 && !skippedDismissed ? (
           <Notice
             onDismiss={() => {
               setSkippedDismissed(true);
             }}
             dismissLabel={t('Ui_Close')}
           >
-            {t('Ui_LibrarySkippedFiles')}
+            {t('Ui_LibrarySkippedFiles', describeSkipped(library.skipped))}
           </Notice>
         ) : null}
         {library.status ? (
@@ -263,7 +264,7 @@ export function LibraryRoute() {
                 onChange={(event) => {
                   library.setQuery(event.target.value);
                 }}
-                className="w-full pl-8"
+                className="w-full pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
               />
             </div>
           </div>
@@ -271,13 +272,13 @@ export function LibraryRoute() {
           {library.selectedFolder ? (
             <Field label={t('Library_FolderNote.Header')}>
               <Textarea
-                rows={2}
+                rows={1}
                 value={library.noteText}
                 placeholder={t('Library_FolderNote.PlaceholderText')}
                 onChange={(event) => {
                   library.setNoteText(event.target.value);
                 }}
-                className="max-h-30 w-full"
+                className="max-h-30 min-h-9 w-full border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
               />
             </Field>
           ) : null}

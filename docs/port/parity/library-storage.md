@@ -123,7 +123,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 57 | done | |
 | 58 | improved | Same order and retry behavior. B25: a stored audio path outside the library is left in place and logged |
 | 59 | done | |
-| 60 | done | And reported through `skipped` |
+| 60 | done | And reported through `skipped`. Audit fix: the notice now lists up to three file names with the reason (for example `EBUSY` for a locked file) and a count of the rest, so a meeting with a bad Jev block or a locked file can be found. Files locked at scan time come back on the next refresh |
 | 61 | improved | B5, B6, B17, B19, B20, B28. Atomic temp-and-rename writes (`atomic-write.test.ts`), one lock per file shared by all instances, an in-memory index keyed by modified time and size, newest-file tie-break for duplicate ids |
 
 ### Folders repository
@@ -197,8 +197,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 106 | done | `not-empty` plus the existing `LibraryDeleteFolder_NotEmpty` string |
 | 107 | done | Cancel has the focus; confirm goes back to Inbox and the handler publishes null. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
 | 108 | improved | B26: the check uses fresh data |
-| 109 | done | Right click on a real folder selects it and opens Rename, Personality, Delete folder; Inbox has no menu. The same three items are in a `Folder actions` button next to the breadcrumb, so the menu does not depend on a right click |
-| 110 | done | Saved on folder change, create, rename, personality, unmount and `pagehide` (B16). The save on a real window close was not observed |
+| 109 | done | Right click on a real folder now selects it first (so Escape leaves it selected and the note of the previous folder is saved), then opens Rename, Personality, Delete folder; Inbox has no menu. The same three items are in a `Folder actions` button next to the breadcrumb. Audit fix, with a test |
+| 110 | pending-real-validation | Saved on folder change, create, rename, personality, unmount and `pagehide` (B16). Audit fix: main now tracks library writes and `before-quit` waits for them (3 s cap), covered by a handler test. The save on a real window close was still not observed end to end, and a `pagehide` invoke that has not reached main when the window dies could still be lost |
 
 ### Meeting actions
 
@@ -235,7 +235,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | --- | --- | --- |
 | 130 | done | Meetings row with the path, Open folder, Choose folder and, for a picked folder, Use the default folder. `DataSection.test.tsx`, `library-ui.spec.ts` (dialog and shell stubbed) |
 | 131 | done | App data row, path only |
-| 132 | done | The version comes from `library.getLocation`. An unpackaged run shows the Electron version (45.2.1) because the app version is not read from the package file there; a packaged build shows the package version, which is `0.0.0` until a release version is set. The packaged value was not observed |
+| 132 | done | Audit fix: the version is read from the desktop `package.json` (two levels above `out/main`, also inside the packaged archive) instead of `app.getVersion()`, which answered with the Electron runtime version when started from the built folder. The package version is now `1.0.0`; the fallback is `1.0.0.0`. Unit tested; the packaged value was not observed |
 | 133 | done | `Settings_Data.Text`, `Settings_MeetingsLocation.Header`, `Settings_AppDataLocation.Header`, `Settings_OpenFolder.Content`, `Settings_About.Header` exist in both languages |
 
 ### Settings storage
@@ -328,3 +328,9 @@ Not changed, on purpose: B4 (kept, now reported), B23 (same order as the WinUI a
 
 **Not verified**
 - A library written by the real WinUI app, and the reverse (155, 156). A real packaged build with a picked folder and a real folder dialog. The real file manager opening (stubbed in tests). Behavior on OneDrive-redirected Documents. Case-only folder rename on a case-sensitive volume. A WAV held open by a real recorder (only simulated with an injected `EBUSY`). The note save on a real window close. Spanish layout (screenshots are English; the Spanish strings are the existing translations). Screen reader behavior beyond axe.
+
+## Audit round decisions
+
+- Fixed: #132 version, #109 select-first on right click, #60 and B4 skipped files named in the notice, #110 main waits for in-flight library writes on quit (status moved to pending-real-validation).
+- Design, fixed: Library and Settings page titles use the 20px heading (`quiet`) while the document keeps the large title; the search field hides Chromium's native clear button; the folder notes field is a borderless single line that shows its border on focus.
+- Design, not changed: dates in the mono face sit at the far right with the row's `more` slot reserved. Rejected for now: the slot keeps rows aligned and keyboard reachable; low severity, decided without a user to ask.

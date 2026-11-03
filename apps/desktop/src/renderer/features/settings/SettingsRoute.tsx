@@ -11,7 +11,7 @@ export function SettingsRoute() {
 
   return (
     <section className="flex flex-col gap-8">
-      <SectionHeader level={1} title={t('SettingsPage_Title.Text')} />
+      <SectionHeader level={1} quiet title={t('SettingsPage_Title.Text')} />
       <div>
         <SectionHeader level={2} title={t('Ui_Appearance')} className="pb-2" />
         <SettingRow title={t('Ui_Theme')} description={t('Ui_ThemeDescription')}>
