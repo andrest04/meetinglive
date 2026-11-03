@@ -1,8 +1,10 @@
 import {
   recordingCancelProcessing,
+  recordingCloseAnswer,
   recordingDiscard,
   recordingGetState,
   recordingHighlight,
+  recordingImport,
   recordingPause,
   recordingRetryProcessing,
   recordingResume,
@@ -10,16 +12,22 @@ import {
   recordingStart,
   recordingStop,
 } from '@vozella/contracts';
+import type { RendererCloseDialogs } from '../recording/close-guard';
 import type { RecordingService } from '../recording/recording-service';
 import { registerRequest, type IpcServerDeps } from './ipc-server';
 
 export interface RecordingHandlerDeps {
   readonly server: IpcServerDeps;
   readonly service: RecordingService;
+  readonly closeDialogs: Pick<RendererCloseDialogs, 'answer'>;
 }
 
 /** Wires the recording channels. One line per channel; the rules live in the service. */
-export function registerRecordingHandlers({ server, service }: RecordingHandlerDeps): void {
+export function registerRecordingHandlers({
+  server,
+  service,
+  closeDialogs,
+}: RecordingHandlerDeps): void {
   registerRequest(server, recordingGetState, () => service.getState());
   registerRequest(server, recordingStart, async (input) => {
     const result = await service.start(input);
@@ -37,4 +45,8 @@ export function registerRecordingHandlers({ server, service }: RecordingHandlerD
     cancelled: service.cancelProcessing(meetingId),
   }));
   registerRequest(server, recordingRetryProcessing, () => ({ started: service.retryProcessing() }));
+  registerRequest(server, recordingImport, (input) => service.importAudio(input));
+  registerRequest(server, recordingCloseAnswer, ({ requestId, accepted }) => ({
+    received: closeDialogs.answer(requestId, accepted),
+  }));
 }

@@ -10,6 +10,7 @@ import {
   type SourcePickerStateDto,
 } from '@vozella/contracts';
 import {
+  CancelSource,
   evaluateSetup,
   HighlightedLiveText,
   RecordingRuns,
@@ -21,6 +22,8 @@ import {
   type Message,
   type PipelineOutcome,
   type PipelineRequest,
+  type ProcessAudioRequest,
+  type ProcessAudioResult,
   type RecordingPipeline,
   type RecordingSetupPorts,
   type Schedule,
@@ -30,6 +33,7 @@ import {
 import type { PreviewOwner } from '../audio/audio-controller';
 import type { RecordingTakes } from '../audio/recording-take';
 import { allocateAudioPath } from './audio-path';
+import { convertForImport } from './import-run';
 
 type Broadcast = <C extends EventChannel>(channel: C, payload: PayloadInputOf<C>) => void;
 
@@ -49,6 +53,8 @@ export interface ControllerPort {
   loadMicrophones(userChoice: MicrophoneChoiceDto | null): Promise<{
     selected: MicrophoneChoiceDto;
   }>;
+  importAudio(source: string, destination: string): Promise<void>;
+  cancelImport(): void;
   startSources(): Promise<SourcePickerStateDto>;
   select(processId: number | null): Promise<SourcePickerStateDto>;
   readonly pickerState: SourcePickerStateDto;
@@ -66,6 +72,9 @@ export interface FilesPort {
   remove(file: string): void;
   /** Fixes the header of a WAV a crash left unwritten (188). Never throws. */
   repair(file: string): void;
+  /** The last-write time of a file, or null when unreadable. */
+  fileTimeMs(file: string): number | null;
+  wavDurationSeconds(file: string): number;
 }
 
 export interface LiveTextPort {
@@ -112,6 +121,20 @@ export interface StartOptions {
   readonly meetingId?: string | null;
 }
 
+export interface ImportRequest {
+  readonly title: string;
+  readonly folderId: string | null;
+  readonly path: string;
+}
+
+export type ImportResult =
+  | { readonly started: true; readonly meetingId: string }
+  | {
+      readonly started: false;
+      readonly reason: 'busy' | 'not-ready' | 'failed' | 'cancelled';
+      readonly message: RecordingMessageDto | null;
+    };
+
 export type StartResult =
   | { readonly started: true; readonly meetingId: string; readonly recordedAtMs: number }
   | {
@@ -157,6 +180,7 @@ export class RecordingService {
   private offNotices: (() => void) | null = null;
   private previewToRestore: { owner: PreviewOwner; deviceId: string | null } | null = null;
   private retry: PipelineRequest | null = null;
+  private importCancel: CancelSource | null = null;
   private readonly canvas = new HighlightedLiveText();
   private readonly offs: (() => void)[] = [];
   private lastState = '';
@@ -621,8 +645,129 @@ export class RecordingService {
 
   /** The processing bar's Cancel. With a meeting id it stops the background summary (B-21). */
   cancelProcessing(meetingId: string | null): boolean {
+    if (meetingId === null && this.importCancel !== null) {
+      this.importCancel.cancel();
+      return true;
+    }
     if (meetingId !== null) return this.deps.pipeline.cancelBackgroundSummary(meetingId);
     return this.runs.cancelActiveRun();
+  }
+
+  // -- import (2.12) ----------------------------------------------------------------------------
+
+  /**
+   * Imports an audio file through the same pipeline as a take: same gate and readiness checks, the
+   * file converted to the take WAV, then a request with no live draft, pause or highlights (172).
+   */
+  async importAudio(request: ImportRequest, options: StartOptions = {}): Promise<ImportResult> {
+    const { deps } = this;
+    if (!this.gate.tryBeginPreparing()) return { started: false, reason: 'busy', message: null };
+    let previewStopped = false;
+    const cancel = new CancelSource();
+    try {
+      const { readiness } = await evaluateSetup(deps.setup);
+      if (!readiness.canRecord) return { started: false, reason: 'not-ready', message: null };
+
+      const meetingId = options.meetingId ?? deps.newId();
+      this.runs.beginTake({ meetingId: options.meetingId ?? null });
+      this.notes = '';
+      this.retry = null;
+      this.fallbackNotice = null;
+      this.title = request.title.trim() === '' ? deps.defaultTitle(deps.nowMs()) : request.title;
+      const title = this.title;
+      const directory = await deps.library.audioDirectory(request.folderId);
+      // 173: the status, and the idle meter stops for the length of the import.
+      this.runs.setTakeStatus({ key: 'Status_Importing', args: [] });
+      this.previewToRestore = deps.controller.previewState;
+      deps.controller.stopPreview();
+      previewStopped = true;
+      this.importCancel = cancel;
+      this.publish();
+
+      const converted = await convertForImport(
+        {
+          convert: (source, destination) => deps.controller.importAudio(source, destination),
+          cancelConversion: () => {
+            deps.controller.cancelImport();
+          },
+          allocate: (name, atMs) =>
+            allocateAudioPath({
+              directory,
+              title: name,
+              atMs,
+              ownsMarkdown: (markdownPath) => deps.library.ownsMarkdown(meetingId, markdownPath),
+            }),
+          wavDurationSeconds: (file) => deps.files.wavDurationSeconds(file),
+          remove: (file) => {
+            deps.files.remove(file);
+          },
+          nowMs: deps.nowMs,
+        },
+        { source: request.path, title, fileTimeMs: deps.files.fileTimeMs(request.path) },
+        cancel,
+      );
+      if (!converted.ok) {
+        this.runs.setTakeStatus(converted.message);
+        this.restorePreview();
+        previewStopped = false;
+        return {
+          started: false,
+          reason: converted.cancelled ? 'cancelled' : 'failed',
+          message: typed(converted.message),
+        };
+      }
+
+      this.take = null;
+      this.frozenElapsedMs = 0;
+      const folder = await this.resolveFolder(request.folderId);
+      this.gate.markProcessing();
+      const run = this.runs.startRun({ meetingId });
+      void this.runPipeline(run, {
+        meetingId,
+        audioPath: converted.path,
+        recordedAtMs: converted.recordedAtMs,
+        endedAtMs: converted.endedAtMs,
+        title,
+        liveDraft: null,
+        pausedDurationMs: 0,
+        folderId: folder,
+        highlightsMs: [],
+      });
+      previewStopped = false;
+      return { started: true, meetingId };
+    } catch (error) {
+      deps.logger.warn('the import failed', { error: describe(error) });
+      const message: Message = { key: 'Error_ImportAudio', args: [describe(error)] };
+      this.runs.setTakeStatus(message);
+      if (previewStopped) this.restorePreview();
+      return { started: false, reason: 'failed', message: typed(message) };
+    } finally {
+      this.importCancel = null;
+      // A no-op once processing started.
+      this.gate.cancelPreparing();
+      this.publish();
+    }
+  }
+
+  /**
+   * Runs the pipeline on an audio file that already exists: a re-transcription of a saved meeting
+   * (id given) or a new meeting (null). The session views call it through the entry points.
+   */
+  processAudioFile(
+    meetingId: string | null,
+    audioPath: string,
+    request: ProcessAudioRequest,
+  ): ProcessAudioResult {
+    if (!this.gate.tryBeginPreparing()) return { started: false, reason: 'busy' };
+    const id = meetingId ?? this.deps.newId();
+    this.notes = '';
+    this.retry = null;
+    this.runs.beginTake({ meetingId });
+    this.gate.markProcessing();
+    const run = this.runs.startRun({ meetingId: id });
+    void this.runPipeline(run, { ...request, meetingId: id, audioPath });
+    this.publish();
+    return { started: true, meetingId: id };
   }
 
   /** Runs the pipeline again on the audio of a take whose first save failed (B-11). */
@@ -636,6 +781,26 @@ export class RecordingService {
     void this.runPipeline(run, request);
     this.publish();
     return true;
+  }
+
+  /** A capture in progress (recording or processing), for the shell and the pill. */
+  get isCaptureActive(): boolean {
+    return this.runs.isCaptureActive;
+  }
+
+  /** Delete and move refuse a meeting that is recorded now or that a run may re-save (164). */
+  isMeetingInUse(meetingId: string): boolean {
+    return this.runs.isMeetingInUse(meetingId);
+  }
+
+  /** 2.16: recording needs the confirmation. */
+  get requiresCloseConfirmation(): boolean {
+    return this.gate.requiresCloseConfirmation;
+  }
+
+  /** 2.16: a stop in progress or a run that has not saved and wound down. */
+  get hasPendingSaves(): boolean {
+    return this.gate.phase === 'Stopping' || this.runs.hasUnfinishedRuns;
   }
 
   /**

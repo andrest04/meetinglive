@@ -40,6 +40,7 @@ class FakeHost implements AudioHostLike {
   processAlive = true;
   failStart: Error | null = null;
   failStop: Error | null = null;
+  failImport: Error | null = null;
   /** Runs while the capture starts, e.g. to push a failure event. */
   duringStart: (() => void) | null = null;
 
@@ -60,6 +61,9 @@ class FakeHost implements AudioHostLike {
         fs.writeFileSync(call.path, 'RIFF');
         this.duringStart?.();
         return this.failStart ? Promise.reject(this.failStart) : Promise.resolve(null as T);
+      case 'importAudio':
+        fs.writeFileSync(call.destination, 'RIFF');
+        return this.failImport ? Promise.reject(this.failImport) : Promise.resolve(null as T);
       case 'recordStop':
         return this.failStop ? Promise.reject(this.failStop) : Promise.resolve(null as T);
       default:
@@ -94,6 +98,7 @@ interface Options {
   liveStartFails?: boolean;
   liveDraft?: string | null;
   providerReady?: boolean;
+  fileTimeMs?: number | null;
 }
 
 function build(options: Options = {}) {
@@ -171,6 +176,8 @@ function build(options: Options = {}) {
       repair: (file) => {
         repaired.push(file);
       },
+      fileTimeMs: () => (options.fileTimeMs === undefined ? 1_000_000 : options.fileTimeMs),
+      wavDurationSeconds: () => 30,
     },
     settings,
     setup: {
@@ -630,5 +637,130 @@ describe('settings writes (B-31)', () => {
       recordAppExePath: 'C:\\Apps\\Zoom.exe',
       liveTranscriptionEnabled: false,
     });
+  });
+});
+
+describe('RecordingService import (2.12)', () => {
+  const picked = { title: 'Call', folderId: null, path: 'C:/in/call.mp3' };
+
+  it('170 to 173, B-19: converts at the dated stem, ends at the file time, runs the pipeline', async () => {
+    const t = build({ fileTimeMs: 2_000_000 });
+    const result = await t.service.importAudio(picked);
+    expect(result).toEqual({ started: true, meetingId: 'meeting-1' });
+    expect(t.service.getState().status[0]).toMatchObject({ key: 'Status_Importing' });
+    await t.service.completion;
+    const call = t.host.calls.find((c) => c.method === 'importAudio');
+    expect(call).toMatchObject({ source: 'C:/in/call.mp3' });
+    const saved = t.store.saves.at(-1);
+    expect(saved?.audioFilePath).toMatch(/Call\.wav$/);
+    // The file time is the end, 30 s of audio before it is the start (B-19).
+    expect(Date.parse(saved?.recordedAt ?? '')).toBe(2_000_000 - 30_000);
+    expect(Date.parse(saved?.endedAt ?? '')).toBe(2_000_000);
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('172: no live draft, no highlights and no paused time reach the pipeline', async () => {
+    const t = build();
+    t.service.setNotes('stale');
+    await t.service.importAudio(picked);
+    await t.service.completion;
+    const saved = t.store.saves.at(-1);
+    expect(saved?.transcript).toContain('hello');
+    expect(t.live.start).not.toHaveBeenCalled();
+    expect(t.service.getState().notes).toBe('');
+  });
+
+  it('171: a conversion failure removes the partial WAV and shows Error_ImportAudio', async () => {
+    const t = build();
+    t.host.failImport = new Error('unsupported codec');
+    const result = await t.service.importAudio(picked);
+    expect(result).toMatchObject({
+      started: false,
+      reason: 'failed',
+      message: { key: 'Error_ImportAudio', args: ['unsupported codec'], severity: 'error' },
+    });
+    expect(fs.existsSync(t.inbox) ? fs.readdirSync(t.inbox) : []).toEqual([]);
+    expect(t.service.gate.phase).toBe('Idle');
+    expect(t.service.getState().status[0]).toMatchObject({ key: 'Error_ImportAudio' });
+  });
+
+  it('170: cancel during the conversion stops it and cleans up without an error', async () => {
+    const t = build();
+    let release: () => void = () => undefined;
+    const original = t.host.call.bind(t.host);
+    t.host.call = (call: { method: string }) => {
+      if (call.method === 'importAudio') {
+        return new Promise<never>((_resolve, reject) => {
+          release = () => {
+            reject(new Error('aborted'));
+          };
+        });
+      }
+      return original(call as never);
+    };
+    const running = t.service.importAudio(picked);
+    await vi.waitFor(() => {
+      expect(t.service.cancelProcessing(null)).toBe(true);
+    });
+    release();
+    expect(await running).toMatchObject({ started: false, reason: 'cancelled' });
+    expect(t.host.methods()).toContain('importCancel');
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('refuses while a take holds the session, and when the setup gate says no', async () => {
+    const busy = build();
+    await busy.service.start(sources);
+    expect(await busy.service.importAudio(picked)).toMatchObject({ reason: 'busy' });
+    const notReady = build({ providerReady: false });
+    expect(await notReady.service.importAudio(picked)).toEqual({
+      started: false,
+      reason: 'not-ready',
+      message: null,
+    });
+    expect(notReady.host.methods()).not.toContain('importAudio');
+  });
+});
+
+describe('RecordingService entry points and close state', () => {
+  const request = {
+    recordedAtMs: 1_000,
+    endedAtMs: null,
+    title: 'Old',
+    liveDraft: null,
+    pausedDurationMs: 0,
+    folderId: null,
+    highlightsMs: [],
+  };
+
+  it('processAudioFile re-runs the pipeline for a saved meeting and marks it in use', async () => {
+    const t = build();
+    const wav = path.join(root, 'old.wav');
+    fs.writeFileSync(wav, 'RIFF');
+    expect(t.service.processAudioFile('saved-1', wav, request)).toEqual({
+      started: true,
+      meetingId: 'saved-1',
+    });
+    expect(t.service.isMeetingInUse('saved-1')).toBe(true);
+    expect(t.service.isCaptureActive).toBe(true);
+    expect(t.service.processAudioFile('saved-2', wav, request)).toEqual({
+      started: false,
+      reason: 'busy',
+    });
+    await t.service.completion;
+    expect(t.store.saves.at(-1)?.id).toBe('saved-1');
+    expect(t.service.isCaptureActive).toBe(false);
+  });
+
+  it('165: recording requires confirmation, and an unfinished run is a pending save', async () => {
+    const t = build();
+    expect(t.service.requiresCloseConfirmation).toBe(false);
+    expect(t.service.hasPendingSaves).toBe(false);
+    await t.service.start(sources);
+    expect(t.service.requiresCloseConfirmation).toBe(true);
+    expect(await t.service.shutdown()).toBe(true);
+    expect(t.service.requiresCloseConfirmation).toBe(false);
+    expect(t.service.hasPendingSaves).toBe(false);
+    expect(t.store.saves.length).toBeGreaterThan(0);
   });
 });

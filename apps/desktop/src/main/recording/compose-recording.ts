@@ -45,6 +45,7 @@ export interface ComposeRecordingDeps {
     MeetingTitleDateFormat: string;
   };
   readonly formatFailure: (error: unknown) => string;
+  readonly wavDurationSeconds: (file: string) => number;
 }
 
 /** Renames the audio a new take replaces to `<stem> (previous).wav` beside it (B-3). */
@@ -115,6 +116,14 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
       remove: (file) => {
         fs.rmSync(file, { force: true });
       },
+      fileTimeMs: (file) => {
+        try {
+          return fs.statSync(file).mtimeMs;
+        } catch {
+          return null;
+        }
+      },
+      wavDurationSeconds: deps.wavDurationSeconds,
       repair: (file) => {
         repairWavFile(file);
       },

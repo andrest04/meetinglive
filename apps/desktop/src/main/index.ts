@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   libraryChanged,
+  recordingCloseRequest,
   settingsMeetingPopupChanged,
   type AppInfo,
   type EventChannel,
@@ -92,6 +93,12 @@ import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
 import { composeRecording } from './recording/compose-recording';
+import { CloseGuard, RendererCloseDialogs } from './recording/close-guard';
+import {
+  createRecordingEntryPoints,
+  registerRecordingBusyProbe,
+  startTakeNotesRequests,
+} from './recording/entry-points';
 import { registerRecordingHandlers } from './ipc/recording-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
@@ -257,8 +264,20 @@ function main(): void {
   // Set once the handlers exist; a quit waits for the writes they hold (B16).
   let libraryWrites: { settled: () => Promise<void> } | undefined;
   let quitting = false;
+  // Close protection (165): the exit gates (recording first) decide before anything shuts down.
+  let mayExit: () => Promise<boolean> = () => Promise.resolve(true);
+  let exitApproved = false;
   app.on('before-quit', (event) => {
     if (quitting) return;
+    if (!exitApproved) {
+      event.preventDefault();
+      void mayExit().then((ok) => {
+        if (!ok) return;
+        exitApproved = true;
+        app.quit();
+      });
+      return;
+    }
     quitting = true;
     event.preventDefault();
     void Promise.race([
@@ -754,7 +773,32 @@ function main(): void {
         MeetingTitleDateFormat: mainCatalogs[tag].MeetingTitleDateFormat ?? '',
       }),
       formatFailure: (error) => summaries.formatError(error),
+      wavDurationSeconds: readWavDurationSeconds,
     });
+    // Entry points for the other modules, the busy probe (164), the take-notes request (180) and
+    // close protection (165).
+    const recordingEntry = createRecordingEntryPoints(recording, workspace);
+    registerRecordingBusyProbe(busy, recordingEntry);
+    startTakeNotesRequests(workspace, recordingEntry, logger.child('recording'));
+    const closeDialogs = new RendererCloseDialogs({
+      send: (request) => {
+        broadcast(recordingCloseRequest, request);
+      },
+      windowAvailable: () => mainWindow !== undefined && !mainWindow.isDestroyed(),
+      newId: () => randomUUID(),
+    });
+    const closeGuard = new CloseGuard({
+      service: recording,
+      dialogs: closeDialogs,
+      restoreWindow: () => {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+      },
+      logger: logger.child('recording'),
+    });
+    settings.exitGates.register(() => closeGuard.mayClose());
+    mayExit = () => settings.exitGates.mayExit();
     registerRecordingHandlers({
       server: {
         ipc: ipcMain,
@@ -762,6 +806,7 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       service: recording,
+      closeDialogs,
     });
 
     mainWindow = createMainWindow({
@@ -771,6 +816,15 @@ function main(): void {
     });
     const id = mainWindow.webContents.id;
     windowIds.add(id);
+    mainWindow.on('close', (event) => {
+      if (exitApproved) return;
+      event.preventDefault();
+      void mayExit().then((ok) => {
+        if (!ok) return;
+        exitApproved = true;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+      });
+    });
     mainWindow.on('closed', () => {
       windowIds.delete(id);
       mainWindow = undefined;

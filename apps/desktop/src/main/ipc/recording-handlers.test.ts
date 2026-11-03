@@ -48,10 +48,12 @@ function setup() {
     setNotes: vi.fn(() => true),
     cancelProcessing: vi.fn(() => true),
     retryProcessing: vi.fn(() => false),
+    importAudio: vi.fn(() => Promise.resolve({ started: true as const, meetingId: 'm2' })),
   };
   registerRecordingHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
     service: service as unknown as RecordingService,
+    closeDialogs: { answer: (id: string) => id === 'r1' },
   });
   const call = async (name: RequestName, input: unknown): Promise<unknown> => {
     const handler = handlers.get(name);
@@ -114,6 +116,21 @@ describe('recording handlers', () => {
     });
     expect(await call('recording.retryProcessing', {})).toMatchObject({
       value: { started: false },
+    });
+  });
+
+  it('imports a picked file and relays the close dialog answers', async () => {
+    const { call, service } = setup();
+    const input = { title: 'Call', folderId: null, path: 'C:\\in\\call.mp3' };
+    expect(await call('recording.import', input)).toMatchObject({
+      value: { started: true, meetingId: 'm2' },
+    });
+    expect(service.importAudio).toHaveBeenCalledWith(input);
+    expect(await call('recording.closeAnswer', { requestId: 'r1', accepted: true })).toMatchObject({
+      value: { received: true },
+    });
+    expect(await call('recording.closeAnswer', { requestId: 'zz', accepted: true })).toMatchObject({
+      value: { received: false },
     });
   });
 
