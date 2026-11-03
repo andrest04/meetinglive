@@ -101,6 +101,33 @@ mod tests {
     }
 
     #[test]
+    fn averages_any_channel_count_to_mono() {
+        // C2 and C3: a 6 channel source must come out as one channel of the same level as
+        // the same tone on every channel, not as six interleaved ones.
+        let mut six = Downsampler48to16::new(6);
+        let mut mono = Downsampler48to16::new(1);
+        let (mut a, mut b) = (Vec::new(), Vec::new());
+        six.process(&tone(1000.0, 48000, 6), &mut a);
+        mono.process(&tone(1000.0, 48000, 1), &mut b);
+        assert_eq!(a.len(), b.len());
+        assert!(a
+            .iter()
+            .zip(&b)
+            .all(|(x, y)| (*x as i32 - *y as i32).abs() <= 2));
+        // Only the front-left channel carrying signal averages to one sixth of the level.
+        let mut front = Downsampler48to16::new(6);
+        let mut c = Vec::new();
+        let signal = tone(1000.0, 48000, 1);
+        let interleaved: Vec<f32> = signal
+            .iter()
+            .flat_map(|v| [*v, 0.0, 0.0, 0.0, 0.0, 0.0])
+            .collect();
+        front.process(&interleaved, &mut c);
+        let ratio = rms(&c[200..]) / rms(&b[200..]);
+        assert!((ratio - 1.0 / 6.0).abs() < 0.01, "ratio {ratio}");
+    }
+
+    #[test]
     fn chunked_equals_whole() {
         let sig = tone(440.0, 9600, 2);
         let mut a = Downsampler48to16::new(2);

@@ -123,6 +123,7 @@ pub fn run(
             raw.clear();
             match capture.read_from_device_to_deque(&mut raw) {
                 Ok(info) => {
+                    zero_if_silent(&mut raw, info.flags.silent);
                     stats.packets += 1;
                     stats.silent_flag_packets += info.flags.silent as u64;
                     stats.discontinuities += info.flags.data_discontinuity as u64;
@@ -175,6 +176,40 @@ pub fn run(
     stats
 }
 
+/// A packet flagged SILENT carries uninitialised memory: it must read as silence (spec 3.2).
+fn zero_if_silent(raw: &mut VecDeque<u8>, silent: bool) {
+    if silent {
+        raw.iter_mut().for_each(|b| *b = 0);
+    }
+}
+
+/// How long a device may take to initialise before the start gives up (spec 3.2: 12 s).
+pub const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
+
+/// Waits for the capture thread to report that the device is open. The wasapi crate waits
+/// for process-loopback activation without a limit, so a stuck activation would otherwise
+/// freeze the caller for good. On a timeout the thread is told to stop and left behind.
+pub fn wait_ready(
+    rx: &std::sync::mpsc::Receiver<Result<(), String>>,
+    timeout: std::time::Duration,
+    stop: &AtomicBool,
+    what: &str,
+) -> Result<(), String> {
+    match rx.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            stop.store(true, Ordering::Relaxed);
+            Err(format!(
+                "{what} did not finish within {} seconds.",
+                timeout.as_secs()
+            ))
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            Err("capture thread exited before init".to_string())
+        }
+    }
+}
+
 fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
     // 48 kHz f32 stereo is the format the wasapi example proves for process loopback;
     // the engine converts (AUTOCONVERTPCM) so one path serves all three sources.
@@ -213,4 +248,55 @@ pub fn resolve_microphone(device_id: Option<&str>) -> Res<wasapi::Device> {
         }
     }
     Ok(enumerator.get_default_device(&Direction::Capture)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[test]
+    fn silent_packets_read_as_zeros_and_others_are_kept() {
+        let mut silent: VecDeque<u8> = VecDeque::from(vec![9, 8, 7, 6]);
+        zero_if_silent(&mut silent, true);
+        assert_eq!(silent, VecDeque::from(vec![0, 0, 0, 0]));
+        let mut loud: VecDeque<u8> = VecDeque::from(vec![9, 8, 7, 6]);
+        zero_if_silent(&mut loud, false);
+        assert_eq!(loud, VecDeque::from(vec![9, 8, 7, 6]));
+    }
+
+    #[test]
+    fn a_stuck_start_times_out_with_the_spec_message_and_tells_the_thread_to_stop() {
+        let (_tx, rx) = mpsc::channel::<Result<(), String>>();
+        let stop = AtomicBool::new(false);
+        let err = wait_ready(
+            &rx,
+            Duration::from_millis(20),
+            &stop,
+            "Process loopback activation",
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            "Process loopback activation did not finish within 0 seconds."
+        );
+        assert!(stop.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_ready_or_failed_start_is_passed_through() {
+        let stop = AtomicBool::new(false);
+        let (tx, rx) = mpsc::channel();
+        tx.send(Ok(())).unwrap();
+        assert!(wait_ready(&rx, READY_TIMEOUT, &stop, "x").is_ok());
+        tx.send(Err("no device".to_string())).unwrap();
+        assert_eq!(
+            wait_ready(&rx, READY_TIMEOUT, &stop, "x").unwrap_err(),
+            "no device"
+        );
+        drop(tx);
+        assert!(wait_ready(&rx, READY_TIMEOUT, &stop, "x").is_err());
+        assert!(!stop.load(Ordering::Relaxed));
+    }
 }

@@ -127,12 +127,16 @@ pub fn start_capture(
             )
         })
         .map_err(|e| Error::from_reason(e.to_string()))?;
-    match rx.recv() {
-        Ok(Ok(())) => Ok(CaptureHandle {
+    let what = if opts.kind == "process" {
+        "Process loopback activation"
+    } else {
+        "Audio device start"
+    };
+    match capture::wait_ready(&rx, capture::READY_TIMEOUT, &stop, what) {
+        Ok(()) => Ok(CaptureHandle {
             stop,
             thread: Mutex::new(Some(thread)),
         }),
-        Ok(Err(e)) => Err(Error::from_reason(e)),
-        Err(_) => Err(Error::from_reason("capture thread exited before init")),
+        Err(e) => Err(Error::from_reason(e)),
     }
 }
