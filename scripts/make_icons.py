@@ -1,4 +1,4 @@
-"""Draw every file in MeetingLive.App/Assets and docs/brand from the Vocea mark.
+"""Draw every file in MeetingLive.App/Assets and docs/brand from the Vozella mark.
 
 The mark is five flat bars hung from one line. Their lengths trace a V, so it
 reads as the initial and as a sound level at once. It sits on a 24-unit grid,
@@ -131,10 +131,10 @@ def main() -> None:
 
     BRAND.mkdir(parents=True, exist_ok=True)
     variants = {
-        "vocea-tile-dark.svg": (INK, PAPER),
-        "vocea-tile-light.svg": (PAPER, INK),
-        "vocea-mark-ink.svg": (None, INK),
-        "vocea-mark-paper.svg": (None, PAPER),
+        "vozella-tile-dark.svg": (INK, PAPER),
+        "vozella-tile-light.svg": (PAPER, INK),
+        "vozella-mark-ink.svg": (None, INK),
+        "vozella-mark-paper.svg": (None, PAPER),
     }
     for name, (background, foreground) in variants.items():
         (BRAND / name).write_text(svg(background, foreground), encoding="utf-8")

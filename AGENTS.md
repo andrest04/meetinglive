@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, Op
 
 ## Product name
 
-The product is named **Vocea**. Internal names (namespaces, projects, package identity, data folders) intentionally remain `MeetingLive`; do not rename them, because that can orphan user data or Windows consent.
+The product is named **Vozella**. Internal names (namespaces, projects, package identity, data folders) intentionally remain `MeetingLive`; do not rename them, because that can orphan user data or Windows consent.
 
 ## Hard gate: every change MUST go through skills
 
