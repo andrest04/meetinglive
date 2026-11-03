@@ -2,17 +2,12 @@ import axe from 'axe-core';
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { FAKE_APPS } from './fake-audio-apps';
 import { launchApp, type LaunchedApp } from './launch';
 
 // The audio-capture pages in the real window on the fake native build: a fake microphone
 // list, and fake apps that "play" audio through VOZELLA_FAKE_AUDIO_APPS. No real device,
 // no real call app, and a throwaway data root.
-
-export const FAKE_APPS = JSON.stringify([
-  { processId: 4100, exePath: 'C:\\Fake\\Zoom.exe', name: 'Zoom Workplace', peak: 0.2 },
-  { processId: 4200, exePath: 'C:\\Fake\\chrome.exe', name: 'Google Chrome', peak: 0.05 },
-  { processId: 4300, exePath: 'C:\\Fake\\player.exe', name: 'Music player', peak: 0.1 },
-]);
 
 let launched: LaunchedApp;
 let page: Page;
@@ -118,7 +113,7 @@ test('the cards work from the keyboard', async () => {
 test('the Settings page picks the default microphone and shows its level', async () => {
   await page.getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Microphone' })).toBeVisible();
-  const combo = page.getByRole('combobox', { name: 'Microphone' });
+  const combo = page.getByRole('combobox', { name: 'Default microphone' });
   await expect(combo).toContainText('System default');
   await combo.click();
   await expect(page.getByRole('option')).toHaveText([

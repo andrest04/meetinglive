@@ -4,8 +4,8 @@ import { useT } from '../../i18n/I18nProvider';
 import { Meter, SectionHeader, SettingRow, Select } from '../../ui';
 import { useMicrophonePreview } from './use-microphone-preview';
 
-/** The "System default" row of the Settings list has the empty id (spec 2.5). */
-const DEFAULT_VALUE = '';
+/** The "System default" row has the empty id in the spec (2.5); the select needs a non-empty value for it. */
+const DEFAULT_VALUE = '__system-default__';
 
 /**
  * Settings, Microphone: the device that recordings use unless the Record page says otherwise,
@@ -75,9 +75,9 @@ export function MicrophoneSection() {
   return (
     <div data-testid="microphone-section">
       <SectionHeader level={2} compact title={t('Settings_Microphone.Text')} className="pb-2" />
-      <SettingRow title={t('Settings_Microphone.Text')}>
+      <SettingRow title={t('Ui_MicDefaultTitle')} description={t('Ui_MicDefaultDescription')}>
         <Select
-          label={t('Settings_Microphone.Text')}
+          label={t('Ui_MicDefaultTitle')}
           value={ready ? value : null}
           options={options}
           placeholder={t('ComboMicrophoneDevice.PlaceholderText')}

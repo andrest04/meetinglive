@@ -59,3 +59,11 @@ export function sourcesSummaryArgs(
 ): [string, string] {
   return [microphoneName ?? labels.systemDefault, appName ?? labels.allSystem];
 }
+
+/** The message when starting a recording failed. `code` comes from the audio worker. */
+export function startFailureMessage(code: string | undefined, message: string): Message {
+  if (code === 'process-loopback-unsupported') {
+    return { key: 'Ui_ProcessLoopbackUnsupported', args: [] };
+  }
+  return { key: 'Error_StartRecording', args: [message] };
+}

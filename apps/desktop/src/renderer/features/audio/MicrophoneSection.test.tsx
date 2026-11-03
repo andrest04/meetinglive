@@ -56,7 +56,7 @@ describe('MicrophoneSection', () => {
         <MicrophoneSection />
       </Providers>,
     );
-    const combo = await screen.findByRole('combobox', { name: 'Microphone' });
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
     await waitFor(() => {
       expect(combo).toHaveTextContent('Test headset');
     });
@@ -86,7 +86,7 @@ describe('MicrophoneSection', () => {
         <MicrophoneSection />
       </Providers>,
     );
-    const combo = await screen.findByRole('combobox', { name: 'Microphone' });
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
     await userEvent.click(combo);
     await userEvent.click(await screen.findByRole('option', { name: 'Test microphone' }));
     await waitFor(() => {
@@ -110,7 +110,7 @@ describe('MicrophoneSection', () => {
         <MicrophoneSection />
       </Providers>,
     );
-    const combo = await screen.findByRole('combobox', { name: 'Microphone' });
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
     await waitFor(() => {
       expect(combo).toHaveTextContent('System default');
     });

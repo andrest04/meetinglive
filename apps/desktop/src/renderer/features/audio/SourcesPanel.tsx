@@ -194,7 +194,7 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
       value: SYSTEM_VALUE,
       label: (
         <Tooltip content={tr('RecordPage_SystemCardTooltip')} side="top">
-          <span className="inline-flex items-center gap-2">
+          <span className="inline-flex min-h-5 items-center gap-2">
             <Icon icon={Volume2} className="text-ink-muted" />
             {tr('RecordPage_AllSystemAudio.Text')}
           </span>
@@ -214,7 +214,7 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
         }
       >
         <Tooltip content={tr('RecordPage_AppCardTooltip')} side="top">
-          <span className="inline-flex items-center gap-2">
+          <span className="inline-flex min-h-5 items-center gap-2">
             <Icon icon={AppWindow} className="text-ink-muted" />
             {app.friendlyName}
           </span>

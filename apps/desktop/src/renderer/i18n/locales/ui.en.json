@@ -41,5 +41,8 @@
   "Ui_ModelDownloading": "Downloading",
   "Ui_ShowKey": "Show key",
   "Ui_HideKey": "Hide key",
-  "Ui_XaiSignInFailed": "Could not sign in with SuperGrok. {0}"
+  "Ui_XaiSignInFailed": "Could not sign in with SuperGrok. {0}",
+  "Ui_ProcessLoopbackUnsupported": "Recording one app is not available on this version of Windows. Record all system audio instead.",
+  "Ui_MicDefaultTitle": "Default microphone",
+  "Ui_MicDefaultDescription": "Used for recordings unless you pick another one on the Record page."
 }

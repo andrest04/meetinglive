@@ -23,7 +23,7 @@ export function Meter({ value, label, className }: MeterProps) {
       aria-valuemax={100}
       aria-valuenow={Math.round(clamped)}
       className={cn(
-        'relative h-1 w-full overflow-hidden rounded-full bg-hairline',
+        'relative h-1 overflow-hidden rounded-full bg-hairline',
         'forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-transparent',
         className,
       )}

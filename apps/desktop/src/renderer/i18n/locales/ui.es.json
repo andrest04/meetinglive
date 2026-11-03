@@ -41,5 +41,8 @@
   "Ui_ModelDownloading": "Descargando",
   "Ui_ShowKey": "Mostrar clave",
   "Ui_HideKey": "Ocultar clave",
-  "Ui_XaiSignInFailed": "No se pudo iniciar sesión con SuperGrok. {0}"
+  "Ui_XaiSignInFailed": "No se pudo iniciar sesión con SuperGrok. {0}",
+  "Ui_ProcessLoopbackUnsupported": "Grabar una sola aplicación no está disponible en esta versión de Windows. Graba todo el audio del sistema.",
+  "Ui_MicDefaultTitle": "Micrófono predeterminado",
+  "Ui_MicDefaultDescription": "Se usa en las grabaciones, salvo que elijas otro en la página Grabar."
 }

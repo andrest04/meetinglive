@@ -4,6 +4,7 @@ import {
   noticeMessage,
   recordingStatus,
   sourcesSummaryArgs,
+  startFailureMessage,
 } from './recording-status';
 
 describe('recordingStatus (spec 2.2)', () => {
@@ -78,5 +79,20 @@ describe('sourcesSummaryArgs', () => {
   });
   it('uses the selected names', () => {
     expect(sourcesSummaryArgs('Test headset', 'Zoom', labels)).toEqual(['Test headset', 'Zoom']);
+  });
+});
+
+describe('startFailureMessage', () => {
+  it('speaks plainly when one app cannot be captured on this Windows', () => {
+    expect(startFailureMessage('process-loopback-unsupported', 'build 19041')).toEqual({
+      key: 'Ui_ProcessLoopbackUnsupported',
+      args: [],
+    });
+  });
+  it('wraps any other start failure with its message', () => {
+    expect(startFailureMessage(undefined, 'device busy')).toEqual({
+      key: 'Error_StartRecording',
+      args: ['device busy'],
+    });
   });
 });
