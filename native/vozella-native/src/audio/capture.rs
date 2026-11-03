@@ -222,7 +222,8 @@ fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
             .get_default_device(&Direction::Render)?
             .get_iaudioclient()?,
         Source::Process { pid, include_tree } => {
-            AudioClient::new_application_loopback_client(*pid, *include_tree)?
+            AudioClient::new_application_loopback_client(*pid, *include_tree)
+                .map_err(|e| activation_failure(hresult_of(&e), &e.to_string()))?
         }
     };
     // Loopback (system and process) is a Capture-direction stream on a render client.
@@ -234,6 +235,21 @@ fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
     let h_event = client.set_get_eventhandle()?;
     let capture = client.get_audiocaptureclient()?;
     Ok((client, h_event, capture))
+}
+
+/// The Windows error code behind a failed call, when there is one.
+fn hresult_of(error: &wasapi::WasapiError) -> Option<i32> {
+    match error {
+        wasapi::WasapiError::Windows(e) => Some(e.code().0),
+        _ => None,
+    }
+}
+
+/// Spec 3.2: the text of a failed process-loopback activation, with a prefix support can search
+/// for. An error without a Windows code reads as E_FAIL.
+pub fn activation_failure(hresult: Option<i32>, message: &str) -> String {
+    let code = hresult.unwrap_or(0x8000_4005_u32 as i32) as u32;
+    format!("Process loopback activation failed: 0x{code:08X}. {message}")
 }
 
 /// Spec 3.1.4: a non-empty id that resolves to an active capture endpoint wins; anything
@@ -282,6 +298,22 @@ mod tests {
             "Process loopback activation did not finish within 0 seconds."
         );
         assert!(stop.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn a_failed_activation_has_the_spec_prefix_and_an_eight_digit_code() {
+        assert_eq!(
+            activation_failure(Some(0x8889_0004_u32 as i32), "The audio device is invalid."),
+            "Process loopback activation failed: 0x88890004. The audio device is invalid."
+        );
+        assert_eq!(
+            activation_failure(Some(5), "Access denied."),
+            "Process loopback activation failed: 0x00000005. Access denied."
+        );
+        assert_eq!(
+            activation_failure(None, "odd"),
+            "Process loopback activation failed: 0x80004005. odd"
+        );
     }
 
     #[test]
