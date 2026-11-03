@@ -5,6 +5,8 @@ import { useRecordingFeedback } from './use-recording-feedback';
 
 export interface RecordingStatusLineProps {
   readonly recording: boolean;
+  /** Collects notices and the level; true from the start call on. Defaults to `recording`. */
+  readonly listening?: boolean;
   readonly paused: boolean;
   /** The microphone is not None. */
   readonly microphone: boolean;
@@ -19,12 +21,13 @@ export interface RecordingStatusLineProps {
  */
 export function RecordingStatusLine({
   recording,
+  listening = recording,
   paused,
   microphone,
   appName,
 }: RecordingStatusLineProps) {
   const t = useT();
-  const { warning, level } = useRecordingFeedback(recording);
+  const { warning, level } = useRecordingFeedback(listening || recording);
   if (!recording) return null;
 
   const message: Message = warning ?? recordingStatus({ microphone, appName });

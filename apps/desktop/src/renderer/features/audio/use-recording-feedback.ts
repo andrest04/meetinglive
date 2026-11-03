@@ -13,12 +13,12 @@ export interface RecordingFeedback {
  * the notices (spec 2.3.3). A warning stays until the recording ends; "no source left" is never
  * replaced by a milder one that arrives after it.
  */
-export function useRecordingFeedback(recording: boolean): RecordingFeedback {
+export function useRecordingFeedback(listening: boolean): RecordingFeedback {
   const [warning, setWarning] = useState<Message | null>(null);
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
-    if (!recording) {
+    if (!listening) {
       setWarning(null);
       setLevel(0);
       return;
@@ -33,7 +33,7 @@ export function useRecordingFeedback(recording: boolean): RecordingFeedback {
       offNotice();
       offLevel();
     };
-  }, [recording]);
+  }, [listening]);
 
   return { warning, level };
 }

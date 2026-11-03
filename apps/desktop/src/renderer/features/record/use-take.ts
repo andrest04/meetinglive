@@ -43,34 +43,19 @@ export function useTake(): Take {
   const [phase, setPhase] = useState<TakePhase>('idle');
   const [notice, setNotice] = useState<TakeNotice | null>(null);
   const current = useRef<TakePhase>('idle');
+  // A fatal notice that arrives while the start call is still in flight (spec item 37).
+  const early = useRef<Message | null>(null);
+
+  const takeEarly = (): Message | null => {
+    const failure = early.current;
+    early.current = null;
+    return failure;
+  };
 
   const move = useCallback((next: TakePhase) => {
     current.current = next;
     setPhase(next);
   }, []);
-
-  const start = useCallback(
-    async (title: string, microphone: MicrophoneChoiceDto) => {
-      if (current.current !== 'idle') return;
-      move('starting');
-      setNotice(null);
-      try {
-        const result = await window.vozella.invoke('audio.recording.start', { title, microphone });
-        if (result.started) {
-          move('recording');
-          return;
-        }
-        setNotice({
-          tone: 'warning',
-          message: startFailureMessage(result.code ?? undefined, result.message),
-        });
-      } catch (error) {
-        setNotice(warning('Error_StartRecording', errorText(error)));
-      }
-      move('idle');
-    },
-    [move],
-  );
 
   const pause = useCallback(async () => {
     if (current.current !== 'recording') return;
@@ -115,15 +100,46 @@ export function useTake(): Take {
   );
   const stop = useCallback(() => stopWith(null), [stopWith]);
 
+  const start = useCallback(
+    async (title: string, microphone: MicrophoneChoiceDto) => {
+      if (current.current !== 'idle') return;
+      move('starting');
+      early.current = null;
+      setNotice(null);
+      try {
+        const result = await window.vozella.invoke('audio.recording.start', { title, microphone });
+        if (result.started) {
+          move('recording');
+          const failure = takeEarly();
+          if (failure) await stopWith(failure);
+          return;
+        }
+        setNotice({
+          tone: 'warning',
+          message: startFailureMessage(result.code ?? undefined, result.message),
+        });
+      } catch (error) {
+        setNotice(warning('Error_StartRecording', errorText(error)));
+      }
+      early.current = null;
+      move('idle');
+    },
+    [move, stopWith],
+  );
+
   // The page handles only the first output or writer failure: it shows the message and stops.
-  const running = phase === 'recording' || phase === 'paused';
+  // It listens from the start call on: a notice that comes before the start answer is kept and
+  // acted on as soon as the take is running.
+  const running = phase === 'starting' || phase === 'recording' || phase === 'paused';
   useEffect(() => {
     if (!running) return;
     let handled = false;
     return window.vozella.on('audio.recording.notice', (payload) => {
       if (handled || payload.kind === 'source-lost') return;
       handled = true;
-      void stopWith(noticeMessage(payload));
+      const failure = noticeMessage(payload);
+      if (current.current === 'starting') early.current = failure;
+      else void stopWith(failure);
     });
   }, [running, stopWith]);
 

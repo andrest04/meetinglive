@@ -186,4 +186,31 @@ describe('RecordRoute take', () => {
       expect(api.calls.some((c) => c.name === 'audio.sources.stop')).toBe(true);
     });
   });
+  it('says the recording is starting, and keeps a lost-source warning that arrives meanwhile', async () => {
+    let release: (value: unknown) => void = () => undefined;
+    const api = installApi({
+      'audio.recording.start': () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Record' }));
+    expect(await screen.findByText(/Starting the recording/)).toBeVisible();
+    api.emit('audio.recording.notice', { kind: 'source-lost', source: 'Microphone', remaining: 1 });
+    await act(async () => {
+      release({ started: true, recordedAtMs: 1 });
+      await Promise.resolve();
+    });
+    const status = await screen.findByTestId('recording-status');
+    expect(status.textContent).toMatch(/microphone/i);
+    expect(screen.queryByText(/Starting the recording/)).toBeNull();
+  });
+
+  it('has no Notes field that would drop what is typed', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('textbox', { name: 'Title' });
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+  });
 });

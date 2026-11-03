@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { RecordingStatusLine } from '../audio/RecordingStatusLine';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
-import { Button, Field, Input, Notice, SectionHeader, Textarea } from '../../ui';
+import { Button, Field, Input, Notice, SectionHeader } from '../../ui';
 import { useTake } from './use-take';
 
 const NO_SELECTION: SourcesSelection = { microphone: null, processId: null, appName: null };
@@ -20,6 +20,7 @@ export function RecordRoute() {
   const [selection, setSelection] = useState<SourcesSelection>(NO_SELECTION);
   const idle = take.phase === 'idle';
   const recording = take.phase === 'recording' || take.phase === 'paused';
+  const shown = recording || take.phase === 'stopping';
   const busy = take.phase === 'starting' || take.phase === 'stopping' || take.phase === 'importing';
   const micOn = selection.microphone?.kind !== 'None';
 
@@ -40,27 +41,26 @@ export function RecordRoute() {
             }}
           />
         </Field>
-        <Field label={t('RecordPage_SessionNotes.Header')}>
-          <Textarea rows={6} placeholder={t('RecordPage_SessionNotes.PlaceholderText')} />
-        </Field>
       </div>
       <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
 
-      {recording || take.phase === 'stopping' ? (
-        <RecordingStatusLine
-          recording
-          paused={take.phase === 'paused'}
-          microphone={micOn}
-          appName={selection.appName}
-        />
-      ) : take.notice ? (
+      <RecordingStatusLine
+        recording={shown}
+        listening={shown || take.phase === 'starting'}
+        paused={take.phase === 'paused'}
+        microphone={micOn}
+        appName={selection.appName}
+      />
+      {take.phase === 'starting' ? (
+        <Notice>{t('Ui_TakeStarting')}</Notice>
+      ) : !shown && take.notice ? (
         <Notice tone={take.notice.tone}>
           {t(take.notice.message.key, ...take.notice.message.args)}
         </Notice>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        {recording || take.phase === 'stopping' ? (
+        {shown ? (
           <>
             <Button
               variant="primary"

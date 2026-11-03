@@ -282,6 +282,24 @@ describe('SourcesPanel meeting audio', () => {
     expect(container.querySelector('[inert]')).not.toBeNull();
   });
 
+  it('shows no meter readings and no offers while a take runs', async () => {
+    installApi({
+      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
+    });
+    const view = (active: boolean, locked: boolean) => (
+      <Providers>
+        <SourcesPanel active={active} locked={locked} />
+      </Providers>
+    );
+    const { rerender } = render(view(true, false));
+    expect(await screen.findByText('Zoom is in a call')).toBeVisible();
+    rerender(view(false, true));
+    expect(screen.queryByText('Zoom is in a call')).toBeNull();
+    const meters = screen.getAllByRole('meter', { hidden: true });
+    expect(meters.length).toBeGreaterThan(0);
+    for (const meter of meters) expect(meter).toHaveAttribute('aria-valuenow', '0');
+  });
+
   it('shows the empty hint when no app plays', async () => {
     installApi();
     render(

@@ -91,8 +91,8 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   );
 
   const cards = state?.cards ?? [];
-  const options: RadioOption[] = cards.map((card) => cardOption(card, t));
-  if (options.length === 0) options.push(cardOption(systemCard, t));
+  const options: RadioOption[] = cards.map((card) => cardOption(card, t, locked));
+  if (options.length === 0) options.push(cardOption(systemCard, t, locked));
 
   return (
     <section
@@ -140,7 +140,7 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
       <div className="flex flex-col gap-2">
         <h3 className="text-ui font-medium text-ink">{t('RecordPage_MeetingAudioHeading.Text')}</h3>
 
-        {state?.fallbackAppName ? (
+        {!locked && state?.fallbackAppName ? (
           <Notice tone="warning" onDismiss={picker.closeFallback} dismissLabel={t('Ui_Close')}>
             <p className="font-medium">{t('RecordPage_SourceFallback.Title')}</p>
             <p className="text-ui text-ink-muted">
@@ -149,7 +149,7 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
           </Notice>
         ) : null}
 
-        {state?.suggestion ? (
+        {!locked && state?.suggestion ? (
           <Notice
             onDismiss={() => {
               if (state.suggestion) picker.dismissSuggestion(state.suggestion.processId);
@@ -193,7 +193,7 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
 
 const systemCard: SourceCardDto = { processId: null, app: null, isAvailable: true, level: 0 };
 
-function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
+function cardOption(card: SourceCardDto, tr: Translate, locked: boolean): RadioOption {
   if (card.app === null) {
     return {
       value: SYSTEM_VALUE,
@@ -234,7 +234,11 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
       </span>
     ),
     trailing: (
-      <Meter value={card.isAvailable ? card.level : 0} label={app.friendlyName} className="w-24" />
+      <Meter
+        value={card.isAvailable && !locked ? card.level : 0}
+        label={app.friendlyName}
+        className="w-24"
+      />
     ),
   };
 }

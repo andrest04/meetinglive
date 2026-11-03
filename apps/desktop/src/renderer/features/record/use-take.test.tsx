@@ -279,5 +279,36 @@ describe('useTake', () => {
       expect(calls.filter((c) => c.name === 'audio.recording.stop')).toHaveLength(1);
       expect(result.current.notice?.message.args).toEqual(['one']);
     });
+
+    it('stops a take whose notice came before the start answer (item 37)', async () => {
+      let release: (value: unknown) => void = () => undefined;
+      const calls = install({
+        'audio.recording.start': () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+        'audio.recording.stop': () => stopped,
+      });
+      const { result } = renderHook(() => useTake());
+      let first: Promise<void> = Promise.resolve();
+      await act(async () => {
+        first = result.current.start('a', mic);
+        await Promise.resolve();
+      });
+      expect(result.current.phase).toBe('starting');
+      calls.emit({ kind: 'output-failed', message: 'the app exited' });
+      await act(async () => {
+        release({ started: true, recordedAtMs: 1 });
+        await first;
+      });
+      await vi.waitFor(() => {
+        expect(result.current.phase).toBe('idle');
+      });
+      expect(calls.filter((c) => c.name === 'audio.recording.stop')).toHaveLength(1);
+      expect(result.current.notice?.message).toEqual({
+        key: 'Error_OutputCaptureFailed',
+        args: ['the app exited'],
+      });
+    });
   });
 });

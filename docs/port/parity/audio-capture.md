@@ -369,7 +369,8 @@ Decisions made without anyone to ask:
 7. **The Settings section is now `built`** in `SETTINGS_SECTIONS`.
 8. **The microphone menu opens below the trigger** (`alignItemWithTrigger` off in `ui/Select.tsx`), so it no longer covers the label. This changes every select in the app.
 9. **The Settings microphone section waits for both the saved id and the device list** before it starts the preview, so it never opens the default input first (`MicrophoneSection.test.tsx`).
-10. **Strings:** one more, `Ui_TakeSaved` (en and es), for the line after a take. The Notes field stays unwired: its text belongs to the meeting record.
+10. **Strings:** one more, `Ui_TakeSaved` (en and es), for the line after a take. The Notes field was left unwired here and removed in the second follow-up (decision 12).
+12. **No Notes field on the Record page** until the recording module can store it.
 11. **Idle level curve.** See item 91, the idle level uses the same dB meter curve as the recording and app bars, because a raw RMS of speech sits near 0.05 and would barely move a thin bar. A deviation from spec 2.5 kept on purpose.
 
 Not observed: a real microphone or real apps in the pages (the e2e uses the fake native build; the real-device proof is in the domain half), forced-colors rendering, a screen reader, Windows 10.
@@ -385,6 +386,16 @@ An independent audit found five gaps and four design problems. All were real and
 - Dead Record button: no longer dead. The Notes field is still not wired, by decision 10.
 
 Not observed: a real app icon for a real executable, a real failing process activation, and a recording on a real device in the new page (the e2e uses the fake native build).
+
+## Second audit follow-up
+
+- Item 37 (notice during start): fixed. The take now listens from the start call on; a fatal notice that arrives before the answer is kept and stops the take as soon as it is running, and a lost-source warning is kept in the status line hook across the start. Tests in `use-take.test.tsx` and `RecordRoute.test.tsx`.
+- S14 / item 39 (progress while starting): fixed. The page shows `Ui_TakeStarting` (en and es) in phase starting.
+- Item 129 (frozen meters): fixed on the page. While a take runs the Sources list draws every meter at zero, whatever state it last received, and hides the suggestion and fallback bars (design problem, same cause). Test in `SourcesPanel.test.tsx`.
+- Notes field: decision 12, the field is removed from the Record page. It had no destination in the audio module and discarded input. The recording module adds it back with the meeting record. `RecordPage_SessionNotes.*` strings stay in the catalog.
+- Real executable icons: unchanged, still `pending-real-validation`. Not a defect.
+
+Not observed: the new start line and the zeroed meters in a refreshed screenshot of a real device.
 
 ## Left for other modules
 

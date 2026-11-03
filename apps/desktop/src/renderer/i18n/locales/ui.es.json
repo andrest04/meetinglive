@@ -45,5 +45,6 @@
   "Ui_ProcessLoopbackUnsupported": "Grabar una sola aplicación no está disponible en esta versión de Windows. Graba todo el audio del sistema.",
   "Ui_MicDefaultTitle": "Micrófono predeterminado",
   "Ui_MicDefaultDescription": "Se usa en las grabaciones, salvo que elijas otro en la página Grabar.",
-  "Ui_TakeSaved": "Guardado como {0} en la Bandeja de entrada."
+  "Ui_TakeSaved": "Guardado como {0} en la Bandeja de entrada.",
+  "Ui_TakeStarting": "Iniciando la grabación. Puede tardar unos segundos."
 }
