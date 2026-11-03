@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, SectionHeader, cn } from '../../ui';
+import { RetranscribeControl } from '../transcription/RetranscribeControl';
 
 /**
  * Placeholder for the session module: it shows which meeting the Library opened and on which
@@ -52,6 +53,7 @@ export function SessionRoute() {
               ? t('SessionPage_TabSummary.Text')
               : t('SessionPage_TabTranscript.Text')}
           </p>
+          <RetranscribeControl meetingId={meeting.id} meetingTitle={meeting.title} />
         </>
       )}
     </section>

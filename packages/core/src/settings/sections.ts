@@ -54,7 +54,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'transcription',
     headingKey: 'Settings_Transcription.Text',
     owner: 'transcription',
-    status: 'slot',
+    status: 'built',
   },
   { id: 'recording', headingKey: 'Settings_Recording.Text', owner: 'recording', status: 'slot' },
   {

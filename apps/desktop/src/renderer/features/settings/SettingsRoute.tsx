@@ -7,6 +7,7 @@ import { DataSection } from './DataSection';
 import { LanguageSection } from './LanguageSection';
 import { MeetingLanguageSection } from './MeetingLanguageSection';
 import { ProviderSection } from './ProviderSection';
+import { TranscriptionSection } from '../transcription/TranscriptionSection';
 import { useSettingsPage } from './use-settings-page';
 
 function AppearanceSection() {
@@ -103,6 +104,7 @@ export function SettingsRoute() {
               onChange={model.setMeetingLanguage}
             />
           ) : null}
+          {built.has('transcription') ? <TranscriptionSection /> : null}
         </div>
       ) : null}
       {built.has('data') ? <DataSection /> : null}

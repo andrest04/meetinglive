@@ -28,6 +28,7 @@ function installApi(overrides: Record<string, (input: Record<string, unknown>) =
       selected: { kind: 'SystemDefault', deviceId: null },
     }),
     'audio.sources.start': () => pickerState,
+    'transcription.getStatus': () => ({ ready: true, liveEnabled: false }),
     'audio.recording.start': () => ({ started: true, recordedAtMs: 1 }),
     'audio.recording.pause': () => ({ paused: true }),
     'audio.recording.resume': () => ({ resumed: true }),
@@ -212,5 +213,61 @@ describe('RecordRoute take', () => {
     mount();
     await screen.findByRole('textbox', { name: 'Title' });
     expect(screen.getAllByRole('textbox')).toHaveLength(1);
+  });
+});
+
+describe('RecordRoute engine gate', () => {
+  it('opens the setup dialog when the engine is missing and records once it is ready', async () => {
+    const api = installApi({
+      'transcription.getStatus': () => ({ ready: false, liveEnabled: false }),
+      'transcription.ensureEngine': () => ({ status: 'ready' }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Record' }));
+    await waitFor(() => {
+      expect(api.calls.some((c) => c.name === 'audio.recording.start')).toBe(true);
+    });
+    expect(api.calls.map((c) => c.name)).toContain('transcription.ensureEngine');
+  });
+
+  it('does not record when the setup is cancelled', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const api = installApi({
+      'transcription.getStatus': () => ({ ready: false, liveEnabled: false }),
+      'transcription.ensureEngine': () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Record' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Download transcription engine' });
+    expect(dialog).toHaveTextContent('Preparing download...');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    finish({ status: 'cancelled' });
+    expect(await screen.findByText('Setup cancelled.')).toBeVisible();
+    expect(api.calls.map((c) => c.name)).toContain('transcription.cancelInstall');
+    expect(api.calls.some((c) => c.name === 'audio.recording.start')).toBe(false);
+  });
+
+  it('shows the raw failure and offers another try', async () => {
+    let attempts = 0;
+    installApi({
+      'transcription.getStatus': () => ({ ready: false, liveEnabled: false }),
+      'transcription.ensureEngine': () => {
+        attempts += 1;
+        return attempts === 1
+          ? { status: 'failed', message: 'getaddrinfo ENOTFOUND github.com' }
+          : { status: 'ready' };
+      },
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Record' }));
+    expect(await screen.findByText('getaddrinfo ENOTFOUND github.com')).toBeVisible();
+    expect(screen.getByText('Download failed')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => {
+      expect(attempts).toBe(2);
+    });
   });
 });

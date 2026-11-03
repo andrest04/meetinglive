@@ -51,5 +51,19 @@
   "Ui_EngineStageRuntimeCpu": "Descargando el tiempo de ejecución NVIDIA CPU",
   "Ui_EngineStageRuntimeCpuFallback": "Descargando el tiempo de ejecución NVIDIA CPU como respaldo",
   "Ui_EngineStageModel": "Descargando el modelo Nemotron 3.5 ASR",
-  "Ui_SpeakerModelMissing": "Las etiquetas de hablante están activadas, pero el modelo de hablantes no está instalado, así que las transcripciones no tendrán etiquetas."
+  "Ui_SpeakerModelMissing": "Las etiquetas de hablante están activadas, pero el modelo de hablantes no está instalado, así que las transcripciones no tendrán etiquetas.",
+  "Ui_EngineProgressName": "Progreso de la descarga del motor de transcripción",
+  "Ui_EngineStep": "Paso {0} de {1}",
+  "Ui_EngineInstalled": "Instalado",
+  "Ui_EngineNotInstalled": "No instalado",
+  "Ui_SwitchOn": "Activado",
+  "Ui_SwitchOff": "Desactivado",
+  "Ui_LiveWaiting": "Escuchando. El texto aparece aquí mientras se habla.",
+  "Ui_LiveSkipped": "La vista previa en vivo está desactivada. La transcripción se hace al detener.",
+  "Ui_RetranscribeNoAudio": "Esta reunión no tiene audio guardado, así que no se puede volver a transcribir.",
+  "Ui_RetranscribeBusy": "Espera a que termine la grabación o la nueva transcripción en curso.",
+  "Ui_RetranscribeNeedsEngine": "El motor de transcripción aún no está instalado. Descárgalo primero.",
+  "Ui_RetranscribeStatusName": "Estado de la nueva transcripción",
+  "Ui_SpeakerModelFailed": "Las etiquetas de hablante siguen desactivadas.",
+  "Ui_SpeakerModel": "Modelo de hablantes"
 }
