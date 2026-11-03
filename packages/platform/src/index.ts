@@ -45,3 +45,4 @@ export * from './llama/llama-sidecar';
 export * from './fakes/fake-process-job';
 export * from './llama/local-llm-host';
 export * from './llama/local-llm-provider';
+export * from './summaries/summary-runtime';

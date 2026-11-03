@@ -25,7 +25,7 @@ export class FileLocalModelStore implements LocalModelStore {
   constructor(private readonly options: FileLocalModelStoreOptions) {}
 
   async isDownloaded(model: SummaryModelInfo): Promise<boolean> {
-    const file = this.pathOf(model);
+    const file = this.pathFor(model.fileName);
     try {
       const stat = await fs.stat(file);
       return stat.isFile() && stat.size === model.sizeBytes;
@@ -41,7 +41,7 @@ export class FileLocalModelStore implements LocalModelStore {
   ): Promise<void> {
     await downloadToFile({
       url: this.options.urlFor?.(model) ?? model.downloadUrl,
-      target: this.pathOf(model),
+      target: this.pathFor(model.fileName),
       onProgress,
       cancel: signal,
       resume: true,
@@ -52,14 +52,14 @@ export class FileLocalModelStore implements LocalModelStore {
   }
 
   async delete(model: SummaryModelInfo): Promise<void> {
-    await fs.rm(this.pathOf(model), { force: true });
+    await fs.rm(this.pathFor(model.fileName), { force: true });
   }
 
   /** Only names from the catalog become paths, so an id from the page cannot leave the folder. */
-  private pathOf(model: SummaryModelInfo): string {
-    if (findSummaryModel(model.fileName) === null) {
-      throw new Error(`${model.fileName} is not a model in the catalog.`);
+  pathFor(fileName: string): string {
+    if (findSummaryModel(fileName) === null) {
+      throw new Error(`${fileName} is not a model in the catalog.`);
     }
-    return nodePath.join(this.options.directory, model.fileName);
+    return nodePath.join(this.options.directory, fileName);
   }
 }

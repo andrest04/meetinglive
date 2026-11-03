@@ -275,6 +275,25 @@ Sampling (item 54), sent on every chat call: top_p 0.9, top_k 40, min_p 0.05, re
 
 Measured with the 1B Q4_K_M model on this machine, 200 token generation: cuda12 239.5 tokens/s (17/17 layers offloaded), cpu 57.4 tokens/s. A short Spanish summary took 1.6 s on cuda12 and 6.4 s on cpu, both including the server start. A 10055 token transcript went through map-reduce in 18 s on cuda12 and 120 s on cpu.
 
+### Provider gate, factory and single settings reader (S12)
+
+| #   | Item                                                                                                 | Status | Notes                                                                                                                                                                              |
+| --- | ---------------------------------------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 141 | Gate returns a value: `ready`, `needs-setup` (`model-missing`, `cli-missing`) or `unavailable` (Xai) | done   | `SummaryProviderResolver.resolveSummaryProvider({ kind?, webSearch? })`. No callbacks, no dialog; U3 and U4 act on `needs-setup`. Without `kind` it uses the saved provider.       |
+| 143 | Web search variant only when `webSearch` is true                                                     | done   | Plain factories for summaries; `create...WebSearchProvider` only on the live-answer path. Tested through the argv.                                                                 |
+| 144 | Local ready only for a saved catalog model whose file exists, by exact file name                     | done   | Uses `LocalModelStore.isDownloaded` (pinned size, S06) and `FileLocalModelStore.pathFor`. A different case or an id outside the catalog is `model-missing`.                        |
+| 145 | CLI ready when the executable is on PATH; non-CLI kinds throw `RangeError`                           | done   | `cliExecutableName` (message "Only ClaudeCode and Codex are CLI-backed providers."). Probe is re-read on every call.                                                               |
+| 176 | Fresh provider per call from a current settings snapshot; Local reuses the host's server             | done   | `SummaryProviderFactory.create` loads settings on every call; `SummaryRuntime` builds one `LocalLlmHost` shared by every Local provider (one server in a test with two providers). |
+| 183 | All settings fields and defaults round trip; `summaryLanguage` default `es`                          | done   | Tested on a real `settings.json` through `JsonSettingsStore`. The field list itself belongs to the settings module.                                                                |
+
+Decisions (S12):
+
+- **Where it lives.** Pure gate and factory are in `packages/core/src/summaries/provider-resolver.ts` and `provider-factory.ts`. `packages/platform/src/summaries/summary-runtime.ts` (`SummaryRuntime`) wires them to the runner (S05), the `LocalLlmHost` and `LlamaRuntimeManager` (S08 to S11), the model store (S06) and the `SettingsStore`.
+- **Xai.** The gate answers `unavailable` / `xai-removed` and the factory throws `RangeError`; neither ever builds a Local provider (S07).
+- **Backend choice.** `SummaryRuntime` picks the working llama backend once (`selectWorkingBackend` with the hardware probe) and caches only a success. `gpuOffload` comes from `usesGpuOffload(backend)`. The cuda13 driver probe is still not written (S08).
+- **Test doubles.** `createServer`, `resolveRuntime`, `runner` and `cli` can be replaced. The platform test uses the fake llama-server and a recording runner; no real CLI was started.
+- **No RED run (S12).** Code and tests were written together and passed on the first run.
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -296,6 +315,9 @@ Measured with the 1B Q4_K_M model on this machine, 200 token generation: cuda12 
 - **B3** (S11): `LocalLlmHost` keeps one server per model path, stops it on model change, provider dispose, sidecar idle timeout and the exit hook; dispose before any load is a no-op. Tested with the fake server (process gone after dispose and after a switch).
 - **B8** (S11): title prompts are truncated to fit; chat and stream prompts that cannot fit fail with `PromptTooLong` before any request.
 - **B9** (S11): chat and stream answers may use up to 2048 tokens or the room left, and truncation is reported through `onOutcome`.
+- **B2** (S12): one settings reader. The factory, and through it every provider, reads `SettingsStore.load()` (camelCase file, case-insensitive keys); a test on a real `settings.json` shows `selectedClaudeModelId`/`Effort` and `selectedCodexModelId`/`Effort` in the argv, with defaults sonnet/low and gpt-5.6/low.
+- **B19** (S12): gate and wizard writes use `SettingsStore.update(patch)`, a serialized read-modify-write; three parallel patches to different fields all reach the disk.
+- **B35** (S12): unknown, numeric or blank provider names resolve to Local; `Xai` stays `unavailable`.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -322,6 +344,9 @@ Measured with the 1B Q4_K_M model on this machine, 200 token generation: cuda12 
 - S11: build one `TokenCounter` from `sidecar.tokenize` (BOS added, special tokens parsed) and an `InferFunction` over `chatStream` that concatenates, trims and throws `LocalEmpty` on empty output; pass the cancel signal through. Call `splitSummaryResponse` on the returned text. Item 53 (budgeting title and prompt calls, B8) is S11's.
 - S11: S12 builds `new LocalLlmHost({ createServer: () => new LlamaSidecar({ guard: createProcessGuard(nativePorts.processJob) }), resolveRuntime })` once, where `resolveRuntime` returns the `LlamaRuntimeManager` exe and `usesGpuOffload(backend)`, and one `LocalLlmSummaryProvider` over it with `modelPath` reading the settings. S15 calls `host.killNow()` and `host.dispose()` on before-quit. S13 and the chat service should pass `{ onOutcome }` to `completePrompt` and `streamPrompt` and show a short note when `truncated` is true; the copy for that note is not written yet. S13 maps `PromptTooLong` through `formatFailure`.
 - S11: not run with Electron main as the owner process, and the real tests need `VOZELLA_LLAMA_BIN_DIR` and `VOZELLA_LLM_MODEL` (skipped otherwise). A Gemma model was not run.
+- S12: S13 and S14 get providers only from `SummaryRuntime.resolver.resolveSummaryProvider(...)` and read settings only through the same `SettingsStore`. S15 constructs `new SummaryRuntime({ settings, hardware, models: fileLocalModelStore, llamaRoot, processJob: nativePorts.processJob })`, shares the one `FileLocalModelStore` with `SettingsRuntime`, and calls `runtime.dispose()` on before-quit.
+- S12: U3 and U4 (wizard, CLI setup dialog) handle `needs-setup`; their writes must go through `settings.update(patch)` (B19). S18 and S19 can show the Xai message from `unavailable`.
+- S12: `LocalModelStore` has no `pathFor` in the core port; `SummaryRuntime` takes `FileLocalModelStore` structurally. A fake store in other tests needs `pathFor` too.
 
 ## Dropped by the owner
 
