@@ -69,7 +69,9 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
     return {
       backend: 'fake',
       platformSupported: true,
-      audio: new FakeAudioCapture(),
+      audio: new FakeAudioCapture({
+        endWithErrorAfterMs: Number(process.env.VOZELLA_FAKE_CAPTURE_LOST_MS) || 0,
+      }),
       microphones: new FakeMicrophoneDevices(),
       sessions: new FakeAudioSessionSource(),
       processes: new FakeProcessInfo(),
