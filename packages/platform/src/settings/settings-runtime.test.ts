@@ -214,3 +214,41 @@ describe('LocalModelStore contract', () => {
     });
   });
 });
+
+describe('SettingsRuntime.warmUp', () => {
+  it('starts the hardware query once, so the first page load finds it done', async () => {
+    let queries = 0;
+    const runtimeWith = new SettingsRuntime({
+      store: new JsonSettingsStore({ settingsFilePath: path.join(dir, 'settings.json') }),
+      appDataDirectory: dir,
+      osLanguages: () => ['en-US'],
+      relaunch: () => undefined,
+      notifyModel: () => undefined,
+      hardware: {
+        detect: () => {
+          queries += 1;
+          return Promise.resolve({ totalRamGb: 8, gpuName: null, gpuVramGb: null });
+        },
+      },
+      cli: new FakeCliProbe(new Set()),
+    });
+    runtimeWith.warmUp();
+    expect(queries).toBe(1);
+  });
+
+  it('survives a failing hardware query', async () => {
+    const runtimeWith = new SettingsRuntime({
+      store: new JsonSettingsStore({ settingsFilePath: path.join(dir, 'settings.json') }),
+      appDataDirectory: dir,
+      osLanguages: () => ['en-US'],
+      relaunch: () => undefined,
+      notifyModel: () => undefined,
+      hardware: { detect: () => Promise.reject(new Error('no powershell')) },
+      cli: new FakeCliProbe(new Set()),
+    });
+    expect(() => {
+      runtimeWith.warmUp();
+    }).not.toThrow();
+    await Promise.resolve();
+  });
+});

@@ -16,6 +16,7 @@ import {
   FakeHardwareProbe,
   FakeLocalModelStore,
   FakeXaiAccount,
+  FileXaiAccount,
   ForbiddenDataRootError,
   LibraryRuntime,
   RotatingFileLogger,
@@ -31,6 +32,7 @@ import {
   nativeTheme,
   net,
   protocol,
+  safeStorage,
   session,
   shell,
 } from 'electron';
@@ -276,7 +278,18 @@ function main(): void {
           modelStore: new FakeLocalModelStore(),
           xaiAccount: new FakeXaiAccount(),
         }
-      : {}),
+      : {
+          // The key is encrypted with the OS (DPAPI through safeStorage) in its own file, so
+          // a WinUI credentials file in a shared folder is never overwritten.
+          xaiAccount: new FileXaiAccount({
+            filePath: path.join(paths.appData, 'xai-credentials.safe.bin'),
+            cipher: {
+              encrypt: (plain) => safeStorage.encryptStringAsync(plain),
+              decrypt: async (blob) =>
+                (await safeStorage.decryptStringAsync(Buffer.from(blob))).result,
+            },
+          }),
+        }),
   });
 
   function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {
@@ -302,6 +315,7 @@ function main(): void {
 
   void app.whenReady().then(async () => {
     serveRendererFromAppScheme();
+    settings.warmUp();
     hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
 
     try {

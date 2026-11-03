@@ -264,4 +264,43 @@ describe('references in the code (item 118, B21)', () => {
     const unused = Object.keys(uiEn).filter((key) => !text.some((source) => source.includes(key)));
     expect(unused).toEqual([]);
   });
+
+  /**
+   * Keys in the groups Settings uses that no code of this app asks for, each with the reason.
+   * Anything else in these groups must be referenced, so a converted key that stops being used
+   * (or never was) fails here instead of rotting.
+   */
+  const OTHER_MODULES = [
+    // Hardware, microphone, transcription engine, recording, calendar and TypeSafe sections.
+    /^Settings_(Acceleration|AsrFallback|CalendarNotifications|Calendars|DeleteEngine|DeleteSpeakers)/,
+    /^Settings_(DownloadEngine|DownloadSpeakers|LiveDrops|LiveTranscription|MeetingPopup|MicLevel)/,
+    /^Settings_(NemotronCard|RecordingDevice|SpeakerLabels|TypeSafe)/,
+    // Used by the setup dialog and by the recording setup summary caption.
+    /^Hardware_(NoGpu|WithGpu)$/,
+    /^Model_Downloaded$/,
+    /^Xai_ProviderName$/,
+  ];
+  const UNUSED_BY_DECISION = [
+    'Xai_StatusError', // 7.23: the page uses Xai_StatusErrorTitle plus the raw message.
+    'Settings_XaiStatus.Header', // The status card header is the computed status text.
+  ];
+
+  /** The whole quoted key, so `Xai_StatusError` is not found inside `Xai_StatusErrorTitle`. */
+  const uses = (key: string): boolean =>
+    text.some((source) => source.includes(`'${key}'`) || source.includes(`"${key}"`));
+
+  it('every Settings, Xai, Hardware, Fit and Model key is referenced, bar the listed ones', () => {
+    const groups = /^(Settings_|SettingsPage_|SettingsLanguageRestart_|Xai_|Hardware_|Fit_|Model_)/;
+    const unreferenced = Object.keys(en)
+      .filter((key) => groups.test(key))
+      .filter((key) => !uses(key))
+      .filter((key) => !OTHER_MODULES.some((pattern) => pattern.test(key)))
+      .filter((key) => !UNUSED_BY_DECISION.includes(key));
+    expect(unreferenced).toEqual([]);
+  });
+
+  it('the listed exceptions are still unreferenced, so the list cannot go stale', () => {
+    const stale = UNUSED_BY_DECISION.filter(uses);
+    expect(stale).toEqual([]);
+  });
 });

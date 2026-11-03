@@ -336,6 +336,45 @@ describe('Settings page', () => {
     });
   });
 
+  it('closes the saved bar after 4 seconds, and a newer message restarts the clock', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let n = 0;
+      install({
+        'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),
+        'settings.setCliOption': () => {
+          n += 1;
+          return {
+            status: 'saved',
+            settings: {},
+            feedback: { key: 'Xai_FeedbackModel', args: [`message ${n.toString()}`] },
+          };
+        },
+      });
+      mount();
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+      await screen.findByText('Detected on PATH.');
+      await user.click(screen.getByRole('combobox', { name: 'Model' }));
+      await user.click(await screen.findByRole('option', { name: 'opus' }));
+      expect(await screen.findByText('Saved. Using message 1.')).toBeInTheDocument();
+
+      // Three seconds in, a second message arrives and takes over the single timer.
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      await user.click(screen.getByRole('combobox', { name: 'Effort' }));
+      await user.click(await screen.findByRole('option', { name: 'high' }));
+      expect(await screen.findByText('Saved. Using message 2.')).toBeInTheDocument();
+
+      // Past the first message's 4 seconds the newer one is still there.
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      expect(screen.getByText('Saved. Using message 2.')).toBeInTheDocument();
+      // Four seconds after the second message it closes.
+      await act(() => vi.advanceTimersByTimeAsync(1100));
+      expect(screen.queryByText(/Saved\. Using message/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('saves the app language, opens the restart prompt, and Later closes it without restarting', async () => {
     const calls = install({
       'settings.getPage': () => pageDto(),

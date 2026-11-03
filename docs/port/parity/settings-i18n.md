@@ -40,7 +40,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ## Decisions
 
-- **No new Rust.** Nothing in this module needs the OS beyond what Node has. RAM comes from `os`. The GPU comes from one PowerShell query (`powershell.exe`, no shell string from user input), run once per process and cached. `packages/platform/src/settings/system-hardware-probe.ts` reads the 64-bit registry value `HardwareInformation.qwMemorySize` first and falls back to WMI `AdapterRAM`. Observed on this machine through the real probe: 31.6 GB RAM, RTX 3070 Laptop GPU, 8 GB (the WMI field alone says 4 GB), 3.4 s the first time. It runs off the page's critical path.
+- **No new Rust.** Nothing in this module needs the OS beyond what Node has. RAM comes from `os`. The GPU comes from one PowerShell query (`powershell.exe`, no shell string from user input), run once per process and cached. `packages/platform/src/settings/system-hardware-probe.ts` reads the 64-bit registry value `HardwareInformation.qwMemorySize` first and falls back to WMI `AdapterRAM`. Observed on this machine through the real probe: 31.6 GB RAM, RTX 3070 Laptop GPU, 8 GB (the WMI field alone says 4 GB), 3.4 s the first time. Second audit fix: it did not run off the page's critical path, because `SettingsPageService.load` awaits it. `SettingsRuntime.warmUp()` now starts it when the app is ready, so the first visit normally finds it cached (`settings-runtime.test.ts`). A visit in the first seconds can still wait for the rest of the query. Decision: the badges are not drawn late, because the page would need a second load phase for a rating that is usually ready.
 - **Language change applies live and still offers the restart.** The settings are saved first; only then does the main process switch its locale and push `i18n.localeChanged` to every window (B11). Strings are looked up when drawn (B9), so a live switch is consistent; the restart prompt stays because spec items 19 to 22 ask for it and later modules (tray, toast text) may build strings once. The UI half decides whether the prompt appears; the channels support both.
 - **Restart** is `app.relaunch` then `app.quit`, so the normal quit path (library writes, audio worker) still runs. A relaunched process carries `--vozella-relaunched` and retries the single-instance lock for up to 8 s, so the old process shutting down does not make the new one quit. A refused gate returns `refused`; a failed relaunch returns `failed` with the message (B10).
 - **Strict values.** The checked commands accept only the four provider names, the two UI tags, the catalog codes, the listed Claude and Codex models and efforts, and the five xAI efforts. An xAI model is any non-blank id up to 200 characters, because that list comes from the network. A stored value outside a list counts as the current value (so choosing it again is a no-op) and the page option lists include it (B13).
@@ -86,7 +86,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 19 | done | Dialog with the four keys; Restart now takes focus (e2e). It opens after the switch, so it is already in the new language |
 | 20 | done | Later closes the dialog and calls nothing; the language already applies (`SettingsRoute.test.tsx`) |
 | 21 | done | `app.restart` asks the exit gate first; refusal returns `refused` and relaunches nothing (`page-service.test.ts`, `settings-handlers.test.ts`) |
-| 22 | pending-real-validation | Failure is returned as `failed` with the message (B10). A real relaunch, and the new process getting the single-instance lock, were not exercised: doing it in a test would start a second real app. Needs one manual restart |
+| 22 | pending-real-validation | Second audit: kept as pending. A real relaunch ends the process Playwright drives, so it cannot be asserted from a test without a second app and a launcher outside the suite. Needs one manual restart. Failure is returned as `failed` with the message (B10). A real relaunch, and the new process getting the single-instance lock, were not exercised: doing it in a test would start a second real app. Needs one manual restart |
 | 23 | done | Main applies the saved language before the first window (earlier) and the renderer now starts from it |
 | 24 | done | Every formatter takes an explicit locale; nothing reads a machine culture |
 
@@ -123,7 +123,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 41 | done | `CODEX_MODELS`, default `gpt-5.6` |
 | 42 | done | `CODEX_EFFORTS`, default `low` |
 | 43 | done | `setCliOption` ignores blank, unchanged and unknown values and saves one field. The loading flag is covered by the no-op on unchanged |
-| 44 | improved | The saved outcome's `feedback` shows in a Notice under the provider section, closable, and a 4 s timer (`FEEDBACK_MS`) closes it. e2e sees `Saved. Using opus · low.`. The timer itself has no test |
+| 44 | improved | The saved outcome's `feedback` shows in a Notice under the provider section, closable, and a 4 s timer (`FEEDBACK_MS`) closes it. e2e sees `Saved. Using opus · low.`. The timer is tested with fake timers: the bar stays, a newer message restarts the single timer, and it closes 4 s after the last one (`SettingsRoute.test.tsx`; the test fails if `FEEDBACK_MS` changes) |
 | 45 | improved | No expander: a small heading and its description sit above the rows, always open. Decision: the expanders were always expanded in WinUI, so the chevron had no use |
 | 46 | done | Resolvers return the defaults for blank values (`settings.test.ts`, `page-service.test.ts`) |
 
@@ -148,24 +148,24 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ### Grok (xAI)
 
-Audit fix: these rows were `done` because the double passes them, but a real build registers no `XaiAccountPort`, so the account block is not reachable there. The rows marked `pending-xai-module` are verified against `FakeXaiAccount` only. Decision: the Grok radio is drawn only when `capabilities.xaiAccount` is true, or when Grok is already the saved choice (so a saved value is never hidden). A real build therefore does not offer a control that does nothing. The xAI module registers the port and the radio appears. The xAI card now shows a busy bar (`Progress`, indeterminate, `aria-busy`) while a refresh, save, sign in or sign out runs.
+Audit fix: these rows were `done` because the double passes them, but a real build registers no `XaiAccountPort`, so the account block is not reachable there. The rows marked `pending-xai-module` are verified against `FakeXaiAccount` only. Decision: the Grok radio is drawn only when `capabilities.xaiAccount` is true, or when Grok is already the saved choice (so a saved value is never hidden). A real build therefore does not offer a control that does nothing. Second audit: the real build now registers `FileXaiAccount` (`packages/platform/src/settings/file-xai-account.ts`), so the radio, the account block, the API key box, the model and effort pickers and Sign out are reachable. The key is encrypted with Electron `safeStorage` into `xai-credentials.safe.bin` in the app data folder, a different name from the WinUI `xai-credentials.bin`, so a shared folder is never overwritten and the WinUI DPAPI file is not read (an old SuperGrok or key login must be done again). Models come from `https://api.x.ai/v1/models` with the C# text chat filter and preferred order; tests use a local fake, never the network or a real key. Decision, rejected part of the finding: the SuperGrok button stays hidden (`xaiSignIn` false) because the device code flow is the xAI sign in dialog of the summaries module (spec 2.8) and needs a real account to prove. The signed-out line that mentions SuperGrok is the spec text, kept. Rows 61, 62, 64, 67, 68, 69, 71 to 74 are now reachable in a real build and `done` for API key accounts; 75 and OAuth accounts stay `pending-xai-module`. The xAI card now shows a busy bar (`Progress`, indeterminate, `aria-busy`) while a refresh, save, sign in or sign out runs.
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 61 | pending-xai-module | `XaiAccount.tsx`: status row with title, detail, a check when signed in, Sign in or Sign out. Sign in only when `capabilities.xaiSignIn` |
-| 62 | pending-xai-module | Title and detail kinds for OAuth, ApiKey, none; loading-models only until models are loaded for these credentials (`settings-services.test.ts`) |
+| 61 | done | `XaiAccount.tsx`: status row with title, detail, a check when signed in, Sign in or Sign out. Sign in only when `capabilities.xaiSignIn` |
+| 62 | done | Title and detail kinds for OAuth, ApiKey, none; loading-models only until models are loaded for these credentials (`settings-services.test.ts`) |
 | 63 | done | `status()` reads only the local store and seeds the saved model |
-| 64 | pending-xai-module | `refresh()`: token, models, `resolveXaiModelId`, `mergeModelList`, persist when it differs, ready detail |
+| 64 | done | `refresh()`: token, models, `resolveXaiModelId`, `mergeModelList`, persist when it differs, ready detail |
 | 65 | done | All five spec rows, saved casing, preferred order, listed casing, empty list |
 | 66 | done | Removes absent, inserts at index, keeps the resolved id, does not reorder |
-| 67 | pending-xai-module | B14. Title `error`, raw message in the detail, `signedIn` stays true (the credentials are there), models kept, `canRetry` true |
-| 68 | pending-xai-module | A signed-out refresh clears the list |
-| 69 | pending-xai-module | Model and effort Selects are disabled while signed out (e2e) |
+| 67 | done | B14. Title `error`, raw message in the detail, `signedIn` stays true (the credentials are there), models kept, `canRetry` true |
+| 68 | done | A signed-out refresh clears the list |
+| 69 | done | Model and effort Selects are disabled while signed out (e2e) |
 | 70 | done | `none, low, medium, high, xhigh`, default `low` |
-| 71 | pending-xai-module | `setCliOption` for xAI; `status()` rebuilds the ready detail from the saved values |
-| 72 | pending-xai-module | Password input with a Show key and Hide key button (peek) and Save, disabled while blank (e2e) |
-| 73 | pending-xai-module | Save clears the box on success, refreshes the models and shows `Xai_FeedbackApiKey`. The key never reaches `settings.json` (e2e asserts it) |
-| 74 | pending-xai-module | `signOut` returns `Xai_FeedbackSignedOut` and a refreshed signed-out view |
+| 71 | done | `setCliOption` for xAI; `status()` rebuilds the ready detail from the saved values |
+| 72 | done | Password input with a Show key and Hide key button (peek) and Save, disabled while blank (e2e) |
+| 73 | done | Save clears the box on success, refreshes the models and shows `Xai_FeedbackApiKey`. The key never reaches `settings.json` (e2e asserts it) |
+| 74 | done | `signOut` returns `Xai_FeedbackSignedOut` and a refreshed signed-out view |
 | 75 | pending-xai-module | `settings.xai.signIn` is wired and tested with a double. The device code flow and a real account belong to the xAI module |
 | 76 | done | The same Notice serves Claude, Codex and Grok |
 | 77 | done | Key used |
@@ -229,7 +229,7 @@ Audit fix: these rows were `done` because the double passes them, but a real bui
 | 115 | done | `LocaleState` and `createLookup` take the locale; nothing is global |
 | 116 | improved | B9. Names are keys resolved at use |
 | 117 | done | B16. `Ui_MicLevelName`, `Ui_EngineDownloadProgressName`, `Ui_SpeakerDownloadProgressName` in both languages. The modules that own those bars use them |
-| 118 | improved | B21. A test fails if the code asks for a key that does not exist, and if a hand-written `Ui_` key is unused. "Every key is referenced" cannot hold until all modules are ported, so it is not asserted for the converted keys |
+| 118 | improved | B21. A test fails if the code asks for a key that does not exist, and if a hand-written `Ui_` key is unused. "Every key is referenced" cannot hold until all modules are ported, so the second audit added the assertion for the groups Settings uses (`Settings_*`, `SettingsPage_*`, `SettingsLanguageRestart_*`, `Xai_*`, `Hardware_*`, `Fit_*`, `Model_*`). Keys of the hardware, microphone, engine, recording, calendar and TypeSafe sections, the setup dialog (`Hardware_*`, `Model_Downloaded`) and the recording caption (`Xai_ProviderName`) are an explicit list for their modules. `Xai_StatusError` and `Settings_XaiStatus.Header` are listed as unused by decision (7.23), and a second test fails if a listed key becomes used, so the list cannot go stale |
 
 ### Tests
 
@@ -309,5 +309,4 @@ Audit, rejected: the Claude mark keeps `#D97757`. _gaps.md section 1 asks for it
 - Spanish rendering was seen in a screenshot, not read by a Spanish speaker.
 - An in-flight download in the real window: the fake store finishes at once, so the progress bar and Cancel are covered by a component test with a held request and an injected event, not by a screenshot.
 - Forced-colors rendering of the page, screen readers, and a high-DPI window. axe reports no serious or critical issue in both themes; the Claude mark colour and the radio rows in forced colors were not looked at.
-- The 4 s feedback timer has no test.
 - A real relaunch from the prompt (22), a real Hugging Face download, a real xAI account and real CLIs on PATH, as before.

@@ -52,6 +52,7 @@ export class SettingsRuntime {
   readonly page: SettingsPageService;
   readonly restart: RestartService;
   readonly capabilities: SettingsCapabilities;
+  private readonly hardwareProbe: HardwareProbe;
 
   constructor(deps: SettingsRuntimeDeps) {
     const xaiPort = deps.xaiAccount ?? null;
@@ -71,10 +72,11 @@ export class SettingsRuntime {
       notify: deps.notifyModel,
     });
     this.xai = new XaiAccountService({ port: xaiPort, store: deps.store });
+    this.hardwareProbe = deps.hardware ?? new SystemHardwareProbe();
     this.page = new SettingsPageService({
       store: deps.store,
       osLanguages: deps.osLanguages,
-      hardware: deps.hardware ?? new SystemHardwareProbe(),
+      hardware: this.hardwareProbe,
       models: this.models,
       xai: this.xai,
       cli: deps.cli ?? new PathCliProbe(),
@@ -82,5 +84,14 @@ export class SettingsRuntime {
       capabilities: this.capabilities,
     });
     this.restart = new RestartService({ gates: this.exitGates, relaunch: deps.relaunch });
+  }
+
+  /**
+   * Starts the hardware query now. It takes seconds on a real machine (a PowerShell GPU read) and
+   * the Settings page needs it for the fit badges, so the app calls this once at startup and the
+   * first visit finds the answer cached. A failed query only means no badges.
+   */
+  warmUp(): void {
+    this.hardwareProbe.detect().catch(() => undefined);
   }
 }
