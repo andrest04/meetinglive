@@ -1,7 +1,8 @@
 /** Port: capture of one audio source as 16 kHz mono PCM16 in 20 ms frames. */
 
 export type AudioSource =
-  | { readonly kind: 'mic' }
+  /** `deviceId` is a capture endpoint id; absent, empty or stale means the default input. */
+  | { readonly kind: 'mic'; readonly deviceId?: string | null }
   | { readonly kind: 'system' }
   | { readonly kind: 'process'; readonly pid: number; readonly includeTree: boolean };
 
@@ -28,7 +29,14 @@ export interface CaptureSession {
   stop(): CaptureStats;
 }
 
+/** Called once when a capture ends: with the error if it ended by itself, null otherwise. */
+export type CaptureStopped = (error: Error | null) => void;
+
 export interface AudioCapturePort {
   /** Resolves once the device is initialised; rejects if it cannot be opened. */
-  start(source: AudioSource, onFrame: (frame: AudioFrame) => void): Promise<CaptureSession>;
+  start(
+    source: AudioSource,
+    onFrame: (frame: AudioFrame) => void,
+    onStopped?: CaptureStopped,
+  ): Promise<CaptureSession>;
 }
