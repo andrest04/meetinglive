@@ -89,26 +89,66 @@ export interface SystemHardwareProbeOptions {
   readonly queryGpu?: () => Promise<GpuInfo>;
 }
 
-/** RAM and the largest GPU, read once per process. A GPU query that fails leaves only the RAM. */
+/**
+ * RAM and the largest GPU, read once per process. A GPU query that fails still gives the RAM, but
+ * that answer is not kept: the next call asks again, so a transient failure does not hide the GPU
+ * until the app restarts (B17). A rejected read is not kept either.
+ */
 export class SystemHardwareProbe implements HardwareProbe {
   private cached: Promise<HardwareProfile> | undefined;
 
   constructor(private readonly options: SystemHardwareProbeOptions = {}) {}
 
   detect(): Promise<HardwareProfile> {
-    this.cached ??= this.read();
-    return this.cached;
+    if (this.cached) return this.cached;
+    const attempt: Promise<HardwareProfile> = this.read().then(
+      ({ profile, complete }) => {
+        if (!complete && this.cached === attempt) this.cached = undefined;
+        return profile;
+      },
+      (error: unknown) => {
+        if (this.cached === attempt) this.cached = undefined;
+        throw error;
+      },
+    );
+    this.cached = attempt;
+    return attempt;
   }
 
-  private async read(): Promise<HardwareProfile> {
+  private async read(): Promise<{ profile: HardwareProfile; complete: boolean }> {
     const totalRamGb =
       Math.round(((this.options.totalMemoryBytes ?? os.totalmem)() / GIB) * 10) / 10;
-    const gpu = await (this.options.queryGpu ?? defaultQuery)().catch(() => NO_GPU);
-    return { totalRamGb, gpuName: gpu.name, gpuVramGb: gpu.vramGb };
+    const read = { complete: true };
+    const gpu = await (this.options.queryGpu ?? defaultQuery)().catch(() => {
+      read.complete = false;
+      return NO_GPU;
+    });
+    return {
+      profile: {
+        totalRamGb,
+        gpuName: gpu.name,
+        gpuVramGb: gpu.vramGb,
+        ...(read.complete ? {} : { gpuReadComplete: false }),
+      },
+      complete: read.complete,
+    };
+  }
+}
+
+/** True when the script printed a JSON object. Anything else is a failed read, not "no GPU". */
+export function isUsableGpuReport(text: string): boolean {
+  try {
+    const report: unknown = JSON.parse(text);
+    return typeof report === 'object' && report !== null;
+  } catch {
+    return false;
   }
 }
 
 async function defaultQuery(): Promise<GpuInfo> {
   if (process.platform !== 'win32') return NO_GPU;
-  return parseGpuReport(await runPowerShell(GPU_SCRIPT));
+  const text = await runPowerShell(GPU_SCRIPT);
+  // B17: unusable output must reject so the probe does not cache it as "no GPU".
+  if (!isUsableGpuReport(text)) throw new Error('The GPU query returned no usable report.');
+  return parseGpuReport(text);
 }

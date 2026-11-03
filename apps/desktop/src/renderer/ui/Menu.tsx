@@ -16,6 +16,8 @@ export type MenuEntry =
       /** Display only, for example "Ctrl+R". The caller owns the actual shortcut. */
       readonly shortcut?: string;
       readonly disabled?: boolean;
+      /** Automation id on the item. */
+      readonly testId?: string;
       readonly onSelect: () => void;
     }
   | { readonly kind: 'separator'; readonly id: string };
@@ -36,6 +38,7 @@ function Entries({
       <Item
         key={entry.id}
         disabled={entry.disabled}
+        data-testid={entry.testId}
         onClick={entry.onSelect}
         className={cn(popupItem, 'justify-between')}
       >

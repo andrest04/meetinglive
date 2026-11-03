@@ -102,7 +102,7 @@ describe('app strings (item 105 to 112)', () => {
     expect(en.MigrationFailed_Content).toContain('\n');
     expect(es.MigrationFailed_Content).toContain('\n');
     expect(en.Model_SpeedQuality).toContain('·');
-    expect(en.Xai_StatusLoadingModels).toContain('…');
+    expect(en['Chat_Thinking.Text']).toContain('…');
     expect(Object.values(en).some((v) => v.includes('—'))).toBe(true);
   });
 });
@@ -192,16 +192,6 @@ describe('keys the settings domain points at (item 116, 118)', () => {
       section.headingKey === null ? [] : [section.headingKey],
     ),
     'Xai_FeedbackModel',
-    'Xai_FeedbackApiKey',
-    'Xai_FeedbackSignedIn',
-    'Xai_FeedbackSignedOut',
-    'Xai_StatusSuperGrok',
-    'Xai_StatusApiKey',
-    'Xai_StatusSignedOut',
-    'Xai_StatusSignedOutDetail',
-    'Xai_StatusLoadingModels',
-    'Xai_StatusReady',
-    'Xai_StatusErrorTitle',
     'SettingsLanguageRestart_Title',
     'SettingsLanguageRestart_Content',
     'SettingsLanguageRestart_RestartNow',
@@ -299,14 +289,18 @@ describe('references in the code (item 118, B21)', () => {
     // Used by the setup dialog and by the recording setup summary caption.
     /^Hardware_(NoGpu|WithGpu)$/,
     /^Model_Downloaded$/,
-    /^Xai_ProviderName$/,
   ];
-  const UNUSED_BY_DECISION = [
-    'Xai_StatusError', // 7.23: the page uses Xai_StatusErrorTitle plus the raw message.
-    'Settings_XaiStatus.Header', // The status card header is the computed status text.
-  ];
+  /**
+   * The Grok (xAI) provider was removed (owner decision 2026-11-03, may return later). en.json and
+   * es.json are generated from the WinUI resources, which stay untouched, so these keys remain in
+   * the catalogs and nothing reads them. Xai_FeedbackModel is not one of them: the Claude Code and
+   * Codex model line still uses it.
+   */
+  const REMOVED_PROVIDER_KEYS =
+    /^(Xai_(?!FeedbackModel$)|Settings_Xai|Settings_ProviderXai|Settings_SummaryProviderCard\.Description$)/;
+  const UNUSED_BY_DECISION: string[] = [];
 
-  /** The whole quoted key, so `Xai_StatusError` is not found inside `Xai_StatusErrorTitle`. */
+  /** The whole quoted key, so a key is not found inside a longer one. */
   const uses = (key: string): boolean =>
     text.some((source) => source.includes(`'${key}'`) || source.includes(`"${key}"`));
 
@@ -316,6 +310,7 @@ describe('references in the code (item 118, B21)', () => {
       .filter((key) => groups.test(key))
       .filter((key) => !uses(key))
       .filter((key) => !OTHER_MODULES.some((pattern) => pattern.test(key)))
+      .filter((key) => !REMOVED_PROVIDER_KEYS.test(key))
       .filter((key) => !UNUSED_BY_DECISION.includes(key));
     expect(unreferenced).toEqual([]);
   });

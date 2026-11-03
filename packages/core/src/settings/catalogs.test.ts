@@ -6,7 +6,6 @@ import {
   CLAUDE_MODELS,
   CODEX_EFFORTS,
   CODEX_MODELS,
-  XAI_EFFORTS,
   optionsIncluding,
 } from './inference-options';
 import {
@@ -23,13 +22,13 @@ import {
   normalizeTemplateId,
 } from './note-templates';
 import {
+  FIT_LABEL_KEYS,
   SUMMARY_MODELS,
   formatModelSize,
   rateFor,
   type HardwareProfile,
   type SummaryModelInfo,
 } from './summary-models';
-import { DEFAULT_XAI_MODEL_ID, mergeModelList, resolveXaiModelId } from './xai';
 
 const defaults = readSettings({});
 
@@ -146,6 +145,33 @@ describe('summary model catalog', () => {
     }
   });
 
+  it('B18: pins the exact byte size of every file and the hash of the 1B file only', () => {
+    expect(SUMMARY_MODELS.map((m) => m.sizeBytes)).toEqual([
+      807_694_464, 3_106_738_272, 4_977_171_584, 7_121_861_440,
+    ]);
+    for (const model of SUMMARY_MODELS) {
+      expect(Number.isInteger(model.sizeBytes)).toBe(true);
+      // The rounded GB label agrees with the byte size.
+      expect(Math.round((model.sizeBytes / 1e9) * 100) / 100).toBe(model.fileSizeGb);
+    }
+    expect(SUMMARY_MODELS.map((m) => m.sha256)).toEqual([
+      '6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('B20: the catalog holds label keys, never translated text', () => {
+    for (const model of SUMMARY_MODELS) {
+      for (const key of [model.speedKey, model.qualityKey, model.useCaseKey]) {
+        expect(key).toMatch(/^Model(Speed|Quality|UseCase)[A-Za-z0-9]+$/);
+        expect(key).not.toContain(' ');
+      }
+    }
+    for (const key of Object.values(FIT_LABEL_KEYS)) expect(key).toMatch(/^Fit_[A-Za-z]+$/);
+  });
+
   it('pins every URL, size and catalog key', () => {
     expect(
       SUMMARY_MODELS.map((m) => [
@@ -233,6 +259,33 @@ describe('fit rating', () => {
   });
 });
 
+describe('fit rating by runtime backend (B17)', () => {
+  const model: SummaryModelInfo = { ...SUMMARY_MODELS[3]!, minRamGb: 16 };
+  const gpu: HardwareProfile = { totalRamGb: 8, gpuName: 'GPU', gpuVramGb: 8 };
+
+  it('a CPU backend cannot use the VRAM, a GPU backend can', () => {
+    expect(rateFor(model, gpu, { gpuOffload: false })).toBe('NotRecommended');
+    expect(rateFor(model, gpu, { gpuOffload: true })).toBe('Recommended');
+  });
+
+  it('the default keeps the GPU rule', () => {
+    expect(rateFor(model, gpu)).toBe('Recommended');
+    expect(rateFor(model, gpu, {})).toBe('Recommended');
+  });
+
+  it('the RAM rules do not depend on the backend (boundaries 1.0, 0.75)', () => {
+    const cpu = { gpuOffload: false };
+    const ram = (gb: number): HardwareProfile => ({
+      totalRamGb: gb,
+      gpuName: null,
+      gpuVramGb: null,
+    });
+    expect(rateFor(model, ram(16), cpu)).toBe('Recommended');
+    expect(rateFor(model, ram(12), cpu)).toBe('MayBeSlow');
+    expect(rateFor(model, ram(11.9), cpu)).toBe('NotRecommended');
+  });
+});
+
 describe('note templates', () => {
   it('auto and unknown give no instructions', () => {
     for (const id of ['auto', 'custom', '', '  ', 'nope', null]) {
@@ -279,53 +332,6 @@ describe('note templates', () => {
   });
 });
 
-describe('xai model resolution', () => {
-  it.each([
-    [null, ['grok-4.3', 'grok-4.6'], 'grok-4.6'],
-    ['', ['grok-4.3'], 'grok-4.3'],
-    ['grok-4.3', ['grok-4.3', 'grok-4.6'], 'grok-4.3'],
-    ['grok-imagine-image', ['grok-4.6'], 'grok-4.6'],
-    [null, [], 'grok-4.6'],
-  ])('(%j, %j) gives %s', (selected, listed, expected) => {
-    expect(resolveXaiModelId(selected, listed)).toBe(expected);
-  });
-
-  it('the saved id wins ignoring case and keeps its own casing', () => {
-    expect(resolveXaiModelId('GROK-4.3', ['grok-4.3', 'grok-4.6'])).toBe('GROK-4.3');
-  });
-
-  it('preferred order, listed casing, then the first listed', () => {
-    expect(resolveXaiModelId(null, ['x', 'Grok-4.3', 'grok-4.7'])).toBe('grok-4.7');
-    expect(resolveXaiModelId(null, ['x', 'Grok-4.5'])).toBe('Grok-4.5');
-    expect(resolveXaiModelId(null, ['zeta', 'alpha'])).toBe('zeta');
-    expect(DEFAULT_XAI_MODEL_ID).toBe('grok-4.6');
-  });
-
-  it('an empty list gives the default whatever was saved', () => {
-    expect(resolveXaiModelId('grok-9', [])).toBe('grok-4.6');
-  });
-});
-
-describe('xai model list merge', () => {
-  it('removes absent entries and inserts missing ones at their index', () => {
-    expect(mergeModelList(['a', 'b', 'c'], ['b', 'd'], 'b')).toEqual(['b', 'd']);
-    expect(mergeModelList(['b'], ['a', 'b', 'c'], 'b')).toEqual(['a', 'b', 'c']);
-  });
-
-  it('always keeps the resolved id, appended when it is not listed', () => {
-    expect(mergeModelList([], ['a'], 'z')).toEqual(['a', 'z']);
-    expect(mergeModelList(['z'], [], 'z')).toEqual(['z']);
-  });
-
-  it('does not reorder entries that are present but out of place', () => {
-    expect(mergeModelList(['b', 'a'], ['a', 'b'], 'a')).toEqual(['b', 'a']);
-  });
-
-  it('never returns an empty list when the resolved id is set', () => {
-    expect(mergeModelList(['old'], ['new'], 'new').length).toBeGreaterThan(0);
-  });
-});
-
 describe('B13: stored values that are not in the list', () => {
   it('the options keep the stored value so the control is never blank', () => {
     expect(optionsIncluding(CLAUDE_MODELS, 'gpt-9')).toEqual([...CLAUDE_MODELS, 'gpt-9']);
@@ -339,7 +345,6 @@ describe('inference lists', () => {
     expect(CLAUDE_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
     expect(CODEX_MODELS).toEqual(['gpt-5.4', 'gpt-5.5', 'gpt-5.6', 'gpt-5.6-sol']);
     expect(CODEX_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh']);
-    expect(XAI_EFFORTS).toEqual(['none', 'low', 'medium', 'high', 'xhigh']);
   });
 });
 

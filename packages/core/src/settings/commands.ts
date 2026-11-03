@@ -5,18 +5,12 @@ import {
   resolveCodexEffort,
   resolveCodexModelId,
   resolveSummaryProviderKind,
-  resolveXaiEffort,
+  isProviderAvailable,
   SUMMARY_PROVIDERS,
   type AppSettings,
   type SettingsStore,
 } from '../library';
-import {
-  CLAUDE_EFFORTS,
-  CODEX_EFFORTS,
-  XAI_EFFORTS,
-  CLAUDE_MODELS,
-  CODEX_MODELS,
-} from './inference-options';
+import { CLAUDE_EFFORTS, CODEX_EFFORTS, CLAUDE_MODELS, CODEX_MODELS } from './inference-options';
 import {
   normalizeLanguageCode,
   resolveMeetingLanguageCode,
@@ -27,7 +21,7 @@ import {
 
 /** A line for the shared success bar. The UI turns `key` and `args` into text in its language. */
 export interface Feedback {
-  readonly key: 'Xai_FeedbackModel' | 'Xai_FeedbackApiKey' | 'Xai_FeedbackSignedOut';
+  readonly key: 'Xai_FeedbackModel';
   readonly args: readonly string[];
 }
 
@@ -47,7 +41,7 @@ export const ignored = (reason: IgnoredReason): CommitOutcome => ({ status: 'ign
 export const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-export type CliOptionProvider = 'claude' | 'codex' | 'xai';
+export type CliOptionProvider = 'claude' | 'codex';
 export type CliOptionField = 'model' | 'effort';
 
 export interface SettingsCommandsDeps {
@@ -77,10 +71,12 @@ export class SettingsCommands {
     });
   }
 
-  /** The exact enum name only (B2). Selecting xAI makes the caller refresh the account. */
+  /** The exact enum name only (B2). A removed provider (Xai) is refused, so the page cannot select it again. */
   async setSummaryProvider(kind: string): Promise<CommitOutcome> {
     return this.commit((current) => {
       if (!(SUMMARY_PROVIDERS as readonly string[]).includes(kind)) return ignored('invalid');
+      if (!isProviderAvailable(kind as (typeof SUMMARY_PROVIDERS)[number]))
+        return ignored('invalid');
       if (resolveSummaryProviderKind(current) === kind) return ignored('unchanged');
       return { patch: { selectedSummaryProvider: kind } };
     });
@@ -97,8 +93,7 @@ export class SettingsCommands {
       // The stored value counts as offered even when hand edited out of the list (B13).
       if (this.currentValue(current, provider, field) === value) return ignored('unchanged');
       const allowed = this.choices(provider, field);
-      if (allowed !== null && !allowed.includes(value)) return ignored('invalid');
-      if (allowed === null && value.length > 200) return ignored('invalid');
+      if (!allowed.includes(value)) return ignored('invalid');
       return {
         patch: this.patchFor(provider, field, value),
         feedback: (next) => this.feedbackFor(next, provider),
@@ -129,11 +124,9 @@ export class SettingsCommands {
     });
   }
 
-  private choices(provider: CliOptionProvider, field: CliOptionField): readonly string[] | null {
+  private choices(provider: CliOptionProvider, field: CliOptionField): readonly string[] {
     if (provider === 'claude') return field === 'model' ? CLAUDE_MODELS : CLAUDE_EFFORTS;
-    if (provider === 'codex') return field === 'model' ? CODEX_MODELS : CODEX_EFFORTS;
-    // The xAI model list comes from the network, so any id is accepted.
-    return field === 'model' ? null : XAI_EFFORTS;
+    return field === 'model' ? CODEX_MODELS : CODEX_EFFORTS;
   }
 
   private currentValue(
@@ -144,10 +137,7 @@ export class SettingsCommands {
     if (provider === 'claude') {
       return field === 'model' ? resolveClaudeModelId(s) : resolveClaudeEffort(s);
     }
-    if (provider === 'codex') {
-      return field === 'model' ? resolveCodexModelId(s) : resolveCodexEffort(s);
-    }
-    return field === 'model' ? s.selectedXaiModelId : resolveXaiEffort(s);
+    return field === 'model' ? resolveCodexModelId(s) : resolveCodexEffort(s);
   }
 
   private patchFor(
@@ -158,10 +148,7 @@ export class SettingsCommands {
     if (provider === 'claude') {
       return field === 'model' ? { selectedClaudeModelId: value } : { selectedClaudeEffort: value };
     }
-    if (provider === 'codex') {
-      return field === 'model' ? { selectedCodexModelId: value } : { selectedCodexEffort: value };
-    }
-    return field === 'model' ? { selectedXaiModelId: value } : { selectedXaiEffort: value };
+    return field === 'model' ? { selectedCodexModelId: value } : { selectedCodexEffort: value };
   }
 
   private feedbackFor(next: AppSettings, provider: CliOptionProvider): Feedback | null {
@@ -171,16 +158,9 @@ export class SettingsCommands {
         args: [modelAndEffort(resolveClaudeModelId(next), resolveClaudeEffort(next))],
       };
     }
-    if (provider === 'codex') {
-      return {
-        key: 'Xai_FeedbackModel',
-        args: [modelAndEffort(resolveCodexModelId(next), resolveCodexEffort(next))],
-      };
-    }
-    if (next.selectedXaiModelId === null) return null;
     return {
       key: 'Xai_FeedbackModel',
-      args: [modelAndEffort(next.selectedXaiModelId, resolveXaiEffort(next))],
+      args: [modelAndEffort(resolveCodexModelId(next), resolveCodexEffort(next))],
     };
   }
 

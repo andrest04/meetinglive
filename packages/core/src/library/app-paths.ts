@@ -36,6 +36,7 @@ export interface AppPaths {
   readonly summaryModelsDirectory: string;
   readonly chatThreadsFilePath: string;
   readonly chatRecipesFilePath: string;
+  /** Kept for on-disk compatibility with the WinUI app. Nothing reads or deletes this file (xAI was removed). */
   readonly xaiCredentialsFilePath: string;
   readonly typeSafeCredentialsFilePath: string;
   readonly customNoteTemplateFilePath: string;

@@ -9,7 +9,6 @@ import {
   settingsModelsDownload,
   settingsSetCliOption,
   settingsSetMeetingLanguage,
-  settingsXaiSignIn,
 } from './index';
 
 describe('settings contracts', () => {
@@ -26,10 +25,6 @@ describe('settings contracts', () => {
       'settings.models.cancel',
       'settings.models.select',
       'settings.models.delete',
-      'settings.xai.refresh',
-      'settings.xai.saveApiKey',
-      'settings.xai.signOut',
-      'settings.xai.signIn',
       'i18n.getLocale',
       'app.restart',
     ]) {
@@ -99,7 +94,10 @@ describe('settings contracts', () => {
     expect(appRestart.output.safeParse({ status: 'refused' }).success).toBe(true);
   });
 
-  it('sign in can say it is unavailable until the xAI module exists', () => {
-    expect(settingsXaiSignIn.output.safeParse({ status: 'unavailable' }).success).toBe(true);
+  it('registers no xai channel and takes no xai option provider (owner decision 2026-11-03)', () => {
+    expect(Object.keys(requestChannels).filter((name) => /xai/i.test(name))).toEqual([]);
+    expect(
+      settingsSetCliOption.input.safeParse({ provider: 'xai', field: 'model', value: 'x' }).success,
+    ).toBe(false);
   });
 });

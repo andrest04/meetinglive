@@ -6,8 +6,6 @@ export * from './local-models';
 export * from './note-templates';
 export * from './ports';
 export * from './summary-models';
-export * from './xai';
-export * from './xai-account';
 export * from './exit-gate';
 export * from './notices';
 export * from './page-service';

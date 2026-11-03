@@ -15,7 +15,7 @@ import {
   resolveSummaryLanguage,
   resolveSummaryProviderKind,
   resolveTranscriptionLanguage,
-  resolveXaiEffort,
+  isProviderAvailable,
   serializeSettings,
   type AppSettings,
 } from './settings';
@@ -101,7 +101,6 @@ describe('resolvers', () => {
     expect(resolveClaudeEffort(defaults)).toBe('low');
     expect(resolveCodexModelId(defaults)).toBe('gpt-5.6');
     expect(resolveCodexEffort(defaults)).toBe('low');
-    expect(resolveXaiEffort(defaults)).toBe('low');
     expect(resolveClaudeModelId({ ...defaults, selectedClaudeModelId: 'opus' })).toBe('opus');
   });
 
@@ -115,7 +114,6 @@ describe('resolvers', () => {
         'gpt-5.6',
       );
       expect(resolveCodexEffort({ ...defaults, selectedCodexEffort: blankValue })).toBe('low');
-      expect(resolveXaiEffort({ ...defaults, selectedXaiEffort: blankValue })).toBe('low');
       expect(resolveSummaryProviderKind({ ...defaults, selectedSummaryProvider: blankValue })).toBe(
         'Local',
       );
@@ -130,6 +128,40 @@ describe('resolvers', () => {
     expect(p('ClaudeCode')).toBe('ClaudeCode');
     expect(p('codex')).toBe('Local');
     expect(p('nonsense')).toBe('Local');
+  });
+
+  it('a legacy Xai provider stays Xai, is unavailable, and is never mapped to Local', () => {
+    const read = { ...defaults, selectedSummaryProvider: 'Xai' };
+    expect(resolveSummaryProviderKind(read)).toBe('Xai');
+    expect(isProviderAvailable('Xai')).toBe(false);
+    for (const kind of ['Local', 'ClaudeCode', 'Codex'] as const) {
+      expect(isProviderAvailable(kind)).toBe(true);
+    }
+  });
+
+  it('a legacy Xai file keeps its provider, xai fields and unknown fields through a re-save', () => {
+    const text = JSON.stringify(
+      {
+        selectedSummaryProvider: 'Xai',
+        selectedXaiModelId: 'grok-4.3',
+        selectedXaiEffort: 'high',
+        futureField: { a: 1 },
+        summaryLanguage: 'en',
+      },
+      null,
+      2,
+    );
+    const parsed = parseSettingsJson(text);
+    expect(parsed.settings.selectedSummaryProvider).toBe('Xai');
+    expect(parsed.settings.selectedXaiModelId).toBe('grok-4.3');
+    expect(parsed.settings.selectedXaiEffort).toBe('high');
+    const rewritten = serializeSettings(applySettingsPatch(parsed.raw, { summaryLanguage: 'es' }));
+    expect(rewritten).toContain('"selectedSummaryProvider": "Xai"');
+    expect(rewritten).toContain('"selectedXaiModelId": "grok-4.3"');
+    expect(rewritten).toContain('"selectedXaiEffort": "high"');
+    expect(rewritten).toContain('"futureField"');
+    const unchanged = serializeSettings(applySettingsPatch(parsed.raw, {}));
+    expect(JSON.parse(unchanged)).toMatchObject(JSON.parse(text) as object);
   });
 
   it('B18: numeric text does not parse as a provider', () => {

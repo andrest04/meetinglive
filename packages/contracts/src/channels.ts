@@ -3,6 +3,7 @@ import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as library from './library';
 import * as settings from './settings';
+import * as summaries from './summaries';
 import * as transcription from './transcription';
 
 /** No input. An object keeps room to add optional fields without breaking callers. */
@@ -99,10 +100,6 @@ export const requestChannels = {
   [settings.settingsModelsCancel.name]: settings.settingsModelsCancel,
   [settings.settingsModelsSelect.name]: settings.settingsModelsSelect,
   [settings.settingsModelsDelete.name]: settings.settingsModelsDelete,
-  [settings.settingsXaiRefresh.name]: settings.settingsXaiRefresh,
-  [settings.settingsXaiSaveApiKey.name]: settings.settingsXaiSaveApiKey,
-  [settings.settingsXaiSignOut.name]: settings.settingsXaiSignOut,
-  [settings.settingsXaiSignIn.name]: settings.settingsXaiSignIn,
   [settings.i18nGetLocale.name]: settings.i18nGetLocale,
   [settings.appRestart.name]: settings.appRestart,
   [audio.audioMicrophonesLoad.name]: audio.audioMicrophonesLoad,
@@ -136,6 +133,21 @@ export const requestChannels = {
   [transcription.retranscriptionStart.name]: transcription.retranscriptionStart,
   [transcription.retranscriptionCancel.name]: transcription.retranscriptionCancel,
   [transcription.retranscriptionGetState.name]: transcription.retranscriptionGetState,
+  [summaries.summariesLoadTab.name]: summaries.summariesLoadTab,
+  [summaries.summariesGenerate.name]: summaries.summariesGenerate,
+  [summaries.summariesCancel.name]: summaries.summariesCancel,
+  [summaries.summariesSaveNotes.name]: summaries.summariesSaveNotes,
+  [summaries.summariesToggleAction.name]: summaries.summariesToggleAction,
+  [summaries.summariesCopyActions.name]: summaries.summariesCopyActions,
+  [summaries.summariesCopyText.name]: summaries.summariesCopyText,
+  [summaries.summariesWriteClipboard.name]: summaries.summariesWriteClipboard,
+  [summaries.summariesSetTemplate.name]: summaries.summariesSetTemplate,
+  [summaries.summariesProviderStatus.name]: summaries.summariesProviderStatus,
+  [summaries.summariesHardware.name]: summaries.summariesHardware,
+  [summaries.summariesCheckCli.name]: summaries.summariesCheckCli,
+  [summaries.summariesChooseLocalModel.name]: summaries.summariesChooseLocalModel,
+  [summaries.summariesCancelLocalModel.name]: summaries.summariesCancelLocalModel,
+  [summaries.summariesChooseCli.name]: summaries.summariesChooseCli,
 } as const;
 
 export const eventChannels = {
@@ -157,6 +169,7 @@ export const eventChannels = {
   [transcription.transcriptionLiveUpdate.name]: transcription.transcriptionLiveUpdate,
   [transcription.retranscriptionStateChanged.name]: transcription.retranscriptionStateChanged,
   [transcription.retranscriptionFinished.name]: transcription.retranscriptionFinished,
+  [summaries.summariesProgress.name]: summaries.summariesProgress,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

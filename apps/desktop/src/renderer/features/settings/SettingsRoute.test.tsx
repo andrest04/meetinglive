@@ -26,20 +26,6 @@ const model = (fileName: string, displayName: string, extra: Record<string, unkn
   ...extra,
 });
 
-const xai = (extra: Record<string, unknown> = {}) => ({
-  available: true,
-  signedIn: false,
-  credentialKind: null,
-  title: 'signed-out',
-  detail: { kind: 'signed-out' },
-  models: [],
-  modelsLoaded: false,
-  selectedModelId: null,
-  effort: 'low',
-  canRetry: false,
-  ...extra,
-});
-
 function pageDto(extra: Record<string, unknown> = {}): SettingsPageDto {
   return {
     settings: {},
@@ -57,8 +43,6 @@ function pageDto(extra: Record<string, unknown> = {}): SettingsPageDto {
       modelOptions: ['gpt-5.6'],
       effortOptions: ['low'],
     },
-    xaiEffort: 'low',
-    xaiEffortOptions: ['low', 'high'],
     cliStatus: null,
     transcriptionLanguage: 'es',
     summaryLanguage: 'es',
@@ -67,8 +51,8 @@ function pageDto(extra: Record<string, unknown> = {}): SettingsPageDto {
       rows: [model('a.gguf', 'Model A'), model('b.gguf', 'Model B', { downloaded: true })],
       missingActiveId: null,
     },
-    xai: xai(),
-    capabilities: { xaiAccount: true, xaiSignIn: false, localModels: true },
+    providerNotice: null,
+    capabilities: { localModels: true },
     notices: [],
     ...extra,
   } as unknown as SettingsPageDto;
@@ -85,7 +69,7 @@ const groupOf = (element: HTMLElement): HTMLElement => {
   return found;
 };
 
-const allOn = { xaiAccount: true, xaiSignIn: false, localModels: true };
+const allOn = { localModels: true };
 
 type Handler = (input: unknown) => unknown;
 const listeners = new Map<string, (payload: unknown) => void>();
@@ -167,91 +151,114 @@ describe('Settings page', () => {
 
   it('draws only the controls whose module is present', async () => {
     install({
-      'settings.getPage': () =>
-        pageDto({
-          provider: 'Xai',
-          capabilities: { xaiAccount: false, xaiSignIn: false, localModels: false },
-        }),
-    });
-    mount();
-    expect(await screen.findByRole('radio', { name: 'Grok (xAI)' })).toBeChecked();
-    expect(screen.queryByText('Not signed in')).toBeNull();
-    expect(screen.queryByRole('textbox', { name: 'API key' })).toBeNull();
-    expect(screen.queryByRole('radiogroup', { name: 'Summary models' })).toBeNull();
-  });
-
-  it('offers the SuperGrok button only when the sign in exists', async () => {
-    install({ 'settings.getPage': () => pageDto({ provider: 'Xai' }) });
-    mount();
-    await screen.findByText('Not signed in');
-    expect(screen.queryByRole('button', { name: 'Sign in with SuperGrok' })).toBeNull();
-  });
-
-  it('asks Grok for its models when it opens already selected, and shows a failure in words', async () => {
-    const calls = install({
-      'settings.getPage': () =>
-        pageDto({
-          provider: 'Xai',
-          xai: xai({
-            signedIn: true,
-            credentialKind: 'ApiKey',
-            title: 'api-key',
-            detail: { kind: 'loading-models' },
-          }),
-        }),
-      'settings.xai.refresh': () =>
-        xai({
-          signedIn: true,
-          credentialKind: 'ApiKey',
-          title: 'error',
-          detail: { kind: 'error', message: 'network down' },
-          canRetry: true,
-        }),
-    });
-    mount();
-    expect(await screen.findByText('Could not reach Grok')).toBeInTheDocument();
-    expect(screen.getByText('network down')).toBeInTheDocument();
-    expect(calls.filter((call) => call.name === 'settings.xai.refresh')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
-    // Still signed in: the credentials are there, so sign out stays available.
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
-  });
-
-  it('does not offer Grok when no account module exists, unless it is already chosen', async () => {
-    install({
-      'settings.getPage': () =>
-        pageDto({
-          capabilities: { xaiAccount: false, xaiSignIn: false, localModels: true },
-        }),
+      'settings.getPage': () => pageDto({ capabilities: { localModels: false } }),
     });
     mount();
     expect(await screen.findByRole('radio', { name: 'Local (on this device)' })).toBeChecked();
-    expect(screen.queryByRole('radio', { name: 'Grok (xAI)' })).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Summary models' })).toBeNull();
   });
 
-  it('fades the content in, and shows a busy bar on the Grok card while it works', async () => {
-    let finish: (value: unknown) => void = () => undefined;
+  it('asks for another provider when the saved one is the removed Grok, and offers no Grok radio', async () => {
+    install({
+      'settings.getPage': () => pageDto({ provider: 'Xai', providerNotice: 'xai-removed' }),
+    });
+    mount();
+    expect(
+      await screen.findByText(
+        'Grok (xAI) is no longer available. Pick Local, Claude Code or Codex to summarize your meetings.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Grok/ })).toBeNull();
+    const group = screen.getByRole('radiogroup', { name: 'Choose where summaries are generated' });
+    for (const radio of within(group).getAllByRole('radio')) expect(radio).not.toBeChecked();
+    expect(screen.queryByRole('textbox', { name: 'API key' })).toBeNull();
+    expect(screen.queryByText('Not signed in')).toBeNull();
+  });
+
+  it('shows the notice in Spanish and clears it when another provider is picked', async () => {
+    let saved = false;
+    install({
+      'settings.getPage': () =>
+        saved
+          ? pageDto({ provider: 'Codex' })
+          : pageDto({ provider: 'Xai', providerNotice: 'xai-removed' }),
+      'settings.setSummaryProvider': () => {
+        saved = true;
+        return { status: 'saved', settings: {}, feedback: null };
+      },
+    });
+    mount('es');
+    expect(
+      await screen.findByText(
+        'Grok (xAI) ya no está disponible. Elige Local, Claude Code o Codex para resumir tus reuniones.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: /Codex/ }));
+    await waitFor(() => {
+      expect(screen.queryByText(/Grok \(xAI\) ya no está disponible/)).toBeNull();
+    });
+  });
+
+  it('offers Set up when no model is active, and it opens the wizard on the hardware step (S20)', async () => {
+    let closed = 0;
+    install({
+      'settings.getPage': () => {
+        closed += 1;
+        return pageDto();
+      },
+      'summaries.hardware': () => new Promise(() => undefined),
+    });
+    mount();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Set up' }));
+    expect(await screen.findByRole('dialog', { name: 'Set up summary generation' })).toBeVisible();
+    expect(screen.getByText('Detecting hardware...')).toBeVisible();
+    expect(screen.queryByText('Choose how to generate summaries')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    // Leaving the wizard reads the page again, so a model chosen there shows at once.
+    expect(closed).toBeGreaterThan(1);
+  });
+
+  it('hides Set up once a model is active, and for the CLI providers (S20)', async () => {
     install({
       'settings.getPage': () =>
         pageDto({
-          provider: 'Xai',
-          xai: xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' }),
+          models: {
+            rows: [model('b.gguf', 'Model B', { downloaded: true, active: true })],
+            missingActiveId: null,
+          },
         }),
-      'settings.xai.refresh': () =>
-        xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' }),
-      'settings.xai.signOut': () => new Promise((resolve) => (finish = resolve)),
     });
     mount();
-    expect(await screen.findByTestId('settings-content')).toHaveClass('animate-fade-in');
+    await screen.findByRole('radiogroup', { name: 'Summary models' });
+    expect(screen.queryByRole('button', { name: 'Set up' })).toBeNull();
+  });
+
+  it('saves one field, shows the saved bar, and sends nothing for the value already shown (174, 175)', async () => {
+    const calls = install({
+      'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),
+      'settings.setCliOption': () => ({
+        status: 'saved',
+        settings: {},
+        feedback: { key: 'Xai_FeedbackModel', args: ['sonnet · high'] },
+      }),
+    });
+    mount();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
-    expect(await screen.findByRole('progressbar')).toBeInTheDocument();
-    act(() => {
-      finish({ status: 'ok', view: xai(), feedback: null });
-    });
-    await waitFor(() => {
-      expect(screen.queryByRole('progressbar')).toBeNull();
-    });
+    await screen.findByText('Detected on PATH.');
+    await user.click(screen.getByRole('combobox', { name: 'Effort' }));
+    await user.click(await screen.findByRole('option', { name: 'low' }));
+    expect(calls.filter((c) => c.name === 'settings.setCliOption')).toHaveLength(0);
+
+    await user.click(screen.getByRole('combobox', { name: 'Effort' }));
+    await user.click(await screen.findByRole('option', { name: 'high' }));
+    expect(await screen.findByText('Saved. Using sonnet · high.')).toBeInTheDocument();
+    expect(calls.filter((c) => c.name === 'settings.setCliOption').map((c) => c.input)).toEqual([
+      { provider: 'claude', field: 'effort', value: 'high' },
+    ]);
   });
 
   it('puts a control back and says so when a change is not saved', async () => {
@@ -565,20 +572,6 @@ describe('Settings page', () => {
     expect(screen.getByRole('radio', { name: /Claude Code/ })).toBeChecked();
   });
 
-  it('choosing Grok asks the account for its models (item 32)', async () => {
-    const signedIn = xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' });
-    const calls = install({
-      'settings.getPage': () => pageDto({ xai: signedIn }),
-      'settings.setSummaryProvider': () => ({ status: 'saved', settings: {}, feedback: null }),
-      'settings.xai.refresh': () => signedIn,
-    });
-    mount();
-    await userEvent.click(await screen.findByRole('radio', { name: /Grok/ }));
-    await waitFor(() => {
-      expect(calls.some((call) => call.name === 'settings.xai.refresh')).toBe(true);
-    });
-  });
-
   it('keeps a download in progress when the page is opened again (58)', async () => {
     install({
       'settings.getPage': () =>
@@ -596,14 +589,6 @@ describe('Settings page', () => {
       'aria-valuenow',
       '37',
     );
-  });
-
-  it('the signed out Grok card does not point at a sign in that is not there', async () => {
-    install({ 'settings.getPage': () => pageDto({ provider: 'Xai' }) });
-    mount();
-    await screen.findByText('Not signed in');
-    expect(screen.queryByText(/Sign in with SuperGrok/)).toBeNull();
-    expect(screen.getByText('Paste an API key below.')).toBeInTheDocument();
   });
 
   it('gives the Claude Code and Codex option blocks their brand mark', async () => {
@@ -728,7 +713,7 @@ describe('Settings page', () => {
     expect(screen.getByTestId('settings-content')).not.toHaveClass('animate-fade-in');
   });
 
-  it('lists Local, Claude Code, Codex and Grok in that order, each with its mark (28)', async () => {
+  it('lists Local, Claude Code and Codex in that order, each with its mark (28)', async () => {
     install({ 'settings.getPage': () => pageDto({ capabilities: allOn }) });
     mount();
     const group = await screen.findByRole('radiogroup', {
@@ -739,12 +724,11 @@ describe('Settings page', () => {
       'Local (on this device)',
       'Claude Code CLI',
       'Codex CLI',
-      'Grok (xAI)',
     ]);
     for (const radio of radios) expect(labelOf(radio).querySelector('svg')).not.toBeNull();
   });
 
-  it('labels the four providers in Spanish (28)', async () => {
+  it('labels the three providers in Spanish (28)', async () => {
     install({ 'settings.getPage': () => pageDto({ capabilities: allOn }) });
     mount('es');
     const radio = await screen.findByRole('radio', { name: 'Local (en este dispositivo)' });
@@ -753,7 +737,7 @@ describe('Settings page', () => {
       within(group)
         .getAllByRole('radio')
         .map((r) => labelOf(r).textContent.trim()),
-    ).toEqual(['Local (en este dispositivo)', 'CLI de Claude Code', 'CLI de Codex', 'Grok (xAI)']);
+    ).toEqual(['Local (en este dispositivo)', 'CLI de Claude Code', 'CLI de Codex']);
   });
 
   it('shows the detection text in Spanish, and a new answer after Check again (35)', async () => {
@@ -791,20 +775,14 @@ describe('Settings page', () => {
     });
   });
 
-  it('shows the card description and, for Grok, its own block below the radios (33, 38)', async () => {
-    install({
-      'settings.getPage': () => pageDto({ provider: 'Xai', capabilities: allOn }),
-      'settings.xai.refresh': () => xai(),
-    });
+  it('shows the card description (33, 38)', async () => {
+    install({ 'settings.getPage': () => pageDto({ capabilities: allOn }) });
     mount();
-    const radios = await screen.findByRole('radiogroup');
     expect(
-      screen.getByText(
-        'Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI. Grok (xAI) signs in with SuperGrok or an API key.',
+      await screen.findByText(
+        'Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI.',
       ),
     ).toBeInTheDocument();
-    const status = await screen.findByText('Not signed in');
-    expect(radios.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('draws only the block of the chosen provider (38)', async () => {
@@ -822,7 +800,6 @@ describe('Settings page', () => {
             capabilities: allOn,
             cliStatus: provider === 'ClaudeCode' || provider === 'Codex' ? 'detected' : null,
           }),
-        'settings.xai.refresh': () => xai(),
       });
       const view = mount();
       await screen.findByRole('radio', { name: 'Local (on this device)' });
@@ -854,60 +831,6 @@ describe('Settings page', () => {
       expect(screen.getByText(description)).toBeInTheDocument();
       view.unmount();
     }
-  });
-
-  it('signs in with SuperGrok from the card and says so (75, 61)', async () => {
-    const calls = install({
-      'settings.getPage': () =>
-        pageDto({ provider: 'Xai', capabilities: { ...allOn, xaiSignIn: true } }),
-      'settings.xai.signIn': () => ({
-        status: 'signed-in',
-        view: xai({ signedIn: true, credentialKind: 'OAuth', title: 'oauth', models: ['grok-4'] }),
-        feedback: { key: 'Xai_FeedbackSignedIn', args: [] },
-      }),
-    });
-    mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with SuperGrok' }));
-    expect(await screen.findByText('Signed in with SuperGrok.')).toBeInTheDocument();
-    expect(calls.some((call) => call.name === 'settings.xai.signIn')).toBe(true);
-  });
-
-  it('says why a SuperGrok sign in failed (75)', async () => {
-    install({
-      'settings.getPage': () =>
-        pageDto({ provider: 'Xai', capabilities: { ...allOn, xaiSignIn: true } }),
-      'settings.xai.signIn': () => ({ status: 'failed', message: 'browser closed' }),
-    });
-    mount();
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with SuperGrok' }));
-    expect(await screen.findByText(/browser closed/)).toBeInTheDocument();
-  });
-
-  it('shows the Grok model placeholder when signed in with no saved model (77)', async () => {
-    const signedIn = xai({
-      signedIn: true,
-      credentialKind: 'ApiKey',
-      title: 'api-key',
-      models: ['grok-4'],
-      modelsLoaded: true,
-      selectedModelId: null,
-    });
-    install({
-      'settings.getPage': () => pageDto({ provider: 'Xai', xai: signedIn }),
-      'settings.xai.refresh': () => signedIn,
-    });
-    mount();
-    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
-      'Choose a Grok model',
-    );
-  });
-
-  it('keeps the Grok effort and model disabled while signed out (69)', async () => {
-    install({ 'settings.getPage': () => pageDto({ provider: 'Xai' }) });
-    mount();
-    await screen.findByText('Not signed in');
-    expect(screen.getByRole('combobox', { name: 'Effort' })).toBeDisabled();
-    expect(screen.getByRole('combobox', { name: 'Model' })).toBeDisabled();
   });
 
   it('closes the saved bar when the user presses Close (76)', async () => {

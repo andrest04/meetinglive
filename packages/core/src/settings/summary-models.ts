@@ -5,6 +5,8 @@ export interface HardwareProfile {
   readonly totalRamGb: number;
   readonly gpuName: string | null;
   readonly gpuVramGb: number | null;
+  /** False when the GPU query failed, so "no GPU" is a guess and must not be kept (B17). */
+  readonly gpuReadComplete?: boolean;
 }
 
 export type FitRating = 'Recommended' | 'MayBeSlow' | 'NotRecommended';
@@ -15,6 +17,10 @@ export interface SummaryModelInfo {
   readonly displayName: string;
   readonly downloadUrl: string;
   readonly fileSizeGb: number;
+  /** The exact size the host reports (Content-Length, recorded 2026-11-03). "Downloaded" means the file has it (B18). */
+  readonly sizeBytes: number;
+  /** Lowercase hex SHA-256 when pinned; only the 1B file is, the others were never downloaded here. */
+  readonly sha256?: string;
   readonly minRamGb: number;
   /** Catalog keys. The text is looked up when it is drawn, so a language change relabels them (B9). */
   readonly speedKey: string;
@@ -30,6 +36,8 @@ export const SUMMARY_MODELS: readonly SummaryModelInfo[] = [
     downloadUrl:
       'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
     fileSizeGb: 0.81,
+    sizeBytes: 807694464,
+    sha256: '6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83',
     minRamGb: 4,
     speedKey: 'ModelSpeedVeryFast',
     qualityKey: 'ModelQualityGood',
@@ -41,6 +49,7 @@ export const SUMMARY_MODELS: readonly SummaryModelInfo[] = [
     downloadUrl:
       'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
     fileSizeGb: 3.11,
+    sizeBytes: 3106738272,
     minRamGb: 6,
     speedKey: 'ModelSpeedFast',
     qualityKey: 'ModelQualityVeryGood',
@@ -52,6 +61,7 @@ export const SUMMARY_MODELS: readonly SummaryModelInfo[] = [
     downloadUrl:
       'https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf',
     fileSizeGb: 4.98,
+    sizeBytes: 4977171584,
     minRamGb: 8,
     speedKey: 'ModelSpeedMedium',
     qualityKey: 'ModelQualityExcellent',
@@ -63,6 +73,7 @@ export const SUMMARY_MODELS: readonly SummaryModelInfo[] = [
     downloadUrl:
       'https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf',
     fileSizeGb: 7.12,
+    sizeBytes: 7121861440,
     minRamGb: 16,
     speedKey: 'ModelSpeedSlowWithoutGpu',
     qualityKey: 'ModelQualityExcellent',
@@ -76,11 +87,24 @@ export const findSummaryModel = (fileName: string | null | undefined): SummaryMo
 const hasDedicatedGpu = (hardware: HardwareProfile): boolean =>
   hardware.gpuVramGb !== null && hardware.gpuVramGb > 0;
 
-/** Spec 2.4: enough RAM, or a GPU holding half of it; else slow from 75 % of the RAM. */
-export function rateFor(model: SummaryModelInfo, hardware: HardwareProfile): FitRating {
+export interface RateOptions {
+  /**
+   * Whether the llama runtime in use can offload to the GPU. When false (the CPU build) the VRAM
+   * cannot stand in for RAM (B17). Defaults to true, the behavior before the runtime choice existed.
+   */
+  readonly gpuOffload?: boolean;
+}
+
+/** Spec 2.4: enough RAM, or a usable GPU holding half of it; else slow from 75 % of the RAM. */
+export function rateFor(
+  model: SummaryModelInfo,
+  hardware: HardwareProfile,
+  options: RateOptions = {},
+): FitRating {
+  const gpuCounts = (options.gpuOffload ?? true) && hasDedicatedGpu(hardware);
   if (
     hardware.totalRamGb >= model.minRamGb ||
-    (hasDedicatedGpu(hardware) && (hardware.gpuVramGb ?? 0) >= model.minRamGb / 2)
+    (gpuCounts && (hardware.gpuVramGb ?? 0) >= model.minRamGb / 2)
   ) {
     return 'Recommended';
   }

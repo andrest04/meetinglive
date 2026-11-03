@@ -54,7 +54,13 @@ const record = (patch: Partial<MeetingRecord> = {}): MeetingRecord => ({
   ...patch,
 });
 
-function setup(options: { ready?: boolean; gpuName?: string | null } = {}) {
+type SummarizeHook = NonNullable<
+  ConstructorParameters<typeof TranscriptionController>[0]['summarize']
+>;
+
+function setup(
+  options: { ready?: boolean; gpuName?: string | null; summarize?: SummarizeHook } = {},
+) {
   const engine = new FakeAsrEngine();
   const models = new FakeModelStore();
   const runtimes = new FakeRuntimeStore();
@@ -97,6 +103,7 @@ function setup(options: { ready?: boolean; gpuName?: string | null } = {}) {
     defer: (task) => {
       task();
     },
+    ...(options.summarize ? { summarize: options.summarize } : {}),
   });
   return {
     controller,
@@ -423,6 +430,55 @@ describe('re-transcription', () => {
       message: null,
     });
     expect(controller.retranscription.isRunning).toBe(false);
+  });
+
+  const finishedWith = (events: { channel: string; payload: unknown }[]) =>
+    events.find((e) => e.channel === 'retranscription.finished')?.payload;
+
+  it('S15: a plugged summary stage makes the run Completed and tells the workspace', async () => {
+    const summarize = vi.fn<SummarizeHook>(() => Promise.resolve({ status: 'completed' as const }));
+    const { controller, engine, meetings, events, changed } = setup({ summarize });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(summarize).toHaveBeenCalledTimes(1);
+    expect(summarize.mock.calls[0]?.[0].meetingId).toBe('m1');
+    expect(finishedWith(events)).toEqual({ meetingId: 'm1', outcome: 'Completed', message: null });
+    expect(changed).toEqual(['m1', 'm1']);
+  });
+
+  it('S15: a failed summary stage keeps the new transcript and ends as SummaryFailed', async () => {
+    const summarize = vi.fn<SummarizeHook>(() =>
+      Promise.resolve({ status: 'failed' as const, message: 'not signed in' }),
+    );
+    const { controller, engine, meetings, events } = setup({ summarize });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(finishedWith(events)).toEqual({
+      meetingId: 'm1',
+      outcome: 'SummaryFailed',
+      message: 'not signed in',
+    });
+    expect((await meetings.get('m1'))?.transcript).toContain('nuevo texto');
+  });
+
+  it('S15: no summary stage runs when the transcript was not replaced', async () => {
+    const summarize = vi.fn<SummarizeHook>(() => Promise.resolve({ status: 'completed' as const }));
+    const { controller, engine, meetings, events } = setup({ summarize });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('   ', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(summarize).not.toHaveBeenCalled();
   });
 
   it('B8: the old stars survive the new transcript', async () => {

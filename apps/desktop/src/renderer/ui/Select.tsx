@@ -21,6 +21,8 @@ export interface SelectProps {
   /** Fires when the list opens or closes, for pages that refresh the options on open. */
   readonly onOpenChange?: (open: boolean) => void;
   readonly className?: string;
+  /** Automation id on the trigger. */
+  readonly testId?: string;
 }
 
 export function Select({
@@ -32,6 +34,7 @@ export function Select({
   disabled,
   onOpenChange,
   className,
+  testId,
 }: SelectProps) {
   return (
     <BaseSelect.Root
@@ -45,6 +48,7 @@ export function Select({
     >
       <BaseSelect.Trigger
         aria-label={label}
+        data-testid={testId}
         className={cn(
           controlSurface,
           'flex h-8 min-w-40 items-center justify-between gap-2 pr-2 pl-2.5 select-none',

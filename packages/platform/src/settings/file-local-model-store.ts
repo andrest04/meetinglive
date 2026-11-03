@@ -16,14 +16,19 @@ export interface FileLocalModelStoreOptions {
   readonly fetch?: typeof fetch;
 }
 
-/** GGUF summary models as files in one folder. The file name is the model id. */
+/**
+ * GGUF summary models as files in one folder. The file name is the model id. A model counts as
+ * downloaded only when the file has the pinned size; a download keeps its .part for a Range
+ * resume after a failure and is checked (size, then SHA-256 when pinned) before the atomic move.
+ */
 export class FileLocalModelStore implements LocalModelStore {
   constructor(private readonly options: FileLocalModelStoreOptions) {}
 
   async isDownloaded(model: SummaryModelInfo): Promise<boolean> {
-    const file = this.pathOf(model);
+    const file = this.pathFor(model.fileName);
     try {
-      return (await fs.stat(file)).isFile();
+      const stat = await fs.stat(file);
+      return stat.isFile() && stat.size === model.sizeBytes;
     } catch {
       return false;
     }
@@ -36,22 +41,25 @@ export class FileLocalModelStore implements LocalModelStore {
   ): Promise<void> {
     await downloadToFile({
       url: this.options.urlFor?.(model) ?? model.downloadUrl,
-      target: this.pathOf(model),
+      target: this.pathFor(model.fileName),
       onProgress,
       cancel: signal,
+      resume: true,
+      expectedBytes: model.sizeBytes,
+      ...(model.sha256 === undefined ? {} : { sha256: model.sha256 }),
       ...(this.options.fetch ? { fetch: this.options.fetch } : {}),
     });
   }
 
   async delete(model: SummaryModelInfo): Promise<void> {
-    await fs.rm(this.pathOf(model), { force: true });
+    await fs.rm(this.pathFor(model.fileName), { force: true });
   }
 
   /** Only names from the catalog become paths, so an id from the page cannot leave the folder. */
-  private pathOf(model: SummaryModelInfo): string {
-    if (findSummaryModel(model.fileName) === null) {
-      throw new Error(`${model.fileName} is not a model in the catalog.`);
+  pathFor(fileName: string): string {
+    if (findSummaryModel(fileName) === null) {
+      throw new Error(`${fileName} is not a model in the catalog.`);
     }
-    return nodePath.join(this.options.directory, model.fileName);
+    return nodePath.join(this.options.directory, fileName);
   }
 }

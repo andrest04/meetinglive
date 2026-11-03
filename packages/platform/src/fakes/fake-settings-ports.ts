@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   CancelSignal,
   CliPathProbe,
@@ -5,8 +7,6 @@ import type {
   HardwareProfile,
   LocalModelStore,
   SummaryModelInfo,
-  XaiAccountPort,
-  XaiCredentialKind,
 } from '@vozella/core';
 
 /** A machine that never changes. */
@@ -29,6 +29,15 @@ export class FakeCliProbe implements CliPathProbe {
   }
 }
 
+/** Programs that are "installed" while a file of that name exists in a folder (e2e toggles it). */
+export class FileFakeCliProbe implements CliPathProbe {
+  constructor(private readonly directory: string) {}
+
+  isOnPath(executable: string): Promise<boolean> {
+    return Promise.resolve(fs.existsSync(path.join(this.directory, executable)));
+  }
+}
+
 /**
  * Models in memory. A download steps through percents without a network and can be held open so
  * a test sees it in flight.
@@ -38,6 +47,11 @@ export class FakeLocalModelStore implements LocalModelStore {
   /** Set to a promise to keep a download running until it settles. */
   hold: Promise<void> | null = null;
   failWith: Error | null = null;
+
+  /** A path that is never opened: the fake summary provider ignores it. */
+  pathFor(fileName: string): string {
+    return `fake-models/${fileName}`;
+  }
 
   isDownloaded(model: SummaryModelInfo): Promise<boolean> {
     return Promise.resolve(this.files.has(model.fileName));
@@ -58,36 +72,6 @@ export class FakeLocalModelStore implements LocalModelStore {
 
   delete(model: SummaryModelInfo): Promise<void> {
     this.files.delete(model.fileName);
-    return Promise.resolve();
-  }
-}
-
-/** An xAI account held in memory. Never touches the network or a real credential. */
-export class FakeXaiAccount implements XaiAccountPort {
-  kind: XaiCredentialKind | null = null;
-  models: string[] = ['grok-4.3', 'grok-4.6'];
-  listError: Error | null = null;
-
-  credentialKind(): Promise<XaiCredentialKind | null> {
-    return Promise.resolve(this.kind);
-  }
-
-  getAccessToken(): Promise<string> {
-    return Promise.resolve('fake-token');
-  }
-
-  listModels(): Promise<readonly string[]> {
-    return this.listError ? Promise.reject(this.listError) : Promise.resolve(this.models);
-  }
-
-  saveApiKey(key: string): Promise<void> {
-    if (key.trim() === '') return Promise.reject(new Error('The key is empty.'));
-    this.kind = 'ApiKey';
-    return Promise.resolve();
-  }
-
-  signOut(): Promise<void> {
-    this.kind = null;
     return Promise.resolve();
   }
 }

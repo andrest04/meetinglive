@@ -10,17 +10,29 @@ import {
   type PayloadInputOf,
   type ThemePreference,
 } from '@vozella/contracts';
-import { MeetingBusyRegistry, Workspace, type HardwareProbe } from '@vozella/core';
+import {
+  MeetingBusyRegistry,
+  PatchQueue,
+  resolveTemplateInstructions,
+  SummaryService,
+  SummaryTabService,
+  Workspace,
+  type HardwareProbe,
+} from '@vozella/core';
 import {
   fakeEngineOptionsFromEnv,
   SteppedModelStore,
   SteppedRuntimeStore,
   FakeCliProbe,
+  FileFakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
-  FakeLocalModelStore,
-  FakeXaiAccount,
-  FileXaiAccount,
+  FakeSummaryProvider,
+  fakeSummaryOptionsFromEnv,
+  FileLocalModelStore,
+  PathCliProbe,
+  createNativePorts,
+  SummaryRuntime,
   ForbiddenDataRootError,
   LibraryRuntime,
   readWavDurationSeconds,
@@ -35,12 +47,12 @@ import {
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   nativeTheme,
   net,
   protocol,
-  safeStorage,
   session,
   shell,
 } from 'electron';
@@ -64,6 +76,12 @@ import { registerHandlers } from './ipc/handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
+import { registerSummariesHandlers } from './ipc/summaries-handlers';
+import { SummariesController } from './summaries/summaries-controller';
+import {
+  fakeModelScriptFromEnv,
+  ScriptedFakeModelStore,
+} from './summaries/scripted-fake-model-store';
 import { TranscriptionController } from './transcription/transcription-controller';
 import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
@@ -203,9 +221,17 @@ function main(): void {
   });
 
   app.on('web-contents-created', (_event, contents) => {
-    hardenWebContents(contents, trusted, (kind, url) => {
-      logger.warn('blocked', { kind, url });
-    });
+    hardenWebContents(
+      contents,
+      trusted,
+      (kind, url) => {
+        logger.warn('blocked', { kind, url });
+      },
+      (url) => {
+        // The fake native build records nothing and opens nothing.
+        if (!fakeNative) void shell.openExternal(url);
+      },
+    );
   });
 
   app.on('render-process-gone', (_event, contents, details) => {
@@ -293,11 +319,27 @@ function main(): void {
 
   // One hardware read per process, shared by the Settings page and the transcription engine.
   const hardware: HardwareProbe = fakeNative
-    ? new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 })
+    ? new FakeHardwareProbe(
+        process.env.VOZELLA_FAKE_NO_GPU === '1'
+          ? { totalRamGb: 16, gpuName: null, gpuVramGb: null }
+          : { totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 },
+      )
     : new SystemHardwareProbe();
 
+  // The model folder and the CLI probe are shared by the Settings page and the summary module.
+  const summaryModels = fakeNative
+    ? new ScriptedFakeModelStore(fakeModelScriptFromEnv(process.env))
+    : new FileLocalModelStore({ directory: path.join(paths.appData, 'SummaryModels') });
+  // A test that sets VOZELLA_FAKE_CLI_FILES decides what is installed by putting files in
+  // <app data>/fake-cli, so it can flip the answer while the app runs.
+  const summaryCli = !fakeNative
+    ? new PathCliProbe()
+    : process.env.VOZELLA_FAKE_CLI_FILES === '1'
+      ? new FileFakeCliProbe(path.join(paths.appData, 'fake-cli'))
+      : new FakeCliProbe(new Set(['claude']));
+
   // Settings page services. In the fake native build the machine, the CLIs, the model downloads
-  // and the xAI account are doubles, so nothing touches the network or a real account.
+  // are doubles, so nothing touches the network.
   const settings: SettingsRuntime = new SettingsRuntime({
     store: library.settings,
     appDataDirectory: paths.appData,
@@ -319,25 +361,25 @@ function main(): void {
     },
     notifyModel: modelEventBridge(broadcast),
     hardware,
-    ...(fakeNative
-      ? {
-          cli: new FakeCliProbe(new Set(['claude'])),
-          modelStore: new FakeLocalModelStore(),
-          xaiAccount: new FakeXaiAccount(),
-        }
-      : {
-          // The key is encrypted with the OS (DPAPI through safeStorage) in its own file, so
-          // a WinUI credentials file in a shared folder is never overwritten.
-          xaiAccount: new FileXaiAccount({
-            filePath: path.join(paths.appData, 'xai-credentials.safe.bin'),
-            cipher: {
-              encrypt: (plain) => safeStorage.encryptStringAsync(plain),
-              decrypt: async (blob) =>
-                (await safeStorage.decryptStringAsync(Buffer.from(blob))).result,
-            },
-          }),
-        }),
+    cli: summaryCli,
+    modelStore: summaryModels,
   });
+
+  /** The kill-on-close job that leaves no llama-server behind. Without it the sidecar watchdog runs. */
+  function loadProcessJob() {
+    try {
+      return createNativePorts({
+        fake: false,
+        addonPath: nativeAddonPath,
+        // A real require, so the bundler leaves the .node load to runtime.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        load: (file) => require(file) as unknown,
+      }).processJob;
+    } catch (error) {
+      logger.warn('native process job unavailable; using the watchdog', { error: String(error) });
+      return undefined;
+    }
+  }
 
   function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -488,6 +530,82 @@ function main(): void {
       audioController.dispose();
     });
 
+    // Summaries: one runtime owns the providers and the single local llama-server. The fake
+    // native build answers every engine with a double, so e2e needs no model or CLI.
+    const summaryRuntime = new SummaryRuntime({
+      settings: library.settings,
+      hardware,
+      models: summaryModels,
+      llamaRoot: path.join(paths.appData, 'LlamaRuntime'),
+      cli: summaryCli,
+      ...(fakeNative
+        ? {
+            providerOverride: (kind) =>
+              new FakeSummaryProvider(
+                kind === 'ClaudeCode' ? 'claude-code' : kind === 'Codex' ? 'codex' : 'local',
+                fakeSummaryOptionsFromEnv(process.env),
+              ),
+          }
+        : { processJob: loadProcessJob() }),
+    });
+    const summaryPatchQueue = new PatchQueue();
+    const summaryService = new SummaryService({
+      queue: summaryPatchQueue,
+      meetings: library.meetings,
+      settings: library.settings,
+      resolver: summaryRuntime.resolver,
+      clock: new SystemClock(),
+      notifyMeetingChanged: (id) => {
+        workspace.notifyMeetingChanged(id);
+      },
+      busy,
+      placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
+        const format = catalog.MeetingTitleFormat;
+        return format === undefined ? [] : [format];
+      }),
+    });
+    // A meeting being summarized cannot be re-transcribed, deleted or moved from under the run.
+    busy.register({ isBusy: (id) => summaryService.isGenerating(id) });
+    const summaries = new SummariesController({
+      service: summaryService,
+      tab: new SummaryTabService({
+        queue: summaryPatchQueue,
+        meetings: library.meetings,
+        translate: (key, ...args) => locale.t(key, ...args),
+        getSelectedMeetingId: () => workspace.state.selectedMeetingId,
+        selectMeeting: (id) => {
+          workspace.selectMeeting(id);
+        },
+      }),
+      resolver: summaryRuntime.resolver,
+      models: settings.models,
+      hardware,
+      cli: summaryCli,
+      settings: library.settings,
+      runtime: summaryRuntime,
+      broadcast,
+      logger: logger.child('summaries'),
+      t: (key, ...args) => locale.t(key, ...args),
+    });
+    registerSummariesHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: summaries,
+      writeClipboard: (text) => {
+        return clipboard.writeText(text);
+      },
+    });
+    // No llama-server may outlive the app: kill it now, then let it end cleanly.
+    app.on('before-quit', () => {
+      void summaries.dispose();
+    });
+    app.on('will-quit', () => {
+      void summaries.dispose();
+    });
+
     // Transcription: the engine runs in its own process; the controller serves the pages and
     // gives the recording module the live pass and the offline pass.
     const transcription = new TranscriptionRuntime({
@@ -524,6 +642,11 @@ function main(): void {
       onMeetingChanged: (id) => {
         workspace.notifyMeetingChanged(id);
       },
+      // Re-transcription also regenerates the summary (the recording module reuses the same hook).
+      summarize: (request, cancel) => summaries.summarizeForPipeline(request, cancel),
+      templateInstructions: (record) =>
+        Promise.resolve(resolveTemplateInstructions(record.noteTemplateId)),
+      formatFailure: (error) => summaries.formatError(error),
     });
     registerTranscriptionHandlers({
       server: {

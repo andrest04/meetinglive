@@ -3,7 +3,6 @@ import type {
   FeedbackDto,
   ModelEventDto,
   SettingsPageDto,
-  XaiAccountViewDto,
 } from '@vozella/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
@@ -11,7 +10,7 @@ import { useT } from '../../i18n/I18nProvider';
 /** How long the saved-feedback bar stays (spec 2.5: one non-repeating 4 second timer). */
 export const FEEDBACK_MS = 4000;
 
-type CliProvider = 'claude' | 'codex' | 'xai';
+type CliProvider = 'claude' | 'codex';
 
 export interface SettingsPageModel {
   /** Null until the first answer. */
@@ -26,7 +25,6 @@ export interface SettingsPageModel {
   readonly clearFeedback: () => void;
   /** Percent by model file while a download runs. */
   readonly progress: Readonly<Record<string, number>>;
-  readonly xaiBusy: boolean;
   readonly load: () => Promise<void>;
   /** True when the language was saved (and a restart can be offered). */
   readonly setUiLanguage: (tag: string) => Promise<boolean>;
@@ -39,10 +37,6 @@ export interface SettingsPageModel {
   readonly selectModel: (fileName: string) => void;
   readonly deleteModel: (fileName: string) => Promise<void>;
   readonly dismissNotice: (id: string) => void;
-  readonly refreshXai: () => Promise<void>;
-  readonly saveXaiApiKey: (key: string) => Promise<boolean>;
-  readonly signOutXai: () => Promise<void>;
-  readonly signInXai: () => Promise<void>;
 }
 
 /**
@@ -75,7 +69,6 @@ export function useSettingsPage(): SettingsPageModel {
   const [problem, setProblem] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, number>>({});
-  const [xaiBusy, setXaiBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alive = useRef(true);
   const tRef = useRef(t);
@@ -95,18 +88,15 @@ export function useSettingsPage(): SettingsPageModel {
     setFeedback(null);
   }, []);
 
-  const showFeedback = useCallback(
-    (item: { key: FeedbackDto['key'] | 'Xai_FeedbackSignedIn'; args: readonly string[] }) => {
-      const text = tRef.current(item.key, ...item.args);
-      if (timer.current) clearTimeout(timer.current);
-      setFeedback(text);
-      timer.current = setTimeout(() => {
-        timer.current = null;
-        setFeedback(null);
-      }, FEEDBACK_MS);
-    },
-    [],
-  );
+  const showFeedback = useCallback((item: { key: FeedbackDto['key']; args: readonly string[] }) => {
+    const text = tRef.current(item.key, ...item.args);
+    if (timer.current) clearTimeout(timer.current);
+    setFeedback(text);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setFeedback(null);
+    }, FEEDBACK_MS);
+  }, []);
 
   // Overlapping loads: only the newest request may apply its answer (spec 7.17).
   const loadSeq = useRef(0);
@@ -169,42 +159,18 @@ export function useSettingsPage(): SettingsPageModel {
     [fail, load, showFeedback],
   );
 
-  const setXaiView = useCallback((view: XaiAccountViewDto) => {
-    setPage((current) => (current ? { ...current, xai: view } : current));
-  }, []);
-
-  const refreshXai = useCallback(async (): Promise<void> => {
-    setXaiBusy(true);
-    try {
-      setXaiView(await window.vozella.invoke('settings.xai.refresh', {}));
-    } catch (error) {
-      fail(messageOf(error));
-    } finally {
-      if (alive.current) setXaiBusy(false);
-    }
-  }, [fail, setXaiView]);
-
   const setProvider = useCallback(
     async (kind: string): Promise<void> => {
       // The radio moves at once; `commit` puts it back to what is saved if the save is refused.
       setPage((current) =>
-        current ? { ...current, provider: kind as typeof current.provider } : current,
+        current
+          ? { ...current, provider: kind as typeof current.provider, providerNotice: null }
+          : current,
       );
-      const outcome = await commit(window.vozella.invoke('settings.setSummaryProvider', { kind }));
-      if (outcome?.status === 'saved' && kind === 'Xai') await refreshXai();
+      await commit(window.vozella.invoke('settings.setSummaryProvider', { kind }));
     },
-    [commit, refreshXai],
+    [commit],
   );
-
-  // The first load may already have Grok selected: the network phase follows the local one.
-  const firstXaiRefresh = useRef(false);
-  useEffect(() => {
-    if (firstXaiRefresh.current || !page) return;
-    firstXaiRefresh.current = true;
-    if (page.provider === 'Xai' && page.capabilities.xaiAccount && page.xai.signedIn) {
-      void refreshXai();
-    }
-  }, [page, refreshXai]);
 
   const setUiLanguage = useCallback(
     async (tag: string): Promise<boolean> => {
@@ -337,70 +303,6 @@ export function useSettingsPage(): SettingsPageModel {
     [load],
   );
 
-  // --------------------------------------------------------------------- xAI
-
-  const saveXaiApiKey = useCallback(
-    async (key: string): Promise<boolean> => {
-      setXaiBusy(true);
-      try {
-        const result = await window.vozella.invoke('settings.xai.saveApiKey', { key });
-        if (!alive.current) return false;
-        if (result.status === 'failed') {
-          fail(result.message);
-          return false;
-        }
-        if (result.status === 'ignored') return false;
-        setXaiView(result.view);
-        showFeedback(result.feedback);
-        await load();
-        return true;
-      } catch (error) {
-        fail(messageOf(error));
-        return false;
-      } finally {
-        if (alive.current) setXaiBusy(false);
-      }
-    },
-    [fail, load, setXaiView, showFeedback],
-  );
-
-  const signOutXai = useCallback(async (): Promise<void> => {
-    setXaiBusy(true);
-    try {
-      const result = await window.vozella.invoke('settings.xai.signOut', {});
-      if (!alive.current) return;
-      if (result.status === 'failed') fail(result.message);
-      else if (result.status !== 'ignored') {
-        setXaiView(result.view);
-        showFeedback(result.feedback);
-      }
-      await load();
-    } catch (error) {
-      fail(messageOf(error));
-    } finally {
-      if (alive.current) setXaiBusy(false);
-    }
-  }, [fail, load, setXaiView, showFeedback]);
-
-  const signInXai = useCallback(async (): Promise<void> => {
-    setXaiBusy(true);
-    try {
-      const result = await window.vozella.invoke('settings.xai.signIn', {});
-      if (!alive.current) return;
-      if (result.status === 'failed') {
-        setProblem(tRef.current('Ui_XaiSignInFailed', result.message));
-      } else if (result.status === 'signed-in') {
-        setXaiView(result.view);
-        showFeedback(result.feedback);
-        await load();
-      }
-    } catch (error) {
-      setProblem(tRef.current('Ui_XaiSignInFailed', messageOf(error)));
-    } finally {
-      if (alive.current) setXaiBusy(false);
-    }
-  }, [load, setXaiView, showFeedback]);
-
   const clearProblem = useCallback(() => {
     setProblem(null);
   }, []);
@@ -415,7 +317,6 @@ export function useSettingsPage(): SettingsPageModel {
       feedback,
       clearFeedback,
       progress,
-      xaiBusy,
       load,
       setProvider,
       setUiLanguage,
@@ -427,10 +328,6 @@ export function useSettingsPage(): SettingsPageModel {
       selectModel,
       deleteModel,
       dismissNotice,
-      refreshXai,
-      saveXaiApiKey,
-      signOutXai,
-      signInXai,
     }),
     [
       page,
@@ -441,7 +338,6 @@ export function useSettingsPage(): SettingsPageModel {
       feedback,
       clearFeedback,
       progress,
-      xaiBusy,
       load,
       setProvider,
       setUiLanguage,
@@ -453,10 +349,6 @@ export function useSettingsPage(): SettingsPageModel {
       selectModel,
       deleteModel,
       dismissNotice,
-      refreshXai,
-      saveXaiApiKey,
-      signOutXai,
-      signInXai,
     ],
   );
 }

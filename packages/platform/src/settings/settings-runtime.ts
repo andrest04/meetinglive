@@ -6,14 +6,12 @@ import {
   SettingsCommands,
   SettingsNotices,
   SettingsPageService,
-  XaiAccountService,
   type CliPathProbe,
   type HardwareProbe,
   type LocalModelStore,
   type ModelEvent,
   type SettingsCapabilities,
   type SettingsStore,
-  type XaiAccountPort,
 } from '@vozella/core';
 import { FileLocalModelStore } from './file-local-model-store';
 import { PathCliProbe } from './path-cli-probe';
@@ -28,10 +26,6 @@ export interface SettingsRuntimeDeps {
   /** Electron: `app.relaunch()` then `app.exit(0)`. */
   readonly relaunch: () => void | Promise<void>;
   readonly notifyModel: (event: ModelEvent) => void;
-  /** The xAI module registers its account here. Null until it exists. */
-  readonly xaiAccount?: XaiAccountPort | null;
-  /** True once the SuperGrok device code sign in exists. */
-  readonly xaiSignIn?: boolean;
   /** Replacements for tests and for the fake native build. */
   readonly hardware?: HardwareProbe;
   readonly modelStore?: LocalModelStore;
@@ -48,19 +42,13 @@ export class SettingsRuntime {
   readonly exitGates = new ExitGateRegistry();
   readonly commands: SettingsCommands;
   readonly models: LocalModelsService;
-  readonly xai: XaiAccountService;
   readonly page: SettingsPageService;
   readonly restart: RestartService;
   readonly capabilities: SettingsCapabilities;
   private readonly hardwareProbe: HardwareProbe;
 
   constructor(deps: SettingsRuntimeDeps) {
-    const xaiPort = deps.xaiAccount ?? null;
-    this.capabilities = {
-      xaiAccount: xaiPort !== null,
-      xaiSignIn: xaiPort !== null && deps.xaiSignIn === true,
-      localModels: true,
-    };
+    this.capabilities = { localModels: true };
     this.commands = new SettingsCommands({ store: deps.store, osLanguages: deps.osLanguages });
     this.models = new LocalModelsService({
       store:
@@ -71,14 +59,12 @@ export class SettingsRuntime {
       settings: deps.store,
       notify: deps.notifyModel,
     });
-    this.xai = new XaiAccountService({ port: xaiPort, store: deps.store });
     this.hardwareProbe = deps.hardware ?? new SystemHardwareProbe();
     this.page = new SettingsPageService({
       store: deps.store,
       osLanguages: deps.osLanguages,
       hardware: this.hardwareProbe,
       models: this.models,
-      xai: this.xai,
       cli: deps.cli ?? new PathCliProbe(),
       notices: this.notices,
       capabilities: this.capabilities,

@@ -167,6 +167,19 @@ const blank = (value: string | null): boolean => value === null || value.trim() 
 
 export const SUMMARY_PROVIDERS = ['Local', 'ClaudeCode', 'Codex', 'Xai'] as const;
 export type SummaryProviderKind = (typeof SUMMARY_PROVIDERS)[number];
+/**
+ * 'Xai' stays a known value so an old settings file still loads and re-saves, but the provider was
+ * removed (owner decision 2026-11-03, may return later). It is never mapped to Local.
+ */
+export const UNAVAILABLE_SUMMARY_PROVIDERS = ['Xai'] as const;
+export type AvailableSummaryProviderKind = Exclude<
+  SummaryProviderKind,
+  (typeof UNAVAILABLE_SUMMARY_PROVIDERS)[number]
+>;
+export const isProviderAvailable = (
+  kind: SummaryProviderKind,
+): kind is AvailableSummaryProviderKind =>
+  !(UNAVAILABLE_SUMMARY_PROVIDERS as readonly string[]).includes(kind);
 export const PILL_EDGES = ['Left', 'Right', 'Top', 'Bottom'] as const;
 export type PillEdge = (typeof PILL_EDGES)[number];
 
@@ -188,8 +201,6 @@ export const resolveCodexModelId = (s: AppSettings): string =>
     : (s.selectedCodexModelId ?? DEFAULT_CODEX_MODEL);
 export const resolveCodexEffort = (s: AppSettings): string =>
   blank(s.selectedCodexEffort) ? DEFAULT_EFFORT : (s.selectedCodexEffort ?? DEFAULT_EFFORT);
-export const resolveXaiEffort = (s: AppSettings): string =>
-  blank(s.selectedXaiEffort) ? DEFAULT_EFFORT : (s.selectedXaiEffort ?? DEFAULT_EFFORT);
 
 /** Case-sensitive name match only; numeric text no longer maps to an undefined value (B18). */
 export function resolveSummaryProviderKind(s: AppSettings): SummaryProviderKind {
