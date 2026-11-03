@@ -30,3 +30,8 @@ export * from './settings/file-xai-account';
 export * from './settings/path-cli-probe';
 export * from './settings/settings-runtime';
 export * from './settings/system-hardware-probe';
+export * from './transcription/model-store';
+export * from './transcription/runtime-manager';
+export * from './transcription/transcription-runtime';
+export * from './transcription/wav-frame-reader';
+export * from './transcription/zip-extractor';
