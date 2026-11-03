@@ -256,6 +256,41 @@ describe('reading and writing', () => {
     expect(text.indexOf('futureThing')).toBeGreaterThan(text.indexOf('liveCopilotPillAlong'));
   });
 
+  it('cd-1: a file with calendar settings, no Xai and Jev flags survives load and rewrite unchanged', () => {
+    const text = serializeSettings(
+      applySettingsPatch(
+        { futureThing: { a: 1 } },
+        {
+          typeSafeEnabled: false,
+          calendarNotificationsEnabled: false,
+          meetingPopupEnabled: false,
+          disabledCalendarIds: ['cal-1', 'cal-2'],
+          selectedSummaryProvider: 'Codex',
+          uiLanguage: 'en',
+        },
+      ),
+    );
+    const { settings, raw } = parseSettingsJson(text);
+    expect(settings.typeSafeEnabled).toBe(false);
+    expect(settings.calendarNotificationsEnabled).toBe(false);
+    expect(settings.meetingPopupEnabled).toBe(false);
+    expect(settings.disabledCalendarIds).toEqual(['cal-1', 'cal-2']);
+    expect(settings.selectedXaiModelId).toBeNull();
+    expect(serializeSettings(raw)).toBe(text);
+    expect(serializeSettings(applySettingsPatch(raw, { summaryLanguage: 'en' }))).toContain(
+      '"disabledCalendarIds": [\r\n    "cal-1",\r\n    "cal-2"\r\n  ]',
+    );
+  });
+
+  it('cd-1: a file that still selects Xai loads and rewrites with the provider kept', () => {
+    const text = serializeSettings(
+      applySettingsPatch({}, { selectedSummaryProvider: 'Xai', selectedXaiModelId: 'grok' }),
+    );
+    const { settings, raw } = parseSettingsJson(text);
+    expect(resolveSummaryProviderKind(settings)).toBe('Xai');
+    expect(serializeSettings(raw)).toBe(text);
+  });
+
   it('B17: a patch changes only the named fields', () => {
     const base = applySettingsPatch({}, { summaryLanguage: 'en', uiLanguage: 'es' });
     const next = applySettingsPatch(base, { uiLanguage: 'en' });
