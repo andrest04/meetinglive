@@ -33,7 +33,7 @@ Keep these unchanged, because changing them can orphan user data or Windows cons
 - [x] T1 Generate the Vozella logo and replace all app assets. Acceptance: every asset keeps its filename and pixel size, and the mark stays legible at 24 px. Route: delegated, then inline after the scope change. Evidence: `3f2bc88` (first draft, superseded), `99e9ab5` (final).
 - [x] T2 Rename user-facing strings to Vozella. Acceptance: no user-facing "MeetingLive" remains in the manifest display names, XAML titles or `.resw` values; constraints above are untouched. Route: delegated. Evidence: `cff1350`.
 - [x] T3 Define the palette and brand system for the app and the future landing page. Accepted scope change: the user asked for black and white, designed through a design skill. Evidence: design system artifact https://claude.ai/artifact/Gm9h3qY3NA1on4YKzf2hXd and `docs/brand`.
-- [x] T4 Replace the first chosen name after an availability check. Acceptance: no "Vocea" remains in tracked files, and the app builds and tests pass. Route: inline, mechanical replacement.
+- [x] T4 Replace the first chosen name after an availability check. Acceptance: no "Vocea" remains in tracked files, and the app builds and tests pass. Route: inline, mechanical replacement. Evidence: `dd5658f`.
 
 ## Rationale
 
