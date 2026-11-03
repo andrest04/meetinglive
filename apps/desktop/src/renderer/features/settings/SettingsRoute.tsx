@@ -1,52 +1,109 @@
-import { useI18n } from '../../i18n/I18nProvider';
-import { isLocale } from '../../i18n/translate';
+import { SETTINGS_SECTIONS } from '@vozella/core';
+import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
+import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
 import { DataSection } from './DataSection';
-import { RadioGroup, SectionHeader, Select, SettingRow } from '../../ui';
+import { LanguageSection } from './LanguageSection';
+import { MeetingLanguageSection } from './MeetingLanguageSection';
+import { ProviderSection } from './ProviderSection';
+import { useSettingsPage } from './use-settings-page';
 
-/** Appearance and language. The rest of the settings arrive with their modules. */
-export function SettingsRoute() {
-  const { t, locale, setLocale } = useI18n();
+function AppearanceSection() {
+  const t = useT();
   const { preference, setPreference } = useTheme();
+  return (
+    <div>
+      <SectionHeader level={2} compact title={t('Ui_Appearance')} className="pb-2" />
+      <SettingRow title={t('Ui_Theme')} description={t('Ui_ThemeDescription')}>
+        <RadioGroup
+          label={t('Ui_Theme')}
+          orientation="horizontal"
+          value={preference}
+          onValueChange={(next) => {
+            if (isThemePreference(next)) setPreference(next);
+          }}
+          options={[
+            { value: 'system', label: t('Ui_ThemeSystem') },
+            { value: 'light', label: t('Ui_ThemeLight') },
+            { value: 'dark', label: t('Ui_ThemeDark') },
+          ]}
+        />
+      </SettingRow>
+    </div>
+  );
+}
+
+/**
+ * The Settings page. The blocks follow `SETTINGS_SECTIONS` (spec 2.0); a block whose module has not
+ * landed is not drawn, and nothing stands in for it. Data and About come from library-storage.
+ */
+export function SettingsRoute() {
+  const t = useT();
+  const model = useSettingsPage();
+  const { page } = model;
+  const built = new Set(
+    SETTINGS_SECTIONS.filter((section) => section.status === 'built').map((section) => section.id),
+  );
 
   return (
-    <section className="flex flex-col gap-8">
+    <section className="flex flex-col gap-8" aria-busy={model.loading}>
       <SectionHeader level={1} quiet title={t('SettingsPage_Title.Text')} />
-      <div>
-        <SectionHeader level={2} title={t('Ui_Appearance')} className="pb-2" />
-        <SettingRow title={t('Ui_Theme')} description={t('Ui_ThemeDescription')}>
-          <RadioGroup
-            label={t('Ui_Theme')}
-            orientation="horizontal"
-            value={preference}
-            onValueChange={(next) => {
-              if (isThemePreference(next)) setPreference(next);
+
+      {model.problem ? (
+        <Notice tone="warning" onDismiss={model.clearProblem} dismissLabel={t('Ui_Close')}>
+          {model.problem}
+        </Notice>
+      ) : null}
+
+      {built.has('appearance') ? <AppearanceSection /> : null}
+
+      {page === null && model.loading ? (
+        <SkeletonText lines={6} className="py-3" aria-label={t('Ui_SettingsLoading')} />
+      ) : null}
+
+      {page === null && model.loadError !== null ? (
+        <div className="flex flex-col items-start gap-3">
+          <Notice tone="warning" className="self-stretch">
+            {t('Ui_SettingsLoadFailed', model.loadError)}
+          </Notice>
+          <Button
+            onClick={() => {
+              void model.load();
             }}
-            options={[
-              { value: 'system', label: t('Ui_ThemeSystem') },
-              { value: 'light', label: t('Ui_ThemeLight') },
-              { value: 'dark', label: t('Ui_ThemeDark') },
-            ]}
-          />
-        </SettingRow>
-        <SettingRow
-          title={t('Settings_LanguagePicker.Header')}
-          description={t('Settings_LanguagePicker.Description')}
-        >
-          <Select
-            label={t('Settings_LanguagePicker.Header')}
-            value={locale}
-            onValueChange={(next) => {
-              if (isLocale(next)) setLocale(next);
-            }}
-            options={[
-              { value: 'en', label: t('Settings_LanguageEnglish') },
-              { value: 'es', label: t('Settings_LanguageSpanish') },
-            ]}
-          />
-        </SettingRow>
-      </div>
-      <DataSection />
+          >
+            {t('Ui_XaiRetry')}
+          </Button>
+        </div>
+      ) : null}
+
+      {page ? (
+        <>
+          {page.notices.map((notice) => (
+            <Notice
+              key={notice.id}
+              tone="warning"
+              onDismiss={() => {
+                model.dismissNotice(notice.id);
+              }}
+              dismissLabel={t('Ui_Close')}
+            >
+              {t('Ui_SettingsRecovered', notice.keptAs)}
+            </Notice>
+          ))}
+          {built.has('language') ? (
+            <LanguageSection current={page.uiLanguage} onChange={model.setUiLanguage} />
+          ) : null}
+          {built.has('summaryProvider') ? <ProviderSection page={page} model={model} /> : null}
+          {built.has('meetingLanguage') ? (
+            <MeetingLanguageSection
+              transcription={page.transcriptionLanguage}
+              summary={page.summaryLanguage}
+              onChange={model.setMeetingLanguage}
+            />
+          ) : null}
+        </>
+      ) : null}
+      {built.has('data') ? <DataSection /> : null}
     </section>
   );
 }

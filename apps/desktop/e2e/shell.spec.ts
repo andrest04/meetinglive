@@ -49,11 +49,14 @@ test('switching the language retranslates the shell', async () => {
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('combobox', { name: 'App language' }).click();
   await page.getByRole('option', { name: 'Español' }).click();
+  // The choice is saved and applied at once; the dialog only offers a restart.
+  await page.getByRole('button', { name: 'Más tarde' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   await expect(page.getByRole('link', { name: 'Biblioteca' })).toBeVisible();
 
-  await page.getByRole('combobox', { name: /idioma/i }).click();
+  await page.getByRole('combobox', { name: 'Idioma de la aplicación' }).click();
   await page.getByRole('option', { name: 'English' }).click();
+  await page.getByRole('button', { name: 'Later' }).click();
   await expect(page.getByRole('link', { name: 'Library' })).toBeVisible();
 });
 

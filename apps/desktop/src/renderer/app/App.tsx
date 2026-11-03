@@ -1,5 +1,6 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { I18nProvider, useT } from '../i18n/I18nProvider';
+import type { Locale } from '../i18n/translate';
 import { ToastProvider, TooltipProvider } from '../ui';
 import { router } from './router';
 import { ThemeProvider } from './theme';
@@ -15,10 +16,10 @@ function Providers() {
   );
 }
 
-export function App() {
+export function App({ initialLocale }: { initialLocale?: Locale }) {
   return (
     <ThemeProvider>
-      <I18nProvider>
+      <I18nProvider {...(initialLocale ? { initialLocale } : {})}>
         <Providers />
       </I18nProvider>
     </ThemeProvider>

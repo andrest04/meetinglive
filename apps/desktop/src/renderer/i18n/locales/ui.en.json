@@ -37,5 +37,9 @@
   "Ui_XaiRetry": "Try again",
   "Ui_MicLevelName": "Microphone level",
   "Ui_EngineDownloadProgressName": "Transcription engine download progress",
-  "Ui_SpeakerDownloadProgressName": "Speaker model download progress"
+  "Ui_SpeakerDownloadProgressName": "Speaker model download progress",
+  "Ui_ModelDownloading": "Downloading",
+  "Ui_ShowKey": "Show key",
+  "Ui_HideKey": "Hide key",
+  "Ui_XaiSignInFailed": "Could not sign in with SuperGrok. {0}"
 }

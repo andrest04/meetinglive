@@ -64,7 +64,7 @@ export function DataSection() {
 
   return (
     <div>
-      <SectionHeader level={2} title={t('Settings_Data.Text')} className="pb-2" />
+      <SectionHeader level={2} compact title={t('Settings_Data.Text')} className="pb-2" />
       {location === null ? (
         <SkeletonText lines={3} className="py-3" />
       ) : (

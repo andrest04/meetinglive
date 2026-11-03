@@ -37,5 +37,9 @@
   "Ui_XaiRetry": "Intentar de nuevo",
   "Ui_MicLevelName": "Nivel del micrófono",
   "Ui_EngineDownloadProgressName": "Progreso de la descarga del motor de transcripción",
-  "Ui_SpeakerDownloadProgressName": "Progreso de la descarga del modelo de hablantes"
+  "Ui_SpeakerDownloadProgressName": "Progreso de la descarga del modelo de hablantes",
+  "Ui_ModelDownloading": "Descargando",
+  "Ui_ShowKey": "Mostrar clave",
+  "Ui_HideKey": "Ocultar clave",
+  "Ui_XaiSignInFailed": "No se pudo iniciar sesión con SuperGrok. {0}"
 }

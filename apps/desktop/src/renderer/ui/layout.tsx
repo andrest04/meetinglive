@@ -7,6 +7,7 @@ export function SectionHeader({
   action,
   level = 2,
   quiet = false,
+  compact = false,
   className,
 }: {
   title: string;
@@ -15,6 +16,8 @@ export function SectionHeader({
   level?: 1 | 2 | 3;
   /** A page of lists and settings: the heading keeps its level but not the document's large title. */
   quiet?: boolean;
+  /** A section inside a long page: reading size, so the page title keeps its place above it. */
+  compact?: boolean;
   className?: string;
 }) {
   const Heading = `h${level}` as const;
@@ -24,7 +27,13 @@ export function SectionHeader({
         <Heading
           className={cn(
             'font-semibold tracking-[-0.01em] text-ink',
-            level === 1 && !quiet ? 'text-title tracking-[-0.02em]' : 'text-heading',
+            level === 1 && !quiet
+              ? 'text-title tracking-[-0.02em]'
+              : level === 3
+                ? 'text-ui-lg'
+                : compact
+                  ? 'text-read-lg'
+                  : 'text-heading',
           )}
         >
           {title}

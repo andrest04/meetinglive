@@ -1,10 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { reportRendererError } from '../app/error-reporting';
-import { readStored, writeStored } from '../app/preference-storage';
 import { createTranslator, detectLocale, isLocale, type Locale, type Translate } from './translate';
-
-const STORAGE_KEY = 'vozella.locale';
 
 /** Tells the main log about a missing string once per key and locale. */
 function reportMissingOnce(): (key: string, locale: Locale, fallback: 'en' | 'key') => void {
@@ -25,7 +22,6 @@ function reportMissingOnce(): (key: string, locale: Locale, fallback: 'en' | 'ke
 interface I18nValue {
   readonly locale: Locale;
   readonly t: Translate;
-  readonly setLocale: (locale: Locale) => void;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -37,24 +33,27 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (initialLocale) return initialLocale;
-    const stored = readStored(STORAGE_KEY);
-    return isLocale(stored) ? stored : detectLocale(navigator.languages);
-  });
+  // The first paint takes the language from the main process (see main.tsx). The OS
+  // language is only the fallback for a window with no bridge (component tests).
+  const [locale, setLocale] = useState<Locale>(
+    () => initialLocale ?? detectLocale(navigator.languages),
+  );
 
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
 
-  const setLocale = useCallback((next: Locale) => {
-    writeStored(STORAGE_KEY, next);
-    setLocaleState(next);
+  // Main saves the choice first, then tells every window to switch (settings-i18n B11).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('vozella' in window)) return undefined;
+    return window.vozella.on('i18n.localeChanged', (event) => {
+      if (isLocale(event.locale)) setLocale(event.locale);
+    });
   }, []);
 
   const value = useMemo(
-    () => ({ locale, t: createTranslator(locale, reportMissingOnce()), setLocale }),
-    [locale, setLocale],
+    () => ({ locale, t: createTranslator(locale, reportMissingOnce()) }),
+    [locale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
