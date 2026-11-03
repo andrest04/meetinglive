@@ -294,8 +294,51 @@ Decisions (S12):
 - **Test doubles.** `createServer`, `resolveRuntime`, `runner` and `cli` can be replaced. The platform test uses the fake llama-server and a recording runner; no real CLI was started.
 - **No RED run (S12).** Code and tests were written together and passed on the first run.
 
+### Summary generation service (S13)
+
+| #   | Item                                                                                    | Status   | Notes                                                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 31  | The page applies `resolveTitle`; a placeholder title is replaced, a real one is kept    | improved | The explicit suggest-title half is dropped with the button (owner decision 2026-11-03, may return later). `resolveTitle` runs against the title read at save time, with both locales' formats (B10).                     |
+| 32  | A changed title is saved and the workspace is told                                      | done     | `notifyMeetingChanged(id)` is called only when the title changed. The workspace keeps only the last processed id, not its title, so there is nothing else to update.                                                     |
+| 86  | Generate runs only with a transcript and not while generating                           | done     | No transcript: `no-transcript`, no provider call, no save. One in-flight run per meeting (and the busy probe): the second call answers `busy`.                                                                           |
+| 88  | Readiness gate before generation                                                        | improved | `needs-setup` and `unavailable` (Xai) are returned as values and are not failures (B34). The UI opens the dialogs; "Setup cancelled." is the UI's, when the user closes them.                                            |
+| 89  | Summary language from settings, default `es`                                            | done     | `resolveSummaryLanguage(settings)` from the single `SettingsStore`.                                                                                                                                                      |
+| 90  | Template id normalized, instructions resolved, enhancement built                        | done     | `resolveTemplateInstructions`: built-ins give their text; `auto`, blank, unknown and `custom` give null. Enhancement is `{ rawNotes, attendees, agenda: null, templateInstructions }`.                                   |
+| 91  | Provider gets title, recorded and end time, language, enhancement only when non-empty   | done     | `enhancement.hasAny ? enhancement : null`. An unparsable date falls back to the clock.                                                                                                                                   |
+| 92  | Record gets summary, items, provider id, template id and resolved title                 | improved | One field patch (`applySummaryPatch`) over a record re-read at save time (B4). `noteTemplateId` stores a built-in id, otherwise null (see decisions).                                                                    |
+| 95  | Generation can be cancelled (B13)                                                       | done     | The `CancelSignal` goes to `provider.summarize`. Cancel gives `cancelled` and saves nothing, even when a provider ignores the signal. Killing the CLI and aborting the llama request are the providers' (S04, S05, S11). |
+| 96  | Saves apply field patches to a fresh record (B4)                                        | done     | A rename or notes edit made during the run survives; other fields are untouched.                                                                                                                                         |
+| 97  | Action items are returned at once (B15)                                                 | done     | They are in the `generated` outcome. The Jev half is dropped (owner decision 2026-11-03, may return later).                                                                                                              |
+| 106 | Built-in ids and names, custom last                                                     | done     | Already in `settings/note-templates.ts`, tested in `settings/catalogs.test.ts` (settings module). The custom entry is dropped with the custom template.                                                                  |
+| 107 | Built-in instruction texts verbatim                                                     | done     | `catalogs.test.ts` asserts the four texts; S13 asserts they reach the provider.                                                                                                                                          |
+| 108 | `normalizeId` and `instructionsFor` rules                                               | done     | `catalogs.test.ts`; auto, blank, unknown and null give null.                                                                                                                                                             |
+| 109 | `NoteTemplateInstructions.ResolveAsync`                                                 | improved | `template-instructions.ts`, no store needed. `custom` gives null because the custom template is dropped.                                                                                                                 |
+| 110 | Custom template dialog                                                                  | dropped  | owner decision 2026-11-03, may return later                                                                                                                                                                              |
+| 111 | Custom template save and load                                                           | dropped  | owner decision 2026-11-03, may return later                                                                                                                                                                              |
+| 112 | Template store behavior                                                                 | dropped  | owner decision 2026-11-03, may return later                                                                                                                                                                              |
+| 113 | Custom template selection in the picker                                                 | dropped  | owner decision 2026-11-03, may return later                                                                                                                                                                              |
+| 114 | Custom template persistence                                                             | dropped  | owner decision 2026-11-03, may return later                                                                                                                                                                              |
+| 184 | Meeting file keeps `summaryProvider`, `noteTemplateId`, `## Summary`, `## Action Items` | done     | Platform test on the `winui-library` fixture: sections rewritten; Brief, transcript, notes, follow-up, project plan, folder, attendees, join URL, Jev frontmatter and event keys kept.                                   |
+| 185 | `custom-note-template.json` format                                                      | dropped  | owner decision 2026-11-03, may return later (also B21 and `JsonCustomNoteTemplateStoreTests`)                                                                                                                            |
+
+Decisions (S13):
+
+- **Where it lives.** `packages/core/src/summaries/summary-service.ts` (`SummaryService.generate`), `template-instructions.ts`, `meeting-patch.ts`; tests beside them, plus `packages/platform/src/summaries/summary-service.test.ts` for the Markdown round trip.
+- **Outcomes are values.** `generated`, `no-transcript`, `not-found`, `busy`, `needs-setup`, `unavailable`, `cancelled`, `failed { code, args, detail }`. `describeFailed(failure, translate)` rebuilds the `formatFailure` sentence in the active locale (codes: `SummaryError` codes, `Cli<Kind>`, `Unknown`).
+- **Title at save time.** `resolveTitle` runs on the freshly read record, so a user rename during the run wins and a still-placeholder title is replaced.
+- **Template stored.** A stored `custom` (or unknown) id stays on disk until the next generate, which stores the picked built-in id or null. It is never written back as `custom`.
+- **`regenerate`** is carried by the request for the UI's confirmation; the service writes either way.
+- **Clock** is only the fallback when a stored date does not parse.
+- **No RED run (S13).** Code and tests were written together; the tests passed on the first run.
+- **Not covered here.** Real provider cancel (kill the CLI, abort llama) is exercised in the S04, S05 and S11 tests, not through the service.
+
 ## Bugs fixed
 
+- **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
+- **B13** (S13): the cancel signal reaches the provider; a cancelled run answers `cancelled` and saves nothing.
+- **B34** (S13): `needs-setup` and `unavailable` are outcome values, not failures.
+- **B15** (S13): action items are returned with the outcome; the Jev part is dropped (owner decision 2026-11-03, may return later).
+- **B21** (S13): dropped with the custom template (owner decision 2026-11-03, may return later).
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
 - **B28** (S03): errors carry a code and args; `formatFailure` localizes them with the catalog of the active locale.
 - **B25** (S02): wrapping code fence, any header case and `**Action Items**` are accepted by the splitter.
@@ -347,6 +390,8 @@ Decisions (S12):
 - S12: S13 and S14 get providers only from `SummaryRuntime.resolver.resolveSummaryProvider(...)` and read settings only through the same `SettingsStore`. S15 constructs `new SummaryRuntime({ settings, hardware, models: fileLocalModelStore, llamaRoot, processJob: nativePorts.processJob })`, shares the one `FileLocalModelStore` with `SettingsRuntime`, and calls `runtime.dispose()` on before-quit.
 - S12: U3 and U4 (wizard, CLI setup dialog) handle `needs-setup`; their writes must go through `settings.update(patch)` (B19). S18 and S19 can show the Xai message from `unavailable`.
 - S12: `LocalModelStore` has no `pathFor` in the core port; `SummaryRuntime` takes `FileLocalModelStore` structurally. A fake store in other tests needs `pathFor` too.
+
+- S13 to S15 and S17: S15 builds `new SummaryService({ meetings, settings, resolver: runtime.resolver, clock, notifyMeetingChanged: (id) => workspace.notifyMeetingChanged(id), busy, placeholderFormats: [en MeetingTitleFormat, es MeetingTitleFormat] })` once and keeps one `CancelSource` per meeting for the cancel channel. S17 sends the picked `templateId`, maps `needs-setup` to the wizard (Local) or the CLI setup dialog, shows `failed` through `describeFailed`, and shows `Status_SetupCancelled` when the dialogs are closed. `Status_GeneratingSummary` and `Status_SummaryGenerated` are the UI's.
 
 ## Dropped by the owner
 

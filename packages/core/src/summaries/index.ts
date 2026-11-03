@@ -14,3 +14,6 @@ export * from './local-map-reduce';
 export * from './local-prompt-budget';
 export * from './provider-factory';
 export * from './provider-resolver';
+export * from './template-instructions';
+export * from './meeting-patch';
+export * from './summary-service';
