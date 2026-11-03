@@ -60,7 +60,11 @@ export function Select({
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner sideOffset={4} className="z-50 outline-none">
+        <BaseSelect.Positioner
+          sideOffset={4}
+          alignItemWithTrigger={false}
+          className="z-50 outline-none"
+        >
           <BaseSelect.Popup
             className={cn(popupSurface, popupColors, 'min-w-[var(--anchor-width)] p-1')}
           >

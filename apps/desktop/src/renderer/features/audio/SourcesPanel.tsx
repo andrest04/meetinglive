@@ -1,6 +1,6 @@
 import type { MicrophoneChoiceDto, MicrophoneOptionDto, SourceCardDto } from '@vozella/contracts';
 import { AppWindow, Volume2 } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { Translate } from '../../i18n/translate';
 import { Badge, Button, Field, Icon, Meter, Notice, RadioGroup, Select, Tooltip } from '../../ui';
@@ -31,6 +31,8 @@ function micChoiceOf(option: MicrophoneOptionDto): MicrophoneChoiceDto {
 export interface SourcesPanelProps {
   /** True while the page is visible and neither recording nor processing. */
   readonly active: boolean;
+  /** A take is running: the choices are shown but cannot change. */
+  readonly locked?: boolean;
   readonly onSelectionChange?: (selection: SourcesSelection) => void;
 }
 
@@ -39,7 +41,7 @@ export interface SourcesPanelProps {
  * the summary line, and the two bars that offer a change. Main owns the picker and the remembered
  * choices; this container shows the state and sends the user's picks.
  */
-export function SourcesPanel({ active, onSelectionChange }: SourcesPanelProps) {
+export function SourcesPanel({ active, locked = false, onSelectionChange }: SourcesPanelProps) {
   const t = useT();
   const microphones = useMicrophones();
   const picker = useSourcePicker(active);
@@ -95,8 +97,9 @@ export function SourcesPanel({ active, onSelectionChange }: SourcesPanelProps) {
   return (
     <section
       aria-labelledby="record-sources-heading"
-      className="flex flex-col gap-5"
+      className={locked ? 'flex flex-col gap-5 opacity-60' : 'flex flex-col gap-5'}
       data-testid="sources-panel"
+      inert={locked}
     >
       <div className="flex flex-col gap-1">
         <h2 id="record-sources-heading" className="text-read-lg font-semibold text-ink">
@@ -124,11 +127,13 @@ export function SourcesPanel({ active, onSelectionChange }: SourcesPanelProps) {
             }}
             className="w-64 max-w-full"
           />
-          <Meter
-            value={micKind === 'None' ? 0 : level}
-            label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
-            className="w-32"
-          />
+          {locked ? null : (
+            <Meter
+              value={micKind === 'None' ? 0 : level}
+              label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
+              className="w-32"
+            />
+          )}
         </div>
       </Field>
 
@@ -215,7 +220,7 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
       >
         <Tooltip content={tr('RecordPage_AppCardTooltip')} side="top">
           <span className="inline-flex min-h-5 items-center gap-2">
-            <Icon icon={AppWindow} className="text-ink-muted" />
+            <AppGlyph exePath={app.exePath} />
             {app.friendlyName}
           </span>
         </Tooltip>
@@ -232,4 +237,31 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
       <Meter value={card.isAvailable ? card.level : 0} label={app.friendlyName} className="w-24" />
     ),
   };
+}
+
+/**
+ * The executable's own icon (spec 131). Main reads and caches it; the generic glyph shows while it
+ * loads and when the app has none.
+ */
+function AppGlyph({ exePath }: { readonly exePath: string }) {
+  const [icon, setIcon] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    window.vozella.invoke('audio.apps.icon', { exePath }).then(
+      (answer) => {
+        if (alive) setIcon(answer.dataUrl);
+      },
+      () => {
+        // The glyph stays.
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [exePath]);
+  return icon ? (
+    <img src={icon} alt="" aria-hidden="true" className="size-4 shrink-0" draggable={false} />
+  ) : (
+    <Icon icon={AppWindow} className="text-ink-muted" />
+  );
 }

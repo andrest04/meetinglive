@@ -7,13 +7,13 @@ import { MicrophoneSection } from './MicrophoneSection';
 
 type Listener = (payload: unknown) => void;
 
-function installApi(saved: string | null) {
+function installApi(saved: string | null, slowLoad = false) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
   const listeners = new Set<Listener>();
   const invoke = (name: string, input: Record<string, unknown>): Promise<unknown> => {
     calls.push({ name, input });
     if (name === 'audio.microphones.load') {
-      return Promise.resolve({
+      const answer = {
         options: [
           { kind: 'None', deviceId: null, name: null },
           { kind: 'SystemDefault', deviceId: null, name: null },
@@ -21,7 +21,10 @@ function installApi(saved: string | null) {
           { kind: 'Device', deviceId: 'mic-2', name: 'Test headset' },
         ],
         selected: { kind: 'SystemDefault', deviceId: null },
-      });
+      };
+      return slowLoad
+        ? new Promise((resolve) => setTimeout(() => resolve(answer), 30))
+        : Promise.resolve(answer);
     }
     if (name === 'settings.get') return Promise.resolve({ selectedMicrophoneDeviceId: saved });
     return Promise.resolve({});
@@ -77,6 +80,20 @@ describe('MicrophoneSection', () => {
       'Test microphone',
       'Test headset',
     ]);
+  });
+
+  it('waits for the device list, so the preview never opens the default first', async () => {
+    const api = installApi('mic-2', true);
+    render(
+      <Providers>
+        <MicrophoneSection />
+      </Providers>,
+    );
+    await waitFor(() => {
+      expect(api.calls.some((c) => c.name === 'audio.preview.start')).toBe(true);
+    });
+    const starts = api.calls.filter((c) => c.name === 'audio.preview.start');
+    expect(starts.map((c) => c.input)).toEqual([{ deviceId: 'mic-2' }]);
   });
 
   it('saves a pick, and System default saves null', async () => {

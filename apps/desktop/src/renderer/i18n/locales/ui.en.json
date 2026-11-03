@@ -44,5 +44,6 @@
   "Ui_XaiSignInFailed": "Could not sign in with SuperGrok. {0}",
   "Ui_ProcessLoopbackUnsupported": "Recording one app is not available on this version of Windows. Record all system audio instead.",
   "Ui_MicDefaultTitle": "Default microphone",
-  "Ui_MicDefaultDescription": "Used for recordings unless you pick another one on the Record page."
+  "Ui_MicDefaultDescription": "Used for recordings unless you pick another one on the Record page.",
+  "Ui_TakeSaved": "Saved as {0} in the Inbox."
 }

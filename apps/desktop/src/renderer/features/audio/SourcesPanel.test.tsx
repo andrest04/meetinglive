@@ -35,6 +35,8 @@ interface FakeOptions {
   devices?: { id: string; name: string }[];
   state?: SourcePickerStateDto;
   failLoad?: boolean;
+  /** Icons by executable name; anything else has none. */
+  icons?: Record<string, string>;
 }
 
 function installApi(options: FakeOptions = {}) {
@@ -61,6 +63,11 @@ function installApi(options: FakeOptions = {}) {
           options: optionList(),
           selected: gone || !choice ? { kind: 'SystemDefault', deviceId: null } : choice,
         });
+      }
+      case 'audio.apps.icon': {
+        const exe = String(input.exePath);
+        const key = Object.keys(options.icons ?? {}).find((name) => exe.includes(name));
+        return Promise.resolve({ dataUrl: key ? (options.icons?.[key] ?? null) : null });
       }
       case 'audio.microphones.remember':
         return Promise.resolve({ saved: true });
@@ -245,6 +252,34 @@ describe('SourcesPanel meeting audio', () => {
       processId: 10,
     });
     expect(screen.getByTestId('sources-summary')).toHaveTextContent('Audio: Zoom');
+  });
+
+  it('draws the icon of each app executable and keeps the glyph where there is none (item 131)', async () => {
+    const api = installApi({ state: playing, icons: { Zoom: 'data:image/png;base64,AAAA' } });
+    const { container } = render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll('img[src^="data:image/png"]')).toHaveLength(1);
+    });
+    const zoom = screen.getByRole('radio', { name: /Zoom/ });
+    expect(zoom.closest('label, div')?.querySelector('img')).not.toBeNull();
+    const asked = api.calls.filter((c) => c.name === 'audio.apps.icon').map((c) => c.input);
+    expect(asked).toContainEqual({ exePath: String.raw`C:\apps\Zoom.exe` });
+    expect(asked).toContainEqual({ exePath: String.raw`C:\apps\Chrome.exe` });
+  });
+
+  it('locks the choices while a take runs', async () => {
+    installApi({ state: playing });
+    const { container } = render(
+      <Providers>
+        <SourcesPanel active={false} locked />
+      </Providers>,
+    );
+    await screen.findByRole('combobox', { name: 'Microphone' }, { hidden: true });
+    expect(container.querySelector('[inert]')).not.toBeNull();
   });
 
   it('shows the empty hint when no app plays', async () => {

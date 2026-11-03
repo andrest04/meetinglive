@@ -15,7 +15,8 @@ export function MicrophoneSection() {
   const t = useT();
   const [devices, setDevices] = useState<readonly MicrophoneOptionDto[]>([]);
   const [saved, setSaved] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [settingsRead, setSettingsRead] = useState(false);
+  const [devicesRead, setDevicesRead] = useState(false);
   const alive = useRef(true);
   const generation = useRef(0);
 
@@ -26,9 +27,11 @@ export function MicrophoneSection() {
       (loaded) => {
         if (!alive.current || mine !== generation.current) return;
         setDevices(loaded.options.filter((option) => option.kind === 'Device'));
+        setDevicesRead(true);
       },
       () => {
         // No list: only System default remains.
+        if (alive.current) setDevicesRead(true);
       },
     );
   }, []);
@@ -40,16 +43,20 @@ export function MicrophoneSection() {
       (settings) => {
         if (!alive.current) return;
         setSaved(settings.selectedMicrophoneDeviceId);
-        setReady(true);
+        setSettingsRead(true);
       },
       () => {
-        if (alive.current) setReady(true);
+        if (alive.current) setSettingsRead(true);
       },
     );
     return () => {
       alive.current = false;
     };
   }, [loadDevices]);
+
+  // Both answers are needed: with only the saved id the select would read System default and the
+  // preview would open the default input first, then move to the saved one.
+  const ready = settingsRead && devicesRead;
 
   // A saved device that is not plugged in reads as System default, as the list shows it.
   const value =
