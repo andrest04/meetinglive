@@ -331,3 +331,9 @@ Left for other modules:
 - meeting-popup e2e "no popup while recording": state leaked from the Start test, which auto-starts a take. The test now stops a running take first. Fixed.
 - W7 CSS durations and reduced-motion, hover reshow, multi-DPI popup placement: rejected as test gaps. Not observable in unit tests or a single-display e2e; the phase logic is covered and the ledger wording on W7 tests is limited to that.
 - Calendar section label and Take notes button weight: rejected, taste only; Calendar settings cut by owner decision 2026-11-03, may return later.
+
+## Audit follow-up 2
+
+- Settings section heading reads "Calendar" while only the call-popup toggle remains: rejected. The key is reused on purpose (copy rule), the section is the home of calendar-related settings that may return (owner decision 2026-11-03, may return later), and the toggle label states what it does.
+- Settings screenshot shows the toggle only in the off state: rejected. The on state is the default and is covered by `CallDetectionSection.test.tsx` and the persistence e2e; a second screenshot adds no information.
+- First e2e run had one flaky meeting-popup menuitem click under machine contention; the retry passed. Not a product defect.
