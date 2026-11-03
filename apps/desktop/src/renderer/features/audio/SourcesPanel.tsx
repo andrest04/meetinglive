@@ -3,7 +3,7 @@ import { AppWindow, Volume2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { Translate } from '../../i18n/translate';
-import { Badge, Button, Field, Icon, Meter, Notice, RadioGroup, Select, Tooltip } from '../../ui';
+import { Badge, Field, Icon, Meter, Notice, RadioGroup, Select, Tooltip } from '../../ui';
 import type { RadioOption } from '../../ui';
 import { sourcesSummaryArgs } from './recording-status';
 import { useMicrophonePreview } from './use-microphone-preview';
@@ -52,6 +52,7 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   const level = useMicrophonePreview(
     selectedMic?.kind === 'Device' ? selectedMic.deviceId : null,
     active && selectedMic !== null && micKind !== 'None',
+    'record',
   );
 
   const micOptions = useMemo(
@@ -151,29 +152,6 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
           <h3 className="text-ui font-medium text-ink">
             {t('RecordPage_MeetingAudioHeading.Text')}
           </h3>
-
-          {!locked && state?.suggestion ? (
-            <Notice
-              onDismiss={() => {
-                if (state.suggestion) picker.dismissSuggestion(state.suggestion.processId);
-              }}
-              dismissLabel={t('Ui_Close')}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <p className="font-medium">
-                  {t('RecordPage_SuggestionTitle', state.suggestion.friendlyName)}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (state.suggestion) picker.select(state.suggestion.processId);
-                  }}
-                >
-                  {t('RecordPage_SuggestionAction', state.suggestion.friendlyName)}
-                </Button>
-              </div>
-            </Notice>
-          ) : null}
 
           <RadioGroup
             label={t('ListRecordAudioSource.AutomationProperties.Name')}

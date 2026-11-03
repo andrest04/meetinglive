@@ -72,13 +72,12 @@ test('the idle level moves while a microphone is chosen and rests on None', asyn
   await expect(combo).toContainText('System default');
 });
 
-test('apps that play audio get cards with their tags and a suggestion', async () => {
+test('apps that play audio get cards with their tags', async () => {
   const group = page.getByRole('radiogroup', { name: 'Meeting audio' });
   await expect(group.getByRole('radio')).toHaveCount(4);
   await expect(group.getByRole('radio', { name: /All system audio/ })).toBeChecked();
   await expect(cardRow(/Zoom Workplace/)).toContainText('Detected');
   await expect(cardRow(/Google Chrome/)).toContainText('Records all tabs');
-  await expect(page.getByText('Zoom Workplace is in a call')).toBeVisible();
   await expect(page.getByText('Play audio in your meeting app to pick it here')).toHaveCount(0);
   await expect(group.getByRole('meter', { name: 'Zoom Workplace' })).toHaveAttribute(
     'aria-valuenow',
@@ -86,11 +85,10 @@ test('apps that play audio get cards with their tags and a suggestion', async ()
   );
 });
 
-test('using the suggestion selects the app, remembers it and hides the bar', async () => {
-  await page.getByRole('button', { name: 'Use Zoom Workplace' }).click();
+test('picking a card selects the app and remembers it', async () => {
+  await page.getByRole('radio', { name: /Zoom Workplace/ }).click();
   const zoom = page.getByRole('radio', { name: /Zoom Workplace/ });
   await expect(zoom).toBeChecked();
-  await expect(page.getByText('Zoom Workplace is in a call')).toHaveCount(0);
   await expect(page.getByTestId('sources-summary')).toContainText('Audio: Zoom Workplace');
   await expect.poll(() => settingsFile().recordOutputKind).toBe('App');
   expect(settingsFile().recordAppExePath).toBe('C:\\Fake\\Zoom.exe');

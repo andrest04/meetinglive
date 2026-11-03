@@ -236,6 +236,7 @@ describe('SourcesPanel microphone', () => {
     });
     expect(api.calls.find((c) => c.name === 'audio.preview.start')?.input).toEqual({
       deviceId: null,
+      owner: 'record',
     });
     api.emit('audio.preview.level', { level: 42 });
     expect(screen.getByRole('meter', { name: 'Microphone level' })).toHaveAttribute(
@@ -326,23 +327,19 @@ describe('SourcesPanel meeting audio', () => {
     expect(container.querySelector('[inert]')).not.toBeNull();
   });
 
-  it('shows no meter readings and no offers while a take runs', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
+  it('shows no meter readings while a take runs', async () => {
+    installApi({ state: playing });
     const view = (active: boolean, locked: boolean) => (
       <Providers>
         <SourcesPanel active={active} locked={locked} />
       </Providers>
     );
     const { rerender } = render(view(true, false));
-    expect(await screen.findByText('Zoom is in a call')).toBeVisible();
+    expect(await screen.findByRole('radio', { name: /Zoom/ })).toBeVisible();
     rerender(view(false, true));
-    expect(screen.queryByText('Zoom is in a call')).toBeNull();
     const meters = screen.getAllByRole('meter', { hidden: true });
     expect(meters.length).toBeGreaterThan(0);
     for (const meter of meters) expect(meter).toHaveAttribute('aria-valuenow', '0');
-    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
   });
 
   it('shows the empty hint when no app plays', async () => {
@@ -390,45 +387,6 @@ describe('SourcesPanel meeting audio', () => {
     expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
     api.emit('audio.sources.changed', { ...playing, cards: [first, ...rest, extra].reverse() });
     expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
-  });
-
-  it('offers the suggested app and remembers dismissal', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
-    render(
-      <Providers>
-        <SourcesPanel active />
-      </Providers>,
-    );
-    expect(await screen.findByText('Zoom is in a call')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Use Zoom' }));
-    await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Zoom/ })).toBeChecked();
-    });
-    expect(api.calls.find((c) => c.name === 'audio.sources.select')?.input).toEqual({
-      processId: 10,
-    });
-    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
-  });
-
-  it('dismisses the suggestion with its close button', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
-    render(
-      <Providers>
-        <SourcesPanel active />
-      </Providers>,
-    );
-    await screen.findByText('Zoom is in a call');
-    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    await waitFor(() => {
-      expect(screen.queryByText('Zoom is in a call')).toBeNull();
-    });
-    expect(api.calls.find((c) => c.name === 'audio.sources.dismissSuggestion')?.input).toEqual({
-      processId: 10,
-    });
   });
 
   it('explains a fallback to all system audio and closes it', async () => {
