@@ -8,6 +8,7 @@ import {
 import { GalleryRoute } from '../features/gallery/GalleryRoute';
 import { LibraryRoute } from '../features/library/LibraryRoute';
 import { RecordRoute } from '../features/record/RecordRoute';
+import { SessionRoute } from '../features/session/SessionRoute';
 import { SettingsRoute } from '../features/settings/SettingsRoute';
 import { AppShell } from '../features/shell/AppShell';
 
@@ -31,6 +32,11 @@ const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library',
   component: LibraryRoute,
+});
+const sessionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/session',
+  component: SessionRoute,
 });
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -56,6 +62,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   recordRoute,
   libraryRoute,
+  sessionRoute,
   settingsRoute,
   galleryRoute,
 ]);

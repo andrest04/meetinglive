@@ -1,4 +1,6 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import type { ShellTag } from '@vozella/core';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { Library, Mic, Settings, type LucideIcon } from 'lucide-react';
 import { readStored, writeStored } from '../../app/preference-storage';
 import { useT } from '../../i18n/I18nProvider';
@@ -22,6 +24,43 @@ const NAV: readonly NavEntry[] = [
   { to: '/settings', label: 'Nav_Settings', icon: Settings },
 ];
 
+const ROUTE_OF_TAG: Readonly<Record<ShellTag, NavEntry['to'] | '/session'>> = {
+  Recording: '/record',
+  History: '/library',
+  Settings: '/settings',
+  Session: '/session',
+};
+
+function tagOfPath(pathname: string): ShellTag | null {
+  const match = (Object.entries(ROUTE_OF_TAG) as [ShellTag, string][]).find(
+    ([, route]) => route === pathname,
+  );
+  return match ? match[0] : null;
+}
+
+/** The shell is the only listener of navigation requests, and tells the workspace where it is. */
+function useWorkspaceNavigation(): void {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  useEffect(
+    () =>
+      window.vozella.on('workspace.navigationRequested', ({ tag }) => {
+        void navigate({ to: ROUTE_OF_TAG[tag] });
+      }),
+    [navigate],
+  );
+
+  useEffect(() => {
+    const tag = tagOfPath(pathname);
+    if (tag) {
+      void window.vozella.invoke('workspace.dispatch', {
+        action: { type: 'setCurrentShellTag', tag },
+      });
+    }
+  }, [pathname]);
+}
+
 function storedSidebarWidth(): number {
   const stored = Number(readStored(SIDEBAR_KEY));
   return Number.isFinite(stored) && stored >= SIDEBAR_MIN && stored <= SIDEBAR_MAX
@@ -32,6 +71,10 @@ function storedSidebarWidth(): number {
 /** Window frame: a sidebar and a content area that share the custom title bar strip at the top. */
 export function AppShell() {
   const t = useT();
+  useWorkspaceNavigation();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // The library has a folder pane beside its list, so it gets a wider column than the documents.
+  const wide = pathname === '/library';
   return (
     <div className="h-screen bg-paper text-ink">
       <button
@@ -63,7 +106,12 @@ export function AppShell() {
               tabIndex={-1}
               className="min-h-0 flex-1 overflow-y-auto pb-16 outline-none"
             >
-              <div className="mx-auto w-full max-w-[720px] px-10 pt-8">
+              <div
+                className={cn(
+                  'mx-auto w-full px-10 pt-8',
+                  wide ? 'max-w-[960px]' : 'max-w-[720px]',
+                )}
+              >
                 <Outlet />
               </div>
             </main>
