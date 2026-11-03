@@ -64,7 +64,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 2 | done | `SettingsPage_Title.Text`, used by the existing route |
 | 3 | improved | A skeleton of text lines under the page title (name `Ui_SettingsLoading`) instead of a 32 px ring, and no content is drawn until the first answer, so defaults never paint (`SettingsRoute.test.tsx`) |
 | 4 | improved | The route is not cached: each visit mounts the page, which reads `settings.getPage` again. Decision: with no view model to keep alive, a fresh read is the simpler way to show what is saved |
-| 5 | improved | No fade: content replaces the skeleton in one step. Decision: a 150 ms fade on a settings list adds nothing, and nothing here animates, so reduced motion has nothing to turn off |
+| 5 | done | The loaded content fades in over 150 ms (`animate-fade-in`, ease-out opacity, stack.md Motion). The global reduced-motion rule shrinks it to 0.01 ms, so it is off for that setting (`SettingsRoute.test.tsx`) |
 | 6 | done | `SettingsPageService.load` reads settings and hardware together (`Promise.all`). The ring painting first is UI |
 | 7 | done | `alive` ref: an answer that arrives after the page unmounted changes nothing. The load writes nothing (e2e: no `settings.json` after opening) |
 | 8 | done | One `SettingsPageDto` in state; every block draws from it in one render |
@@ -148,23 +148,25 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ### Grok (xAI)
 
+Audit fix: these rows were `done` because the double passes them, but a real build registers no `XaiAccountPort`, so the account block is not reachable there. The rows marked `pending-xai-module` are verified against `FakeXaiAccount` only. Decision: the Grok radio is drawn only when `capabilities.xaiAccount` is true, or when Grok is already the saved choice (so a saved value is never hidden). A real build therefore does not offer a control that does nothing. The xAI module registers the port and the radio appears. The xAI card now shows a busy bar (`Progress`, indeterminate, `aria-busy`) while a refresh, save, sign in or sign out runs.
+
 | # | Status | Notes |
 | --- | --- | --- |
-| 61 | done | `XaiAccount.tsx`: status row with title, detail, a check when signed in, Sign in or Sign out. Sign in only when `capabilities.xaiSignIn` |
-| 62 | done | Title and detail kinds for OAuth, ApiKey, none; loading-models only until models are loaded for these credentials (`settings-services.test.ts`) |
+| 61 | pending-xai-module | `XaiAccount.tsx`: status row with title, detail, a check when signed in, Sign in or Sign out. Sign in only when `capabilities.xaiSignIn` |
+| 62 | pending-xai-module | Title and detail kinds for OAuth, ApiKey, none; loading-models only until models are loaded for these credentials (`settings-services.test.ts`) |
 | 63 | done | `status()` reads only the local store and seeds the saved model |
-| 64 | done | `refresh()`: token, models, `resolveXaiModelId`, `mergeModelList`, persist when it differs, ready detail |
+| 64 | pending-xai-module | `refresh()`: token, models, `resolveXaiModelId`, `mergeModelList`, persist when it differs, ready detail |
 | 65 | done | All five spec rows, saved casing, preferred order, listed casing, empty list |
 | 66 | done | Removes absent, inserts at index, keeps the resolved id, does not reorder |
-| 67 | improved | B14. Title `error`, raw message in the detail, `signedIn` stays true (the credentials are there), models kept, `canRetry` true |
-| 68 | done | A signed-out refresh clears the list |
-| 69 | done | Model and effort Selects are disabled while signed out (e2e) |
+| 67 | pending-xai-module | B14. Title `error`, raw message in the detail, `signedIn` stays true (the credentials are there), models kept, `canRetry` true |
+| 68 | pending-xai-module | A signed-out refresh clears the list |
+| 69 | pending-xai-module | Model and effort Selects are disabled while signed out (e2e) |
 | 70 | done | `none, low, medium, high, xhigh`, default `low` |
-| 71 | done | `setCliOption` for xAI; `status()` rebuilds the ready detail from the saved values |
-| 72 | done | Password input with a Show key and Hide key button (peek) and Save, disabled while blank (e2e) |
-| 73 | done | Save clears the box on success, refreshes the models and shows `Xai_FeedbackApiKey`. The key never reaches `settings.json` (e2e asserts it) |
-| 74 | done | `signOut` returns `Xai_FeedbackSignedOut` and a refreshed signed-out view |
-| 75 | pending-real-validation | `settings.xai.signIn` is wired and tested with a double. The device code flow and a real account belong to the xAI module |
+| 71 | pending-xai-module | `setCliOption` for xAI; `status()` rebuilds the ready detail from the saved values |
+| 72 | pending-xai-module | Password input with a Show key and Hide key button (peek) and Save, disabled while blank (e2e) |
+| 73 | pending-xai-module | Save clears the box on success, refreshes the models and shows `Xai_FeedbackApiKey`. The key never reaches `settings.json` (e2e asserts it) |
+| 74 | pending-xai-module | `signOut` returns `Xai_FeedbackSignedOut` and a refreshed signed-out view |
+| 75 | pending-xai-module | `settings.xai.signIn` is wired and tested with a double. The device code flow and a real account belong to the xAI module |
 | 76 | done | The same Notice serves Claude, Codex and Grok |
 | 77 | done | Key used |
 
@@ -284,6 +286,8 @@ Decided, not a code change: 7.19 (see Decisions). Not changed on purpose: 7.22 (
 - Notices, a failed read with Try again, model failures, `Ui_ModelMissing`, the Cancel download button, delete busy, the xAI controls behind `capabilities`, Check again, and the brand marks are all in.
 - Decision: Delete asks no confirmation, as in the WinUI page. The file can be downloaded again, and the choice returns to none, which the page says.
 - Data root note: choosing a folder is unchanged from library-storage. A production build with no `VOZELLA_DATA_ROOT` accepts any folder, including an existing MeetingLive one, and the Data block shows `Ui_LibraryFolderShared` when it does; dev, test and the env override refuse it. No run here touched a MeetingLive folder.
+
+Audit, rejected: the Claude mark keeps `#D97757`. _gaps.md section 1 asks for it explicitly, and it is the one documented brand color on the page.
 
 **xAI module**: implement `XaiAccountPort` (credential store with `safeStorage`, token refresh, model list, API key replacing OAuth credentials), pass it as `xaiAccount` to `SettingsRuntime`, and pass `xaiSignIn` to `registerSettingsHandlers`.
 

@@ -2,7 +2,7 @@ import type { XaiAccountViewDto } from '@vozella/contracts';
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
-import { Button, Icon, IconButton, Input, Select, SettingRow } from '../../ui';
+import { Button, Icon, IconButton, Input, Progress, Select, SettingRow } from '../../ui';
 
 const TITLE_KEYS = {
   'signed-out': 'Xai_StatusSignedOut',
@@ -57,7 +57,8 @@ export function XaiAccount({
   })();
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" aria-busy={busy}>
+      {busy ? <Progress value={null} label={t('Ui_Loading')} className="pb-2" /> : null}
       <SettingRow title={t(TITLE_KEYS[view.title])} {...(detail ? { description: detail } : {})}>
         {view.signedIn && view.title !== 'error' ? (
           <Icon icon={Check} className="text-ink-muted" />

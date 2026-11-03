@@ -193,6 +193,43 @@ describe('Settings page', () => {
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
+  it('does not offer Grok when no account module exists, unless it is already chosen', async () => {
+    install({
+      'settings.getPage': () =>
+        pageDto({
+          capabilities: { xaiAccount: false, xaiSignIn: false, localModels: true },
+        }),
+    });
+    mount();
+    expect(await screen.findByRole('radio', { name: 'Local (on this device)' })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: 'Grok (xAI)' })).toBeNull();
+  });
+
+  it('fades the content in, and shows a busy bar on the Grok card while it works', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    install({
+      'settings.getPage': () =>
+        pageDto({
+          provider: 'Xai',
+          xai: xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' }),
+        }),
+      'settings.xai.refresh': () =>
+        xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' }),
+      'settings.xai.signOut': () => new Promise((resolve) => (finish = resolve)),
+    });
+    mount();
+    expect(await screen.findByTestId('settings-content')).toHaveClass('animate-fade-in');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByRole('progressbar')).toBeInTheDocument();
+    act(() => {
+      finish({ status: 'ok', view: xai(), feedback: null });
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    });
+  });
+
   it('puts a control back and says so when a change is not saved', async () => {
     install({
       'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),

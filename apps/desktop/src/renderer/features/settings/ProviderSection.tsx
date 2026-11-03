@@ -122,7 +122,9 @@ export function ProviderSection({
             { value: 'Local', label: label(t('Settings_ProviderLocal.Text'), 'Local') },
             { value: 'ClaudeCode', label: label(t('Settings_ProviderClaude.Text'), 'ClaudeCode') },
             { value: 'Codex', label: label(t('Settings_ProviderCodex.Text'), 'Codex') },
-            { value: 'Xai', label: label(t('Settings_ProviderXai.Text'), 'Xai') },
+            ...(capabilities.xaiAccount || provider === 'Xai'
+              ? [{ value: 'Xai' as const, label: label(t('Settings_ProviderXai.Text'), 'Xai') }]
+              : []),
           ]}
         />
       </div>

@@ -77,7 +77,7 @@ export function SettingsRoute() {
       ) : null}
 
       {page ? (
-        <>
+        <div className="flex animate-fade-in flex-col gap-8" data-testid="settings-content">
           {page.notices.map((notice) => (
             <Notice
               key={notice.id}
@@ -101,7 +101,7 @@ export function SettingsRoute() {
               onChange={model.setMeetingLanguage}
             />
           ) : null}
-        </>
+        </div>
       ) : null}
       {built.has('data') ? <DataSection /> : null}
     </section>
