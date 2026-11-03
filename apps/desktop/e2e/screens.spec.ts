@@ -50,18 +50,21 @@ for (const theme of ['light', 'dark'] as const) {
       window.location.hash = '#/record';
     });
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(outDir, `shell-record-${theme}.png`) });
 
     await page.evaluate(() => {
       window.location.hash = '#/settings';
     });
     await expect(page.getByRole('radio', { name: /dark|oscuro/i })).toBeVisible();
+    await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(outDir, `shell-settings-${theme}.png`) });
 
     await page.evaluate(() => {
       window.location.hash = '#/library';
     });
     await expect(page.getByRole('searchbox')).toBeVisible();
+    await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(outDir, `shell-library-${theme}.png`) });
 
     await page.evaluate(() => {
@@ -73,6 +76,7 @@ for (const theme of ['light', 'dark'] as const) {
       () => (document.getElementById('content')?.scrollHeight ?? 1200) + 40,
     );
     await resizeWindow(1120, Math.min(height, 4000));
+    await page.waitForTimeout(350);
     await page.screenshot({ path: path.join(outDir, `gallery-${theme}.png`) });
     await resizeWindow(1120, 740);
   });
@@ -87,10 +91,12 @@ test('open overlays in dark', async () => {
   await page.getByRole('button', { name: 'Actions' }).click();
   await expect(page.getByRole('menu')).toBeVisible();
   await page.waitForTimeout(400);
+  await page.waitForTimeout(350);
   await page.screenshot({ path: path.join(outDir, 'gallery-menu-dark.png') });
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Open dialog' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.waitForTimeout(400);
+  await page.waitForTimeout(350);
   await page.screenshot({ path: path.join(outDir, 'gallery-dialog-dark.png') });
 });
