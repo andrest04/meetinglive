@@ -199,6 +199,68 @@ describe('Settings page', () => {
     });
   });
 
+  it('offers Set up when no model is active, and it opens the wizard on the hardware step (S20)', async () => {
+    let closed = 0;
+    install({
+      'settings.getPage': () => {
+        closed += 1;
+        return pageDto();
+      },
+      'summaries.hardware': () => new Promise(() => undefined),
+    });
+    mount();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Set up' }));
+    expect(await screen.findByRole('dialog', { name: 'Set up summary generation' })).toBeVisible();
+    expect(screen.getByText('Detecting hardware...')).toBeVisible();
+    expect(screen.queryByText('Choose how to generate summaries')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    // Leaving the wizard reads the page again, so a model chosen there shows at once.
+    expect(closed).toBeGreaterThan(1);
+  });
+
+  it('hides Set up once a model is active, and for the CLI providers (S20)', async () => {
+    install({
+      'settings.getPage': () =>
+        pageDto({
+          models: {
+            rows: [model('b.gguf', 'Model B', { downloaded: true, active: true })],
+            missingActiveId: null,
+          },
+        }),
+    });
+    mount();
+    await screen.findByRole('radiogroup', { name: 'Summary models' });
+    expect(screen.queryByRole('button', { name: 'Set up' })).toBeNull();
+  });
+
+  it('saves one field, shows the saved bar, and sends nothing for the value already shown (174, 175)', async () => {
+    const calls = install({
+      'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),
+      'settings.setCliOption': () => ({
+        status: 'saved',
+        settings: {},
+        feedback: { key: 'Xai_FeedbackModel', args: ['sonnet · high'] },
+      }),
+    });
+    mount();
+    const user = userEvent.setup();
+    await screen.findByText('Detected on PATH.');
+    await user.click(screen.getByRole('combobox', { name: 'Effort' }));
+    await user.click(await screen.findByRole('option', { name: 'low' }));
+    expect(calls.filter((c) => c.name === 'settings.setCliOption')).toHaveLength(0);
+
+    await user.click(screen.getByRole('combobox', { name: 'Effort' }));
+    await user.click(await screen.findByRole('option', { name: 'high' }));
+    expect(await screen.findByText('Saved. Using sonnet · high.')).toBeInTheDocument();
+    expect(calls.filter((c) => c.name === 'settings.setCliOption').map((c) => c.input)).toEqual([
+      { provider: 'claude', field: 'effort', value: 'high' },
+    ]);
+  });
+
   it('puts a control back and says so when a change is not saved', async () => {
     install({
       'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),

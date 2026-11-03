@@ -1,7 +1,9 @@
 import type { SettingsPageDto } from '@vozella/contracts';
 import { CLI_STATUS_KEYS } from '@vozella/core';
+import { useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Button, Notice, RadioGroup, SectionHeader, Select, SettingRow } from '../../ui';
+import { SetupWizardDialog } from '../summaries/SetupWizardDialog';
 import { LocalModels } from './LocalModels';
 import { ProviderMark } from './ProviderMark';
 import type { SettingsPageModel } from './use-settings-page';
@@ -94,6 +96,8 @@ export function ProviderSection({
 }) {
   const t = useT();
   const { provider, capabilities } = page;
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const noActiveModel = !page.models.rows.some((row) => row.active);
 
   const label = (text: string, kind: 'ClaudeCode' | 'Codex' | 'Local') => (
     <span className="inline-flex items-center gap-2">
@@ -190,6 +194,19 @@ export function ProviderSection({
             level={3}
             title={t('Settings_SummaryModels.Header')}
             description={t('Settings_SummaryModels.Description')}
+            action={
+              noActiveModel ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setWizardOpen(true);
+                  }}
+                >
+                  {t('RecordingSetup_SetUp')}
+                </Button>
+              ) : undefined
+            }
           />
           <div className="pt-1">
             <LocalModels
@@ -208,6 +225,15 @@ export function ProviderSection({
           </div>
         </div>
       ) : null}
+
+      <SetupWizardDialog
+        open={wizardOpen}
+        mode="local-only"
+        onFinished={() => {
+          setWizardOpen(false);
+          void model.load();
+        }}
+      />
 
       {model.feedback ? (
         <Notice className="mt-4" onDismiss={model.clearFeedback} dismissLabel={t('Ui_Close')}>

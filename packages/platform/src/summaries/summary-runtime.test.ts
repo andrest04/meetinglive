@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   CancelSource,
+  SettingsCommands,
   SUMMARY_MODELS,
   parseOffsetDate,
   type CliPathProbe,
@@ -116,6 +117,43 @@ describe('SummaryRuntime on a real settings.json', () => {
     expect(b!.executable).toBe('codex');
     expect(b!.args).toContain('gpt-5.5');
     expect(b!.args.join(' ')).toContain('medium');
+  });
+
+  it('B2 end to end: a model and effort chosen on the Settings page reach the next CLI call (174, 175)', async () => {
+    const t = build();
+    const commands = new SettingsCommands({
+      store: new JsonSettingsStore({ settingsFilePath: settingsFile }),
+      osLanguages: () => ['en-US'],
+    });
+    expect(await commands.setSummaryProvider('ClaudeCode')).toMatchObject({ status: 'saved' });
+    const model = await commands.setCliOption({
+      provider: 'claude',
+      field: 'model',
+      value: 'opus',
+    });
+    expect(model).toMatchObject({ status: 'saved' });
+    const effort = await commands.setCliOption({
+      provider: 'claude',
+      field: 'effort',
+      value: 'high',
+    });
+    expect(effort).toMatchObject({
+      status: 'saved',
+      feedback: { key: 'Xai_FeedbackModel', args: ['opus · high'] },
+    });
+    const ready = await t.runtime.resolver.resolveSummaryProvider();
+    if (ready.status !== 'ready') throw new Error('not ready');
+    await ready.provider.summarize(request, never);
+    const call = t.runner.calls[0]!;
+    expect(call.executable).toBe('claude');
+    expect(call.args).toContain('opus');
+    expect(call.args.join(' ')).toContain('high');
+    // The page asked again later still sees what the provider used.
+    await commands.setCliOption({ provider: 'claude', field: 'model', value: 'haiku' });
+    const again = await t.runtime.resolver.resolveSummaryProvider();
+    if (again.status !== 'ready') throw new Error('not ready');
+    await again.provider.summarize(request, never);
+    expect(t.runner.calls[1]!.args).toContain('haiku');
   });
 
   it('reads PascalCase files too and defaults to sonnet/low and gpt-5.6/low', async () => {
