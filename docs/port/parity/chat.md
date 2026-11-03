@@ -108,6 +108,48 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 - Chat-9: use `chat.copyText`, `chat.meetingExists` and `chat.openExternal`; never `navigator.clipboard` or `window.open`.
 - Tests for the controller and handlers use a service double (written together with the code, not RED first); the contract and reader tests also came with the code.
 
+## Chat-5 (related meetings, snippet, brief cut)
+
+- **B15 rule (decision).** Fences, `**`, `__` and backticks are removed in the spec order. A single or doubled `*` and `_` is removed only when it wraps text: the opener has no word character before it and no space after it, the closer has no space before it and no word character after it. `snake_case`, file names, URLs and `a*b` keep their markers; `*it*` and `_it_` lose them. Row 138 follows this rule.
+- **Related UI.** `SummaryTab` calls `chat.meetingExists` before it navigates.
+- **B22.** `Chat_ScopeFolder` is still in `en.json` and `es.json` ("Folder", "Carpeta") and `LibraryRoute.tsx` uses it for the folder crumbs label (lines 178 and 242).
+- **B23.** The chat strings exist in en and es, with the same keys.
+
+### Section 6 test map (chat-5)
+
+| WinUI test | Vitest case |
+| --- | --- |
+| `MeetingSnippetTests.From_WhenSummaryPresent_PrefersSummaryOverTranscript` | `snippet.test.ts` "prefers the summary over the transcript" |
+| `From_WhenSummaryMissing_UsesTranscript` | "falls back to the transcript body without headers, stamps, or speaker tags" |
+| `From_WhenBothEmpty_ReturnsEmpty` | "is empty when both are empty" |
+| `FromMarkdown_StripsAtxHeadingsEmphasisAndBackticks` | "strips headings, emphasis and backticks, preferring body text" |
+| `FromMarkdown_WhenOnlyHeadings_KeepsHeadingText` | "keeps heading text when there is nothing else" |
+| `From_WhenSummaryMissing_DropsTranscriptHeadersStampsAndSpeakerTags` | the transcript fallback test above plus `committedLineBody` tests |
+| `From_WhenTranscriptHasOnlyHeaders_ReturnsEmpty` | "is empty when the transcript has only headers" |
+| `FromMarkdown_CollapsesWhitespace` | "collapses whitespace and joins lines with one space" |
+| `FromMarkdown_TruncatesToMaxLengthWithEllipsis` | "truncates to 140 characters plus an ellipsis" |
+| `FromMarkdown_LeavesShortPlainTextUnchanged` | "leaves short text unchanged" |
+| `RelatedMeetingsTests.Find_SharedSeriesId_ReturnsOtherMeetingsNewestFirst` | `related-meetings.test.ts` "matches a shared series id with a different title" and "is newest first and capped at 5" |
+| `Find_ExactTrimmedTitle_MatchesWithoutSeries` | "matches the exact trimmed title, case-sensitive" |
+| `Find_EmptySeriesId_DoesNotMatchOtherEmptySeries` | "a blank series never matches a blank series" |
+| `Find_SameCalendarEvent_ReturnsNewestAndIgnoresBlankIds` (`FindByEventId`) | dropped, owner decision 2026-11-03, may return later (calendar cut) |
+| `MeetingBriefPromptBuilderTests` (7) | dropped, owner decision 2026-11-03, may return later (calendar cut) |
+
+### Bugs fixed (chat-5)
+
+- B11: blank or whitespace titles never relate two meetings; a shared series id still does. The summaries test that expected the old behavior was replaced.
+- B15: emphasis markers inside words, URLs and file names are kept (rule above).
+- B10 (snippet): the 140 cut never splits a surrogate pair.
+- B16: verified, the snippet is computed once when the index lists meetings.
+- B21: a related meeting that no longer exists shows `Chat_MeetingLinkMissing` instead of navigating.
+- B22, B23: verified, see above.
+- B12-brief, B13, S4: dropped with the brief (owner decision 2026-11-03, may return later (calendar cut)).
+
+### Left for other modules (chat-5)
+
+- Chat-6 to 8: the remaining automation ids of row 153.
+- Dropped, owner decision 2026-11-03, may return later (calendar cut): items 143 to 151, `MeetingBriefPromptBuilder`, RecordPage brief lifecycle, `BriefSection`, `TxtMeetingBrief`, `InfoBriefError`, `CalendarMeetingMatch.FindByEventId`.
+
 ## Items
 
 | # | Item | Package | Status | Notes |
@@ -241,29 +283,29 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 127 | Button visible only in Meeting scope when TypeSafe is enabled and an API key exists. | dropped | dropped |  |
 | 128 | Click opens the Personal tasks dialog for the current meeting id; ignores clicks while opening. | dropped | dropped |  |
 | 129 | Availability is re-read on scope refresh and when the bar expands. | dropped | dropped |  |
-| 130 | Related = other meetings with the same trimmed non-empty series id OR the same trimmed title (ordinal, case-sensitive), excluding the current id. | chat-5 | pending |  |
-| 131 | Order by `RecordedAt` desc. | chat-5 | pending |  |
-| 132 | Blank series ids never match each other. | chat-5 | pending |  |
-| 133 | Summary page shows at most 5, newest first, with title and local short date-time. | chat-5 | pending |  |
-| 134 | Section hidden when empty; click opens that meeting's Summary tab. | chat-5 | pending |  |
-| 135 | Summary preferred over transcript when summary is not blank. | chat-5 | pending |  |
-| 136 | Transcript fallback drops `Recorded `/`Ended ` header lines, timestamp ranges, and `[ Speaker-N ]` tags. | chat-5 | pending |  |
-| 137 | Heading lines (1 to 6 `#` then space or end) go to a secondary buffer used only when no body text exists. | chat-5 | pending |  |
-| 138 | Marker stripping removes ```` ``` ````, `**`, `__`, `` ` ``, `*`, `_` in that order. | chat-5 | pending |  |
-| 139 | Whitespace runs collapse to one space; result trimmed. | chat-5 | pending |  |
-| 140 | Truncate to 140 chars plus `…`. | chat-5 | pending |  |
-| 141 | Empty snippet shows `History_NoContent`. | chat-5 | pending |  |
-| 142 | Snippet computed once per meeting row load (B16 improvement). | chat-5 | pending |  |
-| 143 | `HasUsefulContext` gate runs before any provider setup or model call. | chat-5 | pending |  |
-| 144 | Brief prompt text matches 3.10 verbatim, with attendees joined by `, `, agenda trimmed, and at most 3 prior meetings. | chat-5 | pending |  |
-| 145 | Prior meeting block includes title attribute, summary, notes, action item texts joined by `; `, each defaulting to `(none)`. | chat-5 | pending |  |
-| 146 | Normalize returns null for blank or `NONE` (case-insensitive). | chat-5 | pending |  |
-| 147 | Generation counter discards stale results after the note is reset or another event is opened. | chat-5 | pending |  |
-| 148 | Provider failure shows `RecordPage_BriefFailedFormat` with the mapped message; cancelled provider setup is silent. | chat-5 | pending |  |
-| 149 | Brief persists to the linked existing meeting; save errors show in the same error bar. | chat-5 | pending |  |
-| 150 | Brief shown only while the coming-up note is open and not processing; passed to the pipeline and to live answers. | chat-5 | pending |  |
-| 151 | Brief renders as Markdown in the port (B13). | chat-5 | pending |  |
+| 130 | Related = other meetings with the same trimmed non-empty series id OR the same trimmed title (ordinal, case-sensitive), excluding the current id. | chat-5 | done | `findRelated` in `summaries/related-meetings.ts`; tests in `related-meetings.test.ts`. Blank titles no longer match (B11). |
+| 131 | Order by `RecordedAt` desc. | chat-5 | done | Sort by parsed instant, ties keep input order (test "orders by instant"). |
+| 132 | Blank series ids never match each other. | chat-5 | done | Test "a blank series never matches a blank series". |
+| 133 | Summary page shows at most 5, newest first, with title and local short date-time. | chat-5 | done | Cap of 5 tested; renderer shows title and local date (`SummaryTab.test.tsx` related meetings). |
+| 134 | Section hidden when empty; click opens that meeting's Summary tab. | chat-5 | improved | Hidden when empty (tested). Click checks `chat.meetingExists` first; a missing meeting shows `Chat_MeetingLinkMissing` and does not navigate (B21). |
+| 135 | Summary preferred over transcript when summary is not blank. | chat-5 | done | `snippet.test.ts` "prefers the summary over the transcript". |
+| 136 | Transcript fallback drops `Recorded `/`Ended ` header lines, timestamp ranges, and `[ Speaker-N ]` tags. | chat-5 | done | `snippet.test.ts` transcript fallback test; line grammar is the transcription parser. |
+| 137 | Heading lines (1 to 6 `#` then space or end) go to a secondary buffer used only when no body text exists. | chat-5 | done | `snippet.test.ts` heading tests. |
+| 138 | Marker stripping removes ```` ``` ````, `**`, `__`, `` ` ``, `*`, `_` in that order. | chat-5 | improved | Fences, `**`, `__`, backticks kept in spec order; single and doubled `*` and `_` are stripped only when they wrap text (B15 rule in `snippet.ts`). |
+| 139 | Whitespace runs collapse to one space; result trimmed. | chat-5 | done | `snippet.test.ts` "collapses whitespace". |
+| 140 | Truncate to 140 chars plus `…`. | chat-5 | improved | 140 UTF-16 units plus the ellipsis, cut never splits a surrogate pair (B10, `cutPrefix`). |
+| 141 | Empty snippet shows `History_NoContent`. | chat-5 | done | Library row shows `History_NoContent` for an empty snippet (library module). |
+| 142 | Snippet computed once per meeting row load (B16 improvement). | chat-5 | done | The snippet is built once when the index lists the meetings (`markdown-meeting-repository.test.ts` "walks every depth and returns the light items", `snippet: 'Body'`); the UI never recomputes it (B16). |
+| 143 | `HasUsefulContext` gate runs before any provider setup or model call. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 144 | Brief prompt text matches 3.10 verbatim, with attendees joined by `, `, agenda trimmed, and at most 3 prior meetings. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 145 | Prior meeting block includes title attribute, summary, notes, action item texts joined by `; `, each defaulting to `(none)`. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 146 | Normalize returns null for blank or `NONE` (case-insensitive). | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 147 | Generation counter discards stale results after the note is reset or another event is opened. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 148 | Provider failure shows `RecordPage_BriefFailedFormat` with the mapped message; cancelled provider setup is silent. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 149 | Brief persists to the linked existing meeting; save errors show in the same error bar. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 150 | Brief shown only while the coming-up note is open and not processing; passed to the pipeline and to live answers. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
+| 151 | Brief renders as Markdown in the port (B13). | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-1 (context strings only) | done (context strings) |  |
-| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | pending |  |
+| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). |
 | 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
 | 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |

@@ -1,19 +1,30 @@
+import { cutPrefix } from '../chat/text-cut';
 import { extractCommittedBody, isTranscriptHeader } from '../transcription/committed-line';
 
 export const SNIPPET_MAX_LENGTH = 140;
 
 const HEADING = /^#{1,6}(?:\s|$)/;
 
+// B15 rule: after the fences (```), double markers and backticks are removed as in the spec,
+// but a single `*` or `_` (and a doubled one) is removed only when it wraps text: the opener is
+// not glued to a word character before it and not followed by a space, the closer is not
+// preceded by a space and not glued to a word character after it. So `snake_case`, file names,
+// URLs and `a*b` keep their markers while `*it*` and `_it_` lose them.
+const WRAP_STAR2 = /\*\*(?=\S)(.+?)(?<=\S)\*\*/g;
+const WRAP_UNDER2 = /(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)/g;
+const WRAP_STAR = /(?<![\w*])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![\w*])/g;
+const WRAP_UNDER = /(?<![\w_])_(?=[^\s_])(.+?)(?<=[^\s_])_(?![\w_])/g;
+
 function stripMarkers(line: string, heading: boolean): string {
   let text = line.trim();
   if (heading) text = text.replace(/^#{1,6}\s*/, '');
   return text
     .replace(/```/g, '')
-    .replace(/\*\*/g, '')
-    .replace(/__/g, '')
+    .replace(WRAP_STAR2, '$1')
+    .replace(WRAP_UNDER2, '$1')
     .replace(/`/g, '')
-    .replace(/\*/g, '')
-    .replace(/_/g, '')
+    .replace(WRAP_STAR, '$1')
+    .replace(WRAP_UNDER, '$1')
     .trim();
 }
 
@@ -30,7 +41,7 @@ export function snippetFromMarkdown(markdown: string): string {
     else body = body === '' ? text : `${body} ${text}`;
   }
   const chosen = (body !== '' ? body : headings).replace(/\s+/g, ' ').trim();
-  return chosen.length > SNIPPET_MAX_LENGTH ? `${chosen.slice(0, SNIPPET_MAX_LENGTH)}…` : chosen;
+  return chosen.length > SNIPPET_MAX_LENGTH ? `${cutPrefix(chosen, SNIPPET_MAX_LENGTH)}…` : chosen;
 }
 
 // The line grammar lives in the transcription module; these names stay for the callers here.

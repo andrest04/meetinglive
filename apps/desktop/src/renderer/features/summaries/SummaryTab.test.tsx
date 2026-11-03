@@ -232,7 +232,10 @@ describe('SummaryTab related meetings', () => {
   ];
 
   it('lists them and opens the picked one on its Summary tab', async () => {
-    const api = installSummariesApi(loaded(withSummary(SUMMARY, { related })));
+    const api = installSummariesApi({
+      ...loaded(withSummary(SUMMARY, { related })),
+      'chat.meetingExists': (input) => ({ exists: true, meetingId: input.meetingId }),
+    });
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Related meetings' });
     const buttons = within(nav).getAllByRole('button');
@@ -246,6 +249,20 @@ describe('SummaryTab related meetings', () => {
         { type: 'openSession', tab: 'Summary' },
       ]);
     });
+  });
+
+  it('B21: a related meeting that no longer exists shows the missing-meeting message and does not navigate', async () => {
+    const api = installSummariesApi({
+      ...loaded(withSummary(SUMMARY, { related })),
+      'chat.meetingExists': () => ({ exists: false, meetingId: null }),
+    });
+    mount();
+    const list = await screen.findByTestId('ListRelatedMeetings');
+    const first = within(list).getAllByRole('button').at(0);
+    if (!first) throw new Error('related meeting missing');
+    await userEvent.click(first);
+    expect(await screen.findByText('That meeting no longer exists.')).toBeInTheDocument();
+    expect(calls(api, 'workspace.dispatch')).toHaveLength(0);
   });
 
   it('shows nothing when there are none', async () => {

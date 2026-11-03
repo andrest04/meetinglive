@@ -23,7 +23,10 @@ export function RelatedMeetings({
       <p aria-hidden="true" className="text-ui text-ink-muted">
         {caption}
       </p>
-      <ul className="-mx-0.5 flex gap-2 overflow-x-auto px-0.5 pb-1.5">
+      <ul
+        data-testid="ListRelatedMeetings"
+        className="-mx-0.5 flex gap-2 overflow-x-auto px-0.5 pb-1.5"
+      >
         {items.map((item) => (
           <li key={item.id} className="shrink-0">
             <button

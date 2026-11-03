@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { formatMeetingDate } from '../library/format';
 import { DraftMessage } from './DraftMessage';
@@ -34,6 +34,7 @@ export function SummaryTab({
     ...(runSetup ? { runSetup } : {}),
   });
   const { flags } = generation;
+  const [missingRelated, setMissingRelated] = useState(false);
 
   const labels = useMemo<SummaryTabLabels>(
     () => ({
@@ -66,7 +67,13 @@ export function SummaryTab({
   const onOpenRelated = useCallback(
     (id: string) => {
       model.flushNotes();
+      setMissingRelated(false);
       void (async () => {
+        const found = await window.vozella.invoke('chat.meetingExists', { meetingId: id });
+        if (!found.exists) {
+          setMissingRelated(true);
+          return;
+        }
         await window.vozella.invoke('workspace.dispatch', {
           action: { type: 'selectMeeting', id },
         });
@@ -104,8 +111,11 @@ export function SummaryTab({
         related={related}
         onOpenRelated={onOpenRelated}
         onRecord={onRecord}
-        status={model.status}
-        onDismissStatus={model.dismissStatus}
+        status={model.status ?? (missingRelated ? t('Chat_MeetingLinkMissing') : null)}
+        onDismissStatus={() => {
+          setMissingRelated(false);
+          model.dismissStatus();
+        }}
         toolbarEnd={
           <SummaryActionBar
             labels={{
