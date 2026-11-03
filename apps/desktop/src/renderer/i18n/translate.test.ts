@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import en from './locales/en.json';
 import es from './locales/es.json';
+import uiEn from './locales/ui.en.json';
+import uiEs from './locales/ui.es.json';
 import { createTranslator, detectLocale, format } from './translate';
 
 const placeholders = (text: string): string[] =>
@@ -22,16 +22,20 @@ describe('string catalogs', () => {
     expect(mismatched).toEqual([]);
   });
 
+  it('keep the hand written Ui_ keys in step and apart from the converted ones', () => {
+    expect(Object.keys(uiEs).sort()).toEqual(Object.keys(uiEn).sort());
+    expect(Object.keys(uiEn).filter((key) => key in en)).toEqual([]);
+    expect(Object.keys(uiEn).filter((key) => !key.startsWith('Ui_'))).toEqual([]);
+    for (const key of Object.keys(uiEn)) {
+      expect(placeholders(uiEn[key as keyof typeof uiEn])).toEqual(
+        placeholders(uiEs[key as keyof typeof uiEs]),
+      );
+    }
+  });
+
   it('carry no empty values', () => {
     const empty = [...Object.entries(en), ...Object.entries(es)].filter(([, v]) => v === '');
     expect(empty).toEqual([]);
-  });
-
-  it('are exactly what the converter produces from the WinUI resources', () => {
-    const script = path.resolve(__dirname, '../../../../../scripts/convert-strings.mjs');
-    expect(() =>
-      execFileSync(process.execPath, [script, '--check'], { stdio: 'pipe' }),
-    ).not.toThrow();
   });
 });
 

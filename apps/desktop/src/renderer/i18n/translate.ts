@@ -1,12 +1,18 @@
 import en from './locales/en.json';
 import es from './locales/es.json';
+import uiEn from './locales/ui.en.json';
+import uiEs from './locales/ui.es.json';
 
 export const LOCALES = ['en', 'es'] as const;
 export type Locale = (typeof LOCALES)[number];
-export type StringKey = keyof typeof en;
+/** Keys converted from the WinUI resources, plus the few `Ui_` keys written by hand for the new shell. */
+export type StringKey = keyof typeof en | keyof typeof uiEn;
 export type Arg = string | number | Date;
 
-const catalogs: Readonly<Record<Locale, Readonly<Partial<Record<string, string>>>>> = { en, es };
+const catalogs: Readonly<Record<Locale, Readonly<Partial<Record<string, string>>>>> = {
+  en: { ...en, ...uiEn },
+  es: { ...es, ...uiEs },
+};
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);

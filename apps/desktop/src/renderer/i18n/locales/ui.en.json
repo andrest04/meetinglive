@@ -1,0 +1,12 @@
+{
+  "Ui_Appearance": "Appearance",
+  "Ui_Theme": "Theme",
+  "Ui_ThemeDescription": "Follows Windows unless you pick one.",
+  "Ui_ThemeSystem": "Match Windows",
+  "Ui_ThemeLight": "Light",
+  "Ui_ThemeDark": "Dark",
+  "Ui_Close": "Close",
+  "Ui_NavMain": "Main",
+  "Ui_Loading": "Loading",
+  "Ui_SkipToContent": "Skip to content"
+}

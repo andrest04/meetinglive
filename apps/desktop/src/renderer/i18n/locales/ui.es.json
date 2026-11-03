@@ -1,0 +1,12 @@
+{
+  "Ui_Appearance": "Apariencia",
+  "Ui_Theme": "Tema",
+  "Ui_ThemeDescription": "Sigue a Windows salvo que elijas uno.",
+  "Ui_ThemeSystem": "Igual que Windows",
+  "Ui_ThemeLight": "Claro",
+  "Ui_ThemeDark": "Oscuro",
+  "Ui_Close": "Cerrar",
+  "Ui_NavMain": "Principal",
+  "Ui_Loading": "Cargando",
+  "Ui_SkipToContent": "Saltar al contenido"
+}

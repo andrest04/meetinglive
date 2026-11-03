@@ -15,12 +15,14 @@ test.afterAll(async () => {
 
 test('the app starts, is isolated, and answers over the typed contract', async () => {
   const page = await launched.app.firstWindow();
-  await expect(page.getByRole('heading', { name: 'Vozella' })).toBeVisible();
+  // The shell rendered: the navigation is there and the root route redirected to Record.
+  await expect(page.getByRole('navigation', { name: /main|principal/i })).toBeVisible();
+  await expect(page).toHaveURL(/#\/record$/);
 
   // Renderer reached main through app.getInfo, validated at both ends.
-  await expect(page.getByTestId('app-version')).toContainText('Electron 45.2.1');
   const info = await page.evaluate(() => window.vozella.invoke('app.getInfo', {}));
   expect(info).toMatchObject({
+    electron: '45.2.1',
     fakeNative: true,
     isPackaged: Boolean(process.env.VOZELLA_E2E_EXECUTABLE),
   });

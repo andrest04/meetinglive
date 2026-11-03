@@ -1,36 +1,26 @@
-import type { AppInfo } from '@vozella/contracts';
-import { useEffect, useState } from 'react';
+import { RouterProvider } from '@tanstack/react-router';
+import { I18nProvider, useT } from '../i18n/I18nProvider';
+import { ToastProvider, TooltipProvider } from '../ui';
+import { router } from './router';
+import { ThemeProvider } from './theme';
 
-type State =
-  | { status: 'loading' }
-  | { status: 'ready'; info: AppInfo }
-  | { status: 'failed'; message: string };
-
-/** Foundation shell: proves the page reaches the main process through the typed contract. */
-export function App() {
-  const [state, setState] = useState<State>({ status: 'loading' });
-
-  useEffect(() => {
-    window.vozella
-      .invoke('app.getInfo', {})
-      .then((info) => {
-        setState({ status: 'ready', info });
-      })
-      .catch((error: unknown) => {
-        setState({ status: 'failed', message: error instanceof Error ? error.message : 'Failed' });
-      });
-  }, []);
-
+function Providers() {
+  const t = useT();
   return (
-    <main data-testid="app-root">
-      <h1>Vozella</h1>
-      {state.status === 'loading' && <p>Loading</p>}
-      {state.status === 'failed' && <p role="alert">Could not read app info: {state.message}</p>}
-      {state.status === 'ready' && (
-        <p data-testid="app-version">
-          Version {state.info.version} on Electron {state.info.electron}
-        </p>
-      )}
-    </main>
+    <TooltipProvider delay={400}>
+      <ToastProvider dismissLabel={t('MeetingPrompt_Dismiss.Text')}>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </TooltipProvider>
+  );
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <I18nProvider>
+        <Providers />
+      </I18nProvider>
+    </ThemeProvider>
   );
 }
