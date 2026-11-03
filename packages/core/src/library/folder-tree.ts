@@ -39,14 +39,20 @@ export interface FolderNode {
   readonly children: readonly FolderNode[];
 }
 
-/** The folder tree. Roots are folders with no parent; folders under a missing parent are left out. */
+/**
+ * The folder tree. Roots are folders with no parent, and folders whose parent no longer exists:
+ * their directory is already at the top level (spec 3.2), and leaving them out would hide their
+ * meetings (B26b).
+ */
 export function buildFolderTree(folders: readonly FolderRecord[], locale?: string): FolderNode[] {
   const compare = nameComparer(locale);
+  const known = new Set(folders.map((f) => f.id));
   const childrenOf = new Map<string | null, FolderRecord[]>();
   for (const folder of folders) {
-    const list = childrenOf.get(folder.parentId) ?? [];
+    const parent = folder.parentId !== null && known.has(folder.parentId) ? folder.parentId : null;
+    const list = childrenOf.get(parent) ?? [];
     list.push(folder);
-    childrenOf.set(folder.parentId, list);
+    childrenOf.set(parent, list);
   }
   const build = (parentId: string | null, visited: ReadonlySet<string>): FolderNode[] =>
     (childrenOf.get(parentId) ?? [])

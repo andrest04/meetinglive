@@ -361,3 +361,17 @@ describe('robustness', () => {
     expect((await fx.meetings.list()).items[0]?.title).toBe('one --- two');
   });
 });
+
+describe('the directory tree is a write-only mirror', () => {
+  it('the folder of a meeting is its frontmatter folderId, not the directory it sits in', async () => {
+    await fx.folders.save(folder(FOLDER_1, 'Universidad'));
+    const saved = await fx.meetings.save(meeting({ folderId: FOLDER_1 }));
+    // The user drags the file to another directory in the file manager.
+    const elsewhere = path.join(fx.root, 'Dragged', 'moved.md');
+    fs.mkdirSync(path.dirname(elsewhere), { recursive: true });
+    fs.renameSync(saved.sourcePath ?? '', elsewhere);
+    const item = (await fx.meetings.list()).items[0];
+    expect(item?.folderId).toBe(FOLDER_1);
+    expect((await fx.meetings.get(ID_A))?.sourcePath).toBe(elsewhere);
+  });
+});

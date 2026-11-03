@@ -83,9 +83,14 @@ describe('flattenFolderPaths', () => {
     ]);
   });
 
-  it('does not emit folders whose parent chain never reaches a root', () => {
-    const folders = [folder('b', 'Orphan', 'gone')];
-    expect(flattenFolderPaths(folders, 'Inbox')).toHaveLength(1);
+  it('B26b: a folder whose parent is gone is listed as a root, so its meetings stay reachable', () => {
+    const folders = [folder('b', 'Orphan', 'gone'), folder('c', 'Kid', 'b')];
+    expect(flattenFolderPaths(folders, 'Inbox').map((r) => r.path)).toEqual([
+      'Inbox',
+      'Orphan',
+      'Orphan / Kid',
+    ]);
+    expect(buildFolderTree(folders).map((n) => n.folder.id)).toEqual(['b']);
   });
 });
 
