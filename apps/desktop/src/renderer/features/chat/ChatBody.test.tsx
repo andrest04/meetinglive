@@ -267,6 +267,9 @@ describe('optimistic rows, rollback and draft restore (items 33 to 35, 44)', () 
     const notice = await screen.findByTestId('InfoMeetingChatError');
     expect(notice.textContent).toContain('Could not answer');
     expect(notice.textContent).toContain('boom');
+    // Item 45: severity error, announced as an alert.
+    const alert = within(notice).getByRole('alert');
+    expect(alert.getAttribute('data-tone')).toBe('error');
     expect(screen.queryByTestId('ListMeetingChat')).toBeNull();
     expect(box().value).toBe('Question');
     await userEvent.click(within(notice).getByRole('button', { name: 'Close' }));

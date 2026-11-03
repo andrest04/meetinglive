@@ -123,4 +123,9 @@ describe('meetingSnippet', () => {
     expect(meetingSnippet(null, null)).toBe('');
     expect(meetingSnippet('', '')).toBe('');
   });
+
+  it('keeps list bullets, blockquote marks and link syntax, as WinUI does (B15 decision)', () => {
+    expect(snippetFromMarkdown('- foo [x](http://y)')).toBe('- foo [x](http://y)');
+    expect(snippetFromMarkdown('> quoted')).toBe('> quoted');
+  });
 });

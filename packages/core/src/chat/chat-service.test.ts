@@ -133,6 +133,30 @@ describe('B5 snapshot', () => {
     expect(rig.provider.prompts[0]).toContain('first words');
   });
 
+  it('Live scope with an empty transcript stays sendable (Section 7)', async () => {
+    const rig = createChatRig();
+    rig.provider.chunks = ['ok'];
+    for (const live of ['', '   \n', null]) {
+      const out = await rig.service.send('what now?', scopeOf({ kind: 'Live' }), live);
+      expect(out.status).toBe('sent');
+    }
+    expect(rig.provider.prompts).toHaveLength(3);
+    expect(rig.provider.prompts[0]).toContain('The live transcript is empty.');
+  });
+
+  it('passes no output language to the prompt or the provider call (S8)', async () => {
+    const rig = rigWithMeeting();
+    const args: unknown[][] = [];
+    const original = rig.provider.streamPrompt.bind(rig.provider);
+    rig.provider.streamPrompt = (...a: Parameters<typeof original>) => {
+      args.push(a);
+      return original(...a);
+    };
+    await rig.service.send('When?', meetingScope, null);
+    expect(args[0]).toHaveLength(2);
+    expect(rig.provider.prompts[0]).not.toMatch(/language/i);
+  });
+
   it('keeps the scope of the send even if the scope changes while it runs', async () => {
     const rig = rigWithMeeting();
     const hold = holdProvider(rig);

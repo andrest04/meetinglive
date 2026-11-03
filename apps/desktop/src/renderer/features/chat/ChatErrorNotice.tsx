@@ -19,7 +19,7 @@ export function ChatErrorNotice({
       : error.message;
   return (
     <div data-testid="InfoMeetingChatError" aria-label={t('Chat_Error.AutomationProperties.Name')}>
-      <Notice tone="warning" onDismiss={onDismiss} dismissLabel={t('Ui_Close')}>
+      <Notice tone="error" onDismiss={onDismiss} dismissLabel={t('Ui_Close')}>
         {error.titled ? <p className="font-medium">{t('Chat_Error.Title')}</p> : null}
         <p className={error.titled ? 'text-ink-muted' : undefined}>{body}</p>
       </Notice>

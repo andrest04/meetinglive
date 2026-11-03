@@ -275,6 +275,14 @@ describe('list', () => {
     expect(skipped).toEqual([]);
   });
 
+  it('computes the snippet once per file version and reuses it while mtime and size match (item 142)', async () => {
+    await fx.meetings.save(meeting({ summary: '# T\nBody' }));
+    const first = (await fx.meetings.list()).items[0];
+    const second = (await fx.meetings.list()).items[0];
+    expect(second).toBe(first);
+    expect(first?.snippet).toBe('Body');
+  });
+
   it('an empty or missing root lists nothing', async () => {
     fs.rmSync(fx.root, { recursive: true });
     expect(await fx.meetings.list()).toEqual({ items: [], skipped: [] });
