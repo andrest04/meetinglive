@@ -367,6 +367,29 @@ describe('cancel (B13)', () => {
     expect(screen.queryByTestId('BtnCancelSummary')).toBeNull();
     expect(calls(api, 'summaries.loadTab')).toHaveLength(1);
   });
+
+  it('a Cancel pressed while the notes still save never starts the run', async () => {
+    const heldSave = gate<unknown>();
+    const api = installSummariesApi({
+      ...loadWith(done({ notes: 'old' })),
+      'summaries.saveNotes': () => heldSave.promise,
+      'summaries.generate': () => ({ ...generated }),
+      'summaries.cancel': () => ({ cancelled: false }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('radio', { name: 'My notes' }));
+    await userEvent.type(screen.getByTestId('TxtMeetingNotes'), ' more');
+    await userEvent.click(screen.getByRole('radio', { name: 'Enhanced' }));
+    await userEvent.click(await screen.findByTestId('BtnRegenerateSummary'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Regenerate' }));
+    await userEvent.click(await screen.findByTestId('BtnCancelSummary'));
+    await act(async () => {
+      heldSave.resolve({ status: 'saved' });
+      await heldSave.promise;
+    });
+    expect(await screen.findByText('Summary cancelled.')).toBeVisible();
+    expect(calls(api, 'summaries.generate')).toHaveLength(0);
+  });
 });
 
 describe('needs setup (B34)', () => {

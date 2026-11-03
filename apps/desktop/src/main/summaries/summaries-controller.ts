@@ -69,6 +69,8 @@ const messageOf = (error: unknown): string =>
  */
 export class SummariesController {
   private readonly running = new Map<string, CancelSource>();
+  /** Pipeline runs, so the Cancel button also stops a summary the recording pipeline started. */
+  private readonly pipelineRuns = new Map<string, CancelSource>();
   private disposed: Promise<void> | null = null;
 
   constructor(private readonly deps: SummariesControllerDeps) {}
@@ -136,7 +138,7 @@ export class SummariesController {
   }
 
   cancel(meetingId: string): boolean {
-    const source = this.running.get(meetingId);
+    const source = this.running.get(meetingId) ?? this.pipelineRuns.get(meetingId);
     if (source === undefined) return false;
     source.cancel();
     return true;
@@ -152,22 +154,29 @@ export class SummariesController {
     cancel: CancelSignal,
   ): Promise<PipelineSummaryResult> {
     const { meetingId } = request;
+    const own = new CancelSource();
+    const stopWithPipeline = cancel.onCancel(() => {
+      own.cancel();
+    });
+    this.pipelineRuns.set(meetingId, own);
     this.announce(meetingId, true);
     try {
       const outcome = await this.deps.service.generate({
         meetingId,
         regenerate: true,
-        cancel,
+        cancel: own.signal,
         templateId: request.noteTemplateId,
         agenda: request.agenda,
         skipBusyProbe: true,
       });
       return this.pipelineResult(outcome);
     } catch (error) {
-      return cancel.cancelled
+      return own.signal.cancelled
         ? { status: 'cancelled' }
         : { status: 'failed', message: this.formatError(error) };
     } finally {
+      stopWithPipeline();
+      if (this.pipelineRuns.get(meetingId) === own) this.pipelineRuns.delete(meetingId);
       this.announce(meetingId, false);
     }
   }

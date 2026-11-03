@@ -211,8 +211,19 @@ describe('cmd shim (B11)', () => {
     expect(alive(pid)).toBe(false);
   });
 
+  it('doubles a quote inside an argument', () => {
+    const wrapped = buildCmdWrapperArgs('C:\\x\\codex.cmd', ['-c', 'effort="low"']);
+    expect(wrapped[3]).toBe('""C:\\x\\codex.cmd" "-c" "effort=""low""""');
+  });
+
+  it.runIf(windows)('passes a quote-bearing argument through a real .cmd shim', async () => {
+    const arg = 'model_reasoning_effort="low"';
+    const result = await runner.run('fakecmd', ['args', arg], null, 15_000, never);
+    expect(JSON.parse(result.stdout)).toEqual([arg]);
+  });
+
   it('refuses arguments that could break out of the cmd.exe quoting', () => {
-    for (const bad of ['a"b', '%PATH%', 'a\nb']) {
+    for (const bad of ['%PATH%', 'a\nb']) {
       expect(() => buildCmdWrapperArgs('C:\\x\\claude.cmd', ['-p', bad])).toThrow();
     }
     expect(buildCmdWrapperArgs('C:\\x\\claude.cmd', ['-p', 'a b'])).toEqual([

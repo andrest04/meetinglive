@@ -14,7 +14,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LlamaSidecar } from '../llama/llama-sidecar';
 import type { ProcessGuard } from '../llama/process-guard';
-import { FAKE_SERVER } from '../llama/test-fixtures/orphan-harness';
+import { FAKE_SERVER, pidAlive, waitUntil } from '../llama/test-fixtures/orphan-harness';
 import { JsonSettingsStore } from '../library/json-settings-store';
 import { SummaryRuntime } from './summary-runtime';
 
@@ -223,6 +223,19 @@ describe('SummaryRuntime on a real settings.json', () => {
     await first.provider.completePrompt('uno', never);
     await second.provider.completePrompt('dos', never);
     expect(t.created).toHaveLength(1);
+  });
+
+  it('B3: dispose on quit kills a loaded server', async () => {
+    const t = build();
+    fs.writeFileSync(path.join(t.modelDir, ONE_B.fileName), 'x');
+    await t.settings.update({ selectedSummaryModelId: ONE_B.fileName });
+    const gate = await t.runtime.resolver.resolveSummaryProvider({ kind: 'Local' });
+    if (gate.status !== 'ready') throw new Error('not ready');
+    await gate.provider.completePrompt('uno', never);
+    const pid = t.created[0]!.pid!;
+    expect(pidAlive(pid)).toBe(true);
+    await t.runtime.dispose();
+    expect(await waitUntil(() => !pidAlive(pid), 5000)).toBe(true);
   });
 
   it('Xai in the file is unavailable and does not touch the host', async () => {

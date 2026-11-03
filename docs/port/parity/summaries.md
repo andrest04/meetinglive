@@ -590,7 +590,7 @@ Each test class of spec section 6 and the file that ports it. Paths are under `p
 
 | Spec test class                              | Status  | Ported in                                                                                                                                       |
 | -------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Models/HardwareProfileTests`                | done    | `core/src/settings/catalogs.test.ts` (hardware profile and Nvidia name rules)                                                                   |
+| `Models/HardwareProfileTests`                | done    | `core/src/transcription/engine.test.ts` (Nvidia name rules; the rule belongs to transcription)                                                                 |
 | `Models/SummaryModelInfoTests`               | done    | `core/src/settings/catalogs.test.ts` (fit rating, fit rating by backend B17)                                                                    |
 | `Services/ModelCatalogTests`                 | done    | `core/src/settings/catalogs.test.ts` (summary model catalog), plus the label key test (B20)                                                     |
 | `Services/HardwareDetectionServiceTests`     | done    | `platform/src/settings/settings-adapters.test.ts` (hardware probe: cached, failed read not cached)                                              |
@@ -697,3 +697,19 @@ On-disk compatibility still applies: `typeSafeEnabled`, calendar settings, Jev f
 ## Dead code in the WinUI app, never ported
 
 `LiveQuestionDetector`, `MeetingJevAsk.AskAsync`, transcript polish, `PcmLevelNormalizer`, `ClockSkew`, `FinishAndDrain`, `Recognize`, and unused resource keys. Status: dropped, reason: owner decision 2026-11-03, may return later.
+
+## Audit round 2: decisions
+
+Fixed, each with a test:
+- Codex with an effort through a `.cmd` shim: a quote inside an argument is doubled instead of refused (`cli-process-runner.ts`); a real shim test passes `model_reasoning_effort="low"`.
+- B4/B5: `SummaryService` and `SummaryTabService` now share one `PatchQueue` (wired in `main/index.ts`), so the get-then-save of a generate never interleaves with a notes or toggle save.
+- B17: a GPU script that exits 0 with unusable output now rejects, so "no GPU" is not cached (`isUsableGpuReport`).
+- Cancel on a pipeline-started summary now reaches it (`SummariesController.pipelineRuns`); Cancel pressed while notes still save no longer starts the run.
+- Proof added: Local provider sends `buildSummaryPrompt` and `buildTitlePrompt` text in one inference; stream prompt budget (B8) and truncation signal (B9); dispose on quit kills a loaded server (B3); request fields title, dates and transcript reach the provider (item 91) including the clock fallback.
+
+Rejected or recorded, with reason:
+- Item 104 copy: `copyText` is the contract for the session module's copy button (`session-views.md` assigns it there). Status: pending the session module, no call site in this slice.
+- B17 `gpuOffload` caller and integrated GPU: kept as WinUI behavior. The backend choice lives in the runtime and the page rates before it is picked; an integrated GPU with registry memory counts like WinUI. Revisit with the first-run gate.
+- B12 stdout sentinels, B27 (the fix is `resolveSummaryLanguageCode`, not the headings table), B32 PATH-only check, `formatError` localizing only `CliToolError`, custom template id rewritten to null: unchanged, covered by earlier decisions.
+- Not done now (minor): 416 and Range-ignored download tests, `.part` cleanup on model delete, kill-tree assertion on caller cancel (same kill path as the timeout tests), chooser production entry (first-run gate module).
+- Design notes: wizard copy and the double Recommended badge are reused WinUI strings and ratings; screenshots were not regenerated in this round, the screenshot specs stay as skipped by the environment.

@@ -393,6 +393,16 @@ describe('summaries pipeline hook', () => {
     expect(await run).toEqual({ status: 'cancelled' });
   });
 
+  it('summaries.cancel also stops a summary started by the recording pipeline', async () => {
+    const { controller, call } = setup({ fake: { delayMs: 5_000, failWith: null } });
+    const { CancelSource } = await import('@vozella/core');
+    const run = controller.summarizeForPipeline(request(), new CancelSource().signal);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(ok(await call('summaries.cancel', { meetingId: ID }))).toEqual({ cancelled: true });
+    expect(await run).toEqual({ status: 'cancelled' });
+    expect(ok(await call('summaries.cancel', { meetingId: ID }))).toEqual({ cancelled: false });
+  });
+
   it('reports a missing model as the setup sentence', async () => {
     const { controller } = setup({
       gate: { status: 'needs-setup', kind: 'Local', reason: 'model-missing' },

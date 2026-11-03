@@ -21,10 +21,12 @@ function notFound(file: string): Error {
  */
 export function buildCmdWrapperArgs(script: string, args: readonly string[]): string[] {
   const quote = (value: string): string => {
-    if (/["%\r\n\0]/.test(value)) {
+    if (/[%\r\n\0]/.test(value)) {
       throw new Error('An argument contains a character that cannot be passed through cmd.exe.');
     }
-    return `"${value}"`;
+    // A quote inside a quoted argument is doubled; the C runtime reads it back as one quote.
+    // Codex needs this for `-c model_reasoning_effort="low"`.
+    return `"${value.replace(/"/g, '""')}"`;
   };
   return ['/d', '/s', '/c', `"${[script, ...args].map(quote).join(' ')}"`];
 }

@@ -8,6 +8,7 @@ import { resolveSummaryLanguage } from '../library/settings';
 import { CliToolError, type CliFailureKind } from './cli-failure';
 import { formatFailure, SummaryError, type SummaryErrorCode } from './cli-failure-messages';
 import { applySummaryPatch } from './meeting-patch';
+import { PatchQueue } from './patch-queue';
 import { createEnhancementContext } from './prompt-builders';
 import { isCancellation, type ProviderId } from './provider';
 import type { SetupKind, SummaryProviderResolver } from './provider-resolver';
@@ -79,6 +80,8 @@ export interface SummaryServiceDeps {
   readonly busy?: MeetingBusyProbe;
   /** Both locales' `MeetingTitleFormat` values, so an auto title in either language is replaced. */
   readonly placeholderFormats?: readonly string[];
+  /** Shared with the tab service so a generate save and a tab save never interleave (B4, B5). */
+  readonly queue?: PatchQueue;
 }
 
 export function failureFromError(error: unknown): GenerateFailure {
@@ -115,7 +118,10 @@ export class SummaryService {
   private readonly inFlight = new Set<string>();
   private readonly patterns: RegExp[];
 
+  private readonly queue: PatchQueue;
+
   constructor(private readonly deps: SummaryServiceDeps) {
+    this.queue = deps.queue ?? new PatchQueue();
     this.patterns = placeholderPatternsFromFormats(
       deps.placeholderFormats ?? DEFAULT_PLACEHOLDER_FORMATS,
     );
@@ -183,19 +189,24 @@ export class SummaryService {
     if (cancel.cancelled) return { status: 'cancelled' };
 
     // B4: the run can take minutes. Lay the result over the record as it is now.
-    const fresh = await this.deps.meetings.get(meetingId);
-    if (fresh === null) return { status: 'not-found' };
-    const title = resolveTitle(fresh.title, result.suggestedTitle, this.patterns);
-    const titleChanged = title !== fresh.title;
-    const saved = await this.deps.meetings.save(
-      applySummaryPatch(fresh, {
-        summary: result.summaryMarkdown,
-        actionItems: result.actionItems,
-        summaryProvider: result.providerId,
-        noteTemplateId: templateIdToStore(requested),
-        title: titleChanged ? title : null,
-      }),
-    );
+    const outcome = await this.queue.run(meetingId, async () => {
+      const fresh = await this.deps.meetings.get(meetingId);
+      if (fresh === null) return null;
+      const title = resolveTitle(fresh.title, result.suggestedTitle, this.patterns);
+      const titleChanged = title !== fresh.title;
+      const saved = await this.deps.meetings.save(
+        applySummaryPatch(fresh, {
+          summary: result.summaryMarkdown,
+          actionItems: result.actionItems,
+          summaryProvider: result.providerId,
+          noteTemplateId: templateIdToStore(requested),
+          title: titleChanged ? title : null,
+        }),
+      );
+      return { saved, titleChanged };
+    });
+    if (outcome === null) return { status: 'not-found' };
+    const { saved, titleChanged } = outcome;
     if (titleChanged) this.deps.notifyMeetingChanged(meetingId);
     return {
       status: 'generated',

@@ -127,7 +127,20 @@ export class SystemHardwareProbe implements HardwareProbe {
   }
 }
 
+/** True when the script printed a JSON object. Anything else is a failed read, not "no GPU". */
+export function isUsableGpuReport(text: string): boolean {
+  try {
+    const report: unknown = JSON.parse(text);
+    return typeof report === 'object' && report !== null;
+  } catch {
+    return false;
+  }
+}
+
 async function defaultQuery(): Promise<GpuInfo> {
   if (process.platform !== 'win32') return NO_GPU;
-  return parseGpuReport(await runPowerShell(GPU_SCRIPT));
+  const text = await runPowerShell(GPU_SCRIPT);
+  // B17: unusable output must reject so the probe does not cache it as "no GPU".
+  if (!isUsableGpuReport(text)) throw new Error('The GPU query returned no usable report.');
+  return parseGpuReport(text);
 }

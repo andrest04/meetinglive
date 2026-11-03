@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  buildSummaryPrompt,
+  buildTitlePrompt,
   CancelSource,
   CONTEXT_TOKENS,
   parseOffsetDate,
@@ -250,6 +252,65 @@ describe('LocalLlmSummaryProvider requests', () => {
     for await (const chunk of provider.streamPrompt('x', NEVER)) chunks.push(chunk);
     expect(chunks.length).toBe(5);
     expect(chunks.join('')).toBe('t0 t1 t2 t3 t4 ');
+  });
+
+  it('contract: the direct path sends exactly buildSummaryPrompt, in one inference', async () => {
+    const { provider, created } = setup();
+    const request = {
+      transcript: 'Ana: hello\nLuis: hi',
+      title: 'Weekly sync',
+      recordedAt,
+      endedAt: parseOffsetDate('2026-11-02T14:30:00.0000000-05:00'),
+      outputLanguage: 'en',
+      enhancement: null,
+    };
+    const result = await provider.summarize(request, NEVER);
+    const chat = (await infoOf(created[0]!)).bodies.chat;
+    expect(chat).toHaveLength(1);
+    const content = (chat[0]!.messages as { content: string }[])[0]!.content;
+    expect(content).toBe(buildSummaryPrompt(request));
+    // The reply goes through the shared splitter, so the result is built from this one response.
+    expect(result).toMatchObject({ providerId: 'local' });
+    expect(result.summaryMarkdown.length).toBeGreaterThan(0);
+  });
+
+  it('contract: suggestTitle sends exactly buildTitlePrompt', async () => {
+    const { provider, created } = setup();
+    await provider.suggestTitle(
+      { transcript: 'Ana: hello', recordedAt, outputLanguage: 'es' },
+      NEVER,
+    );
+    const content = (
+      (await infoOf(created[0]!)).bodies.chat[0]!.messages as { content: string }[]
+    )[0]!.content;
+    expect(content).toBe(buildTitlePrompt('Ana: hello', recordedAt, 'es'));
+  });
+
+  it('B8: a streamed prompt that leaves no room fails with PromptTooLong and sends no chat request', async () => {
+    const { provider, created } = setup();
+    const error = await (async () => {
+      const chunks: string[] = [];
+      for await (const chunk of provider.streamPrompt(words(4000), NEVER)) chunks.push(chunk);
+    })().catch((e: unknown) => e);
+    expect((error as SummaryError).code).toBe('PromptTooLong');
+    expect((await infoOf(created[0]!)).stats.chatStarted).toBe(0);
+  });
+
+  it('B9: a streamed reply cut at the cap reports truncated, a whole one does not', async () => {
+    const seen: boolean[] = [];
+    const cut = setup(['--fake-reply-tokens', '6', '--fake-finish-length']);
+    for await (const chunk of cut.provider.streamPrompt('x', NEVER, {
+      onOutcome: (o) => seen.push(o.truncated),
+    })) {
+      expect(chunk).toBeTypeOf('string');
+    }
+    const whole = setup();
+    for await (const chunk of whole.provider.streamPrompt('x', NEVER, {
+      onOutcome: (o) => seen.push(o.truncated),
+    })) {
+      expect(chunk).toBeTypeOf('string');
+    }
+    expect(seen).toEqual([true, false]);
   });
 
   it('cancelling a stream aborts the request', async () => {

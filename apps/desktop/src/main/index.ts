@@ -12,6 +12,7 @@ import {
 } from '@vozella/contracts';
 import {
   MeetingBusyRegistry,
+  PatchQueue,
   resolveTemplateInstructions,
   SummaryService,
   SummaryTabService,
@@ -547,7 +548,9 @@ function main(): void {
           }
         : { processJob: loadProcessJob() }),
     });
+    const summaryPatchQueue = new PatchQueue();
     const summaryService = new SummaryService({
+      queue: summaryPatchQueue,
       meetings: library.meetings,
       settings: library.settings,
       resolver: summaryRuntime.resolver,
@@ -566,6 +569,7 @@ function main(): void {
     const summaries = new SummariesController({
       service: summaryService,
       tab: new SummaryTabService({
+        queue: summaryPatchQueue,
         meetings: library.meetings,
         translate: (key, ...args) => locale.t(key, ...args),
         getSelectedMeetingId: () => workspace.state.selectedMeetingId,

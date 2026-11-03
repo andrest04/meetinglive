@@ -5,7 +5,9 @@ import { InMemoryMeetingRepository, InMemorySettingsStore } from '../library/in-
 import type { MeetingRecord } from '../library/meeting';
 import { CliToolError } from './cli-failure';
 import { SummaryError } from './cli-failure-messages';
+import { offsetDateFromInstant, parseOffsetDate } from '../library/offset-date';
 import { applySummaryPatch } from './meeting-patch';
+import { PatchQueue } from './patch-queue';
 import {
   CancelledError,
   isCancellation,
@@ -63,6 +65,7 @@ function setup(
     onSummarize?: (seen: Seen, repo: InMemoryMeetingRepository) => Promise<SummaryResult>;
     gate?: ProviderResolution;
     stored?: MeetingRecord;
+    queue?: PatchQueue;
   } = {},
 ) {
   const repo = new InMemoryMeetingRepository();
@@ -90,6 +93,7 @@ function setup(
     clock,
     notifyMeetingChanged: (id) => notified.push(id),
     placeholderFormats: ['Meeting {0}', 'Reunión {0}'],
+    ...(options.queue === undefined ? {} : { queue: options.queue }),
   });
   return { repo, settings, service, seen, notified };
 }
@@ -229,6 +233,44 @@ describe('SummaryService.generate', () => {
     expect(repo.records.get(ID)).toMatchObject({
       title: 'My own name',
       notes: 'edited while running',
+      summary: '### Summary\nTalked.',
+    });
+  });
+
+  it('item 91: the request carries title, dates and transcript; a bad date falls back to the clock', async () => {
+    const { service, seen } = setup();
+    await run(service);
+    const request = seen[0]!.request;
+    expect(request.title).toBe('Meeting 2026-09-01 12:00');
+    expect(request.transcript).toBe('Ana: hello\nLuis: hi');
+    expect(request.recordedAt).toEqual(parseOffsetDate('2026-09-01T12:00:00.0000000+00:00'));
+    expect(request.endedAt).toEqual(parseOffsetDate('2026-09-01T12:30:00.0000000+00:00'));
+
+    const bad = setup({ stored: record({ recordedAt: 'not a date', endedAt: null }) });
+    await run(bad.service);
+    expect(bad.seen[0]!.request.recordedAt).toEqual(offsetDateFromInstant(clock.now()));
+    expect(bad.seen[0]!.request.endedAt).toBeNull();
+  });
+
+  it('B4/B5: a tab save queued around the generate save is not lost', async () => {
+    const queue = new PatchQueue();
+    let release: () => void = () => undefined;
+    const gateOpen = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { repo, service } = setup({ queue });
+    // A slow notes save holds the per-meeting queue while the generate finishes.
+    const notes = queue.run(ID, async () => {
+      const fresh = (await repo.get(ID))!;
+      await gateOpen;
+      await repo.save({ ...fresh, notes: 'typed during the run' });
+    });
+    const generating = run(service);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    release();
+    await Promise.all([notes, generating]);
+    expect(repo.records.get(ID)).toMatchObject({
+      notes: 'typed during the run',
       summary: '### Summary\nTalked.',
     });
   });

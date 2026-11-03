@@ -95,6 +95,7 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
   idRef.current = meetingId;
   // True from the click until the answer, so a progress event for our own run is not a second run.
   const mineRef = useRef(false);
+  const cancelRequestedRef = useRef(false);
   const latest = useRef(input);
   latest.current = input;
   const templateRef = useRef(templateId);
@@ -180,6 +181,7 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
     if (id === null || mineRef.current) return;
     const { t: tr, settleNotes, refresh, runSetup } = latest.current;
     mineRef.current = true;
+    cancelRequestedRef.current = false;
     setGenerating(true);
     setDraft(null);
     setStatus({ text: tr('Status_GeneratingSummary'), tone: 'info' });
@@ -188,6 +190,11 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
       await settleNotes();
       let askedSetup = false;
       for (;;) {
+        // Cancel pressed before the request reached main has nothing to stop there yet.
+        if (cancelRequestedRef.current as boolean) {
+          final = describeOutcome({ status: 'cancelled' }, tr);
+          break;
+        }
         const outcome = await window.vozella.invoke('summaries.generate', {
           meetingId: id,
           regenerate,
@@ -240,6 +247,7 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
   const cancel = useCallback(() => {
     const id = idRef.current;
     if (id === null) return;
+    if (mineRef.current) cancelRequestedRef.current = true;
     void window.vozella.invoke('summaries.cancel', { meetingId: id }).catch(() => undefined);
   }, []);
 

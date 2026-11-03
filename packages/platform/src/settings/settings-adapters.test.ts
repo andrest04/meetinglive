@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JsonSettingsStore } from '../library/json-settings-store';
 import { downloadToFile, sha256OfFile } from './download-to-file';
 import { FileLocalModelStore } from './file-local-model-store';
-import { parseGpuReport, SystemHardwareProbe } from './system-hardware-probe';
+import { isUsableGpuReport, parseGpuReport, SystemHardwareProbe } from './system-hardware-probe';
 import { PathCliProbe } from './path-cli-probe';
 
 let dir: string;
@@ -425,6 +425,13 @@ describe('hardware probe', () => {
     });
     expect(parseGpuReport('not json')).toEqual({ name: null, vramGb: null });
     expect(parseGpuReport('')).toEqual({ name: null, vramGb: null });
+  });
+
+  it('B17: unusable script output is a failed read, an empty adapter list is not', () => {
+    expect(isUsableGpuReport('')).toBe(false);
+    expect(isUsableGpuReport('not json')).toBe(false);
+    expect(isUsableGpuReport('null')).toBe(false);
+    expect(isUsableGpuReport(JSON.stringify({ registry: [], cim: [] }))).toBe(true);
   });
 
   it('rounds RAM to one decimal and caches the answer', async () => {
