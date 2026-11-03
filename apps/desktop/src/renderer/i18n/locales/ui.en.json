@@ -83,5 +83,8 @@
   "Ui_SessionPageTabsLabel": "Meeting views",
   "Ui_SessionRenameBlankHint": "Enter a name to rename the meeting.",
   "Ui_SessionRenameBlockedText": "Wait for the re-transcription to finish, then rename the meeting.",
-  "Ui_SessionRenameFailedText": "The title was not changed: {0}"
+  "Ui_SessionRenameFailedText": "The title was not changed: {0}",
+  "Ui_SessionAudioPlay": "Play audio",
+  "Ui_SessionAudioPause": "Pause audio",
+  "Ui_SessionAudioPosition": "Audio position"
 }

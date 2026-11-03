@@ -9,10 +9,20 @@ export interface TranscriptLine {
   readonly text: string;
   readonly starred: boolean;
   readonly blank: boolean;
+  /** Where the line starts in the audio, from its stamp; null for lines without one. */
+  readonly startSeconds: number | null;
   readonly parts: readonly LinePart[];
 }
 
 const STAMP = /^\[\d+:\d{2}\.\d{2}-\d+:\d{2}\.\d{2}\]/;
+const START = /^(?:\* )?\[(\d+):(\d{2})\.(\d{2})-/;
+
+/** The start second of a stamped line, or null. Header lines and mid-line brackets give null. */
+export function parseStartSeconds(line: string): number | null {
+  const m = START.exec(line);
+  if (!m || !STAMP.test(line.startsWith('* ') ? line.slice(2) : line)) return null;
+  return Number(m[1]) * 60 + Number(m[2]) + Number(m[3]) / 100;
+}
 
 /** Splits on \r\n, \n and \r. The stored text is shown line by line, never rewritten. */
 export function splitTranscript(text: string): string[] {
@@ -47,6 +57,7 @@ export function toLines(text: string): readonly TranscriptLine[] {
     text: line,
     starred: line.startsWith('* '),
     blank: line.length === 0,
+    startSeconds: parseStartSeconds(line),
     parts: parseLine(line),
   }));
 }

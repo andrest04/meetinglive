@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { hasTranscriptContent, parseLine, splitTranscript, toLines } from './transcript-lines';
+import {
+  hasTranscriptContent,
+  parseLine,
+  parseStartSeconds,
+  splitTranscript,
+  toLines,
+} from './transcript-lines';
 
 describe('transcript lines', () => {
   it('treats null, empty and whitespace-only text as no content', () => {
@@ -43,5 +49,22 @@ describe('transcript lines', () => {
     const lines = toLines(text);
     expect(lines).toHaveLength(20_000);
     expect(lines.map((l) => l.text).join('\n')).toBe(text);
+  });
+});
+
+describe('parseStartSeconds', () => {
+  it('reads the start of the stamp, with or without star and tag', () => {
+    expect(parseStartSeconds('[00:04.52-00:09.10] [ Speaker-1 ] hi')).toBe(4.52);
+    expect(parseStartSeconds('* [01:30.00-01:35.50] x')).toBe(90);
+    expect(parseStartSeconds('[125:03.25-125:09.00] long')).toBe(125 * 60 + 3.25);
+  });
+  it('is null for lines without a stamp', () => {
+    expect(parseStartSeconds('Recorded 2026-10-01 22:36')).toBeNull();
+    expect(parseStartSeconds('')).toBeNull();
+    expect(parseStartSeconds('see [00:04.52-00:09.10] later')).toBeNull();
+  });
+  it('is exposed on parsed lines', () => {
+    const lines = toLines(['[00:02.00-00:03.00] a', 'b'].join('\n'));
+    expect(lines.map((l) => l.startSeconds)).toEqual([2, null]);
   });
 });

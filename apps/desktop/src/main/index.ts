@@ -97,6 +97,7 @@ import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
 import { buildCsp } from './security/csp';
 import { mimeTypeFor, resolveAppAssetPath } from './security/app-protocol';
+import { parseMediaId, serveMeetingAudio } from './security/media-route';
 import { hardenSession, hardenWebContents } from './security/harden';
 import {
   APP_SCHEME,
@@ -119,7 +120,7 @@ import { resolveNativeAddonPath } from './workers/native-addon-path';
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
   },
 ]);
 
@@ -470,7 +471,14 @@ function main(): void {
   });
 
   void app.whenReady().then(async () => {
-    serveRendererFromAppScheme();
+    serveRendererFromAppScheme(async (id) => {
+      // The audio path comes only from the repository record of the meeting.
+      try {
+        return (await library.meetings.get(id))?.audioFilePath ?? null;
+      } catch {
+        return null;
+      }
+    });
     settings.warmUp();
     hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
 
@@ -793,10 +801,13 @@ function main(): void {
   });
 }
 
-function serveRendererFromAppScheme(): void {
+function serveRendererFromAppScheme(
+  resolveAudio: (meetingId: string) => Promise<string | null>,
+): void {
   const rendererRoot = path.join(__dirname, '..', 'renderer');
   const csp = buildCsp({ dev: false });
   protocol.handle(APP_SCHEME, async (request) => {
+    if (parseMediaId(request.url) !== null) return serveMeetingAudio(request, resolveAudio);
     const file = resolveAppAssetPath(rendererRoot, request.url);
     if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return new Response('not found', { status: 404 });

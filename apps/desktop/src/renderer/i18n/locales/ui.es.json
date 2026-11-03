@@ -83,5 +83,8 @@
   "Ui_SessionPageTabsLabel": "Vistas de la reunión",
   "Ui_SessionRenameBlankHint": "Escribe un nombre para renombrar la reunión.",
   "Ui_SessionRenameBlockedText": "Espera a que termine la retranscripción y luego renombra la reunión.",
-  "Ui_SessionRenameFailedText": "No se cambió el título: {0}"
+  "Ui_SessionRenameFailedText": "No se cambió el título: {0}",
+  "Ui_SessionAudioPlay": "Reproducir audio",
+  "Ui_SessionAudioPause": "Pausar audio",
+  "Ui_SessionAudioPosition": "Posición del audio"
 }

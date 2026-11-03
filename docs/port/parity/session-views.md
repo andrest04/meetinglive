@@ -54,7 +54,7 @@ Spec: `docs/port/specs/session-views.md`. Section 8 has 160 items; every one is 
 - Decision: the rename button is not greyed while a run targets the meeting; main refuses with `blocked` and the dialog says why.
 - New strings (en and es, in `ui.*.json`): `Ui_SessionPageOpenLocationFailedText`, `Ui_SessionPageLoadFailedText`, `Ui_SessionPageRetryContent`, `Ui_SessionPageTabsLabel`, `Ui_SessionRenameBlankHint`, `Ui_SessionRenameBlockedText`, `Ui_SessionRenameFailedText`.
 - RED-first: `SessionRoute.test.tsx` was written before the page and failed on the missing exports. A trim bug and the tab-after-selection bug were found by the tests and e2e and fixed afterwards.
-- Audio playback (sv-7) is not started here.
+- Audio playback is sv-7 (see the sv-7 section).
 
 ## Bugs fixed (sv-4)
 
@@ -108,7 +108,7 @@ Spec: `docs/port/specs/session-views.md`. Section 8 has 160 items; every one is 
 
 ## Left for other modules (sv-5)
 
-- None. Audio playback with seek from a transcript line stays with sv-7.
+- None. Audio playback with seek from a transcript line is sv-7 (see below).
 
 ## sv-6 notes
 
@@ -232,7 +232,7 @@ The new tests the spec asks for (rename rules, `SuggestTitleAsync` branching, tr
 | Bug 18 | improved | cancel versus failure decided when the failure is recorded (B18, `retranscription.test.ts`) |
 | Bug 19 | dropped | dead code and unused resources are not ported (listed in the owner decision) |
 | Bug 20 | improved | meeting deleted while open: empty state (`SessionRoute.test.tsx`); large transcript: per-line `content-visibility` and the 20k line test (`TranscriptTab.test.tsx`); unreadable or empty audio counts as no audio (`session-handlers.test.ts`); sibling `.wav` fallback in the markdown parser (`meeting-markdown.test.ts`); copy while the text is replaced copies what is shown (`TranscriptTab.test.tsx`); frontmatter escaping unchanged, only CR/LF flattened (item 155) |
-| Bug 21 | left | audio playback with seek from a transcript line is the optional sv-7; not parity |
+| Bug 21 | improved | the WinUI app cannot play the saved audio; the port can (sv-7, section below). Recorded improvement, not parity |
 
 ## Left for other modules (final)
 
@@ -409,3 +409,32 @@ The new tests the spec asks for (rename rules, `SuggestTitleAsync` branching, tr
 | 158 | done | All strings in section 2.12 exist in English and Spanish with the same keys and placeholders. -> every key of spec 2.12 that is still live exists in `en.json` and `es.json` with the same placeholders; the port strings are in `ui.en.json` and `ui.es.json` (`apps/desktop/src/renderer/i18n/session-strings.test.ts`). The suggest-title keys are not covered: dropped by owner decision 2026-11-03, may return later |
 | 159 | done | Automation ids in section 2.11 are kept. -> every id of spec 2.11 that is not dropped is in the code and used by a test: `BtnSessionBack`, `BtnSessionRename`, `BtnSessionCopy`, `BtnSessionOpenLocation`, `BtnSessionRetranscribe`, `InfoSessionCopy`, `TextSessionRetranscribeStatus`, `ProgressSessionRetranscribe`, `BtnSessionRetranscribeCancel`, `InfoSessionRetranscribeError`, `InfoSessionRetranscribeNotice`, `SelectorSessionTabs`, `SelectorSessionTranscript`, `SelectorSessionSummary`, `BtnSessionEmptyRecord`, `BtnTranscriptEmptyRecord`, `TxtTranscriptContent`. Dropped with their features (owner decision 2026-11-03, may return later): `BtnSessionSuggestTitle`, `SizerNavigationPane` |
 | 160 | done | Existing unit tests listed in section 6 are ported and pass. -> see "Section 6 carry-over" below: each named test has one row with the ported test that proves it, or the reason it lives elsewhere |
+
+## sv-7 notes: audio playback (improved, not parity)
+
+| Item | Status | Note |
+| --- | --- | --- |
+| B21 / spec 7 item 21 playback | improved | The Transcript tab shows a player (play and pause, scrubber, clock in the mono face) when the meeting has saved audio, and a click on a stamped line seeks there and plays. Not in the WinUI app, so it is not parity |
+
+Decisions
+- Media route: `vozella://app/media/<meeting id>` inside the existing app protocol handler (`apps/desktop/src/main/security/media-route.ts`), not a signed URL. The file path is read only from the repository record of that meeting, never from the URL. Ids are limited to `[A-Za-z0-9-]`, so traversal and foreign hosts get 404. Zero-byte or missing files get 404, the same hasAudio rule as sv-2. HTTP Range gives 206 and 416; only GET and HEAD are served. The scheme is registered with `stream: true`; CSP gains `media-src 'self'`.
+- Why no signature: the renderer can already read every meeting through IPC, so a signed URL would add no protection against it, and the scheme is only served to the trusted app origin.
+- Selecting text never seeks: a click is ignored when the selection is not collapsed or the click is part of a double click.
+- Keyboard: play and pause and the scrubber (arrow keys, Home, End) are native controls with names. Stamped lines are not individually focusable: with up to 20k lines a button per line would cost more than it gives. Seeking by keyboard goes through the scrubber.
+- New keys: `Ui_SessionAudio*`, `Ui_SessionAudio*`, `Ui_SessionAudio*` (en and es). Three, not two, because the play button changes its name.
+- If the file cannot be decoded, the player and the line seeking disappear instead of staying as dead controls.
+
+Limitations
+- Dev server runs (`electron-vite dev`) serve the renderer from http://localhost, where the app scheme is not served, so the player shows no length and stays disabled there. Builds are fine (e2e runs the built app).
+- A transcript replaced by a re-transcription keeps the same audio, so the player does not reload. No highlight of the playing line and no speed control.
+- WAV and common formats play; what Chromium cannot decode hides the player.
+
+Tests
+- `media-route.test.ts` (Range 206/416, traversal, missing, empty file, methods), `csp.test.ts` (media-src), `transcript-lines.test.ts` (start time parse), `AudioBar.test.tsx` (stubbed media element), `TranscriptTab.test.tsx` (click seeks, selection does not, no audio no player), `e2e/session-audio.spec.ts` (real element playback state, scrubber keys, selection drag, Range over the real protocol; light and dark screenshots `transcript-audio-*.png`).
+- No RED-first run: tests were written together with the code.
+
+Bugs fixed (sv-7)
+- None found in earlier work. A user-event click clears the selection before the click event, so the selection guard is tested with a synthetic click and in e2e with a real drag.
+
+Left for other modules (sv-7)
+- None.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { TooltipProvider } from '../../ui';
 import { TranscriptTab, type CopySource } from './TranscriptTab';
@@ -71,12 +71,12 @@ function install(first: string | null | undefined, gate?: Promise<void>): Fake {
   return fake;
 }
 
-function mount() {
+function mount(hasAudio = false) {
   const ref: { current: CopySource | null } = { current: null };
   const view = render(
     <I18nProvider>
       <TooltipProvider>
-        <TranscriptTab meetingId={ID} copySourceRef={ref} />
+        <TranscriptTab meetingId={ID} copySourceRef={ref} hasAudio={hasAudio} />
       </TooltipProvider>
     </I18nProvider>,
   );
@@ -241,4 +241,71 @@ describe('TranscriptTab', () => {
     const box = await screen.findByTestId('TxtTranscriptContent', {}, { timeout: 20_000 });
     expect(box.querySelectorAll('p')).toHaveLength(20_000);
   }, 30_000);
+});
+
+describe('TranscriptTab audio seeking', () => {
+  afterEach(() => {
+    delete (window as unknown as { vozella?: unknown }).vozella;
+    vi.restoreAllMocks();
+  });
+
+  const stub = () => {
+    let time = 0;
+    const play = vi.fn(() => Promise.resolve());
+    Object.defineProperties(HTMLMediaElement.prototype, {
+      play: { configurable: true, value: play },
+      pause: { configurable: true, value: vi.fn() },
+      paused: { configurable: true, get: () => true },
+      currentTime: {
+        configurable: true,
+        get: () => time,
+        set: (v: number) => {
+          time = v;
+        },
+      },
+    });
+    return { play, time: () => time };
+  };
+
+  it('a click on a stamped line seeks there and plays', async () => {
+    const media = stub();
+    install(STORED);
+    mount(true);
+    const box = await screen.findByTestId('TxtTranscriptContent');
+    expect(screen.getByTestId('AudioBar')).toBeTruthy();
+    await userEvent.click(screen.getByText(/Empecemos\./));
+    expect(media.time()).toBe(4.52);
+    expect(media.play).toHaveBeenCalledTimes(1);
+    // Header lines carry no stamp: a click does nothing.
+    await userEvent.click(screen.getByText('Recorded 2026-10-01 22:36'));
+    expect(media.play).toHaveBeenCalledTimes(1);
+    expect(box.textContent).toContain('Buenos días.');
+  });
+
+  it('a click that ends a text selection does not seek', async () => {
+    const media = stub();
+    install(STORED);
+    mount(true);
+    const target = await screen.findByText(/Buenos días\./);
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    // A drag inside one line ends in a click with the selection still in place.
+    fireEvent.click(target, { detail: 1 });
+    expect(media.play).not.toHaveBeenCalled();
+    window.getSelection()?.removeAllRanges();
+    fireEvent.click(target, { detail: 1 });
+    expect(media.play).toHaveBeenCalledTimes(1);
+    window.getSelection()?.removeAllRanges();
+  });
+
+  it('without audio there is no player and lines do not seek', async () => {
+    const media = stub();
+    install(STORED);
+    mount(false);
+    await userEvent.click(await screen.findByText(/Buenos días\./));
+    expect(screen.queryByTestId('AudioBar')).toBeNull();
+    expect(media.play).not.toHaveBeenCalled();
+  });
 });

@@ -192,7 +192,11 @@ export function SessionRoute() {
         icon: <Icon icon={FileText} size={14} />,
         content: wrap(
           'transcript',
-          <TranscriptTab meetingId={meetingId} copySourceRef={copySourceRef} />,
+          <TranscriptTab
+            meetingId={meetingId}
+            copySourceRef={copySourceRef}
+            hasAudio={meeting?.hasAudio === true}
+          />,
         ),
       },
       {

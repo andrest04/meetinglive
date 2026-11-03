@@ -9,6 +9,7 @@ export function buildCsp({ dev }: { dev: boolean }): string {
     'style-src': dev ? ["'self'", "'unsafe-inline'"] : ["'self'"],
     'img-src': ["'self'", 'data:'],
     'font-src': ["'self'"],
+    'media-src': ["'self'"],
     'connect-src': dev ? ["'self'", 'ws://localhost:*', 'http://localhost:*'] : ["'self'"],
     'base-uri': ["'none'"],
     'form-action': ["'none'"],

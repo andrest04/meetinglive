@@ -1,7 +1,9 @@
-import { memo, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Button, Notice, SkeletonText, cn } from '../../ui';
 import { hasTranscriptContent, toLines, type TranscriptLine } from './transcript-lines';
+import { AudioBar } from './AudioBar';
+import { audioUrl, useAudioPlayer } from './use-audio-player';
 import { useTranscript } from './use-transcript';
 
 /** What a tab gives the Copy button: its text, or null when it has nothing to copy. */
@@ -15,10 +17,29 @@ const partClass = {
 } as const;
 
 /** Off-screen lines skip layout and paint, so a multi-megabyte transcript stays responsive (B20). */
-const Line = memo(function Line({ line }: { readonly line: TranscriptLine }) {
+const Line = memo(function Line({
+  line,
+  onSeek,
+}: {
+  readonly line: TranscriptLine;
+  /** Set when the audio plays and the line has a stamp: a click starts playback there. */
+  readonly onSeek: ((seconds: number) => void) | undefined;
+}) {
+  const start = line.startSeconds;
+  const seekable = onSeek !== undefined && start !== null;
   return (
     <p
+      onClick={
+        seekable
+          ? (event) => {
+              // Selecting text (drag, double click) must not seek or interrupt playback.
+              if (event.detail > 1 || !window.getSelection()?.isCollapsed) return;
+              onSeek(start);
+            }
+          : undefined
+      }
       className={cn(
+        seekable && 'cursor-pointer hover:bg-hover',
         '[content-visibility:auto] [contain-intrinsic-size:auto_2rem] min-h-6 pb-1.5 whitespace-pre-wrap break-words ps-3 -ms-3',
         line.starred && 'border-s-2 border-ink ps-[10px]',
       )}
@@ -44,9 +65,12 @@ const Line = memo(function Line({ line }: { readonly line: TranscriptLine }) {
 export function TranscriptTab({
   meetingId,
   copySourceRef,
+  hasAudio = false,
 }: {
   readonly meetingId: string;
   readonly copySourceRef: CopySourceRef;
+  /** The meeting has saved audio: show the player and let stamped lines seek it. */
+  readonly hasAudio?: boolean;
 }) {
   const t = useT();
   const model = useTranscript(meetingId);
@@ -63,6 +87,15 @@ export function TranscriptTab({
   }, [copySourceRef, meetingId]);
 
   const lines = useMemo(() => toLines(model.text), [model.text]);
+  const player = useAudioPlayer();
+  const { playFrom } = player;
+  const audioOn = hasAudio && !player.failed;
+  const onSeek = useCallback(
+    (seconds: number) => {
+      playFrom(seconds);
+    },
+    [playFrom],
+  );
 
   if (model.phase === 'loading') {
     return (
@@ -102,17 +135,20 @@ export function TranscriptTab({
     );
   }
   return (
-    <div
-      id="TxtTranscriptContent"
-      data-testid="TxtTranscriptContent"
-      role="region"
-      aria-label={t('SessionPage_TabTranscript.Text')}
-      tabIndex={0}
-      className="max-h-[calc(100vh-21rem)] min-h-40 overflow-y-auto overflow-x-hidden rounded-control py-1 ps-3 pe-2 text-ui-lg leading-6 text-ink select-text focus-visible:outline-2 focus-visible:outline-offset-2"
-    >
-      {lines.map((line) => (
-        <Line key={line.key} line={line} />
-      ))}
-    </div>
+    <>
+      {audioOn ? <AudioBar player={player} src={audioUrl(meetingId)} /> : null}
+      <div
+        id="TxtTranscriptContent"
+        data-testid="TxtTranscriptContent"
+        role="region"
+        aria-label={t('SessionPage_TabTranscript.Text')}
+        tabIndex={0}
+        className="max-h-[calc(100vh-21rem)] min-h-40 overflow-y-auto overflow-x-hidden rounded-control py-1 ps-3 pe-2 text-ui-lg leading-6 text-ink select-text focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        {lines.map((line) => (
+          <Line key={line.key} line={line} onSeek={audioOn ? onSeek : undefined} />
+        ))}
+      </div>
+    </>
   );
 }
