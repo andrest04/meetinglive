@@ -10,6 +10,7 @@ import type { PipelineRequest } from './request';
 import { resolveTranscriptionStage } from '../../transcription/pipeline-rules';
 import { isBlankText, sameAudioPath, shouldSaveBeforeTranscribing } from './rules';
 import { buildProcessedRecord, type ProcessedContent } from './save-record';
+import type { SummaryStage, SummaryStageOutcome } from './summary-stage';
 
 /** Port: the offline pass over a finished WAV. Adapter: the transcription controller. */
 export interface OfflineTranscriber {
@@ -51,6 +52,8 @@ export interface RecordingPipelineDeps {
   /** The text for `{0}` of a failure message. */
   readonly formatFailure: (error: unknown) => string;
   readonly previousAudio?: PreviousAudioKeeper;
+  /** The summary stage (part 2). Without it a run ends at `transcript-saved`. */
+  readonly summary?: SummaryStage;
 }
 
 export type PipelineOutcome =
@@ -72,7 +75,16 @@ export type PipelineOutcome =
     }
   /** The first save failed and there is no draft. The pipeline can be run again on this audio. */
   | { readonly kind: 'first-save-failed'; readonly audioPath: string; readonly message: Message }
-  | { readonly kind: 'cancelled'; readonly transcriptSaved: boolean; readonly audioPath: string };
+  | { readonly kind: 'cancelled'; readonly transcriptSaved: boolean; readonly audioPath: string }
+  /** Part 2 finished (completed, no provider, summary failed, summary cancelled). */
+  | ({ readonly audioPath: string } & SummaryStageOutcome)
+  /** Any other exception (spec 3.7 exception handling). The host was told. */
+  | {
+      readonly kind: 'failed';
+      readonly transcriptSaved: boolean;
+      readonly audioPath: string;
+      readonly message: Message;
+    };
 
 const isCancelled = (error: unknown): boolean =>
   isCancellation(error) || error instanceof TranscriptionCancelledError;
@@ -89,6 +101,8 @@ class RunState {
   /** The latest stored record: the base of every later save. */
   base: MeetingRecord | null = null;
   durable = false;
+  /** The transcript of this run is stored. */
+  transcriptSaved = false;
   audioPath: string;
   previousAudioPath: string | null = null;
 
@@ -114,11 +128,74 @@ export class RecordingPipeline {
   ): Promise<PipelineOutcome> {
     const state = new RunState(request, host);
     try {
-      return await this.part1(state, cancel);
+      const saved = await this.part1(state, cancel);
+      if (saved.kind !== 'transcript-saved' || this.deps.summary === undefined) return saved;
+      const stage = await this.deps.summary.run(request, host, saved.transcriptionWarning, cancel);
+      return { ...stage, audioPath: state.audioPath };
     } catch (error) {
       if (isCancelled(error)) return await this.onCancelled(state);
-      throw error;
+      return await this.onFailed(state, error);
     }
+  }
+
+  /**
+   * The host-level guard (spec 3.7, item 150): never throws, an escaping exception becomes a
+   * terminal status, and `complete` always runs.
+   */
+  async runGuarded(
+    request: PipelineRequest,
+    host: PipelineHost,
+    cancel: CancelSignal,
+    complete: () => void,
+  ): Promise<PipelineOutcome> {
+    try {
+      return await this.run(request, host, cancel);
+    } catch (error) {
+      const message = processError(this.safeFormat(error));
+      host.onFinished(message);
+      return { kind: 'failed', transcriptSaved: false, audioPath: request.audioPath, message };
+    } finally {
+      complete();
+    }
+  }
+
+  /** Cancels the summary that runs after the hand-off (B-21). False when none runs. */
+  cancelBackgroundSummary(meetingId: string): boolean {
+    return this.deps.summary?.cancelBackgroundSummary(meetingId) ?? false;
+  }
+
+  private safeFormat(error: unknown): string {
+    try {
+      return this.deps.formatFailure(error);
+    } catch {
+      return error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  /** Any non-cancel exception (spec 3.7 exception handling). */
+  private async onFailed(state: RunState, error: unknown): Promise<PipelineOutcome> {
+    const { request, host } = state;
+    const friendly = this.safeFormat(error);
+    if (isBlankText(state.transcript)) state.transcript = this.draftOf(request);
+    if (isBlankText(state.transcript)) {
+      const message = processError(friendly);
+      if (state.durable) host.onSavedWithoutTranscript(request.meetingId, message);
+      else host.onFinished(message);
+      return { kind: 'failed', transcriptSaved: false, audioPath: state.audioPath, message };
+    }
+    if (!state.transcriptSaved) {
+      try {
+        await this.saveTranscript(state);
+      } catch (saveError) {
+        // The store may be the cause. Report a terminal status so the host never stays busy.
+        const message = processError(this.safeFormat(saveError));
+        host.onFinished(message);
+        return { kind: 'failed', transcriptSaved: false, audioPath: state.audioPath, message };
+      }
+    }
+    const message: Message = { key: 'Status_TranscriptSavedSummaryFailed', args: [friendly] };
+    host.onSummaryFailedAfterTranscriptSaved(request.meetingId, message);
+    return { kind: 'failed', transcriptSaved: true, audioPath: state.audioPath, message };
   }
 
   private draftOf(request: PipelineRequest): string | null {
@@ -258,9 +335,9 @@ export class RecordingPipeline {
       return { kind: 'cancelled', transcriptSaved: false, audioPath: state.audioPath };
     }
     try {
-      await this.saveTranscript(state);
+      if (!state.transcriptSaved) await this.saveTranscript(state);
     } catch (error) {
-      host.onFinished(processError(this.deps.formatFailure(error)));
+      host.onFinished(processError(this.safeFormat(error)));
       return { kind: 'cancelled', transcriptSaved: false, audioPath: state.audioPath };
     }
     host.onTitleResetAndFinished({ key: 'Status_CancelledTranscriptSaved', args: [] });
@@ -279,6 +356,7 @@ export class RecordingPipeline {
       summaryProvider: keep?.summaryProvider ?? null,
     });
     state.durable = true;
+    state.transcriptSaved = true;
     return record;
   }
 

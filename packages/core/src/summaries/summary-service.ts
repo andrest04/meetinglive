@@ -36,6 +36,13 @@ export interface GenerateRequest {
    * external busy probe. Two runs of the same meeting are still refused.
    */
   readonly skipBusyProbe?: boolean;
+  /**
+   * The notes for the prompt, read by the caller at call time (the recording pipeline reads the
+   * live session notes). When undefined the stored notes are used.
+   */
+  readonly rawNotes?: string | null;
+  /** The template text for the prompt. When undefined it is resolved from the template id. */
+  readonly templateInstructions?: string | null;
 }
 
 /** A failure as plain data, so it can cross the IPC boundary. Text is built by `describeFailed`. */
@@ -167,10 +174,13 @@ export class SummaryService {
     const settings = await this.deps.settings.load();
     const requested = request.templateId === undefined ? record.noteTemplateId : request.templateId;
     const enhancement = createEnhancementContext({
-      rawNotes: record.notes,
+      rawNotes: request.rawNotes === undefined ? record.notes : request.rawNotes,
       attendees: record.attendees,
       agenda: request.agenda ?? null,
-      templateInstructions: resolveTemplateInstructions(requested),
+      templateInstructions:
+        request.templateInstructions === undefined
+          ? resolveTemplateInstructions(requested)
+          : request.templateInstructions,
     });
     const now = (): OffsetDate => offsetDateFromInstant(this.deps.clock.now());
     const dateOf = (text: string): OffsetDate => parseOffsetDate(text) ?? now();
