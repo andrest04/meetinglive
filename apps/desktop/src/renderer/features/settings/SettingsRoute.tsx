@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n/I18nProvider';
 import { isLocale } from '../../i18n/translate';
 import { useTheme, isThemePreference } from '../../app/theme';
+import { DataSection } from './DataSection';
 import { RadioGroup, SectionHeader, Select, SettingRow } from '../../ui';
 
 /** Appearance and language. The rest of the settings arrive with their modules. */
@@ -45,6 +46,7 @@ export function SettingsRoute() {
           />
         </SettingRow>
       </div>
+      <DataSection />
     </section>
   );
 }

@@ -19,5 +19,8 @@
   "Ui_LibraryChooseFolder": "Elegir carpeta",
   "Ui_LibraryResetFolder": "Usar la carpeta predeterminada",
   "Ui_LibraryFolderRefused": "No se puede usar esa carpeta. {0}",
-  "Ui_LibraryFolderShared": "Esta carpeta contiene una biblioteca de una versión anterior. Ambas versiones leen y escriben los mismos archivos."
+  "Ui_LibraryFolderShared": "Esta carpeta contiene una biblioteca de una versión anterior. Ambas versiones leen y escriben los mismos archivos.",
+  "Ui_LibraryFolders": "Carpetas",
+  "Ui_LibraryFolderActions": "Acciones de la carpeta",
+  "Ui_LibraryOpenFailed": "No se pudo abrir la carpeta: {0}"
 }
