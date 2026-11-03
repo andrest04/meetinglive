@@ -100,7 +100,7 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
     previousAudio: previousAudioKeeper(),
     summary,
   });
-  return new RecordingService({
+  const service = new RecordingService({
     liveAsk: deps.liveAsk,
     takes: deps.takes,
     controller: deps.controller,
@@ -153,9 +153,15 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
         clearTimeout(timer);
       };
     },
+    meetingTitle: async (meetingId) => (await library.meetings.get(meetingId))?.title ?? null,
     defaultTitle: (atMs) => {
       const locale = deps.locale();
       return defaultMeetingTitle(new Date(atMs), locale, deps.titleCatalog(locale));
     },
   });
+  // A summary can replace a placeholder title after the card is drawn.
+  deps.workspace.on('meetingChanged', (id) => {
+    void service.refreshLastTitle(id);
+  });
+  return service;
 }

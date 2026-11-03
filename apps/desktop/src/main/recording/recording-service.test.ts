@@ -102,6 +102,7 @@ interface Options {
 }
 
 function build(options: Options = {}) {
+  const savedTitle: { value: string | null } = { value: null };
   const host = new FakeHost();
   const settings = new InMemorySettingsStore();
   void settings.update({
@@ -206,6 +207,7 @@ function build(options: Options = {}) {
     newId: () => 'meeting-1',
     schedule: () => () => undefined,
     defaultTitle: () => 'Meeting 3 Nov, 10:00',
+    meetingTitle: () => Promise.resolve(savedTitle.value),
   });
   return {
     host,
@@ -218,6 +220,7 @@ function build(options: Options = {}) {
     store,
     transcriber,
     service,
+    savedTitle,
     workspace,
     events,
     repaired,
@@ -486,6 +489,16 @@ describe('RecordingService stop', () => {
     expect(state.lastMeeting).toMatchObject({ id: 'meeting-1' });
     expect(t.repaired).toContain(saved?.audioFilePath);
     expect(t.workspace.state.lastProcessedMeetingId).toBe('meeting-1');
+  });
+
+  it('the result card follows a title the summary replaced after the meeting was saved', async () => {
+    const t = build();
+    await t.service.start(sources);
+    await t.service.stop();
+    t.savedTitle.value = 'Fake planning meeting';
+    await t.service.completion;
+    await t.service.refreshLastTitle('meeting-1');
+    expect(t.service.getState().lastMeeting?.title).toBe('Fake planning meeting');
   });
 
   it('190: a destination folder deleted during the take files the meeting in the Inbox', async () => {

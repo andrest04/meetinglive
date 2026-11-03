@@ -115,7 +115,7 @@ export interface RecordingServiceDeps {
   /** The placeholder title for a take that has none. */
   readonly defaultTitle: (atMs: number) => string;
   /** The title of a saved meeting, for the result card. */
-  readonly meetingTitle?: (meetingId: string) => string | null;
+  readonly meetingTitle?: (meetingId: string) => Promise<string | null>;
 }
 
 export interface StartRequest {
@@ -198,6 +198,8 @@ export class RecordingService {
   private lastState = '';
   private lastLiveText: string | null = null;
   private lastPublishedRaw = '';
+  /** The current title of the last processed meeting: a summary can replace a placeholder. */
+  private lastTitle: { readonly id: string; readonly title: string } | null = null;
 
   constructor(private readonly deps: RecordingServiceDeps) {
     this.runs = new RecordingRuns({
@@ -309,8 +311,25 @@ export class RecordingService {
       lastMeeting:
         last === null
           ? null
-          : { id: last.id, title: this.deps.meetingTitle?.(last.id) ?? last.title },
+          : {
+              id: last.id,
+              title: this.lastTitle?.id === last.id ? this.lastTitle.title : last.title,
+            },
     };
+  }
+
+  /** Reads the saved title again after the meeting changed, so the result card shows a new one. */
+  async refreshLastTitle(meetingId: string): Promise<void> {
+    if (this.deps.meetingTitle === undefined || this.runs.lastMeetingId !== meetingId) return;
+    try {
+      const title = await this.deps.meetingTitle(meetingId);
+      if (title === null || this.runs.lastMeetingId !== meetingId) return;
+      if (this.lastTitle?.id === meetingId && this.lastTitle.title === title) return;
+      this.lastTitle = { id: meetingId, title };
+      this.publish();
+    } catch (error) {
+      this.deps.logger.warn('could not read the saved title', { error: describe(error) });
+    }
   }
 
   /** Sends the state when something other than the clock reading changed. */
