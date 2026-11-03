@@ -1,4 +1,4 @@
-import { CircleAlert, Ellipsis, LoaderCircle } from 'lucide-react';
+import { CircleAlert, Copy, Ellipsis, LoaderCircle } from 'lucide-react';
 import { Button, Icon, IconButton, Menu, Select, type Option } from '../../ui';
 import type { GenerationStatus } from './use-summary-generation';
 
@@ -9,6 +9,7 @@ export interface SummaryActionBarLabels {
   readonly template: string;
   readonly more: string;
   readonly copyActions: string;
+  readonly copy: string;
 }
 
 export interface SummaryActionBarProps {
@@ -26,14 +27,26 @@ export interface SummaryActionBarProps {
   readonly onRegenerate: () => void;
   readonly onCancel: () => void;
   readonly onCopyActions: () => void;
+  /** The Copy button: the notes or the summary, whichever tab mode shows. Off when that text is blank. */
+  readonly canCopy: boolean;
+  readonly onCopy: () => void;
 }
 
 /** The right side of the toolbar. While a run is going every action is off and Cancel shows. */
 export function SummaryActionBar(props: SummaryActionBarProps) {
   const { labels, generating } = props;
-  if (!props.showBar && !props.showMore) return null;
+  if (!props.showBar && !props.showMore && !props.canCopy) return null;
   return (
     <>
+      {props.canCopy ? (
+        <IconButton
+          label={labels.copy}
+          icon={Copy}
+          disabled={generating}
+          onClick={props.onCopy}
+          data-testid="BtnSessionCopy"
+        />
+      ) : null}
       {props.showBar ? (
         <>
           {generating ? (

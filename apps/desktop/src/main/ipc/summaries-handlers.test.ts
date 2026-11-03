@@ -133,7 +133,7 @@ describe('summaries handlers', () => {
   it('registers every summaries request channel', () => {
     const { handlers } = setup();
     const expected = Object.keys(requestChannels).filter((name) => name.startsWith('summaries.'));
-    expect(expected).toHaveLength(14);
+    expect(expected).toHaveLength(15);
     for (const name of expected) expect(handlers.has(name)).toBe(true);
   });
 
@@ -217,6 +217,12 @@ describe('summaries handlers', () => {
       status: 'copied',
       text: '- [x] Send the notes to the team\n- [ ] Book the follow-up call',
     });
+    expect(ok(await call('summaries.copyText', { meetingId: ID, mode: 'notes' }))).toEqual({
+      text: 'my notes',
+    });
+    expect(ok(await call('summaries.copyText', { meetingId: 'missing', mode: 'summary' }))).toEqual(
+      { text: null },
+    );
     expect(
       ok(await call('summaries.setTemplate', { meetingId: ID, templateId: 'standup' })),
     ).toEqual({ status: 'saved' });

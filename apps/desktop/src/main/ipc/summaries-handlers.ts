@@ -5,6 +5,7 @@ import {
   summariesChooseCli,
   summariesChooseLocalModel,
   summariesCopyActions,
+  summariesCopyText,
   summariesGenerate,
   summariesHardware,
   summariesLoadTab,
@@ -42,6 +43,9 @@ export function registerSummariesHandlers(deps: SummariesHandlerDeps): void {
   registerRequest(server, summariesCopyActions, ({ meetingId }) =>
     controller.copyActions(meetingId),
   );
+  registerRequest(server, summariesCopyText, async ({ meetingId, mode }) => ({
+    text: await controller.copyText(meetingId, mode),
+  }));
   registerRequest(server, summariesWriteClipboard, async ({ text }) => {
     try {
       await writeClipboard(text);

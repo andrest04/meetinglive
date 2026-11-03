@@ -37,6 +37,7 @@ export interface SummaryGeneration {
   readonly confirmRegenerate: () => void;
   readonly cancel: () => void;
   readonly copyActions: () => void;
+  readonly copyText: (mode: 'notes' | 'summary') => void;
 }
 
 export interface UseSummaryGenerationInput {
@@ -280,6 +281,36 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
     })();
   }, []);
 
+  const copyText = useCallback((copyMode: 'notes' | 'summary') => {
+    const id = idRef.current;
+    if (id === null) return;
+    const tr = latest.current.t;
+    setDraft(null);
+    void (async () => {
+      let next: DraftMessageState;
+      try {
+        const answer = await window.vozella.invoke('summaries.copyText', {
+          meetingId: id,
+          mode: copyMode,
+        });
+        if (answer.text === null) {
+          next = { kind: 'error', text: tr('Ui_SummaryNothingToCopy') };
+        } else {
+          const written = await window.vozella.invoke('summaries.writeClipboard', {
+            text: answer.text,
+          });
+          next =
+            written.status === 'written'
+              ? { kind: 'success', text: tr('SessionPage_CopyConfirmation.Message') }
+              : { kind: 'error', text: tr('Ui_SummaryCopyFailed', written.detail) };
+        }
+      } catch (error) {
+        next = { kind: 'error', text: tr('Ui_SummaryCopyFailed', errorText(error)) };
+      }
+      if (idRef.current === id) setDraft(next);
+    })();
+  }, []);
+
   return {
     flags,
     generating,
@@ -295,5 +326,6 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
     confirmRegenerate,
     cancel,
     copyActions,
+    copyText,
   };
 }

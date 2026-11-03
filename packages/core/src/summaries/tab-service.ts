@@ -231,7 +231,7 @@ export class SummaryTabService {
     }
   }
 
-  /** Item 104 for a stored meeting; the session module's copy button is the caller; no renderer code uses it yet. */
+  /** Item 104 for a stored meeting; the Copy button on the Summary tab calls it through `summaries.copyText`. */
   async copyText(meetingId: string, mode: CopyMode): Promise<string | null> {
     try {
       const record = await this.deps.meetings.get(meetingId);

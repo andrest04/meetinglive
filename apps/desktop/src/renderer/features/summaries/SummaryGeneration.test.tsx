@@ -63,6 +63,52 @@ function gate<T>() {
   return { promise, resolve };
 }
 
+describe('Copy button (item 104)', () => {
+  it('copies the summary in Enhanced mode and the notes in My notes mode', async () => {
+    const user = userEvent.setup();
+    const api = installSummariesApi({
+      ...loadWith(done({ notes: 'my own notes' })),
+      'summaries.copyText': (input) => ({
+        text: input.mode === 'notes' ? 'my own notes' : SUMMARY,
+      }),
+      'summaries.writeClipboard': () => ({ status: 'written' }),
+    });
+    mount();
+    await user.click(await screen.findByTestId('BtnSessionCopy'));
+    expect(await screen.findByText('Copied to the clipboard.')).toBeVisible();
+    expect(calls(api, 'summaries.copyText')[0]?.input).toEqual({
+      meetingId: 'm1',
+      mode: 'summary',
+    });
+    expect(calls(api, 'summaries.writeClipboard')[0]?.input).toEqual({ text: SUMMARY });
+    await user.click(screen.getByRole('radio', { name: 'My notes' }));
+    await user.click(await screen.findByTestId('BtnSessionCopy'));
+    await waitFor(() => {
+      expect(calls(api, 'summaries.copyText')[1]?.input).toEqual({
+        meetingId: 'm1',
+        mode: 'notes',
+      });
+    });
+    expect(calls(api, 'summaries.writeClipboard')[1]?.input).toEqual({ text: 'my own notes' });
+  });
+
+  it('is absent when there is no summary to copy, and says so when the text went blank', async () => {
+    installSummariesApi(loadWith(fresh()));
+    mount();
+    await screen.findByTestId('BtnGenerateSummary');
+    expect(screen.queryByTestId('BtnSessionCopy')).toBeNull();
+    cleanup();
+    const user = userEvent.setup();
+    installSummariesApi({
+      ...loadWith(done()),
+      'summaries.copyText': () => ({ text: null }),
+    });
+    mount();
+    await user.click(await screen.findByTestId('BtnSessionCopy'));
+    expect(await screen.findByText('There is nothing to copy.')).toBeVisible();
+  });
+});
+
 describe('Generate and Regenerate buttons', () => {
   it('shows Generate for a transcript without a summary, with the template picker', async () => {
     installSummariesApi(loadWith(fresh()));

@@ -77,6 +77,7 @@
   "Ui_SummaryMeetingGone": "The meeting could not be found, so no summary was made.",
   "Ui_SummaryProviderCardDescription": "Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI.",
   "Ui_SummaryCancelled": "Summary cancelled.",
+  "Ui_SummaryNothingToCopy": "There is nothing to copy.",
   "Ui_SummaryCopyFailed": "Could not copy to the clipboard: {0}",
   "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it."
 }

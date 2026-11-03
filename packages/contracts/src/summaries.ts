@@ -140,6 +140,12 @@ export const summariesCopyActions = defineRequest('summaries.copyActions', {
   ]),
 });
 
+/** The session-level Copy command: the notes or the summary, null when that text is blank (item 104). */
+export const summariesCopyText = defineRequest('summaries.copyText', {
+  input: z.object({ meetingId, mode: z.enum(['notes', 'summary']) }),
+  output: z.object({ text: z.string().nullable() }),
+});
+
 /**
  * Puts text on the system clipboard from the main process. The renderer's own clipboard API is
  * denied by the window's permission handler, so every copy goes through here.

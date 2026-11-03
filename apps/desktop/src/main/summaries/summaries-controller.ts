@@ -35,7 +35,7 @@ export interface SummariesControllerDeps {
   readonly service: Pick<SummaryService, 'generate' | 'isGenerating'>;
   readonly tab: Pick<
     SummaryTabService,
-    'loadTab' | 'saveNotes' | 'toggleActionItem' | 'copyActionItems' | 'setTemplate'
+    'loadTab' | 'saveNotes' | 'toggleActionItem' | 'copyActionItems' | 'copyText' | 'setTemplate'
   >;
   readonly resolver: Pick<SummaryProviderResolver, 'resolveSummaryProvider'>;
   readonly models: Pick<LocalModelsService, 'rows' | 'download' | 'cancel'>;
@@ -100,6 +100,10 @@ export class SummariesController {
 
   copyActions(meetingId: string) {
     return this.deps.tab.copyActionItems(meetingId);
+  }
+
+  copyText(meetingId: string, mode: 'notes' | 'summary') {
+    return this.deps.tab.copyText(meetingId, mode);
   }
 
   setTemplate(meetingId: string, templateId: string | null) {

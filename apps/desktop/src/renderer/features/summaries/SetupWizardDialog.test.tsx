@@ -356,4 +356,20 @@ describe('SetupWizardDialog: closed and Spanish', () => {
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeVisible();
     expect(screen.getByText('Recomendado')).toBeVisible();
   });
+
+  it('relabels the open model list when the language changes, speed, quality, use case and fit', async () => {
+    const { api } = mount({ mode: 'local-only' });
+    expect(await screen.findByText('Choose a model to generate summaries')).toBeVisible();
+    expect(screen.getAllByText('Recommended').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Modest PCs / laptops without a GPU').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fast · Quality Good/).length).toBeGreaterThan(0);
+    api.emit('i18n.localeChanged', { locale: 'es' });
+    expect(await screen.findByText('Elige un modelo para generar resúmenes')).toBeVisible();
+    expect(screen.getAllByText('Recomendado').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Puede ser lento').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Equipos modestos o portátiles sin GPU').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Rápido · Calidad Buena/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Recommended')).toBeNull();
+    expect(screen.queryByText('Modest PCs / laptops without a GPU')).toBeNull();
+  });
 });

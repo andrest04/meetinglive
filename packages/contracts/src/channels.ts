@@ -139,6 +139,7 @@ export const requestChannels = {
   [summaries.summariesSaveNotes.name]: summaries.summariesSaveNotes,
   [summaries.summariesToggleAction.name]: summaries.summariesToggleAction,
   [summaries.summariesCopyActions.name]: summaries.summariesCopyActions,
+  [summaries.summariesCopyText.name]: summaries.summariesCopyText,
   [summaries.summariesWriteClipboard.name]: summaries.summariesWriteClipboard,
   [summaries.summariesSetTemplate.name]: summaries.summariesSetTemplate,
   [summaries.summariesProviderStatus.name]: summaries.summariesProviderStatus,

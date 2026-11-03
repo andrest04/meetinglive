@@ -115,6 +115,7 @@ export function SummaryTab({
               template: t('SummaryPage_NoteTemplateCompact.AutomationProperties.Name'),
               more: t('SummaryPage_More.AutomationProperties.Name'),
               copyActions: t('SummaryPage_MoreListActions.Text'),
+              copy: t('SessionPage_Copy.AutomationProperties.Name'),
             }}
             showBar={flags.showSummaryActionBar}
             canGenerate={flags.canGenerate}
@@ -128,6 +129,10 @@ export function SummaryTab({
             onRegenerate={generation.askRegenerate}
             onCancel={generation.cancel}
             onCopyActions={generation.copyActions}
+            canCopy={model.mode === 'notes' ? model.notes.trim() !== '' : flags.hasSummary}
+            onCopy={() => {
+              generation.copyText(model.mode === 'notes' ? 'notes' : 'summary');
+            }}
           />
         }
         statusLine={
