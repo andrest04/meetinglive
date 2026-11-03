@@ -203,7 +203,7 @@ Decisions:
 - cuda13 is chosen only when an injected `CudaDriverProbe` reports it (the chain is then cuda13, cuda12, vulkan, cpu). The default probe returns null, so cuda12 is used. No driver probe is written yet; nothing in this app reads the driver version.
 - The marker is a sibling file (`cuda12.incomplete`), like the NeMo-Speech runtime, not a file inside the folder as in the spike, so removing the folder cannot lose it.
 - macOS and Linux are out of scope: only Windows x64 archives are pinned.
-- The spike's extracted folders under `C:/Code/vozella-spikes/llm/work\{cpu,cuda12,cuda13}` are for S09 and S11 integration tests only, selected by `VOZELLA_LLAMA_BIN_DIR` and skipped when absent. No test here downloads a real archive.
+- The spike's extracted folders under `C:/Code/vozella-spikes/llm/work/{cpu,cuda12,cuda13}` are for S09 and S11 integration tests only, selected by `VOZELLA_LLAMA_BIN_DIR` and skipped when absent. No test here downloads a real archive.
 - Not observed: a real 287 MB download from GitHub, and the self-test on a real CUDA or Vulkan machine (the real `--version` run is only checked against `node --version`).
 
 ## Bugs fixed
