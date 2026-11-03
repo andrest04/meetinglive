@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:MeetingLive_App"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="MeetingLive"
+    Title="Vocea"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
         <MicaBackdrop />

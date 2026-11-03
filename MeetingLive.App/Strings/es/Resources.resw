@@ -12,7 +12,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AppTitleBar.Title" xml:space="preserve"><value>MeetingLive</value></data>
+  <data name="AppTitleBar.Title" xml:space="preserve"><value>Vocea</value></data>
   <data name="Nav_Record.Content" xml:space="preserve"><value>Grabar</value></data>
   <data name="Nav_Transcript.Content" xml:space="preserve"><value>Transcripción</value></data>
   <data name="Nav_Summary.Content" xml:space="preserve"><value>Resumen</value></data>
@@ -20,10 +20,10 @@
   <data name="Nav_Settings" xml:space="preserve"><value>Configuración</value></data>
   <data name="Nav_ResizePane" xml:space="preserve"><value>Cambiar el tamaño del panel de navegación</value></data>
   <data name="CallPrompt_Title" xml:space="preserve"><value>Hay una llamada en curso</value></data>
-  <data name="CallPrompt_Body" xml:space="preserve"><value>Toma notas en MeetingLive para no perder nada.</value></data>
+  <data name="CallPrompt_Body" xml:space="preserve"><value>Toma notas en Vocea para no perder nada.</value></data>
   <data name="CallPrompt_TakeNotes" xml:space="preserve"><value>Tomar notas</value></data>
   <data name="MeetingPrompt_Title.Text" xml:space="preserve"><value>Reunión detectada</value></data>
-  <data name="MeetingPrompt_Subtitle.Text" xml:space="preserve"><value>Toma notas con MeetingLive</value></data>
+  <data name="MeetingPrompt_Subtitle.Text" xml:space="preserve"><value>Toma notas con Vocea</value></data>
   <data name="MeetingPrompt_Start.Content" xml:space="preserve"><value>Empezar a grabar</value></data>
   <data name="MeetingPrompt_More.AutomationProperties.Name" xml:space="preserve"><value>Más opciones</value></data>
   <data name="MeetingPrompt_More.ToolTipService.ToolTip" xml:space="preserve"><value>Más opciones</value></data>
@@ -146,11 +146,11 @@
   <data name="SettingsPage_Title.Text" xml:space="preserve"><value>Configuración</value></data>
   <data name="Settings_Language.Text" xml:space="preserve"><value>Idioma</value></data>
   <data name="Settings_LanguagePicker.Header" xml:space="preserve"><value>Idioma de la aplicación</value></data>
-  <data name="Settings_LanguagePicker.Description" xml:space="preserve"><value>Cambia el idioma de las pantallas propias de MeetingLive. Reinicia la aplicación para completar el cambio.</value></data>
+  <data name="Settings_LanguagePicker.Description" xml:space="preserve"><value>Cambia el idioma de las pantallas propias de Vocea. Reinicia la aplicación para completar el cambio.</value></data>
   <data name="Settings_LanguageEnglish" xml:space="preserve"><value>English</value></data>
   <data name="Settings_LanguageSpanish" xml:space="preserve"><value>Español</value></data>
   <data name="SettingsLanguageRestart_Title" xml:space="preserve"><value>Reinicio necesario</value></data>
-  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>El idioma se aplicará al reiniciar MeetingLive. ¿Deseas reiniciar ahora?</value></data>
+  <data name="SettingsLanguageRestart_Content" xml:space="preserve"><value>El idioma se aplicará al reiniciar Vocea. ¿Deseas reiniciar ahora?</value></data>
   <data name="SettingsLanguageRestart_RestartNow" xml:space="preserve"><value>Reiniciar ahora</value></data>
   <data name="SettingsLanguageRestart_Later" xml:space="preserve"><value>Más tarde</value></data>
   <data name="Settings_SummaryModels.Header" xml:space="preserve"><value>Modelos de resumen</value></data>
@@ -167,7 +167,7 @@
   <data name="Settings_ProviderXai.Text" xml:space="preserve"><value>Grok (xAI)</value></data>
   <data name="Settings_Microphone.Text" xml:space="preserve"><value>Micrófono</value></data>
   <data name="Settings_RecordingDevice.Header" xml:space="preserve"><value>Dispositivo de grabación</value></data>
-  <data name="Settings_RecordingDevice.Description" xml:space="preserve"><value>El micrófono físico desde el que MeetingLive graba tu voz. El predeterminado del sistema sigue el que Windows use actualmente.</value></data>
+  <data name="Settings_RecordingDevice.Description" xml:space="preserve"><value>El micrófono físico desde el que Vocea graba tu voz. El predeterminado del sistema sigue el que Windows use actualmente.</value></data>
   <data name="Settings_MicLevel.Text" xml:space="preserve"><value>Nivel del micrófono</value></data>
   <data name="Settings_MeetingLanguage.Text" xml:space="preserve"><value>Idioma de la reunión</value></data>
   <data name="Settings_TranscriptionLanguage.Header" xml:space="preserve"><value>Idioma de transcripción</value></data>
@@ -209,11 +209,11 @@
   <data name="Settings_MeetingsLocation.Header" xml:space="preserve"><value>Reuniones</value></data>
   <data name="Settings_AppDataLocation.Header" xml:space="preserve"><value>Datos de la aplicación</value></data>
   <data name="Settings_OpenFolder.Content" xml:space="preserve"><value>Abrir carpeta</value></data>
-  <data name="Settings_About.Header" xml:space="preserve"><value>MeetingLive</value></data>
+  <data name="Settings_About.Header" xml:space="preserve"><value>Vocea</value></data>
   <data name="Setup_Title.Title" xml:space="preserve"><value>Configurar generación de resúmenes</value></data>
   <data name="Setup_Title.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
   <data name="Setup_ChooseEngine.Text" xml:space="preserve"><value>Elige cómo generar los resúmenes</value></data>
-  <data name="Setup_ChooseEngineHint.Text" xml:space="preserve"><value>Elige el motor que MeetingLive debe usar para convertir una transcripción en un resumen y elementos de acción.</value></data>
+  <data name="Setup_ChooseEngineHint.Text" xml:space="preserve"><value>Elige el motor que Vocea debe usar para convertir una transcripción en un resumen y elementos de acción.</value></data>
   <data name="Setup_ClaudeName.Text" xml:space="preserve"><value>Claude Code</value></data>
   <data name="Setup_ClaudeHint.Text" xml:space="preserve"><value>Usa la CLI de Claude Code ya instalada en este PC.</value></data>
   <data name="Setup_CodexName.Text" xml:space="preserve"><value>Codex</value></data>
@@ -232,7 +232,7 @@
   <data name="Setup_Done.Message" xml:space="preserve"><value>El modelo está listo para usarse.</value></data>
   <data name="EngineSetup.Title" xml:space="preserve"><value>Descargar motor de transcripción</value></data>
   <data name="EngineSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
-  <data name="EngineSetup_Hint.Text" xml:space="preserve"><value>MeetingLive necesita NVIDIA Nemotron 3.5 ASR Streaming (alrededor de 0.74 GB) más un pequeño tiempo de ejecución oficial de NVIDIA. No se instala nada más: sin CLI de Hugging Face, sin compilación de C++.</value></data>
+  <data name="EngineSetup_Hint.Text" xml:space="preserve"><value>Vocea necesita NVIDIA Nemotron 3.5 ASR Streaming (alrededor de 0.74 GB) más un pequeño tiempo de ejecución oficial de NVIDIA. No se instala nada más: sin CLI de Hugging Face, sin compilación de C++.</value></data>
   <data name="EngineSetup_Failed.Title" xml:space="preserve"><value>Error al descargar</value></data>
   <data name="CliSetup.PrimaryButtonText" xml:space="preserve"><value>Reintentar</value></data>
   <data name="CliSetup.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
@@ -302,15 +302,15 @@
   <data name="Hardware_NoGpu" xml:space="preserve"><value>Detectado: {0} GB de RAM, sin GPU dedicada</value></data>
   <data name="Download_ModelProgress" xml:space="preserve"><value>Descargando {0} ({1:0}%)...</value></data>
   <data name="Cli_SetupTitle" xml:space="preserve"><value>Configurar la CLI de {0}</value></data>
-  <data name="Cli_NotFound" xml:space="preserve"><value>MeetingLive no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado y con la sesión iniciada, selecciona Reintentar.</value></data>
-  <data name="Cli_NotFoundCheckAgain" xml:space="preserve"><value>MeetingLive no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado, selecciona "Comprobar de nuevo".</value></data>
+  <data name="Cli_NotFound" xml:space="preserve"><value>Vocea no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado y con la sesión iniciada, selecciona Reintentar.</value></data>
+  <data name="Cli_NotFoundCheckAgain" xml:space="preserve"><value>Vocea no pudo encontrar "{0}" en tu PATH. {1} Una vez instalado, selecciona "Comprobar de nuevo".</value></data>
   <data name="Cli_StillMissing" xml:space="preserve"><value>Sigue sin encontrarse en el PATH como "{0}". Instálalo y vuelve a intentarlo.</value></data>
   <data name="Cli_ClaudeHint" xml:space="preserve"><value>Instálalo desde https://claude.com/claude-code y luego ejecuta "claude" una vez desde una terminal para iniciar sesión.</value></data>
   <data name="Cli_CodexHint" xml:space="preserve"><value>Instálalo con "npm install -g @openai/codex" (consulta https://github.com/openai/codex) y luego ejecuta "codex" una vez desde una terminal para iniciar sesión.</value></data>
   <data name="Cli_ClaudeName" xml:space="preserve"><value>Claude Code</value></data>
   <data name="Cli_CodexName" xml:space="preserve"><value>Codex</value></data>
   <data name="MigrationFailed_Title" xml:space="preserve"><value>Error al migrar el historial de reuniones</value></data>
-  <data name="MigrationFailed_Content" xml:space="preserve"><value>MeetingLive no pudo migrar tu historial de reuniones existente al nuevo formato. Tus datos originales quedaron intactos.
+  <data name="MigrationFailed_Content" xml:space="preserve"><value>Vocea no pudo migrar tu historial de reuniones existente al nuevo formato. Tus datos originales quedaron intactos.
 
 {0}</value></data>
   <data name="Dialog_OK" xml:space="preserve"><value>Aceptar</value></data>
@@ -417,7 +417,7 @@
   <data name="XaiAuth.CloseButtonText" xml:space="preserve"><value>Cancelar</value></data>
   <data name="XaiAuth_Headline.Text" xml:space="preserve"><value>Usa SuperGrok (abre un navegador) o pega una clave de API de console.x.ai. Guardar una reemplaza a la otra.</value></data>
   <data name="XaiAuth_SuperGrokHeader.Text" xml:space="preserve"><value>SuperGrok</value></data>
-  <data name="XaiAuth_SuperGrokHint.Text" xml:space="preserve"><value>MeetingLive muestra un código breve y abre xAI. Apruébalo en el navegador y esta ventana se cerrará automáticamente.</value></data>
+  <data name="XaiAuth_SuperGrokHint.Text" xml:space="preserve"><value>Vocea muestra un código breve y abre xAI. Apruébalo en el navegador y esta ventana se cerrará automáticamente.</value></data>
   <data name="XaiAuth_SuperGrok.Content" xml:space="preserve"><value>Iniciar sesión con SuperGrok</value></data>
   <data name="XaiAuth_UserCodeLabel.Text" xml:space="preserve"><value>Ingresa este código si el navegador no lo completa automáticamente:</value></data>
   <data name="XaiAuth_Waiting.Text" xml:space="preserve"><value>Esperando a que termines de iniciar sesión en el navegador…</value></data>
@@ -478,8 +478,8 @@
   <data name="ComingUp_Next.AutomationProperties.Name" xml:space="preserve"><value>Próximas reuniones</value></data>
   <data name="ComingUp_Next.ToolTipService.ToolTip" xml:space="preserve"><value>Próximas reuniones</value></data>
   <data name="ComingUp_Empty" xml:space="preserve"><value>No hay nada próximamente.</value></data>
-  <data name="ComingUp_AccessDenied" xml:space="preserve"><value>Windows denegó el acceso al calendario. Permite que MeetingLive lea el calendario y vuelve a abrir Grabar.</value></data>
-  <data name="ComingUp_NoPackageIdentity" xml:space="preserve"><value>MeetingLive no puede leer el calendario de Windows porque este inicio no tiene identidad de paquete.</value></data>
+  <data name="ComingUp_AccessDenied" xml:space="preserve"><value>Windows denegó el acceso al calendario. Permite que Vocea lea el calendario y vuelve a abrir Grabar.</value></data>
+  <data name="ComingUp_NoPackageIdentity" xml:space="preserve"><value>Vocea no puede leer el calendario de Windows porque este inicio no tiene identidad de paquete.</value></data>
   <data name="ComingUp_TimeRange" xml:space="preserve"><value>{0:t} – {1:t}</value></data>
   <data name="ComingUp_TimeRangeOtherDay" xml:space="preserve"><value>{0:ddd, MMM d} {1:t} – {2:t}</value></data>
   <data name="RecordPage_BriefHeading.Text" xml:space="preserve"><value>Informe previo</value></data>
@@ -594,9 +594,9 @@
   <data name="LiveCopilot_Resume.AutomationProperties.Name" xml:space="preserve"><value>Reanudar la grabación</value></data>
   <data name="LiveCopilot_Stop.AutomationProperties.Name" xml:space="preserve"><value>Detener la grabación</value></data>
   <data name="LiveCopilot_Stop.ToolTipService.ToolTip" xml:space="preserve"><value>Detener la grabación</value></data>
-  <data name="LiveCopilot_OpenApp.AutomationProperties.Name" xml:space="preserve"><value>Abrir MeetingLive</value></data>
-  <data name="LiveCopilot_OpenApp.ToolTipService.ToolTip" xml:space="preserve"><value>Abrir MeetingLive</value></data>
-  <data name="LiveCopilot_Empty.Text" xml:space="preserve"><value>Escribe una pregunta abajo o responde una que MeetingLive detecte.</value></data>
+  <data name="LiveCopilot_OpenApp.AutomationProperties.Name" xml:space="preserve"><value>Abrir Vocea</value></data>
+  <data name="LiveCopilot_OpenApp.ToolTipService.ToolTip" xml:space="preserve"><value>Abrir Vocea</value></data>
+  <data name="LiveCopilot_Empty.Text" xml:space="preserve"><value>Escribe una pregunta abajo o responde una que Vocea detecte.</value></data>
   <data name="LiveCopilot_WebBadge.Text" xml:space="preserve"><value>🌐 Búsqueda en la web</value></data>
   <data name="LiveCopilot_ChipMissed.Content" xml:space="preserve"><value>¿Qué me perdí?</value></data>
   <data name="LiveCopilot_ChipMissed.AutomationProperties.Name" xml:space="preserve"><value>Preguntar qué te perdiste en los últimos minutos</value></data>
@@ -609,7 +609,7 @@
   <data name="LiveCopilot_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Buscar en la web para responder</value></data>
   <data name="LiveCopilot_WebTooltipOn" xml:space="preserve"><value>Buscar en la web para responder</value></data>
   <data name="LiveCopilot_WebTooltipOff" xml:space="preserve"><value>Sin búsqueda web con este proveedor</value></data>
-  <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Abre MeetingLive para terminar de configurar el proveedor.</value></data>
+  <data name="LiveCopilot_NeedsSetup" xml:space="preserve"><value>Abre Vocea para terminar de configurar el proveedor.</value></data>
   <data name="RecordPage_WebToggle.AutomationProperties.Name" xml:space="preserve"><value>Buscar en la web para responder</value></data>
   <data name="RecordPage_WebBadge.Text" xml:space="preserve"><value>🌐 Búsqueda en la web</value></data>
   <data name="Status_LiveDraftKeptTranscriptionFailed" xml:space="preserve"><value>Guardada con la transcripción en vivo. La transcripción final falló: {0}</value></data>
@@ -617,7 +617,7 @@
   <data name="HistoryDelete_Busy" xml:space="preserve"><value>Esta reunión todavía se está grabando o procesando. Inténtalo de nuevo cuando termine.</value></data>
   <data name="HistoryDelete_Failed" xml:space="preserve"><value>La reunión no se eliminó. Cierra cualquier programa que esté usando su audio e inténtalo de nuevo: {0}</value></data>
   <data name="AppClose_Recording_Title" xml:space="preserve"><value>¿Detener la grabación antes de cerrar?</value></data>
-  <data name="AppClose_Recording_Content" xml:space="preserve"><value>MeetingLive sigue grabando. Detener y guardar conserva esta toma como una reunión y luego cierra o reinicia la aplicación. La transcripción o el resumen que queden sin terminar se pueden volver a ejecutar desde la reunión.</value></data>
+  <data name="AppClose_Recording_Content" xml:space="preserve"><value>Vocea sigue grabando. Detener y guardar conserva esta toma como una reunión y luego cierra o reinicia la aplicación. La transcripción o el resumen que queden sin terminar se pueden volver a ejecutar desde la reunión.</value></data>
   <data name="AppClose_Recording_StopAndSave" xml:space="preserve"><value>Detener y guardar</value></data>
   <data name="AppClose_Recording_Keep" xml:space="preserve"><value>Seguir grabando</value></data>
   <data name="AppClose_Saving_Title" xml:space="preserve"><value>Guardando la grabación</value></data>
