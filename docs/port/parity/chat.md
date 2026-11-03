@@ -22,8 +22,16 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | Surface parsing, scope resolution, open-thread match (chat-1) | `packages/core/src/chat/scope-resolver.ts` |
 | Context packer and the B12 neutralizer (chat-1) | `packages/core/src/chat/context-packer.ts` |
 | Code-point-safe cuts, reused by chat-2 (chat-1) | `packages/core/src/chat/text-cut.ts` |
+| Prompt builder (chat-2) | `packages/core/src/chat/prompt-builder.ts` |
+| Meeting link build and parse (chat-2) | `packages/core/src/chat/meeting-link.ts` |
+| Thread title (chat-2) | `packages/core/src/chat/thread-title.ts` |
+| Built-in recipes, scope lists, slash filter (chat-2) | `packages/core/src/chat/recipes.ts` |
 
 ## Decisions
+
+- **Recipe API (chat-2).** `builtInRecipes(t)` and `recipesForScope(kind, t)` take a `RecipeNameLookup` (`(key) => string`) and return fresh objects every call. `availabilityFor` throws RangeError on an unknown scope. `filterRecipes(list, draft)` is the slash filter; the flyout is chat-8.
+- **Link parsing (chat-2).** `tryParseMeetingLink` returns the 32-hex lowercase id or null. Braced and parenthesized forms need the hyphenated shape and matching delimiters, as .NET Guid.TryParse does.
+- **Prompt messages (chat-2).** `buildPrompt` takes `{role, text}` prior messages; a null text counts as empty and a null element throws a TypeError on access.
 
 - **Line endings (chat-1).** The packer writes LF only. Summary, notes and transcript text is split on any line break and rejoined with LF.
 - **Injected strings (chat-1).** `packContext` takes a `ChatStringLookup` (`(key) => string`) as its last argument. The keys `ChatLiveTranscriptEmpty`, `ChatMeetingNotFound`, `ChatTranscriptEmpty`, `ChatFolderNotSelected`, `ChatFolderNotFound`, `ChatNoMeetingsInFolder` and `ChatNoMeetingsSaved` already exist in `en.json` and `es.json`; nothing was added. The "Showing the 12 most recent..." line, `Live transcript:`, `All meetings:`, `Folder:` and `Note:` stay English literals, as in WinUI (the model reads them).
@@ -34,11 +42,19 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 
 ## Bugs fixed
 
+- B8 (chat-2): recipe names resolve at call time through an injected lookup; a test switches language between two calls.
+- B10 (chat-2): prior-turn cuts and the thread title use the surrogate-safe cut.
+- B12 (chat-2, prompt part): lines of user and prior-turn text that begin with `# Context`, `# Prior turns` or `# User message` (leading spaces or tabs and case ignored) get a `> ` prefix. The fixed prompt lines stay verbatim.
+- B9 (chat-2): dropped with user recipes (owner decision 2026-11-03, may return later).
+
 - B10 (chat-1): `cutPrefix` and `cutTail` count UTF-16 units but never split a surrogate pair. Package 2 reuses them for prior turns and the thread title.
 - B12 (chat-1, context part): line breaks stripped from single-line fields and forged `Id:` or `# ` lines neutralized. The prompt part (delimiters in the prompt, brief) belongs to package 2; the brief is cut.
 - B5 (chat-1, context part): live transcript is an argument.
 
 ## Left for other modules
+
+- Chat-2 leaves: send flow and thread title use in chat-3/4 (items 88 wiring), chips and slash flyout UI in chat-8 (items 107 to 112; the pure filter is `filterRecipes`).
+- Dropped in chat-2 (owner decision 2026-11-03, may return later): user recipes entirely (items 113 to 115, create and delete dialogs, the chat-recipes.json repository, item 109, B9), JsonChatRecipeRepositoryTests, and the two user-row ChatRecipeListTests cases (ForScope_Meeting_ReturnsSingleBuiltInsThenUserRecipes user part, ForScope_WhenUserIdCollidesWithBuiltIn_SkipsUserRow).
 
 - Items 1 to 11, 18, 19, 23: packages 3 and 6 (scope label, glyph, collapse, generation guard, mismatch banner). Item 19: the TypeSafe half is cut.
 - Items 25 to 47: send flow and conversation UI (packages 3 and 7).
@@ -117,14 +133,14 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 64 | Blocks are separated by a blank line; result is end-trimmed. | chat-1 | done | Blocks end with a newline, a blank line separates them. |
 | 65 | Never include JevAnalysis, audio paths, folder ids of meetings, or other fields. | chat-1 | done | Packer reads `ContextMeeting` fields only; a test seeds the forbidden fields. |
 | 66 | Unknown scope throws. | chat-1 | done | `RangeError` for an unknown scope; `TypeError` for null meetings or folders. |
-| 67 | Prompt text lines match section 3.4 verbatim, in order. | chat-2 | pending |  |
-| 68 | `Scope: ` label uses the English labels `All meetings`/`Folder`/`Meeting`/`Live`. | chat-2 | pending |  |
-| 69 | Rewrite instruction only for Meeting scope when the message contains `rewrite` (case-insensitive substring). | chat-2 | pending |  |
-| 70 | Sections `# Context`, `# Prior turns`, `# User message` with blank lines between. | chat-2 | pending |  |
-| 71 | Prior turns: last 8 messages, each `role: text`, text cut to 1500; `(none)` if empty. | chat-2 | pending |  |
-| 72 | User message appended without a trailing newline. | chat-2 | pending |  |
-| 73 | Citation prefix `https://meetinglive.local/meeting/` plus 32-hex Id. | chat-2 | pending |  |
-| 74 | `TryParseMeetingLink` rules: null false; prefix match ignoring case; trailing slashes trimmed; Guid parse. | chat-2 | pending |  |
+| 67 | Prompt text lines match section 3.4 verbatim, in order. | chat-2 | done | prompt-builder.test.ts Build_AnyScope_TellsModelNotToInvent |
+| 68 | `Scope: ` label uses the English labels `All meetings`/`Folder`/`Meeting`/`Live`. | chat-2 | done | prompt-builder.test.ts scope labels |
+| 69 | Rewrite instruction only for Meeting scope when the message contains `rewrite` (case-insensitive substring). | chat-2 | done | prompt-builder.test.ts Build_WhenMessageContainsRewrite |
+| 70 | Sections `# Context`, `# Prior turns`, `# User message` with blank lines between. | chat-2 | improved | prompt-builder.test.ts layout; B12 headings neutralized |
+| 71 | Prior turns: last 8 messages, each `role: text`, text cut to 1500; `(none)` if empty. | chat-2 | improved | prompt-builder.test.ts Build_PriorTurns; B10 cut is surrogate-safe |
+| 72 | User message appended without a trailing newline. | chat-2 | done | prompt-builder.test.ts layout (no trailing newline) |
+| 73 | Citation prefix `https://meetinglive.local/meeting/` plus 32-hex Id. | chat-2 | done | prompt-builder.test.ts MeetingLink_RoundTrips |
+| 74 | `TryParseMeetingLink` rules: null false; prefix match ignoring case; trailing slashes trimmed; Guid parse. | chat-2 | done | prompt-builder.test.ts TryParseMeetingLink_* |
 | 75 | Threads file `chat-threads.json` in the app data directory; recipes `chat-recipes.json`. | chat-4 | pending |  |
 | 76 | camelCase property names; nulls written; Guid `D` format; ISO-8601 offset timestamps. | chat-4 | pending |  |
 | 77 | `scopeKind` stored as PascalCase enum name; reading accepts case-insensitive names. | chat-4 | pending |  |
@@ -138,7 +154,7 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 85 | Directory created on first write. | chat-4 | pending |  |
 | 86 | Writes should be atomic (B2) and files remain readable by the old format. | chat-4 | pending |  |
 | 87 | Thread created on first successful send only. | chat-4 | pending |  |
-| 88 | Thread title is the first message trimmed, line breaks to single space, max 60, trailing space trimmed. | chat-4 | pending |  |
+| 88 | Thread title is the first message trimmed, line breaks to single space, max 60, trailing space trimmed. | chat-4 | improved | thread-title.test.ts; B10 surrogate-safe; wiring in chat-3 |
 | 89 | `CreatedAt`/`UpdatedAt` use local time with offset; user and assistant messages of a turn share one timestamp (decide whether to fix B7). | chat-4 | pending |  |
 | 90 | `UpdatedAt` is bumped each turn; titles never change. | chat-4 | pending |  |
 | 91 | Save failure restores the in-memory message list and shows the error. | chat-4 | pending |  |
@@ -152,14 +168,14 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 99 | Confirming deletes the thread; clears the view if it was open; refreshes the list. | dropped | dropped |  |
 | 100 | New chat clears messages, draft, error, mismatch, and open thread. | dropped | dropped |  |
 | 101 | Threads list shows all threads regardless of scope. | dropped | dropped |  |
-| 102 | Built-in recipes: eight entries with the exact ids, names, availability, and prompts from 3.7. | chat-2 / chat-8 | pending |  |
-| 103 | Built-ins are never written to disk. | chat-2 / chat-8 | pending |  |
-| 104 | Scope to availability: Meeting/Live single; Folder/All multiple. | chat-2 / chat-8 | pending |  |
-| 105 | Scope list = built-ins (catalog order) then user recipes (file order); user rows with colliding built-in ids skipped (apply the B9 fix or keep, but document). | chat-2 / chat-8 | pending |  |
-| 106 | Starter chips = first 4 of the scope list. | chat-2 / chat-8 | pending |  |
+| 102 | Built-in recipes: eight entries with the exact ids, names, availability, and prompts from 3.7. | chat-2 / chat-8 | done | recipes.test.ts BuiltIns_ListsSingleAndMultipleRecipes |
+| 103 | Built-ins are never written to disk. | chat-2 / chat-8 | done | catalog is code only; no repository exists |
+| 104 | Scope to availability: Meeting/Live single; Folder/All multiple. | chat-2 / chat-8 | done | recipes.test.ts AvailabilityFor_MatchesScope |
+| 105 | Scope list = built-ins (catalog order) then user recipes (file order); user rows with colliding built-in ids skipped (apply the B9 fix or keep, but document). | chat-2 / chat-8 | improved | recipes.test.ts ForScope; built-ins only, user half dropped (owner decision 2026-11-03, may return later), B9 moot |
+| 106 | Starter chips = first 4 of the scope list. | chat-2 / chat-8 | done | recipes.test.ts starterRecipes; chips UI in chat-8 |
 | 107 | Chip click fills the draft and sends immediately. | chat-2 / chat-8 | pending |  |
 | 108 | Recipes flyout lists name and two-line prompt preview; item click fills the draft without sending, closes the flyout, focuses and puts the caret at the end. | chat-2 / chat-8 | pending |  |
-| 109 | Delete icon only on user recipes; built-ins cannot be deleted even through the API. | chat-2 / chat-8 | pending |  |
+| 109 | Delete icon only on user recipes; built-ins cannot be deleted even through the API. | chat-2 / chat-8 | dropped | moot: no user recipes (owner decision 2026-11-03, may return later); built-ins have no delete path |
 | 110 | Slash filter opens automatically when the draft starts with `/`, filtering by name or prompt, case-insensitive substring of `Draft[1..].Trim()`. | chat-2 / chat-8 | pending |  |
 | 111 | Button-open shows the full list; slash-open shows the filtered list. | chat-2 / chat-8 | pending |  |
 | 112 | Empty state `Chat_NoRecipes`. | chat-2 / chat-8 | pending |  |
@@ -204,5 +220,5 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 151 | Brief renders as Markdown in the port (B13). | chat-5 | pending |  |
 | 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-1 (context strings only) | done (context strings) |  |
 | 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | pending |  |
-| 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | pending |  |
+| 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
 | 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |
