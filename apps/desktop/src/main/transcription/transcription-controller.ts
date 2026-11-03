@@ -169,6 +169,9 @@ export class TranscriptionController {
    * runs shares the first (B17). Cancelling is not an error.
    */
   ensureEngine(): Promise<InstallOutcomeDto> {
+    // A transfer that was cancelled still ends on its own time; a new call waits for it and starts
+    // again, so it is not handed the cancelled outcome.
+    if (this.install?.cancel.cancelled) return this.install.done.then(() => this.ensureEngine());
     if (this.install) return this.install.done;
     const cancel = new CancelSource();
     const done = this.runInstall(cancel, async () => {
@@ -259,6 +262,9 @@ export class TranscriptionController {
   }
 
   downloadSpeakerModel(): Promise<InstallOutcomeDto> {
+    if (this.install?.cancel.cancelled) {
+      return this.install.done.then(() => this.downloadSpeakerModel());
+    }
     if (this.install) return this.install.done;
     const cancel = new CancelSource();
     const done = this.runInstall(cancel, async () => {

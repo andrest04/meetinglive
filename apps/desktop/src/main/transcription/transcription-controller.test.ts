@@ -197,6 +197,31 @@ describe('ensureEngine', () => {
     expect(controller.cancelInstall()).toBe(false);
   });
 
+  it('a download asked for right after a cancel starts again instead of joining the cancelled one', async () => {
+    const { controller, models } = setup({ ready: false });
+    let attempts = 0;
+    let finishFirst: () => void = () => undefined;
+    models.download = (file, progress, cancel) => {
+      attempts += 1;
+      if (attempts > 1)
+        return FakeModelStore.prototype.download.call(models, file, progress, cancel);
+      // The first transfer notices the cancel only later, as a stepped download does.
+      return new Promise((_resolve, reject) => {
+        finishFirst = () => {
+          reject(new Error('The download was cancelled.'));
+        };
+      });
+    };
+    const first = controller.ensureEngine();
+    await flush();
+    expect(controller.cancelInstall()).toBe(true);
+    const second = controller.ensureEngine();
+    finishFirst();
+    expect(await first).toEqual({ status: 'cancelled' });
+    expect(await second).toEqual({ status: 'ready' });
+    expect(attempts).toBe(2);
+  });
+
   it('delete reports the outcomes and publishes the new status', async () => {
     const { controller, runtimes, events } = setup();
     runtimes.deleteError = new RuntimeInUseError('nemo_speech_asr_c.dll');
