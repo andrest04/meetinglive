@@ -11,6 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build && node scripts/copy-native.mjs",
     "package": "electron-builder --config electron-builder.config.mjs --win nsis --publish never",
+    "test:e2e:packaged": "node scripts/with-env.mjs VOZELLA_E2E_EXECUTABLE=release-e2e/win-unpacked/Vozella.exe -- playwright test",
     "package:e2e": "node scripts/with-env.mjs VOZELLA_PACKAGE_VARIANT=e2e -- electron-builder --config electron-builder.config.mjs --win dir --publish never",
     "package:smoke": "node scripts/smoke-packaged.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json",

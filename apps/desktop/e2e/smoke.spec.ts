@@ -20,7 +20,10 @@ test('the app starts, is isolated, and answers over the typed contract', async (
   // Renderer reached main through app.getInfo, validated at both ends.
   await expect(page.getByTestId('app-version')).toContainText('Electron 45.2.1');
   const info = await page.evaluate(() => window.vozella.invoke('app.getInfo', {}));
-  expect(info).toMatchObject({ fakeNative: true, isPackaged: false });
+  expect(info).toMatchObject({
+    fakeNative: true,
+    isPackaged: Boolean(process.env.VOZELLA_E2E_EXECUTABLE),
+  });
   expect(info.dataRoot.source).toBe('env');
   expect(info.dataRoot.appData.startsWith(launched.dataRoot)).toBe(true);
 

@@ -12,13 +12,18 @@ export interface LaunchedApp {
 const desktopDir = path.resolve(__dirname, '..');
 
 /**
- * Launches the built app (out/main/index.js, run `pnpm build` first) with fake native
+ * Launches the built app (out/main/index.js, run `pnpm build` first), or the packaged e2e
+ * variant when VOZELLA_E2E_EXECUTABLE is set, with fake native
  * adapters and a throwaway data root. The real MeetingLive folders are never involved.
  */
 export async function launchApp(extraEnv: Record<string, string> = {}): Promise<LaunchedApp> {
   const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vozella-e2e-'));
+  // VOZELLA_E2E_EXECUTABLE points at a packaged e2e-variant build (pnpm package:e2e).
+  const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   const app = await electron.launch({
-    args: [path.join(desktopDir, 'out', 'main', 'index.js')],
+    ...(executablePath
+      ? { executablePath, args: [] }
+      : { args: [path.join(desktopDir, 'out', 'main', 'index.js')] }),
     cwd: desktopDir,
     env: {
       ...process.env,

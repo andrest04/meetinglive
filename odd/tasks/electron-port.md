@@ -36,6 +36,8 @@ The user wants the product on Electron so the brand tokens drive the UI and macO
 - [ ] T1 Research the stack per area and write behavior specs per module (`docs/port/research`, `docs/port/specs`)
 - [ ] T2 Decide the stack and architecture (`docs/port/stack.md`), resolve project skills
 - [ ] T3 Scaffold `apps/desktop`: shell, design system, IPC contract, test harness
+  - [x] T3.1 Foundation: pnpm workspace, typed IPC, hardened shell, data-root guard, native addon, workers, test harness, NSIS packaging (see progress)
+  - [ ] T3.2 Design system (`ui/`, tokens, fonts, i18n scaffolding): not started
 - [ ] T4 Port the domain and persistence layer
 - [ ] T5 Port native capture and ASR
 - [ ] T6 Port summaries, chat, and integrations
@@ -53,6 +55,17 @@ The user wants the product on Electron so the brand tokens drive the UI and macO
 
 Branch created from `main` at 53438c5.
 
+### T3.1 foundation (observed 2026-11-03)
+
+- Layout per stack.md: `apps/desktop`, `packages/{contracts,core,platform}`, `native/vozella-native`. Root scripts: `pnpm check` (typecheck, lint, unit tests), `dev`, `build`, `package`, `test:e2e`.
+- pnpm 12: `allowBuilds` in `pnpm-workspace.yaml` (electron and esbuild on; koffi and electron-winstaller off). Root `postinstall` runs `apps/desktop/scripts/ensure-electron.mjs`, which retries the Electron binary download three times.
+- IPC: `defineRequest` and `defineEvent` with zod; `serveRequest` and `callRequest` validate input and output at both ends; `app.getInfo` is the real request and `app.focusChanged` the real event.
+- Security: contextIsolation, sandbox, no nodeIntegration, CSP (meta tag plus header), renderer served from a privileged `vozella://app` scheme (so the file-protocol fuse can be off), navigation, redirect, window-open and webview blocked, permissions denied, IPC sender check (top frame, known window, app origin), single instance, rotating log (1 MiB x 5), global error handling.
+- Data root: `VOZELLA_DATA_ROOT` honored. The guard refuses `Documents\MeetingLive`, `%LOCALAPPDATA%\MeetingLive`, any path segment named MeetingLive, and links into them. Decision: an env override into those folders is refused in every mode; unset in dev or test falls back to a temp folder.
+- Native: napi-rs crate with audio (mic, system, process), calendar probe and DPAPI. Loaded in a utilityProcess (`src/workers/audio`) with start, restart-on-crash with backoff, and stop. The ASR worker skeleton loads koffi.
+- Fuses: the release build is hardened; the e2e variant keeps only the node CLI inspect fuse on (`VOZELLA_PACKAGE_VARIANT=e2e`).
+- Pending in T3: design system, i18n scaffolding, signing, app icon, auto-update. Not validated: real device capture (tests open no audio device), clean-VM install, Windows 10.
+
 ## Next step
 
-T1.
+T3.2 design system, then T4.
