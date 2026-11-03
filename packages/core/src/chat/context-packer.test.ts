@@ -317,8 +317,17 @@ describe('ChatContextPackerTests', () => {
 
   it('B10: an emoji at the cut is dropped whole, not split', () => {
     const lone = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-    const out = pack('Live', null, null, 'z' + '😀'.repeat(1300), []);
+    // A trailing BMP char makes the plain tail start on a low surrogate, so a raw slice(-n) would split.
+    const liveText = '😀'.repeat(1300) + 'z';
+    expect(liveText.slice(-2500)).toMatch(lone);
+    const out = pack('Live', null, null, liveText, []);
     expect(out).not.toMatch(lone);
+    const savedText = '😀'.repeat(3100) + 'z';
+    expect(savedText.slice(-6000)).toMatch(lone);
+    const meetingOut = pack('Meeting', null, guid(1), null, [
+      meeting(1, { transcript: savedText }),
+    ]);
+    expect(meetingOut).not.toMatch(lone);
     const f = folder(1);
     const folderOut = pack(
       'Folder',

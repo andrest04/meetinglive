@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { toCoreT } from './chat-core-t';
 import { useT } from '../../i18n/I18nProvider';
 import type { ProviderGate } from '../summaries/use-provider-gate';
+import { setLocalSendActive } from './chat-local-send';
 import { INITIAL_VIEW, chatViewReducer, restoreDraft, type ChatViewState } from './chat-view-model';
 
 export interface ChatController {
@@ -77,6 +78,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
       const text = raw.trim();
       if (text === '' || sendingRef.current || !latest.current.scope.isVisible) return;
       sendingRef.current = true;
+      setLocalSendActive(true);
       stopEarly.current = false;
       let requestId = newRequestId();
       dispatch({ type: 'sendStarted', requestId, text, replace: mismatchRef.current });
@@ -151,6 +153,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
         });
       } finally {
         sendingRef.current = false;
+        setLocalSendActive(false);
       }
     },
     [setDraft],

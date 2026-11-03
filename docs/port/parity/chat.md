@@ -469,3 +469,17 @@ Real CLI and local-model answers remain unverified for every row that depends on
 | Unused dropped-feature locale keys | kept | Left for when the features return. |
 | B22 Library reuse of `Chat_ScopeFolder` | kept | Coupling is intentional and documented. |
 | Design notes (flyout over chips, panel height on Record, empty expanded shot) | deferred | Visual polish, not a behavior defect; left for the final review. |
+
+## Audit round 5
+
+| Finding | Decision | Evidence |
+| --- | --- | --- |
+| Send lost when the bar collapses, the scope changes, or New chat is pressed mid send (items 33, 42, 43, 45, B1, B19) | fixed | `ChatBar` keeps the body mounted and hides it while collapsed or on Settings, so the hook, its optimistic rows and the rollback survive. `chat-local-send.ts` marks a send from the first click, and New chat stays disabled until it settles, closing the gap before main sets `sending`. `ChatBar.send.test.tsx` proves collapse then failure (error and draft restored), a scope change mid send, and New chat disabled. |
+| Item 36 streamed auto-scroll had no proof | fixed | `MessageList.test.tsx` rerenders with growing streamed text and checks `scrollTop` follows each change. |
+| Expanded bar screenshots looked empty | fixed | Recaptured with the composer visible and focused; the spec now asserts the composer before each shot. |
+| Spanish recipe descriptions in English | rejected | Same reason as above: the description is the prompt sent to the model. |
+| Error notice repeats "Could not answer" | rejected | Title and body use the WinUI strings `Chat_Error.Title` and `Chat_SendFailed`; kept for parity. |
+| Chip click clears typed text | rejected | WinUI sets `Draft = recipe.Prompt` (`MeetingChatViewModel.cs:320`), so a chip replaces the draft. |
+| B8 mid-session language switch test | kept | Call-time proof is `recipes.test.ts`; the component re-derives from `t`. |
+| B10 packer test could not fail | fixed | Inputs now put the raw tail cut on a low surrogate for Live and Meeting, and the test asserts that precondition. |
+| Flyout layout and cramped Record page | deferred | Visual polish for the final review. |

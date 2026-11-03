@@ -93,6 +93,9 @@ const mount = (locale: 'en' | 'es' = 'en') =>
 
 const chip = () => screen.getByTestId('LblMeetingChatScope');
 
+/** The body stays mounted while collapsed so a running send survives; `hidden` hides it. */
+const bodyHidden = (): boolean => screen.getByText('body slot').closest('[hidden]') !== null;
+
 describe('ChatBar scope chip (items 6 to 11)', () => {
   it('shows All meetings on an idle Record page', async () => {
     install();
@@ -241,7 +244,7 @@ describe('ChatBar visibility and expansion (items 1 to 5)', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.queryByTestId('BarMeetingChat')).toBeNull();
+    expect(screen.getByTestId('BarMeetingChat').hidden).toBe(true);
   });
 
   it('starts collapsed and toggles from the header with the keyboard', async () => {
@@ -249,11 +252,11 @@ describe('ChatBar visibility and expansion (items 1 to 5)', () => {
     mount();
     const toggle = await screen.findByRole('button', { name: /All meetings/ });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText('body slot')).toBeNull();
+    expect(bodyHidden()).toBe(true);
     toggle.focus();
     await userEvent.keyboard('{Enter}');
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('body slot')).toBeTruthy();
+    expect(bodyHidden()).toBe(false);
     await userEvent.keyboard(' ');
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });
@@ -263,12 +266,12 @@ describe('ChatBar visibility and expansion (items 1 to 5)', () => {
     mount();
     const toggle = await screen.findByRole('button', { name: /Meeting: Weekly planning/ });
     await userEvent.click(toggle);
-    expect(screen.getByText('body slot')).toBeTruthy();
+    expect(bodyHidden()).toBe(false);
     await api.change({ sessionTab: 'Summary' });
-    expect(screen.getByText('body slot')).toBeTruthy();
+    expect(bodyHidden()).toBe(false);
     await api.change({ currentShellTag: 'Recording', selectedMeetingId: null });
     await waitFor(() => {
-      expect(screen.queryByText('body slot')).toBeNull();
+      expect(bodyHidden()).toBe(true);
     });
   });
 
@@ -281,7 +284,7 @@ describe('ChatBar visibility and expansion (items 1 to 5)', () => {
     });
     await userEvent.click(button);
     await waitFor(() => {
-      expect(screen.getByText('body slot')).toBeTruthy();
+      expect(bodyHidden()).toBe(false);
     });
     expect(api.calls.some((c) => c.name === 'chat.newChat')).toBe(true);
     expect(button.getAttribute('aria-label')).toBe('New chat');

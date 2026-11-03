@@ -4,6 +4,7 @@ import type { ChatScopeDecision } from '@vozella/core';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, cn } from '../../ui';
 import { SCOPE_ICON, scopeLabel } from './chat-scope-label';
+import { useLocalSendActive } from './chat-local-send';
 import { useChatScope } from './use-chat-scope';
 
 export interface ChatBarProps {
@@ -21,6 +22,7 @@ export function ChatBar({ children }: ChatBarProps) {
   const [expanded, setExpanded] = useState(false);
   // A new chat remounts the body, which drops its draft and error with the old messages.
   const [epoch, setEpoch] = useState(0);
+  const localSending = useLocalSendActive();
   const bodyId = useId();
   const labelId = useId();
 
@@ -28,8 +30,6 @@ export function ChatBar({ children }: ChatBarProps) {
   useEffect(() => {
     setExpanded(false);
   }, [isVisible, kind, folderId, meetingId]);
-
-  if (!isVisible) return null;
 
   const label = scopeLabel(t, decision, name);
   const startNewChat = (): void => {
@@ -49,13 +49,14 @@ export function ChatBar({ children }: ChatBarProps) {
       id="BarMeetingChat"
       data-testid="BarMeetingChat"
       aria-label={t('Chat_Bar.AutomationProperties.Name')}
+      hidden={!isVisible}
       className="shrink-0 border-t border-hairline bg-paper-raised forced-colors:border-[CanvasText]"
     >
       <div className="mx-auto flex w-full max-w-[720px] items-center gap-1 px-8 py-1.5">
         <button
           type="button"
           aria-expanded={expanded}
-          aria-controls={expanded ? bodyId : undefined}
+          aria-controls={bodyId}
           onClick={() => {
             setExpanded((open) => !open);
           }}
@@ -85,7 +86,7 @@ export function ChatBar({ children }: ChatBarProps) {
           type="button"
           id="BtnMeetingChatNew"
           data-testid="BtnMeetingChatNew"
-          disabled={!canStartNewChat}
+          disabled={!canStartNewChat || localSending}
           aria-label={t('Chat_New.AutomationProperties.Name')}
           title={t('Chat_New.ToolTipService.ToolTip')}
           onClick={startNewChat}
@@ -98,16 +99,18 @@ export function ChatBar({ children }: ChatBarProps) {
           <Icon icon={MessageSquarePlus} />
         </button>
       </div>
-      {expanded ? (
-        <div
-          id={bodyId}
-          className="mx-auto flex max-h-[min(560px,60vh)] w-full max-w-[720px] animate-fade-in flex-col px-10 pb-4"
-        >
-          <Fragment key={epoch}>
-            {typeof children === 'function' ? children(decision) : children}
-          </Fragment>
-        </div>
-      ) : null}
+      <div
+        id={bodyId}
+        hidden={!expanded}
+        className={cn(
+          'mx-auto max-h-[min(560px,60vh)] w-full max-w-[720px] animate-fade-in flex-col px-10 pb-4',
+          expanded ? 'flex' : 'hidden',
+        )}
+      >
+        <Fragment key={epoch}>
+          {typeof children === 'function' ? children(decision) : children}
+        </Fragment>
+      </div>
     </section>
   );
 }

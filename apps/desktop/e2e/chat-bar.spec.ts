@@ -91,7 +91,11 @@ test('the header toggles with the keyboard and a scope change collapses it', asy
   await header.focus();
   await page.keyboard.press('Enter');
   await expect(header).toHaveAttribute('aria-expanded', 'true');
+  // The expanded bar shows its composer, and the shot is taken with the composer focused.
+  await expect(page.getByTestId('TxtMeetingChat')).toBeVisible();
+  await page.getByTestId('TxtMeetingChat').focus();
   await shot('chat-bar-expanded-light');
+  await header.focus();
   await page.keyboard.press('Space');
   await expect(header).toHaveAttribute('aria-expanded', 'false');
 
@@ -108,7 +112,7 @@ test('the header toggles with the keyboard and a scope change collapses it', asy
 test('Settings hides the bar completely', async () => {
   await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-  await expect(bar()).toHaveCount(0);
+  await expect(bar()).toBeHidden();
   await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
   await expect(bar()).toBeVisible();
 });
@@ -125,5 +129,7 @@ test('dark theme screenshots', async () => {
   await bar()
     .getByRole('button', { name: /All meetings/ })
     .click();
+  await expect(page.getByTestId('TxtMeetingChat')).toBeVisible();
+  await page.getByTestId('TxtMeetingChat').focus();
   await shot('chat-bar-expanded-dark');
 });
