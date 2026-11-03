@@ -16,8 +16,13 @@ const desktopDir = path.resolve(__dirname, '..');
  * variant when VOZELLA_E2E_EXECUTABLE is set, with fake native
  * adapters and a throwaway data root. The real MeetingLive folders are never involved.
  */
-export async function launchApp(extraEnv: Record<string, string> = {}): Promise<LaunchedApp> {
+export async function launchApp(
+  extraEnv: Record<string, string> = {},
+  /** Runs before the app starts, to put files in the throwaway data root. */
+  seed?: (dataRoot: string) => void,
+): Promise<LaunchedApp> {
   const dataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vozella-e2e-'));
+  seed?.(dataRoot);
   // VOZELLA_E2E_EXECUTABLE points at a packaged e2e-variant build (pnpm package:e2e).
   const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   const app = await electron.launch({

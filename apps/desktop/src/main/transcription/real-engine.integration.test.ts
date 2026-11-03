@@ -16,7 +16,12 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { NEMOTRON_MODEL, RuntimeInUseError, SORTFORMER_MODEL, type Logger } from '@vozella/core';
-import { downloadToFile, TranscriptionRuntime, WavFrameReader } from '@vozella/platform';
+import {
+  downloadToFile,
+  NemoSpeechRuntimeManager,
+  TranscriptionRuntime,
+  WavFrameReader,
+} from '@vozella/platform';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { loadNemoLibrary, structSizes, type Koffi } from '../../workers/asr/nemo-library';
 import { AsrWorkerHost } from '../workers/asr-worker-host';
@@ -225,6 +230,27 @@ describe.skipIf(!enabled)('real engine (NeMo-Speech.cpp v0.3.0 through koffi)', 
     expect(drops?.droppedMs).toBe(0);
   }, 120_000);
 
+  it('installs the real v0.3.0 CPU zip: pinned checksum, tar extraction, promote', async () => {
+    const root = path.join(work, 'install');
+    const manager = new NemoSpeechRuntimeManager({
+      root,
+      download: (_url, target) => {
+        fs.copyFileSync(path.join(dl, 'zips', 'cpu.zip'), target);
+        return Promise.resolve();
+      },
+    });
+    const started = Date.now();
+    await manager.download('cpu', () => undefined);
+    say(
+      `cpu zip verified against the pin, extracted and promoted in ${String(Date.now() - started)} ms`,
+    );
+    expect(manager.isReady('cpu')).toBe(true);
+    expect(fs.existsSync(path.join(manager.binDirectory('cpu'), 'nemo_speech_asr_c.dll'))).toBe(
+      true,
+    );
+    expect(fs.readdirSync(root).sort()).toEqual(['cpu']);
+  }, 120_000);
+
   it('refuses to delete the runtime while the library is loaded, and removes nothing', async () => {
     const { runtime } = build(null);
     await runtime.offline.transcribe({
@@ -320,6 +346,21 @@ describe.skipIf(!enabled)('real engine (NeMo-Speech.cpp v0.3.0 through koffi)', 
       say(`backend usage: ${JSON.stringify(runtime.status.current)}`);
       expect(runtime.status.current?.diarization).toBe('on');
       expect(text).toMatch(/\[ Speaker-\d \]/);
+
+      // The same audio through the live pass, with the library's streaming geometry.
+      const source = new WavFrameReader().open(turns);
+      const buffer = new Float32Array(1600);
+      await runtime.live.start({ language: 'es', recordedAtMs: null, speakerDiarization: true });
+      for (;;) {
+        const n = source.read(buffer);
+        if (n === 0) break;
+        runtime.live.pushFrame(buffer.slice(0, n), source.sampleRate);
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      source.close();
+      const liveText = await runtime.live.stop();
+      say(`live diarized text:\n${liveText}`);
+      say(`live diarization drops: ${JSON.stringify(runtime.status.lastLiveDrops)}`);
     }, 600_000);
   });
 });
