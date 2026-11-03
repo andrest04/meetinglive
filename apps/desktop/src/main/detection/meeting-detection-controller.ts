@@ -120,6 +120,19 @@ export class MeetingDetectionController {
     this.hideAnimated();
   }
 
+  /** True from a show until the hide starts. */
+  get isShown(): boolean {
+    return this.shown;
+  }
+
+  /** W8: the pointer over the card pauses the auto-hide, leaving it restarts the 30 s. */
+  hover(inside: boolean): void {
+    if (!this.shown) return;
+    this.cancelAutoHide?.();
+    this.cancelAutoHide = null;
+    if (!inside) this.armAutoHide();
+  }
+
   /** W13: Never again. Hides, then turns the setting off unless it already is. Never throws. */
   async neverAgain(): Promise<void> {
     this.hideAnimated();
@@ -149,6 +162,10 @@ export class MeetingDetectionController {
     this.shown = true;
     this.deps.popup.show();
     this.deps.popup.notifyShow();
+    this.armAutoHide();
+  }
+
+  private armAutoHide(): void {
     this.cancelAutoHide = this.deps.setTimeout(() => {
       this.cancelAutoHide = null;
       this.hideAnimated();

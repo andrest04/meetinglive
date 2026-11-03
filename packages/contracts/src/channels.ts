@@ -126,6 +126,8 @@ export const requestChannels = {
   [meetingPrompt.meetingPromptStart.name]: meetingPrompt.meetingPromptStart,
   [meetingPrompt.meetingPromptDismiss.name]: meetingPrompt.meetingPromptDismiss,
   [meetingPrompt.meetingPromptNeverAgain.name]: meetingPrompt.meetingPromptNeverAgain,
+  [meetingPrompt.meetingPromptHover.name]: meetingPrompt.meetingPromptHover,
+  [meetingPrompt.meetingPromptReady.name]: meetingPrompt.meetingPromptReady,
   [transcription.transcriptionGetStatus.name]: transcription.transcriptionGetStatus,
   [transcription.transcriptionEnsureEngine.name]: transcription.transcriptionEnsureEngine,
   [transcription.transcriptionCancelInstall.name]: transcription.transcriptionCancelInstall,

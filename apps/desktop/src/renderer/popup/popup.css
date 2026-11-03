@@ -1,0 +1,50 @@
+/* The call popup is a transparent frameless window: the page paints only the rounded card. */
+html,
+body {
+  background: transparent;
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+@keyframes popup-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes popup-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.popup-card[data-phase='in'] {
+  animation: popup-in 280ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+
+.popup-card[data-phase='out'] {
+  animation: popup-out 150ms cubic-bezier(0.55, 0.055, 0.675, 0.19) both;
+}
+
+.popup-card[data-phase='hidden'] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-card[data-phase='in'],
+  .popup-card[data-phase='out'] {
+    animation: none;
+  }
+  .popup-card[data-phase='out'] {
+    opacity: 0;
+  }
+}

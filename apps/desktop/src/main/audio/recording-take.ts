@@ -22,6 +22,11 @@ export interface RecordingTakesDeps {
    * stops with the take; its draft is kept for the recording module's pipeline.
    */
   readonly live?: LivePass;
+  /**
+   * Tells the workspace when a capture is running (starting, recording or paused), so the call
+   * popup stays away during a take. Called only when the answer changes.
+   */
+  readonly onCaptureActive?: (active: boolean) => void;
 }
 
 export interface LivePass {
@@ -66,7 +71,8 @@ export type Phase = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping' | 
  * recording module, which takes over `stop` and `importPicked`.
  */
 export class RecordingTakes {
-  private phase: Phase = 'idle';
+  private current: Phase = 'idle';
+  private captureActive = false;
   private file: string | null = null;
   private recordedAtMs: number | null = null;
   private pausedMs = 0;
@@ -76,6 +82,18 @@ export class RecordingTakes {
   private liveDraft: string | null = null;
 
   constructor(private readonly deps: RecordingTakesDeps) {}
+
+  private get phase(): Phase {
+    return this.current;
+  }
+
+  private set phase(value: Phase) {
+    this.current = value;
+    const active = value === 'starting' || value === 'recording' || value === 'paused';
+    if (active === this.captureActive) return;
+    this.captureActive = active;
+    this.deps.onCaptureActive?.(active);
+  }
 
   get currentPhase(): Phase {
     return this.phase;

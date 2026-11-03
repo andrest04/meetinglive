@@ -35,6 +35,7 @@ function Entries({
     ) : (
       <Item
         key={entry.id}
+        data-testid={entry.id}
         disabled={entry.disabled}
         onClick={entry.onSelect}
         className={cn(popupItem, 'justify-between')}
@@ -56,15 +57,31 @@ export interface MenuProps {
   readonly trigger: ReactElement;
   readonly entries: readonly MenuEntry[];
   readonly align?: 'start' | 'center' | 'end';
+  /** Which side of the trigger the menu opens on. Default bottom. */
+  readonly side?: 'top' | 'bottom' | 'left' | 'right';
+  /** Distance kept from the window edge, for a menu inside a small window. */
+  readonly collisionPadding?: number;
 }
 
 /** Click or Enter/Space/ArrowDown opens; arrows move, type-ahead jumps, Escape returns focus. */
-export function Menu({ trigger, entries, align = 'start' }: MenuProps) {
+export function Menu({
+  trigger,
+  entries,
+  align = 'start',
+  side = 'bottom',
+  collisionPadding,
+}: MenuProps) {
   return (
     <BaseMenu.Root>
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner sideOffset={4} align={align} className="z-50 outline-none">
+        <BaseMenu.Positioner
+          sideOffset={4}
+          side={side}
+          align={align}
+          {...(collisionPadding === undefined ? {} : { collisionPadding })}
+          className="z-50 outline-none"
+        >
           <BaseMenu.Popup className={popupClass}>
             <Entries entries={entries} Item={BaseMenu.Item} Separator={BaseMenu.Separator} />
           </BaseMenu.Popup>

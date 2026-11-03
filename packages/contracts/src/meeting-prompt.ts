@@ -33,6 +33,24 @@ export const meetingPromptNeverAgain = defineRequest('meetingPrompt.neverAgain',
   output: done,
 });
 
+/**
+ * The popup page finished starting and listens to the events. Main answers whether the popup is
+ * showing now, so a show sent before the page was listening is not lost.
+ */
+export const meetingPromptReady = defineRequest('meetingPrompt.ready', {
+  input: empty,
+  output: z.object({ shown: z.boolean() }),
+});
+
+/**
+ * The pointer entered (`inside` true) or left the popup card. Main owns the auto-hide timer, so
+ * it pauses while the pointer is over the card and restarts when it leaves.
+ */
+export const meetingPromptHover = defineRequest('meetingPrompt.hover', {
+  input: z.object({ inside: z.boolean() }),
+  output: done,
+});
+
 /** A call was detected: the main window may show its in-app call bar. */
 export const workspaceCallPromptOffered = defineEvent('workspace.callPromptOffered', {
   payload: empty,

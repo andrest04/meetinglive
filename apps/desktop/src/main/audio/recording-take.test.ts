@@ -61,6 +61,36 @@ function setup(
   return { takes, controller };
 }
 
+describe('RecordingTakes capture state', () => {
+  it('reports a running capture once, and the end of it', async () => {
+    const seen: boolean[] = [];
+    const controller = {
+      startRecording: vi.fn((file: string) => {
+        fs.writeFileSync(file, 'wav');
+        return Promise.resolve({} as never);
+      }),
+      pause: vi.fn(() => Promise.resolve()),
+      resume: vi.fn(() => Promise.resolve()),
+      stop: vi.fn(() => Promise.resolve()),
+      importAudio: vi.fn(() => Promise.resolve()),
+    };
+    const takes = new RecordingTakes({
+      controller,
+      inboxDirectory: () => inbox,
+      nowMs: () => clock,
+      wavDurationSeconds: () => 1,
+      logger,
+      onCaptureActive: (active) => seen.push(active),
+    });
+    await takes.start('Weekly sync', mic);
+    await takes.pause();
+    await takes.resume();
+    expect(seen).toEqual([true]);
+    await takes.stop();
+    expect(seen).toEqual([true, false]);
+  });
+});
+
 describe('RecordingTakes', () => {
   it('names the file after the local date and the title, in the Inbox', async () => {
     const { takes, controller } = setup();

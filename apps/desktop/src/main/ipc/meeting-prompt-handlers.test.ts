@@ -17,9 +17,12 @@ function setup(trusted = true) {
     startTakingNotes: vi.fn(),
     dismiss: vi.fn(),
     neverAgain: vi.fn(() => Promise.resolve()),
+    hover: vi.fn(),
+    isShown: vi.fn(() => true),
   };
   registerMeetingPromptHandlers({ ipc, isTrusted: () => trusted, logger: logger() }, actions);
-  const call = async (name: string) => await handlers.get(name)?.(event as never, {});
+  const call = async (name: string, input: unknown = {}) =>
+    await handlers.get(name)?.(event as never, input);
   return { actions, call };
 }
 
@@ -32,6 +35,18 @@ describe('meeting prompt handlers', () => {
     expect(t.actions.startTakingNotes).toHaveBeenCalledTimes(1);
     expect(t.actions.dismiss).toHaveBeenCalledTimes(1);
     expect(t.actions.neverAgain).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the pointer state to the controller', async () => {
+    const t = setup();
+    await t.call('meetingPrompt.hover', { inside: true });
+    await t.call('meetingPrompt.hover', { inside: false });
+    expect(t.actions.hover.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it('tells a page that just started whether the popup is showing', async () => {
+    const t = setup();
+    expect(await t.call('meetingPrompt.ready')).toEqual({ ok: true, value: { shown: true } });
   });
 
   it('ignores an untrusted sender', async () => {

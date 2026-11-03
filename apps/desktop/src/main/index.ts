@@ -63,6 +63,7 @@ import { installGlobalErrorHandling } from './errors/global-errors';
 import { LocaleState, resolveStartupLanguage } from './i18n/locale-state';
 import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
+import { createFlagFileScanner, fakeCallFlagPath } from './detection/fake-call-scanner';
 import { MeetingDetectionController } from './detection/meeting-detection-controller';
 import { createPopupHandle } from './detection/popup-handle';
 import { registerMeetingPromptHandlers } from './ipc/meeting-prompt-handlers';
@@ -366,12 +367,16 @@ function main(): void {
               logger.warn('window scan failed', { error: error.message });
             },
           });
+      const callFlag = fakeCallFlagPath(process.env, mode === 'test');
       const controller = new MeetingDetectionController({
-        scanner: ports.windowScan,
+        scanner: callFlag ? createFlagFileScanner(callFlag) : ports.windowScan,
         workspace,
         settings: library.settings,
         popup: createPopupHandle(
-          createMeetingPromptWindow(() => mainWindow ?? null),
+          createMeetingPromptWindow(
+            () => mainWindow ?? null,
+            devServerUrl ? new URL('/meeting-prompt.html', devServerUrl).toString() : undefined,
+          ),
           (webContentsId) => windowIds.add(webContentsId),
         ),
         getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
@@ -415,9 +420,10 @@ function main(): void {
   };
   nativeTheme.on('updated', () => {
     const theme = resolvedTheme();
-    for (const window of BrowserWindow.getAllWindows()) {
-      window.setTitleBarOverlay(titleBarOverlayFor(theme));
-      window.setBackgroundColor(windowBackground(theme));
+    // Only the main window: the frameless call popup has no title bar overlay and is always dark.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitleBarOverlay(titleBarOverlayFor(theme));
+      mainWindow.setBackgroundColor(windowBackground(theme));
     }
   });
 
@@ -526,6 +532,10 @@ function main(): void {
         nowMs: () => Date.now(),
         wavDurationSeconds: readWavDurationSeconds,
         logger: logger.child('recording'),
+        // The call popup stays away while a take runs (spec 2.6, item 106).
+        onCaptureActive: (active) => {
+          workspace.setCaptureActive(active);
+        },
         // The transcription controller is built below; the take only calls it later.
         live: {
           start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
@@ -627,6 +637,8 @@ function main(): void {
         neverAgain: async () => {
           await detection?.neverAgain();
         },
+        hover: (inside) => detection?.hover(inside),
+        isShown: () => detection?.isShown ?? false,
       },
     );
     detection = startMeetingDetection();

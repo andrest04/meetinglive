@@ -118,6 +118,34 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
 }
 
 describe('MeetingDetectionController', () => {
+  it('pauses the auto-hide while the pointer is over the card and restarts it on leave (W8)', async () => {
+    const t = setup();
+    await t.detect(true);
+    const first = t.timeouts.find((x) => x.ms === 30_000);
+    t.controller.hover(true);
+    expect(first?.cleared).toBe(true);
+    t.controller.hover(false);
+    const restarted = t.timeouts.filter((x) => x.ms === 30_000 && !x.cleared);
+    expect(restarted).toHaveLength(1);
+    t.fire(30_000);
+    expect(t.popup.events).toContain('notify-hide-animated');
+  });
+
+  it('reports whether the popup is showing', async () => {
+    const t = setup();
+    expect(t.controller.isShown).toBe(false);
+    await t.detect(true);
+    expect(t.controller.isShown).toBe(true);
+    t.controller.dismiss();
+    expect(t.controller.isShown).toBe(false);
+  });
+
+  it('ignores hover when no popup is showing', () => {
+    const t = setup();
+    t.controller.hover(false);
+    expect(t.timeouts).toHaveLength(0);
+  });
+
   it('starts a 5 s watcher timer and stops it on dispose', () => {
     const t = setup();
     expect(t.intervals).toHaveLength(1);

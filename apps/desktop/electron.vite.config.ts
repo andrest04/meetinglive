@@ -53,7 +53,10 @@ export default defineConfig({
     plugins: [react(), tailwindcss(), cspPlugin()],
     build: {
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/renderer/index.html') },
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          'meeting-prompt': resolve(__dirname, 'src/renderer/meeting-prompt.html'),
+        },
       },
     },
   },
