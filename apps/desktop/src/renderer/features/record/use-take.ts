@@ -134,7 +134,11 @@ export function useTake(): Take {
     window.vozella.invoke('audio.recording.state', {}).then(
       (state) => {
         if (!alive || current.current !== 'idle') return;
-        if (state.phase === 'recording' || state.phase === 'paused') move(state.phase);
+        if (state.phase !== 'recording' && state.phase !== 'paused') return;
+        move(state.phase);
+        // A failure that came while another page was open is acted on now (spec 56, 57, 60).
+        const failed = state.notices.find((notice) => notice.kind !== 'source-lost');
+        if (failed) void stopWith(noticeMessage(failed));
       },
       () => {
         // No answer: the page starts idle, as before.
@@ -143,7 +147,7 @@ export function useTake(): Take {
     return () => {
       alive = false;
     };
-  }, [move]);
+  }, [move, stopWith]);
 
   // The page handles only the first output or writer failure: it shows the message and stops.
   // It listens from the start call on: a notice that comes before the start answer is kept and

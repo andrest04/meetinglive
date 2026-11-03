@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ActiveAudioAppService,
+  MAX_PARENT_WALK_DEPTH,
   type AudioSessionSnapshot,
   type AudioSessionSource,
   type FileVersionInfo,
@@ -79,6 +80,30 @@ describe('ActiveAudioAppService.refresh', () => {
     processes.add(101, 'game', { parent: 100 });
     sessions.sessions = [session(101)];
     expect(service.refresh().map((a) => a.processId)).toEqual([101]);
+  });
+
+  it('S6: rolls a differently named helper up into a known meeting app or browser', () => {
+    const { sessions, processes, service } = rig();
+    processes.add(100, 'ms-teams', { start: 1000 });
+    processes.add(101, 'msedgewebview2', { parent: 100, start: 2000 });
+    processes.add(200, 'someapp', { start: 1000 });
+    processes.add(201, 'helper', { parent: 200, start: 2000 });
+    sessions.sessions = [session(101), session(201)];
+    const apps = service.refresh();
+    expect(apps.map((a) => a.processId)).toEqual([201, 100]);
+    expect(apps.find((a) => a.processId === 100)?.isKnownMeetingApp).toBe(true);
+  });
+
+  it('121: stops climbing after the depth cap on a long same-image chain', () => {
+    const { sessions, processes, service } = rig();
+    const total = MAX_PARENT_WALK_DEPTH + 10;
+    for (let i = 0; i < total; i += 1) {
+      processes.add(100 + i, 'chrome', { parent: i === 0 ? 0 : 100 + i - 1, start: 1000 + i });
+    }
+    sessions.sessions = [session(100 + total - 1)];
+    expect(service.refresh().map((a) => a.processId)).toEqual([
+      100 + total - 1 - MAX_PARENT_WALK_DEPTH,
+    ]);
   });
 
   it('rejects a recycled parent pid that started after the child', () => {

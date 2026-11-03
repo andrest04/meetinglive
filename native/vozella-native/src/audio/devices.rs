@@ -31,20 +31,40 @@ pub fn list_microphones() -> Result<Vec<MicrophoneInfo>> {
         .get_device_collection(&Direction::Capture)
         .map_err(to_error)?;
     let count = collection.get_nbr_devices().map_err(to_error)?;
-    let mut out = Vec::new();
-    for index in 0..count {
-        let Ok(device) = collection.get_device_at_index(index) else {
-            continue;
-        };
-        if !matches!(device.get_state(), Ok(DeviceState::Active)) {
-            continue;
-        }
-        let (Ok(id), Ok(name)) = (device.get_id(), device.get_friendlyname()) else {
-            continue;
-        };
-        out.push(MicrophoneInfo { id, name });
-    }
-    Ok(out)
+    Ok(keep_active((0..count).map(|index| {
+        let device = collection.get_device_at_index(index).ok()?;
+        Some(EndpointProbe {
+            active: matches!(device.get_state(), Ok(DeviceState::Active)),
+            id: device.get_id().ok(),
+            name: device.get_friendlyname().ok(),
+        })
+    })))
+}
+
+/// What reading one capture endpoint gave. Kept apart from the COM types so the skipping
+/// rule can be tested without devices.
+pub(crate) struct EndpointProbe {
+    pub active: bool,
+    pub id: Option<String>,
+    pub name: Option<String>,
+}
+
+/// Spec item 82 and S12: only active endpoints with a readable id and name are listed, and
+/// one endpoint that cannot be read (`None`) never hides the rest.
+pub(crate) fn keep_active(
+    probes: impl IntoIterator<Item = Option<EndpointProbe>>,
+) -> Vec<MicrophoneInfo> {
+    probes
+        .into_iter()
+        .flatten()
+        .filter(|probe| probe.active)
+        .filter_map(|probe| {
+            Some(MicrophoneInfo {
+                id: probe.id?,
+                name: probe.name?,
+            })
+        })
+        .collect()
 }
 
 struct CachedSession {
@@ -94,14 +114,42 @@ impl SessionMonitor {
         self.cached.clear();
     }
 
+    /// S9: every active render endpoint is read, not only the default one, because process
+    /// loopback can capture an app that plays to another output. An endpoint that cannot be
+    /// read is skipped. A failure to list the endpoints at all gives an empty list.
     fn try_enumerate(&mut self) -> std::result::Result<Vec<SessionSnapshot>, wasapi::WasapiError> {
         let enumerator = DeviceEnumerator::new()?;
-        let device =
-            enumerator.get_default_device_for_role(&Direction::Render, &Role::Multimedia)?;
+        let collection = enumerator.get_device_collection(&Direction::Render)?;
+        let count = collection.get_nbr_devices()?;
+        let mut out = Vec::new();
+        let mut any_endpoint = false;
+        for index in 0..count {
+            let Ok(device) = collection.get_device_at_index(index) else {
+                continue;
+            };
+            if !matches!(device.get_state(), Ok(DeviceState::Active)) {
+                continue;
+            }
+            any_endpoint = true;
+            let _ = self.read_endpoint(&device, &mut out);
+        }
+        if !any_endpoint {
+            // The list gave nothing usable: the default endpoint, as before.
+            let device =
+                enumerator.get_default_device_for_role(&Direction::Render, &Role::Multimedia)?;
+            self.read_endpoint(&device, &mut out)?;
+        }
+        Ok(out)
+    }
+
+    fn read_endpoint(
+        &mut self,
+        device: &wasapi::Device,
+        out: &mut Vec<SessionSnapshot>,
+    ) -> std::result::Result<(), wasapi::WasapiError> {
         let manager = device.get_iaudiosessionmanager()?;
         let sessions = manager.get_audiosessionenumerator()?;
         let count = sessions.get_count()?;
-        let mut out = Vec::new();
         for index in 0..count {
             // A session that fails to read is skipped; the rest still count.
             let Ok(control) = sessions.get_session(index) else {
@@ -133,7 +181,7 @@ impl SessionMonitor {
             });
             self.cached.push(CachedSession { process_id, meter });
         }
-        Ok(out)
+        Ok(())
     }
 }
 
@@ -145,4 +193,40 @@ impl Default for SessionMonitor {
 
 fn to_error(e: wasapi::WasapiError) -> Error {
     Error::from_reason(e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn probe(active: bool, id: Option<&str>, name: Option<&str>) -> Option<EndpointProbe> {
+        Some(EndpointProbe {
+            active,
+            id: id.map(str::to_string),
+            name: name.map(str::to_string),
+        })
+    }
+
+    #[test]
+    fn only_active_endpoints_with_id_and_name_are_listed() {
+        let list = keep_active([
+            probe(true, Some("a"), Some("Mic A")),
+            probe(false, Some("b"), Some("Unplugged")),
+            probe(true, None, Some("No id")),
+            probe(true, Some("d"), None),
+        ]);
+        assert_eq!(list.len(), 1);
+        assert_eq!((list[0].id.as_str(), list[0].name.as_str()), ("a", "Mic A"));
+    }
+
+    #[test]
+    fn one_unreadable_endpoint_does_not_hide_the_others() {
+        let list = keep_active([
+            probe(true, Some("a"), Some("Mic A")),
+            None,
+            probe(true, Some("c"), Some("Mic C")),
+        ]);
+        let ids: Vec<&str> = list.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(ids, ["a", "c"]);
+    }
 }

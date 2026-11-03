@@ -196,6 +196,14 @@ describe('remembered choices', () => {
     expect(restoreApp(settings, [zoom])?.processId).toBe(77);
   });
 
+  it('S11: with two running instances of one exe, restores the first in list order', () => {
+    const settings = { recordOutputKind: 'app', recordAppExePath: 'C:\\apps\\zoom.exe' };
+    const first = app(30, 'Zoom', { exePath: 'C:\\apps\\zoom.exe' });
+    const second = app(20, 'Zoom', { exePath: 'C:\\apps\\zoom.exe' });
+    expect(restoreApp(settings, [first, second])?.processId).toBe(30);
+    expect(restoreApp(settings, [second, first])?.processId).toBe(20);
+  });
+
   it('restores no app when none is remembered, system audio is remembered, it is not playing or no path', () => {
     const zoom = app(77, 'Zoom');
     expect(restoreApp({ recordOutputKind: null, recordAppExePath: null }, [zoom])).toBeNull();

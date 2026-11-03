@@ -47,7 +47,11 @@ export function useMicrophones(): MicrophonesModel {
         accept(loaded.options, loaded.selected);
       },
       () => {
-        accept(FALLBACK_OPTIONS, touched.current ?? SYSTEM_DEFAULT);
+        // A picked device is not in the shrunken list: fall back to System default (spec 102).
+        accept(
+          FALLBACK_OPTIONS,
+          touched.current?.kind === 'None' ? touched.current : SYSTEM_DEFAULT,
+        );
       },
     );
   }, []);

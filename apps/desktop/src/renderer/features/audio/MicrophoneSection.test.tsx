@@ -120,6 +120,32 @@ describe('MicrophoneSection', () => {
     });
   });
 
+  it('96: a pick restarts the preview on the new device, and re-picking it does nothing', async () => {
+    const api = installApi('mic-1');
+    render(
+      <Providers>
+        <MicrophoneSection />
+      </Providers>,
+    );
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
+    await waitFor(() => {
+      expect(api.calls.filter((c) => c.name === 'audio.preview.start')).toHaveLength(1);
+    });
+    await userEvent.click(combo);
+    await userEvent.click(await screen.findByRole('option', { name: 'Test headset' }));
+    await waitFor(() => {
+      expect(api.calls.filter((c) => c.name === 'audio.preview.start').at(-1)?.input).toEqual({
+        deviceId: 'mic-2',
+      });
+    });
+    const updates = api.calls.filter((c) => c.name === 'settings.update').length;
+    const starts = api.calls.filter((c) => c.name === 'audio.preview.start').length;
+    await userEvent.click(combo);
+    await userEvent.click(await screen.findByRole('option', { name: 'Test headset' }));
+    expect(api.calls.filter((c) => c.name === 'settings.update')).toHaveLength(updates);
+    expect(api.calls.filter((c) => c.name === 'audio.preview.start')).toHaveLength(starts);
+  });
+
   it('reads an unplugged saved device as System default', async () => {
     installApi('gone');
     render(

@@ -32,6 +32,7 @@ export class NativeAudioCapture implements AudioCapturePort {
     onStopped?: CaptureStopped,
   ): Promise<CaptureSession> {
     try {
+      let stoppedReported = false;
       const handle = this.addon.startCapture(
         source.kind === 'process'
           ? { kind: 'process', pid: source.pid, includeTree: source.includeTree }
@@ -53,6 +54,9 @@ export class NativeAudioCapture implements AudioCapturePort {
             this.onError(error);
             return;
           }
+          // Item 78: the stop is reported once per capture, whatever the addon does.
+          if (stoppedReported) return;
+          stoppedReported = true;
           const reason = info.error;
           onStopped?.(reason ? new Error(reason) : null);
         },

@@ -88,6 +88,12 @@ function samePath(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase();
 }
 
+/** A parent whose children roll up into it even with a different image (S6). */
+function isRollupHost(details: ProcessDetails): boolean {
+  const name = executableName(details).toLowerCase();
+  return BROWSERS.has(name) || MEETING_APPS.has(name);
+}
+
 /** File name without extension, or the process name when the path is unknown. */
 function executableName(details: ProcessDetails): string {
   if (details.exePath === null) return details.processName;
@@ -173,7 +179,8 @@ export class ActiveAudioAppService {
       seen.add(parentPid);
       const parent = this.processes.getProcess(parentPid);
       if (!parent?.exePath) break;
-      if (!samePath(parent.exePath, current.exePath)) break;
+      // S6: a helper under a known browser or meeting app belongs to that app, whatever its image.
+      if (!samePath(parent.exePath, current.exePath) && !isRollupHost(parent)) break;
       // A parent that started after its child is a recycled pid.
       if (
         parent.startTimeUtcMs !== null &&

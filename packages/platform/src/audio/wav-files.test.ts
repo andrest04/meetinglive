@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildWavHeader } from '@vozella/core';
 import { openWavFileDecoder } from './wav-file-decoder';
 import { writeWav } from './wav-test-kit';
@@ -191,5 +191,38 @@ describe('openWavFileDecoder', () => {
   it('throws for bytes that are not audio', () => {
     fs.writeFileSync(file('x.wav'), 'definitely not a wave file');
     expect(() => openWavFileDecoder(file('x.wav'))).toThrow();
+  });
+});
+
+describe('repairWavFile audit proofs', () => {
+  function crashedFile(name: string, bytes: number): string {
+    const target = file(name);
+    const header = buildWavHeader(0);
+    fs.writeFileSync(target, Buffer.concat([header, Buffer.from(audio(bytes))]));
+    return target;
+  }
+
+  it('157: refuses with Failed when the length changes between analysis and write', () => {
+    const target = crashedFile('race.wav', 6400);
+    const real = fs.fstatSync.bind(fs);
+    let calls = 0;
+    const spy = vi.spyOn(fs, 'fstatSync').mockImplementation((fd: number) => {
+      calls += 1;
+      const stat = real(fd);
+      if (calls >= 2) stat.size += 1;
+      return stat;
+    });
+    try {
+      expect(repairWavFile(target)).toBe('Failed');
+    } finally {
+      spy.mockRestore();
+    }
+    expect(repairWavFile(target)).toBe('Repaired');
+  });
+
+  it('157: a file over 4 GiB is Unsupported through repairWavFile', () => {
+    const target = crashedFile('big.wav', 6400);
+    fs.truncateSync(target, 4 * 1024 ** 3 + 1024);
+    expect(repairWavFile(target)).toBe('Unsupported');
   });
 });

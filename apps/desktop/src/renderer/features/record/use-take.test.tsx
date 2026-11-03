@@ -50,7 +50,7 @@ afterEach(() => {
 describe('useTake after leaving the page', () => {
   it('picks up a take that kept running in main, and can pause and stop it', async () => {
     const calls = install({
-      'audio.recording.state': () => ({ phase: 'recording' }),
+      'audio.recording.state': () => ({ phase: 'recording', notices: [] }),
       'audio.recording.pause': () => ({ paused: true }),
       'audio.recording.stop': () => ({
         path: 'C://Lib//Inbox//a.wav',
@@ -71,7 +71,7 @@ describe('useTake after leaving the page', () => {
 
   it('stops the take when an output failure arrives after coming back', async () => {
     const calls = install({
-      'audio.recording.state': () => ({ phase: 'paused' }),
+      'audio.recording.state': () => ({ phase: 'paused', notices: [] }),
       'audio.recording.stop': () => ({
         path: 'a.wav',
         recordedAtMs: 1,
@@ -87,8 +87,41 @@ describe('useTake after leaving the page', () => {
     expect(result.current.phase).toBe('idle');
   });
 
+  it('57: stops at once on a failure that came while the page was away', async () => {
+    const calls = install({
+      'audio.recording.state': () => ({
+        phase: 'recording',
+        notices: [{ kind: 'output-failed', message: 'died' }],
+      }),
+      'audio.recording.stop': () => ({
+        path: 'a.wav',
+        recordedAtMs: 1,
+        pausedSeconds: 0,
+        error: null,
+      }),
+    });
+    const { result } = renderHook(() => useTake());
+    await act(() => Promise.resolve());
+    await act(() => Promise.resolve());
+    expect(calls.some((c) => c.name === 'audio.recording.stop')).toBe(true);
+    expect(result.current.phase).toBe('idle');
+  });
+
+  it('56: a lost source alone does not stop the take on return', async () => {
+    const calls = install({
+      'audio.recording.state': () => ({
+        phase: 'recording',
+        notices: [{ kind: 'source-lost', source: 'Microphone', remaining: 1 }],
+      }),
+    });
+    const { result } = renderHook(() => useTake());
+    await act(() => Promise.resolve());
+    expect(result.current.phase).toBe('recording');
+    expect(calls.some((c) => c.name === 'audio.recording.stop')).toBe(false);
+  });
+
   it('stays idle when main has no take or does not answer', async () => {
-    install({ 'audio.recording.state': () => ({ phase: 'idle' }) });
+    install({ 'audio.recording.state': () => ({ phase: 'idle', notices: [] }) });
     const { result } = renderHook(() => useTake());
     await act(() => Promise.resolve());
     expect(result.current.phase).toBe('idle');

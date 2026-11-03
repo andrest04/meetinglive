@@ -36,6 +36,7 @@ function setup(pick: string | null = null) {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (name, listener) => void handlers.set(name, listener) };
   const controller = {
+    pendingNotices: [{ kind: 'faulted', message: 'disk full' }],
     loadMicrophones: vi.fn(() =>
       Promise.resolve({
         options: [{ kind: 'None', deviceId: null, name: null }],
@@ -192,11 +193,14 @@ describe('audio handlers', () => {
     Object.assign(takes, { currentPhase: 'paused', busy: true });
     expect(await call('audio.recording.state', {})).toMatchObject({
       ok: true,
-      value: { phase: 'paused' },
+      value: { phase: 'paused', notices: [{ kind: 'faulted', message: 'disk full' }] },
     });
     expect(await call('audio.preview.start', { deviceId: null })).toMatchObject({ ok: true });
     expect(controller.startPreview).not.toHaveBeenCalled();
     Object.assign(takes, { currentPhase: 'idle', busy: false });
+    expect(await call('audio.recording.state', {})).toMatchObject({
+      value: { phase: 'idle', notices: [] },
+    });
     await call('audio.preview.start', { deviceId: 'x' });
     expect(controller.startPreview).toHaveBeenCalledWith('x');
   });

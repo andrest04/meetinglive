@@ -68,10 +68,7 @@ pub fn run(
 ) -> Stats {
     let _ = initialize_mta(); // per-thread COM; MTA works for all three sources
     let (client, h_event, capture) = match open(&source) {
-        Ok(v) => {
-            ready(Ok(()));
-            v
-        }
+        Ok(v) => v,
         Err(e) => {
             ready(Err(e.to_string()));
             return Stats::default();
@@ -85,10 +82,17 @@ pub fn run(
     let mut total_out: u64 = 0;
     let mut frame_idx: u64 = 0;
     let start = Instant::now();
+    // A stream that will not start is a failed start, reported before `ready`, so Start rejects.
     if let Err(e) = client.start_stream() {
-        stopped(Some(format!("could not start the stream: {e}")));
+        let message = if matches!(source, Source::Process { .. }) {
+            start_failure(hresult_of(&e), &e.to_string())
+        } else {
+            format!("could not start the stream: {e}")
+        };
+        ready(Err(message));
         return stats;
     }
+    ready(Ok(()));
     let target_pid = match &source {
         Source::Process { pid, .. } => Some(*pid),
         _ => None,
@@ -231,9 +235,19 @@ fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
         autoconvert: true,
         buffer_duration_hns: 0,
     };
-    client.initialize_client(&format, &Direction::Capture, &mode)?;
-    let h_event = client.set_get_eventhandle()?;
-    let capture = client.get_audiocaptureclient()?;
+    let is_process = matches!(source, Source::Process { .. });
+    let wrap = |e: wasapi::WasapiError| -> Box<dyn std::error::Error> {
+        if is_process {
+            start_failure(hresult_of(&e), &e.to_string()).into()
+        } else {
+            e.into()
+        }
+    };
+    client
+        .initialize_client(&format, &Direction::Capture, &mode)
+        .map_err(wrap)?;
+    let h_event = client.set_get_eventhandle().map_err(wrap)?;
+    let capture = client.get_audiocaptureclient().map_err(wrap)?;
     Ok((client, h_event, capture))
 }
 
@@ -252,18 +266,40 @@ pub fn activation_failure(hresult: Option<i32>, message: &str) -> String {
     format!("Process loopback activation failed: 0x{code:08X}. {message}")
 }
 
+/// Spec 3.2 and item 76: any other failure while a process capture starts reads the same way,
+/// with the Windows code, so support can search for it.
+pub fn start_failure(hresult: Option<i32>, message: &str) -> String {
+    let code = hresult.unwrap_or(0x8000_4005_u32 as i32) as u32;
+    format!("Process loopback capture failed to start: 0x{code:08X}. {message}")
+}
+
 /// Spec 3.1.4: a non-empty id that resolves to an active capture endpoint wins; anything
 /// else (empty, unplugged, stale) falls back to the default capture device.
 pub fn resolve_microphone(device_id: Option<&str>) -> Res<wasapi::Device> {
     let enumerator = DeviceEnumerator::new()?;
+    pick_microphone(
+        device_id,
+        |id| {
+            let device = enumerator.get_device(id).ok()?;
+            matches!(device.get_state(), Ok(wasapi::DeviceState::Active)).then_some(device)
+        },
+        || Ok(enumerator.get_default_device(&Direction::Capture)?),
+    )
+}
+
+/// The resolution rule behind `resolve_microphone`, apart from COM so it can be tested.
+/// Recording and the preview both open through it (spec items 83, 84, 85).
+pub(crate) fn pick_microphone<T>(
+    device_id: Option<&str>,
+    active_by_id: impl FnOnce(&str) -> Option<T>,
+    default_device: impl FnOnce() -> Res<T>,
+) -> Res<T> {
     if let Some(id) = device_id.filter(|id| !id.is_empty()) {
-        if let Ok(device) = enumerator.get_device(id) {
-            if matches!(device.get_state(), Ok(wasapi::DeviceState::Active)) {
-                return Ok(device);
-            }
+        if let Some(device) = active_by_id(id) {
+            return Ok(device);
         }
     }
-    Ok(enumerator.get_default_device(&Direction::Capture)?)
+    default_device()
 }
 
 #[cfg(test)]
@@ -313,6 +349,38 @@ mod tests {
         assert_eq!(
             activation_failure(None, "odd"),
             "Process loopback activation failed: 0x80004005. odd"
+        );
+    }
+
+    #[test]
+    fn any_start_failure_of_a_process_capture_has_the_spec_prefix() {
+        assert_eq!(
+            start_failure(Some(0x8889_0008_u32 as i32), "Unsupported format."),
+            "Process loopback capture failed to start: 0x88890008. Unsupported format."
+        );
+        assert_eq!(
+            start_failure(None, "odd"),
+            "Process loopback capture failed to start: 0x80004005. odd"
+        );
+    }
+
+    #[test]
+    fn a_non_empty_active_id_wins_and_anything_else_uses_the_default() {
+        let default = || -> Res<&'static str> { Ok("default") };
+        let found = |id: &str| (id == "mic-1").then_some("mic-1");
+        assert_eq!(
+            pick_microphone(Some("mic-1"), found, default).unwrap(),
+            "mic-1"
+        );
+        // Empty, absent, unplugged and stale ids all fall back and never throw (item 85).
+        assert_eq!(
+            pick_microphone(Some(""), found, default).unwrap(),
+            "default"
+        );
+        assert_eq!(pick_microphone(None, found, default).unwrap(), "default");
+        assert_eq!(
+            pick_microphone(Some("gone"), found, default).unwrap(),
+            "default"
         );
     }
 

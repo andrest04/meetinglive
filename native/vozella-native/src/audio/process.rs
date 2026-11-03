@@ -35,6 +35,14 @@ pub struct VersionDetails {
 /// ERROR_INVALID_PARAMETER as an HRESULT: what OpenProcess returns for a pid that is gone.
 const NO_SUCH_PID: i32 = 0x8007_0057_u32 as i32;
 
+/// Characters of room for an executable path: the longest a Windows path can be (S7).
+const IMAGE_NAME_CHARS: usize = 32_768;
+
+/// The path the call wrote: `len` characters of `buf`, never past its end.
+fn image_name(buf: &[u16], len: u32) -> String {
+    String::from_utf16_lossy(&buf[..(len as usize).min(buf.len())])
+}
+
 /// True while the process exists and has not exited. An unreadable process counts as alive.
 pub fn is_alive(pid: u32) -> bool {
     unsafe {
@@ -44,9 +52,15 @@ pub fn is_alive(pid: u32) -> bool {
                 let _ = CloseHandle(handle);
                 alive
             }
-            Err(e) => e.code().0 != NO_SUCH_PID,
+            Err(e) => alive_when_unopenable(e.code().0),
         }
     }
+}
+
+/// A process that cannot be opened is gone only when Windows says the pid does not exist;
+/// a protected process that refuses access still counts as alive.
+fn alive_when_unopenable(code: i32) -> bool {
+    code != NO_SUCH_PID
 }
 
 fn filetime_to_unix_ms(ft: FILETIME) -> Option<f64> {
@@ -129,7 +143,7 @@ fn details_for(pid: u32) -> Option<ProcessDetails> {
                 start_time_utc_ms: None,
             });
         };
-        let mut buf = vec![0u16; 32_768];
+        let mut buf = vec![0u16; IMAGE_NAME_CHARS];
         let mut len = buf.len() as u32;
         let exe_path = QueryFullProcessImageNameW(
             handle,
@@ -138,7 +152,7 @@ fn details_for(pid: u32) -> Option<ProcessDetails> {
             &mut len,
         )
         .ok()
-        .map(|_| String::from_utf16_lossy(&buf[..len as usize]));
+        .map(|_| image_name(&buf, len));
         let parent = parent_of(handle);
         let (mut created, mut exited, mut kernel, mut user) = (
             FILETIME::default(),
@@ -282,5 +296,46 @@ pub fn windows_build() -> u32 {
         } else {
             0
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_current_process_is_alive() {
+        assert!(is_alive(std::process::id()));
+    }
+
+    #[test]
+    fn a_child_that_was_killed_is_no_longer_alive() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/C", "ping -n 30 127.0.0.1 > nul"])
+            .spawn()
+            .expect("spawn a child");
+        let pid = child.id();
+        assert!(is_alive(pid));
+        child.kill().expect("kill the child");
+        child.wait().expect("reap the child");
+        assert!(!is_alive(pid));
+    }
+
+    #[test]
+    fn an_unopenable_process_counts_as_alive_unless_the_pid_does_not_exist() {
+        assert!(alive_when_unopenable(0x8007_0005_u32 as i32)); // access denied
+        assert!(!alive_when_unopenable(NO_SUCH_PID));
+    }
+
+    #[test]
+    fn a_path_longer_than_1024_characters_is_read_whole() {
+        const { assert!(IMAGE_NAME_CHARS > 1024) };
+        let long = "C:\\".to_string() + &"a".repeat(2000) + ".exe";
+        let mut buf = vec![0u16; IMAGE_NAME_CHARS];
+        let wide: Vec<u16> = long.encode_utf16().collect();
+        buf[..wide.len()].copy_from_slice(&wide);
+        assert_eq!(image_name(&buf, wide.len() as u32), long);
+        // A length past the buffer cannot slice out of range.
+        assert_eq!(image_name(&[104, 105], 10), "hi");
     }
 }

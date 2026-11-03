@@ -23,6 +23,20 @@ export function useRecordingFeedback(listening: boolean): RecordingFeedback {
       setLevel(0);
       return;
     }
+    let alive = true;
+    // Warnings raised while the page was away are still true: show them again.
+    window.vozella.invoke('audio.recording.state', {}).then(
+      (state) => {
+        if (!alive) return;
+        // A host that answers without the list (an older build) just has none to replay.
+        for (const notice of Array.isArray(state.notices) ? state.notices : []) {
+          setWarning((current) => chooseWarning(current, noticeMessage(notice)));
+        }
+      },
+      () => {
+        // No answer: only live notices are shown.
+      },
+    );
     const offNotice = window.vozella.on('audio.recording.notice', (notice) => {
       setWarning((current) => chooseWarning(current, noticeMessage(notice)));
     });
@@ -30,6 +44,7 @@ export function useRecordingFeedback(listening: boolean): RecordingFeedback {
       setLevel(Math.min(100, Math.max(0, payload.level)));
     });
     return () => {
+      alive = false;
       offNotice();
       offLevel();
     };

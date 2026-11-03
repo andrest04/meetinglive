@@ -149,8 +149,6 @@ export class AudioCaptureService {
     let pump: Promise<void> | undefined;
     try {
       writer = this.deps.createWriter(path);
-      pump = this.runPump(mixer, writer, cancel);
-      this.pump = pump;
 
       if (sources.captureMicrophone) {
         const input = mixer.addInput();
@@ -178,6 +176,10 @@ export class AudioCaptureService {
           this.onOutputStopped(error);
         },
       );
+      // As in C#: the pump runs once the devices are open, so the file gets no silent prefix
+      // as long as a slow device activation.
+      pump = this.runPump(mixer, writer, cancel);
+      this.pump = pump;
       this.handles = { mic, output, writer, path };
       this.recording = true;
     } catch (error) {

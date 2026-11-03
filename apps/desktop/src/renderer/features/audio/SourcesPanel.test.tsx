@@ -180,6 +180,50 @@ describe('SourcesPanel microphone', () => {
     expect(labels).toEqual(['None', 'System default']);
   });
 
+  it('102: a picked device falls back to System default when a later load fails', async () => {
+    const options: FakeOptions = {};
+    installApi(options);
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    const combo = await screen.findByRole('combobox', { name: 'Microphone' });
+    await userEvent.click(combo);
+    await userEvent.click(await screen.findByRole('option', { name: 'Test microphone' }));
+    await waitFor(() => {
+      expect(combo).toHaveTextContent('Test microphone');
+    });
+    options.failLoad = true;
+    await userEvent.click(combo);
+    await waitFor(() => {
+      expect(combo).toHaveTextContent('System default');
+    });
+    expect(screen.getByTestId('sources-summary')).toHaveTextContent('Mic: System default');
+  });
+
+  it('93: the preview starts again when the panel goes idle again after a take', async () => {
+    const api = installApi();
+    const view = (active: boolean) => (
+      <Providers>
+        <SourcesPanel active={active} />
+      </Providers>
+    );
+    const { rerender } = render(view(true));
+    const starts = () => api.calls.filter((c) => c.name === 'audio.preview.start').length;
+    await waitFor(() => {
+      expect(starts()).toBe(1);
+    });
+    rerender(view(false));
+    await waitFor(() => {
+      expect(api.calls.filter((c) => c.name === 'audio.preview.stop').length).toBeGreaterThan(0);
+    });
+    rerender(view(true));
+    await waitFor(() => {
+      expect(starts()).toBe(2);
+    });
+  });
+
   it('runs the idle level while a microphone is chosen and stops it on None', async () => {
     const api = installApi();
     render(
@@ -323,6 +367,28 @@ describe('SourcesPanel meeting audio', () => {
       cards: playing.cards.map((c) => (c.processId === 10 ? { ...c, level: 77 } : c)),
     });
     expect(screen.getByRole('meter', { name: 'Zoom' })).toHaveAttribute('aria-valuenow', '77');
+  });
+
+  it('133: a card keeps its DOM node when the list is refreshed and reordered', async () => {
+    const api = installApi({ state: playing });
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    const zoom = await screen.findByRole('radio', { name: /Zoom/ });
+    const extra = {
+      processId: 99,
+      app: app(99, 'Chrome'),
+      isAvailable: true,
+      level: 5,
+    };
+    const [first, ...rest] = playing.cards;
+    api.emit('audio.sources.changed', { ...playing, cards: [first, extra, ...rest] });
+    await screen.findAllByRole('radio', { name: /Chrome/ });
+    expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
+    api.emit('audio.sources.changed', { ...playing, cards: [first, ...rest, extra].reverse() });
+    expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
   });
 
   it('offers the suggested app and remembers dismissal', async () => {

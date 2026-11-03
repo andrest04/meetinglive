@@ -66,9 +66,20 @@ describe('NativeAudioCapture stop reporting', () => {
       (e) => seen.push(e),
     );
     stopped(null, { error: 'the captured application exited' });
+    // Item 78: a second report from the addon is not delivered.
     stopped(null, {});
+    expect(seen).toHaveLength(1);
     expect(seen[0]?.message).toBe('the captured application exited');
-    expect(seen[1]).toBeNull();
+
+    const second: (Error | null)[] = [];
+    await new NativeAudioCapture(addon({ startCapture })).start(
+      { kind: 'system' },
+      () => undefined,
+      (e) => second.push(e),
+    );
+    stopped(null, {});
+    stopped(null, { error: 'late' });
+    expect(second).toEqual([null]);
   });
 
   it('hands a callback error to the error sink instead of the stop listener', async () => {

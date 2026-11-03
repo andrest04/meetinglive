@@ -25,6 +25,15 @@ const PREVIEW_LEVEL_INTERVAL_MS = 100;
  * time for the single-source diagnostic; the recording, the preview, the app list and the
  * import run through `rpc`. Every failure becomes a message, never a crash.
  */
+/** The main pid the own-tree exclusion needs. Missing or invalid is an error, never 0. */
+export function parseMainProcessId(raw: string | undefined): number {
+  const pid = Number(raw);
+  if (raw === undefined || raw.trim() === '' || !Number.isInteger(pid) || pid <= 0) {
+    throw new Error('VOZELLA_MAIN_PID is not set to a valid process id');
+  }
+  return pid;
+}
+
 export function createAudioWorker(deps: AudioWorkerDeps): (raw: unknown) => Promise<void> {
   let ports: NativePorts | undefined;
   let session: CaptureSession | undefined;

@@ -8,6 +8,7 @@ import {
   type MicrophoneChoiceDto,
   type MicrophoneDeviceDto,
   type MicrophoneOptionDto,
+  type RecordingNoticeDto,
   type SourcePickerStateDto,
 } from '@vozella/contracts';
 import {
@@ -71,6 +72,8 @@ export class AudioController {
   private busy = false;
   private firstRefreshDone = false;
   private recording = false;
+  private takeNotices: RecordingNoticeDto[] = [];
+  private collecting = false;
   private readonly frameListeners = new Set<(frame: RecordingFrame) => void>();
   private readonly off: () => void;
 
@@ -187,12 +190,20 @@ export class AudioController {
    * gone falls back to all system audio (the picker state then carries the message).
    */
   async startRecording(path: string, microphone: MicrophoneChoiceDto): Promise<CaptureSourcesDto> {
+    this.takeNotices = [];
+    this.collecting = true;
     this.stopSources();
     this.stopPreview();
     const target = await this.resolveTarget();
     const sources = buildCaptureSources(microphone, target);
     this.publish();
-    await this.deps.host.call({ method: 'recordStart', path, sources }, 40_000);
+    try {
+      await this.deps.host.call({ method: 'recordStart', path, sources }, 40_000);
+    } catch (error) {
+      this.collecting = false;
+      this.takeNotices = [];
+      throw error;
+    }
     this.recording = true;
     return sources;
   }
@@ -210,7 +221,14 @@ export class AudioController {
       await this.deps.host.call({ method: 'recordStop' }, 60_000);
     } finally {
       this.recording = false;
+      this.collecting = false;
+      this.takeNotices = [];
     }
+  }
+
+  /** Notices of the running take, so a page opened later can still act on them. */
+  get pendingNotices(): readonly RecordingNoticeDto[] {
+    return this.takeNotices;
   }
 
   get isRecording(): boolean {
@@ -284,6 +302,11 @@ export class AudioController {
     this.publish();
   }
 
+  private notice(notice: RecordingNoticeDto): void {
+    if (this.collecting) this.takeNotices.push(notice);
+    this.deps.broadcast(audioRecordingNotice, notice);
+  }
+
   private publish(): void {
     this.deps.broadcast(audioSourcesChanged, this.picker.state);
   }
@@ -313,20 +336,13 @@ export class AudioController {
         break;
       }
       case 'source-lost':
-        this.deps.broadcast(audioRecordingNotice, {
-          kind: 'source-lost',
-          source: event.source,
-          remaining: event.remaining,
-        });
+        this.notice({ kind: 'source-lost', source: event.source, remaining: event.remaining });
         break;
       case 'output-failed':
-        this.deps.broadcast(audioRecordingNotice, {
-          kind: 'output-failed',
-          message: event.message,
-        });
+        this.notice({ kind: 'output-failed', message: event.message });
         break;
       case 'faulted':
-        this.deps.broadcast(audioRecordingNotice, { kind: 'faulted', message: event.message });
+        this.notice({ kind: 'faulted', message: event.message });
         break;
     }
   }

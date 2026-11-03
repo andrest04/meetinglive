@@ -427,3 +427,33 @@ Rejected or deferred, with the reason:
 - **148, 39 preview restart after a failed start/import:** follows from `active={idle}`, already covered by the idle toggle test; no extra test added.
 - **Design notes (signal red, existing em dash keys, `processId` max, mainProcessId fallback):** not changed in this round; the em dash keys belong to other modules.
 - **Screenshots:** all of docs/port/screens/audio-capture were regenerated from the current build (no Notes field, zeroed meters while recording). Signal red for live recording was not applied here.
+
+## Independent audit, round 2
+
+Fixed, with the test that proves each:
+
+- **57, 56, 60 notices while another page is open:** main keeps the notices of the running take (`AudioController.pendingNotices`, cleared on start and stop) and `audio.recording.state` returns them. On return the Record page stops the take on the first output or writer failure and shows lost-source warnings again. Tests: `audio-controller.test.ts` (57), `audio-handlers.test.ts`, `use-take.test.tsx` (57, 56). Decision: the take is stopped when the user comes back, not while the page is away, because the stop flow and its message live in the page.
+- **Pump started before devices opened:** the pump now starts after both sources are open, as in C#, so a slow activation no longer writes a silent prefix. Test: `recording-service.test.ts` "the pump starts only after the devices are open".
+- **26, 30, 28, 43, 45:** order of write and frame, the 50 ms paused sleep (the test clock now records sleeps), empty microphone frames, first error kept, failure precedence with all stored failures cleared. Item 25 (2 byte rule) cannot be reached: chunks are always 6400 bytes; the guard stays as a defence.
+- **S6:** a differently named helper under a known browser or meeting app rolls up into that app (`active-audio-apps.test.ts`). Other cross-image parents still stop the climb. Supersedes the earlier "not fixed".
+- **121, S11:** depth cap test with a 42 long chain; restoreApp picks the first match in list order (test).
+- **S9:** `SessionMonitor` reads every active render endpoint, falling back to the default one. No Rust test (COM); pending real validation.
+- **76:** every start failure of a process capture, and a failed `start_stream`, now rejects Start with "Process loopback capture failed to start: 0x... ". `start_stream` runs before `ready`. Rust test for the text; pending real validation for the stages.
+- **78:** the TS adapter reports a stop once per capture (test). The Rust side relies on `FnOnce`.
+- **81:** Rust tests for `is_alive` (self alive, killed child dead, unreadable process counts as alive).
+- **82, 83, 85, S12:** selection rules moved out of COM (`keep_active`, `pick_microphone`) with Rust tests: inactive and unreadable endpoints skipped without hiding others, empty or stale id falls back to the default. 84 holds by construction: recording and preview both call `open`.
+- **S7:** `IMAGE_NAME_CHARS` and `image_name` with a Rust test on a 2000 character path.
+- **165:** `parseMainProcessId` throws on a missing or invalid `VOZELLA_MAIN_PID` instead of using 0; a worker test shows the main pid hides its own audio.
+- **157:** tests for the length-changed refusal and for a file over 4 GiB through `repairWavFile`.
+- **93, 96, 102, 133:** tests for preview restart after the panel goes idle again, for a pick restarting the preview and a re-pick doing nothing, and for card node identity across refresh and reorder. 102 fixed: a picked device falls back to System default when a later load fails.
+
+Rejected or still open, with the reason:
+
+- **C3 / item 15 (more than 2 channels):** capture asks WASAPI for stereo with autoconvert, so the OS mixes channels; no code path of ours sees more than 2. Not testable without a multichannel device. Stays pending real validation; the Rust test cited earlier covers the downmixer only (the import path, C2).
+- **S2 (default device change):** still not followed. No endpoint-change notification is wired, and the lost-source path is not shown to fire on an endpoint change. Open item; needs a native re-open path.
+- **S5:** Rust drops the enumerator per call; no test is possible for COM release. Claim stays unverified.
+- **S10:** a zero data size cannot tell audio from a trailing chunk without parsing PCM, so no safe one-line guard exists. Mitigation: the app writes no trailing chunks. Open risk now that startup recovery scans the meetings folder.
+- **115, 116 (Rust):** re-resolution per call and error swallowing are in code; no COM fake. Pending real validation.
+- **161, C5 wiring, 63, 65, 70, 77, 80:** unchanged. 161 and 63/65/70 depend on the gated real-device run; 77 and 80 are native thread behaviour without a test seam.
+- **Item 33:** C# always shows the paused text; the port shows an active warning over it while paused. Kept on purpose: the warning is still true while paused.
+- **Design notes (signal red, date row in the live preview, placeholder app icons, menu covering labels, scrolled Settings shot, existing em dashes):** not changed; the screenshots come from fake executables and fixtures. `audio-screens.spec.ts` is opt-in and was not re-run.

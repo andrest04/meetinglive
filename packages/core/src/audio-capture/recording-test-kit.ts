@@ -12,6 +12,8 @@ import type { PumpClock, WavWriter } from './recording-service';
 /** Test helper: virtual time that tests move by hand. */
 export class ManualPumpClock implements PumpClock {
   private time = 0;
+  /** Every requested sleep, in order. */
+  readonly sleeps: number[] = [];
   private sleepers: { wakeAt: number; resolve: () => void }[] = [];
 
   nowMs(): number {
@@ -20,6 +22,7 @@ export class ManualPumpClock implements PumpClock {
 
   sleep(ms: number, cancel: CancelSignal): Promise<void> {
     if (cancel.cancelled) return Promise.resolve();
+    this.sleeps.push(ms);
     return new Promise<void>((resolve) => {
       const sleeper = { wakeAt: this.time + ms, resolve };
       this.sleepers.push(sleeper);

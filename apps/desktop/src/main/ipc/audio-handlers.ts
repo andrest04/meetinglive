@@ -85,7 +85,10 @@ export function registerAudioHandlers(deps: AudioHandlerDeps): void {
   registerRequest(server, audioRecordingStart, ({ title, microphone }) =>
     takes.start(title, microphone),
   );
-  registerRequest(server, audioRecordingState, () => ({ phase: takes.currentPhase }));
+  registerRequest(server, audioRecordingState, () => ({
+    phase: takes.currentPhase,
+    notices: takes.currentPhase === 'idle' ? [] : [...controller.pendingNotices],
+  }));
   registerRequest(server, audioRecordingPause, async () => ({ paused: await takes.pause() }));
   registerRequest(server, audioRecordingResume, async () => ({ resumed: await takes.resume() }));
   registerRequest(server, audioRecordingStop, () => takes.stop());

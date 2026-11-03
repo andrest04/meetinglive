@@ -9,9 +9,10 @@ import {
   FakeOsBuild,
   FakeProcessInfo,
   type NativePorts,
+  seedFakeAudioApps,
 } from '@vozella/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createAudioWorker } from './audio-worker-core';
+import { createAudioWorker, parseMainProcessId } from './audio-worker-core';
 
 let dir: string;
 beforeEach(() => {
@@ -193,5 +194,28 @@ describe('audio worker rpc', () => {
     const { handle, events } = setup();
     await handle({ type: 'rpc', id: 1, call: { method: 'recordStart', path: '' } });
     expect(events).toEqual([{ type: 'error', message: 'invalid command' }]);
+  });
+});
+
+describe('own process exclusion', () => {
+  it('165: the main pid given to the worker hides its own audio from the app list', async () => {
+    const ports = createNativePorts({ fake: true });
+    seedFakeAudioApps(ports, [
+      { processId: 10, exePath: 'C:\\Apps\\vozella.exe', name: 'Vozella', peak: 0.5 },
+      { processId: 20, exePath: 'C:\\Apps\\other.exe', name: 'Other', peak: 0.5 },
+    ]);
+    const { rpc } = setup(ports);
+    const result = await rpc({ method: 'appsRefresh' });
+    expect(
+      result?.type === 'rpc-result' &&
+        (result.result as { processId: number }[]).map((a) => a.processId),
+    ).toEqual([20]);
+  });
+
+  it('165: a missing or invalid VOZELLA_MAIN_PID fails loudly instead of turning the exclusion off', () => {
+    expect(parseMainProcessId('4242')).toBe(4242);
+    for (const bad of [undefined, '', 'abc', '0', '-3', '1.5']) {
+      expect(() => parseMainProcessId(bad)).toThrow('VOZELLA_MAIN_PID');
+    }
   });
 });

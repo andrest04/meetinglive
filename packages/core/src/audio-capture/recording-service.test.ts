@@ -634,3 +634,97 @@ describe('level window and teardown proof', () => {
     expect(r.service.isRecording).toBe(false);
   });
 });
+
+describe('audit proofs', () => {
+  it('26: raises the frame only after the chunk was written', async () => {
+    const r = rig();
+    const order: string[] = [];
+    const write = r.writer.write.bind(r.writer);
+    r.writer.write = (pcm) => {
+      write(pcm);
+      order.push('write');
+    };
+    r.service.setListeners({ onFrame: () => order.push('frame') });
+    await r.service.start('a.wav', systemOnly);
+    await flush();
+    expect(order.slice(0, 2)).toEqual(['write', 'frame']);
+  });
+
+  it('26: a subscriber that throws still leaves its chunk in the file', async () => {
+    const r = rig();
+    r.service.setListeners({
+      onFrame: () => {
+        throw new Error('subscriber failed');
+      },
+      onFaulted: (e) => r.faulted.push(e),
+    });
+    await r.service.start('a.wav', systemOnly);
+    await flush();
+    expect(r.writer.chunks).toHaveLength(1);
+    await expect(r.service.stop()).rejects.toThrow('subscriber failed');
+  });
+
+  it('30: the paused pump sleeps 50 ms per loop', async () => {
+    const r = rig();
+    await r.service.start('a.wav', systemOnly);
+    await flush();
+    r.service.pause();
+    r.clock.sleeps.length = 0;
+    await r.clock.advance(500);
+    expect(r.clock.sleeps.length).toBeGreaterThan(1);
+    expect(r.clock.sleeps.every((ms) => ms === 50)).toBe(true);
+  });
+
+  it('28: an empty microphone frame is ignored by the level meter', async () => {
+    const r = rig();
+    const levels: number[] = [];
+    r.service.setListeners({ onMicrophoneLevel: (l) => levels.push(l) });
+    await r.service.start('a.wav', withMic);
+    for (let i = 0; i < 20; i += 1) r.port.mic?.emit(8000, 0);
+    expect(levels).toEqual([]);
+    for (let i = 0; i < 10; i += 1) r.port.mic?.emit(8000);
+    expect(levels.length).toBeGreaterThan(0);
+  });
+
+  it('43: keeps the first error when two teardown steps fail', async () => {
+    const r = rig();
+    await r.service.start('a.wav', withMic);
+    r.port.mic!.stopError = new Error('first');
+    r.port.output!.stopError = new Error('second');
+    r.writer.closeError = new Error('third');
+    await expect(r.service.stop()).rejects.toThrow('first');
+    expect(r.writer.closes).toBe(1);
+  });
+
+  it('45: pump failure wins over output and teardown errors, and all are cleared', async () => {
+    const r = rig();
+    r.writer.diskLimit = 7000;
+    await r.service.start('a.wav', processTreeSources(true, null, 4242));
+    await r.clock.advance(400);
+    const outputError = new Error('output died');
+    r.port.output?.die(outputError);
+    r.port.mic!.stopError = new Error('mic stop failed');
+    await expect(r.service.stop()).rejects.toThrow('disk full');
+    r.writer.diskLimit = Number.POSITIVE_INFINITY;
+    r.port.sessions.length = 0;
+    await r.service.start('b.wav', withMic);
+    await expect(r.service.stop()).resolves.toBeUndefined();
+  });
+
+  it('the pump starts only after the devices are open', async () => {
+    const r = rig();
+    let release: (() => void) | undefined;
+    const real = r.port.start.bind(r.port);
+    r.port.start = (source, onFrame, onStopped) =>
+      source.kind === 'mic'
+        ? new Promise((resolve) => {
+            release = () => resolve(real(source, onFrame, onStopped));
+          })
+        : real(source, onFrame, onStopped);
+    const starting = r.service.start('a.wav', withMic);
+    await r.clock.advance(1000);
+    expect(r.writer.chunks).toHaveLength(0);
+    release?.();
+    await starting;
+  });
+});

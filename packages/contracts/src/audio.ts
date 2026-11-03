@@ -110,10 +110,24 @@ export const audioRecordingStart = defineRequest('audio.recording.start', {
  * Where the take stands in main. The Record page asks when it opens, so a take that kept running
  * while the user visited another page can still be paused, resumed and stopped.
  */
+const recordingNoticeSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('source-lost'),
+    source: z.enum(['Microphone', 'Output']),
+    remaining: z.number().int(),
+  }),
+  z.object({ kind: z.literal('output-failed'), message: z.string() }),
+  z.object({ kind: z.literal('faulted'), message: z.string() }),
+]);
+
+export type RecordingNoticeDto = z.infer<typeof recordingNoticeSchema>;
+
 export const audioRecordingState = defineRequest('audio.recording.state', {
   input: empty,
   output: z.object({
     phase: z.enum(['idle', 'starting', 'recording', 'paused', 'stopping', 'importing']),
+    /** Notices raised since the take started, for a page that was not mounted to hear them. */
+    notices: z.array(recordingNoticeSchema).default([]),
   }),
 });
 export const audioRecordingPause = defineRequest('audio.recording.pause', {
@@ -190,13 +204,5 @@ export const audioRecordingLevel = defineEvent('audio.recording.level', {
 
 /** A source was lost, the meeting audio failed, or the writer faulted (spec 2.3.3). */
 export const audioRecordingNotice = defineEvent('audio.recording.notice', {
-  payload: z.discriminatedUnion('kind', [
-    z.object({
-      kind: z.literal('source-lost'),
-      source: z.enum(['Microphone', 'Output']),
-      remaining: z.number().int(),
-    }),
-    z.object({ kind: z.literal('output-failed'), message: z.string() }),
-    z.object({ kind: z.literal('faulted'), message: z.string() }),
-  ]),
+  payload: recordingNoticeSchema,
 });

@@ -324,6 +324,21 @@ describe('pushed events', () => {
     ]);
   });
 
+  it('57: keeps the notices of the running take until it stops, and starts each take clean', async () => {
+    const r = rig();
+    await r.controller.startRecording('a.wav', { kind: 'SystemDefault', deviceId: null });
+    r.host.push({ type: 'source-lost', source: 'Output', remaining: 1, message: 'gone' });
+    r.host.push({ type: 'output-failed', message: 'died' });
+    expect(r.controller.pendingNotices).toEqual([
+      { kind: 'source-lost', source: 'Output', remaining: 1 },
+      { kind: 'output-failed', message: 'died' },
+    ]);
+    await r.controller.stop();
+    expect(r.controller.pendingNotices).toEqual([]);
+    r.host.push({ type: 'faulted', message: 'late' });
+    expect(r.controller.pendingNotices).toEqual([]);
+  });
+
   it('stops listening on dispose', () => {
     const r = rig();
     r.controller.dispose();
