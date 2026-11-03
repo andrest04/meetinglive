@@ -1,6 +1,6 @@
-# Parity ledger: audio-capture (domain and integration half)
+# Parity ledger: audio-capture
 
-Spec: `docs/port/specs/audio-capture.md`. Section 8 has 165 items; every one is below. This ledger covers the domain and integration half: capture, mixing, WAV files, devices, levels, app sessions, import, and the main-process handlers. The Record page, the Settings microphone section and the strings they need are the user interface half.
+Spec: `docs/port/specs/audio-capture.md`. Section 8 has 165 items; every one is below. The first part of the ledger covers the domain and integration half: capture, mixing, WAV files, devices, levels, app sessions, import, and the main-process handlers. The user interface half (Record page Sources block, Settings microphone section, status line) closed the `open-ui` items and is described under User interface half below.
 
 Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped` (reason given), `pending-real-validation` (what is needed). Two more mark work that belongs to another half and has its data ready: `open-ui` (the user interface half draws or wires it) and `open-recording` (the recording module calls it).
 
@@ -102,7 +102,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 30 | done | Drain, 50 ms sleep, nothing written, no frame, no flush |
 | 31 | done | Real-time test: 0.5 s, 1 s pause, 0.5 s gave under 1.6 s |
 | 32 | done | |
-| 33 | open-ui | Status text and warning precedence are the page's. The service emits the data |
+| 33 | done | `recordingStatus`, `RecordingStatusLine`: paused text, and a warning wins. Not mounted in the app until the recording module draws the recording state (`recording-status.test.ts`, `RecordingStatusLine.test.tsx`) |
 | 34 | open-recording | The recording module keeps the paused duration and sets the ASR clock skew |
 
 ### Start failure handling
@@ -113,7 +113,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 36 | done | The cancel source exists before any device starts |
 | 37 | done | Listeners are set before `start`; events during start are delivered; `isRecording` is true only when `start` resolves |
 | 38 | improved | C1. The abort removes the file. Tests in core, runtime and worker |
-| 39 | open-ui | Message and restarting the preview are the page's. `startRecording` already stops the preview |
+| 39 | done | `startFailureMessage` gives `Error_StartRecording`, or the new plain message for `process-loopback-unsupported`. The recording module shows it; the preview restarts by itself when the page is idle again (`useMicrophonePreview`) |
 
 ### Stop
 
@@ -142,9 +142,9 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 55 | done | |
 | 56 | done | The service does not stop itself |
 | 57 | open-recording | `audio.recording.notice` carries `output-failed` and `faulted`; the first one handled is the caller's rule |
-| 58 | open-ui | The notice carries `source` and `remaining` |
-| 59 | open-ui | Never replaced is a rule of the status line |
-| 60 | open-ui | |
+| 58 | done | `noticeMessage`, with tests for every key |
+| 59 | done | `chooseWarning`, tested with a milder warning arriving late |
+| 60 | done | `RecordingStatusLine` keeps the warning across pause and resume (`RecordingStatusLine.test.tsx`) |
 | 61 | done | The five message keys exist in both catalogs already. This half adds no string |
 
 ### Process-tree loopback
@@ -193,29 +193,29 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 | 89 | done | Level 0 on a device that stops itself |
 | 90 | improved | The native capture delivers PCM16 only, so the live path is int16 / 32768. `computeBufferRms` still reads float32 and int32 and returns 0 for other depths, with tests, for the contract. Clamped to [0, 1] |
 | 91 | done | Worker throttles to ten per second, main clamps to 0..100. The page marshals |
-| 92 | open-ui | |
-| 93 | open-ui | `startRecording` and `importAudio` stop the preview |
+| 92 | done | `useMicrophonePreview(deviceId, enabled)`: runs only while enabled and stops on the way out. Settings enables it once loaded; Record while the page is active and the microphone is not None (`SourcesPanel.test.tsx`, e2e) |
+| 93 | done | The hook stops with the page. Main also stops the preview in `startRecording` and `importAudio`. The recording module flips `active` for the failed-start restart |
 
 ### Settings microphone picker
 
 | # | Status | Note |
 | --- | --- | --- |
-| 94 | open-ui | `audio.microphones.load` returns the devices; the sentinel is the page's |
-| 95 | open-ui | |
-| 96 | open-ui | Save through `settings.update({ selectedMicrophoneDeviceId })` |
-| 97 | open-ui | |
-| 98 | open-ui | `audio.preview.stop` |
+| 94 | done | `MicrophoneSection`: System default (empty id), then the devices (`MicrophoneSection.test.tsx`, e2e) |
+| 95 | done | The saved id picks its item, an unplugged one reads as System default; loading never saves |
+| 96 | done | `settings.update({ selectedMicrophoneDeviceId })`, null for System default; the hook restarts the level on the new device; re-picking is ignored |
+| 97 | done | The select stays empty until the saved id has loaded, so nothing can be picked or saved before |
+| 98 | done | The hook unsubscribes and sends `audio.preview.stop` when the page unmounts (unit test, e2e) |
 
 ### Record page microphone choice
 
 | # | Status | Note |
 | --- | --- | --- |
 | 99 | done | Options in order; labels are the page's |
-| 100 | open-ui | `sameMicrophoneOptions` and `selectMicrophoneAfterReload` are ready |
+| 100 | done | `useMicrophones.reload` on show and on dropdown open (`Select.onOpenChange`); an identical list keeps the same array (`SourcesPanel.test.tsx`) |
 | 101 | done | |
-| 102 | open-ui | A stale reload is the page's generation check. Load errors give an empty list in main (tested) |
+| 102 | done | Generation counter drops a stale answer; a failed load leaves None and System default (unit test) |
 | 103 | done | `buildCaptureSources` |
-| 104 | open-ui | |
+| 104 | done | `sourcesSummaryArgs` and `RecordPage_SourcesSummary`, refreshed on every change (unit test, e2e) |
 
 ### Remembered choices
 
@@ -256,10 +256,10 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 
 | # | Status | Note |
 | --- | --- | --- |
-| 130 | open-ui | State: the system card is first, always there, selected by default, level 0 |
-| 131 | open-ui | State has the app, its flags and the level. Icons need a new native call, see Left for other modules |
+| 130 | done | `SourcesPanel`: the system card is first, selected by default, with no meter (unit test, e2e) |
+| 131 | dropped | Name, live meter, tags and the unavailable look are drawn. The executable icon is not: it needs a native call (`AppIconCache` is outside this module), so every app shows one generic glyph. Cards carry `exePath` for it |
 | 132 | done | State; unavailable card keeps its place and reads 0 |
-| 133 | open-ui | Cards carry the pid as a key |
+| 133 | done | Cards are keyed by process id, so the selection and focus survive refreshes (e2e keyboard test) |
 | 134 | done | `noAppsPlaying` |
 | 135 | done | `select` remembers and clears the fallback; programmatic restore does not remember |
 | 136 | done | Checked against the current process image through the worker |
@@ -354,9 +354,25 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 
 Not fixed, kept as the spec describes: C6 (normalizer unused), S2 (default device change is not followed: the source is reported lost), S6, S7 (1024-character path buffer), S9, S10, S11, S13, S14 (a start can take up to 12 s; the page must show progress).
 
+## User interface half
+
+Code: `apps/desktop/src/renderer/features/audio/` (`SourcesPanel`, `MicrophoneSection`, `RecordingStatusLine`, hooks and `recording-status.ts`), `ui/Meter.tsx`, `ui/Select.tsx` (`onOpenChange`). Tests: `SourcesPanel.test.tsx`, `MicrophoneSection.test.tsx`, `RecordingStatusLine.test.tsx`, `recording-status.test.ts`, e2e `apps/desktop/e2e/audio-sources.spec.ts` (fake native build; `VOZELLA_FAKE_AUDIO_APPS` makes three fake apps play audio). Screenshots: `docs/port/screens/audio-capture/`.
+
+Decisions made without anyone to ask:
+
+1. **Sources is a quiet list, not tiles.** The meeting audio is a radio group in hairline rows (name, a tag, a thin meter), the way Notion lists properties. The selected row is the filled radio, not a color. Unavailable cards are dimmed and say "Not playing".
+2. **One generic glyph for apps.** Executable icons need a native call outside this module; see item 131.
+3. **The Import audio command is not drawn.** `audio.import.pickFile` works, but the command also allocates the library path, converts, and starts the pipeline, which is the recording module's. A button that only picks a file would do nothing visible. Items 148 and 149 stay `open-recording`.
+4. **The status line is built but not mounted.** `RecordingStatusLine` takes `recording`, `paused`, `microphone` and `appName` from the recording module; the Record button is still inert, so no recording state exists to show. Its rules are unit tested, not observed in the running app.
+5. **The Record page microphone preview uses the same hook as Settings.** It runs while the page is active and the choice is not None, so the level bar is live before recording.
+6. **One new string** for the code `process-loopback-unsupported`: `Ui_ProcessLoopbackUnsupported`, shown through `startFailureMessage` (the earlier note said two; a second label for a retry action had no user, so it was dropped). The recording module shows it.
+7. **The Settings section is now `built`** in `SETTINGS_SECTIONS`.
+
+Not observed: a real microphone or real apps in the pages (the e2e uses the fake native build; the real-device proof is in the domain half), forced-colors rendering, a screen reader, Windows 10.
+
 ## Left for other modules
 
-- **User interface half:** the Record page Sources card (microphone combo and its reload rules, cards, tags, hint, fallback bar, suggestion bar, summary line), the status line and the warning precedence (items 33, 58 to 60), the recording level bar, the Settings microphone section with its level bar (94 to 98), the page-side preview start and stop rules (92, 93), the stale-reload check (102). New strings are not needed: the keys listed in the spec exist in both catalogs. The refusal for an old Windows has `code: 'process-loopback-unsupported'` and an English message; the page should show its own words for that code, which needs two new keys (en and es).
+- **User interface half:** done (see below). Left from it: the Import audio command, because it needs the library path and the pipeline that follows (items 148, 149), and the executable icons (item 131).
 - **Recording module:** allocate the path, call `AudioController.startRecording/pause/resume/stop`, read frames with `onRecordingFrame` for live ASR, hold the paused duration for the clock skew (34), react to `audio.recording.notice` (57, 49), run the import command and its pipeline (148, 149), and call `repairWavFile` before transcribing any WAV.
 - **Icons for app cards:** `AppIconCache` is outside this module. It needs a native call that returns an executable's icon; cards carry `exePath` for it.
 - **Calendar and others:** nothing.
