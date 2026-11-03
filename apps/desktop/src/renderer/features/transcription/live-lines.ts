@@ -20,7 +20,7 @@ export type LiveLine = HeaderLine | TextLine;
 const STAMPED = /^(\* )?\[(\d+:\d{2}\.\d{2})-\d+:\d{2}\.\d{2}\](?: \[ Speaker-(\d+) \])? ?(.*)$/;
 const HEADER = /^(Recorded|Ended) /;
 
-const splitLines = (text: string): string[] =>
+export const splitLines = (text: string): string[] =>
   text.split(/\r\n|\n|\r/).filter((line) => line.trim() !== '');
 
 /**
@@ -28,7 +28,11 @@ const splitLines = (text: string): string[] =>
  * change: the display text starts with it, and what follows is the interim suffix.
  */
 export function liveLines(displayText: string, committedText: string): LiveLine[] {
-  const committedCount = splitLines(committedText).length;
+  return liveLinesFrom(displayText, splitLines(committedText).length);
+}
+
+/** The same, when the caller already knows how many lines are committed (Infinity: all). */
+export function liveLinesFrom(displayText: string, committedCount: number): LiveLine[] {
   return splitLines(displayText).map((line, index): LiveLine => {
     if (HEADER.test(line.trimStart())) return { kind: 'header', text: line.trim() };
     const kind = index < committedCount ? 'committed' : 'interim';
