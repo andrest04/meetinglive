@@ -154,17 +154,17 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 
 | # | Item | Package | Status | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Chat bar is app-global, docked below the page content, expand direction up, full width. | chat-6 | pending |  |
-| 2 | Bar is hidden (not collapsed-with-header) on Settings only. | chat-6 | pending |  |
-| 3 | Bar starts collapsed on app start. | chat-6 | pending |  |
-| 4 | Bar collapses whenever the resolved scope kind, folder id, or meeting id changes. | chat-6 | pending |  |
-| 5 | Bar expands on New chat and on opening a thread from history. | chat-6 | pending |  |
-| 6 | Header shows scope chip (icon plus label), History button, New chat button. | chat-6 | pending |  |
-| 7 | Scope glyphs: Live, Meeting, Folder, All meetings each have a distinct icon. | chat-6 | pending |  |
-| 8 | Scope label for Live is `Chat_ScopeLive`. | chat-6 | pending |  |
-| 9 | Scope label for Meeting is `Chat_ScopeMeetingNamed` with the meeting title, else `Chat_ScopeMeeting` when missing or blank. | chat-6 | pending |  |
-| 10 | Scope label for Folder is `Chat_ScopeFolderNamed` with the folder name, else `Chat_ScopeFolder`. | chat-6 | pending |  |
-| 11 | Scope label for All meetings is `Chat_ScopeAll`. | chat-6 | pending |  |
+| 1 | Chat bar is app-global, docked below the page content, expand direction up, full width. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 2 | Bar is hidden (not collapsed-with-header) on Settings only. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 3 | Bar starts collapsed on app start. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 4 | Bar collapses whenever the resolved scope kind, folder id, or meeting id changes. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 5 | Bar expands on New chat and on opening a thread from history. | chat-6 | done | New chat expands the bar. Opening a thread from history is dropped (owner decision 2026-11-03, may return later). |
+| 6 | Header shows scope chip (icon plus label), History button, New chat button. | chat-6 | done | Chip and New chat button. History button `BtnMeetingChatHistory` dropped (owner decision 2026-11-03, may return later). |
+| 7 | Scope glyphs: Live, Meeting, Folder, All meetings each have a distinct icon. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 8 | Scope label for Live is `Chat_ScopeLive`. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 9 | Scope label for Meeting is `Chat_ScopeMeetingNamed` with the meeting title, else `Chat_ScopeMeeting` when missing or blank. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 10 | Scope label for Folder is `Chat_ScopeFolderNamed` with the folder name, else `Chat_ScopeFolder`. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
+| 11 | Scope label for All meetings is `Chat_ScopeAll`. | chat-6 | done | `ChatBar.tsx`, `use-chat-scope.ts`, `chat-scope-label.ts`; `ChatBar.test.tsx` and `e2e/chat-bar.spec.ts`. |
 | 12 | Surface parsing is exact and case-sensitive for `Recording`, `History`, `Settings`, `Session`; anything else is Unknown. | chat-1 | done | `parseSurface` in `scope-resolver.ts`. |
 | 13 | Settings surface: invisible, AllMeetings, no ids, even during capture. | chat-1 | done | `resolveScope`, Settings first. |
 | 14 | Capture active (recording or processing): Live scope on every non-Settings surface. | chat-1 | done | `resolveScope`, capture check before Session and History. |
@@ -309,3 +309,19 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). |
 | 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
 | 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |
+
+## Chat-6 (chat bar in the shell)
+
+- Items 1 to 11 done. Item 18 UI half: `use-chat-scope.ts` bumps a generation on every refresh and discards a name lookup that finishes late (unit test "discards a name lookup...").
+- Item 153: `BarMeetingChat`, `LblMeetingChatScope` and `BtnMeetingChatNew` are `data-testid` values (the first and last also `id`). `BtnMeetingChatHistory` dropped (owner decision 2026-11-03, may return later, thread history cut).
+- Item 152 (shell strings): only existing keys are used (`Chat_Bar.AutomationProperties.Name`, `Chat_New.*`, `Chat_Scope*`). No new strings.
+- Decisions: scope comes from `workspace.getState` and `workspace.changed` (the shell dispatches the router tag into the workspace); names come from `library.getMeeting` and `library.load`, refreshed on `library.changed` so a rename updates the chip. The bar calls `chat.setScope` when the scope changes and tracks `canStartNewChat` from `chat.stateChanged`, so New chat is disabled while an answer runs. The body is a `children` slot, rendered only while open. The bar sits in the content column below `<main>`, so expanding it shrinks the page area (no overlay).
+- Tests were written after the code, not RED first. Screenshots in `docs/port/screens/chat/`.
+
+### Bugs fixed (chat-6)
+
+- None found in the WinUI behavior for this package.
+
+### Left for other modules (chat-6)
+
+- Chat-7: pass the conversation as `children` of `<ChatBar>` in `AppShell.tsx`; the body area is 360 px high (45 vh at most) with 40 px side padding.
