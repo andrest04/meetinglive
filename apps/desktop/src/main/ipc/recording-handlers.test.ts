@@ -38,6 +38,7 @@ function setup() {
   };
   const service = {
     getState: vi.fn(() => state),
+    getSetup: vi.fn(() => Promise.resolve({ canRecord: true })),
     start: vi.fn(() =>
       Promise.resolve({ started: true as const, meetingId: 'm1', recordedAtMs: 5 }),
     ),
@@ -139,5 +140,11 @@ describe('recording handlers', () => {
   it('returns the state with the canvas text', async () => {
     const { call } = setup();
     expect(await call('recording.getState', {})).toMatchObject({ ok: true });
+  });
+
+  it('returns the setup checklist', async () => {
+    const { call, service } = setup();
+    await call('recording.getSetup', {});
+    expect(service.getSetup).toHaveBeenCalledTimes(1);
   });
 });

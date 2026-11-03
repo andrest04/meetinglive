@@ -156,6 +156,7 @@ export const requestChannels = {
   [summaries.summariesCancelLocalModel.name]: summaries.summariesCancelLocalModel,
   [summaries.summariesChooseCli.name]: summaries.summariesChooseCli,
   [recording.recordingGetState.name]: recording.recordingGetState,
+  [recording.recordingGetSetup.name]: recording.recordingGetSetup,
   [recording.recordingStart.name]: recording.recordingStart,
   [recording.recordingPause.name]: recording.recordingPause,
   [recording.recordingResume.name]: recording.recordingResume,

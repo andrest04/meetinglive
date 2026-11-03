@@ -5,11 +5,13 @@ import {
   type MicrophoneChoiceDto,
   type PayloadInputOf,
   type RecordingMessageDto,
+  type RecordingSetupDto,
   type RecordingNoticeDto,
   type RecordingStateDto,
   type SourcePickerStateDto,
 } from '@vozella/contracts';
 import {
+  buildSetupSnapshot,
   CancelSource,
   evaluateSetup,
   HighlightedLiveText,
@@ -253,6 +255,12 @@ export class RecordingService {
   /** The snapshot the page loads when it opens, with the canvas text. */
   getState(): RecordingStateDto & { liveText: string } {
     return { ...this.buildState(), liveText: this.canvasText() };
+  }
+
+  /** The setup checklist (spec 2.4), read from the same facts the Start gate uses. */
+  async getSetup(): Promise<RecordingSetupDto> {
+    const { facts, readiness } = await evaluateSetup(this.deps.setup);
+    return { ...buildSetupSnapshot(facts, readiness), provider: facts.provider };
   }
 
   /** Resolves when the stop in progress and the latest run have ended. */

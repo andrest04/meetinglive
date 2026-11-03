@@ -2,6 +2,7 @@ import {
   recordingCancelProcessing,
   recordingCloseAnswer,
   recordingDiscard,
+  recordingGetSetup,
   recordingGetState,
   recordingHighlight,
   recordingImport,
@@ -33,6 +34,7 @@ export function registerRecordingHandlers({
 }: RecordingHandlerDeps): void {
   registerLiveAskHandlers(server, liveAsk);
   registerRequest(server, recordingGetState, () => service.getState());
+  registerRequest(server, recordingGetSetup, () => service.getSetup());
   registerRequest(server, recordingStart, async (input) => {
     const result = await service.start(input);
     return result;

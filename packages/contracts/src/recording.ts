@@ -59,6 +59,36 @@ export const recordingStateSchema = z.object({
 });
 export type RecordingStateDto = z.infer<typeof recordingStateSchema>;
 
+/** A catalog key with its values; the page translates it, so a language change relabels. */
+const textRefSchema = z.object({ key: z.string(), args: z.array(z.string()).readonly() });
+const setupCardSchema = z.object({
+  headerKey: z.string(),
+  status: textRefSchema,
+  detail: textRefSchema,
+  ready: z.boolean(),
+});
+
+/**
+ * What the setup checklist shows (spec 2.4): the three cards and the idle status, from the same
+ * facts the Start gate reads. `provider` is the chosen summary engine, null when none is chosen.
+ */
+export const recordingSetupSchema = z.object({
+  canRecord: z.boolean(),
+  live: setupCardSchema,
+  engine: setupCardSchema,
+  summary: setupCardSchema,
+  /** The settings file still selects the removed xAI provider: ask for another one. */
+  summaryProviderRemoved: z.boolean(),
+  idleStatus: textRefSchema,
+  provider: z.string().nullable(),
+});
+export type RecordingSetupDto = z.infer<typeof recordingSetupSchema>;
+
+export const recordingGetSetup = defineRequest('recording.getSetup', {
+  input: empty,
+  output: recordingSetupSchema,
+});
+
 export const recordingGetState = defineRequest('recording.getState', {
   input: empty,
   /** The state plus the transcript text the canvas shows (highlights applied). */
