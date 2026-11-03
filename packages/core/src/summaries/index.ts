@@ -17,3 +17,7 @@ export * from './provider-resolver';
 export * from './template-instructions';
 export * from './meeting-patch';
 export * from './summary-service';
+export * from './patch-queue';
+export * from './related-meetings';
+export * from './tab-state';
+export * from './tab-service';

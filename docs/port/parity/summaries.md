@@ -332,6 +332,30 @@ Decisions (S13):
 - **No RED run (S13).** Code and tests were written together; the tests passed on the first run.
 - **Not covered here.** Real provider cancel (kill the CLI, abort llama) is exercised in the S04, S05 and S11 tests, not through the service.
 
+### Summary tab service (S14)
+
+| #   | Item                                                                                   | Status   | Notes                                                                                                                                                               |
+| --- | -------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 78  | Meeting resolved from the given id, else the workspace selection, else the most recent | done     | `SummaryTabService.loadTab`. Most recent is by parsed `recordedAt` instant over `list()`.                                                                           |
+| 79  | Loading selects the meeting in the workspace; status and draft messages cleared        | done     | `selectMeeting(id)` dep, wired to `workspace.selectMeeting` by S15. Status and draft messages are renderer state; a load returns fresh state with none.             |
+| 80  | Title "No summaries yet" when no meeting exists                                        | done     | Key `NoSummariesYet` through the injected translator.                                                                                                               |
+| 81  | Derived flags follow 2.2                                                               | done     | `deriveTabFlags` (pure). The loaded state carries the enhanced-mode flags; the renderer calls `deriveTabFlags` again for notes mode and `isGenerating`.             |
+| 98  | Toggle persists at once; failure gives `Error_SaveActionItem`                          | improved | B5: `PatchQueue` per meeting, each toggle on a freshly read record. A failed save rejects only that toggle. Result carries the saved list.                          |
+| 99  | Copy action items: empty message, or rendered lines without the trailing newline       | done     | `copyActionItems` returns `empty` with `SummaryPage_NoActionItems` or `copied` with the text. The clipboard write and the success/failure messages are the shell's. |
+| 102 | Notes save re-reads the record, skips the write when unchanged, blank gives null       | done     | `saveNotes`, queued with the toggles so a notes save and a toggle never overwrite each other. Field patch only.                                                     |
+| 103 | Related meetings (max 5), newest first                                                 | done     | `findRelated` in `related-meetings.ts`. Series ids are read from the files only when the current meeting has one and the title does not already match.              |
+| 104 | Copy command returns notes or summary, null when blank                                 | done     | `copyTextFor(mode, source)` and `copyText(meetingId, mode)`.                                                                                                        |
+
+Decisions (S14):
+
+- **Where it lives.** `tab-service.ts`, `tab-state.ts`, `related-meetings.ts`, `patch-queue.ts` in `packages/core/src/summaries/`; platform round trip in `packages/platform/src/summaries/tab-service.test.ts` on the winui-library fixture.
+- **Values only.** `loadTab` answers `loaded` or `failed`; `saveNotes`, `toggleActionItem` and `copyActionItems` answer status values. Nothing throws across the boundary.
+- **Related meetings, calendar.** The match rule is title or series id as in `RelatedMeetings.Find`. Coming up, event metadata linking and the brief are dropped (owner decision 2026-11-03, may return later); `brief`, `calendarEventId`, `seriesId` and Jev data pass through every patch untouched (platform test).
+- **Template list.** `noteTemplateOptions(null)`: built-ins only, since the custom template is dropped. A stored `custom` id still loads as the selected id.
+- **Date label** for related items is the renderer's job (`recordedAt` is returned as stored).
+- **Out-of-range toggle** answers `out-of-range` and writes nothing.
+- **RED run (S14).** The pure tests (flags, queue, related) were run first against missing modules and failed; the service tests were written before the service file but the first run was after it.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -361,6 +385,7 @@ Decisions (S13):
 - **B2** (S12): one settings reader. The factory, and through it every provider, reads `SettingsStore.load()` (camelCase file, case-insensitive keys); a test on a real `settings.json` shows `selectedClaudeModelId`/`Effort` and `selectedCodexModelId`/`Effort` in the argv, with defaults sonnet/low and gpt-5.6/low.
 - **B19** (S12): gate and wizard writes use `SettingsStore.update(patch)`, a serialized read-modify-write; three parallel patches to different fields all reach the disk.
 - **B35** (S12): unknown, numeric or blank provider names resolve to Local; `Xai` stays `unavailable`.
+- **B5** (S14): action item toggles (and notes saves) go through a per-meeting queue; 20 rapid toggles on slow saves end in order with the last value persisted, and one failing save does not block the next (tested).
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -392,6 +417,7 @@ Decisions (S13):
 - S12: `LocalModelStore` has no `pathFor` in the core port; `SummaryRuntime` takes `FileLocalModelStore` structurally. A fake store in other tests needs `pathFor` too.
 
 - S13 to S15 and S17: S15 builds `new SummaryService({ meetings, settings, resolver: runtime.resolver, clock, notifyMeetingChanged: (id) => workspace.notifyMeetingChanged(id), busy, placeholderFormats: [en MeetingTitleFormat, es MeetingTitleFormat] })` once and keeps one `CancelSource` per meeting for the cancel channel. S17 sends the picked `templateId`, maps `needs-setup` to the wizard (Local) or the CLI setup dialog, shows `failed` through `describeFailed`, and shows `Status_SetupCancelled` when the dialogs are closed. `Status_GeneratingSummary` and `Status_SummaryGenerated` are the UI's.
+- S14 to S15 and S16: S15 builds `new SummaryTabService({ meetings, translate, getSelectedMeetingId: () => workspace.state.selectedMeetingId, selectMeeting: (id) => workspace.selectMeeting(id) })` once and may pass a shared `PatchQueue`. The clipboard write for `copied` and `copyText` is the shell's; S16 shows `message` from `empty` as an error draft message, `message` from a failed toggle as the status line, and builds the related-item date label from `recordedAt`. S16 recomputes flags with `deriveTabFlags` for notes mode and while generating.
 
 ## Dropped by the owner
 
