@@ -18,6 +18,7 @@ export function MicrophoneSection() {
   const [settingsRead, setSettingsRead] = useState(false);
   const [devicesRead, setDevicesRead] = useState(false);
   const alive = useRef(true);
+  const picked = useRef(false);
   const generation = useRef(0);
 
   const loadDevices = useCallback(() => {
@@ -42,7 +43,8 @@ export function MicrophoneSection() {
     window.vozella.invoke('settings.get', {}).then(
       (settings) => {
         if (!alive.current) return;
-        setSaved(settings.selectedMicrophoneDeviceId);
+        // A pick made before this answer arrived is newer than what was read.
+        if (!picked.current) setSaved(settings.selectedMicrophoneDeviceId);
         setSettingsRead(true);
       },
       () => {
@@ -71,6 +73,7 @@ export function MicrophoneSection() {
   const choose = (next: string): void => {
     if (next === value) return;
     const id = next === DEFAULT_VALUE ? null : next;
+    picked.current = true;
     setSaved(id);
     window.vozella
       .invoke('settings.update', { patch: { selectedMicrophoneDeviceId: id } })

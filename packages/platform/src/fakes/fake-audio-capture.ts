@@ -20,18 +20,21 @@ export interface FakeAudioCaptureOptions {
 /** Fake: a deterministic tone (or silence) on the same 20 ms cadence as the real device. */
 export class FakeAudioCapture implements AudioCapturePort {
   readonly started: AudioSource[] = [];
+  /** The stop callbacks handed to `start`, so a test can end a source by itself. */
+  readonly stopCallbacks: { source: AudioSource; onStopped?: CaptureStopped }[] = [];
 
   constructor(private readonly options: FakeAudioCaptureOptions = {}) {}
 
   start(
     source: AudioSource,
     onFrame: (frame: AudioFrame) => void,
-    _onStopped?: CaptureStopped,
+    onStopped?: CaptureStopped,
   ): Promise<CaptureSession> {
     if (this.options.failWith) {
       return Promise.reject(new Error(this.options.failWith));
     }
     this.started.push(source);
+    this.stopCallbacks.push({ source, onStopped });
     const toneHz = this.options.toneHz ?? 440;
     let frames = 0;
     const timer = setInterval(() => {

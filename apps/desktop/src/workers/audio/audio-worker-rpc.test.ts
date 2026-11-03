@@ -106,7 +106,7 @@ describe('audio worker rpc', () => {
 
   it('answers a refused request with a code the page can map (C7)', async () => {
     const base = createNativePorts({ fake: true });
-    const { rpc } = setup({ ...base, osBuild: new FakeOsBuild(19_045) });
+    const { rpc } = setup({ ...base, osBuild: new FakeOsBuild(18_363) });
     const result = await rpc({
       method: 'recordStart',
       path: path.join(dir, 'rec.wav'),
@@ -136,6 +136,54 @@ describe('audio worker rpc', () => {
     });
     expect(result).toMatchObject({ ok: false, message: 'no device' });
     expect(fs.existsSync(path.join(dir, 'rec.wav'))).toBe(false);
+  });
+
+  it('maps a source that ends by itself to the push events the page listens for', async () => {
+    const audio = new FakeAudioCapture();
+    const { rpc, events } = setup({ ...createNativePorts({ fake: true }), audio });
+    const started = await rpc({
+      method: 'recordStart',
+      path: path.join(dir, 'lost.wav'),
+      sources: {
+        captureMicrophone: true,
+        microphoneDeviceId: null,
+        output: 'SystemLoopback',
+        processId: 0,
+      },
+    });
+    expect(started).toMatchObject({ ok: true });
+    const mic = audio.stopCallbacks.find((c) => c.source.kind === 'mic');
+    mic?.onStopped?.(new Error('mic unplugged'));
+    expect(events.find((e) => e.type === 'source-lost')).toEqual({
+      type: 'source-lost',
+      source: 'Microphone',
+      remaining: 1,
+      message: 'mic unplugged',
+    });
+    await rpc({ method: 'recordStop' });
+
+    const processEvents: AudioWorkerEvent[] = [];
+    const audio2 = new FakeAudioCapture();
+    const second = setup({ ...createNativePorts({ fake: true }), audio: audio2 });
+    await second.rpc({
+      method: 'recordStart',
+      path: path.join(dir, 'failed.wav'),
+      sources: {
+        captureMicrophone: false,
+        microphoneDeviceId: null,
+        output: 'ProcessTree',
+        processId: 4242,
+      },
+    });
+    audio2.stopCallbacks
+      .find((c) => c.source.kind === 'process')
+      ?.onStopped?.(new Error('app gone'));
+    processEvents.push(...second.events);
+    expect(processEvents.find((e) => e.type === 'output-failed')).toEqual({
+      type: 'output-failed',
+      message: 'app gone',
+    });
+    await second.rpc({ method: 'recordStop' });
   });
 
   it('throttles idle preview levels to about ten per second, but never swallows zero', async () => {

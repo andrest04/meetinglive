@@ -82,7 +82,7 @@ describe('AudioCaptureService start', () => {
       removeFile: () => undefined,
       repairWav: () => undefined,
       preflight: (s) => {
-        if (s.output === 'ProcessTree') assertProcessLoopbackSupported(19045);
+        if (s.output === 'ProcessTree') assertProcessLoopbackSupported(18363);
       },
     });
     await expect(gated.start('a.wav', processTreeSources(true, null, 4242))).rejects.toThrow(

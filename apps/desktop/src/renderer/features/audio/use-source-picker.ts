@@ -18,12 +18,17 @@ export interface SourcePickerModel {
 export function useSourcePicker(active: boolean): SourcePickerModel {
   const [state, setState] = useState<SourcePickerStateDto | null>(null);
 
+  // Pushes are heard even when the poller is off: the state published as a take starts carries
+  // the "Audio source changed" message, and the page must show it during the take.
+  useEffect(() => {
+    return window.vozella.on('audio.sources.changed', (next) => {
+      setState(next);
+    });
+  }, []);
+
   useEffect(() => {
     if (!active) return;
     let alive = true;
-    const unsubscribe = window.vozella.on('audio.sources.changed', (next) => {
-      if (alive) setState(next);
-    });
     window.vozella.invoke('audio.sources.start', {}).then(
       (first) => {
         if (alive) setState(first);
@@ -34,7 +39,6 @@ export function useSourcePicker(active: boolean): SourcePickerModel {
     );
     return () => {
       alive = false;
-      unsubscribe();
       window.vozella.invoke('audio.sources.stop', {}).catch(() => {
         // Nothing to undo.
       });

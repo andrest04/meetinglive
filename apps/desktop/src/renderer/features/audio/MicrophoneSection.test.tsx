@@ -7,7 +7,7 @@ import { MicrophoneSection } from './MicrophoneSection';
 
 type Listener = (payload: unknown) => void;
 
-function installApi(saved: string | null, slowLoad = false) {
+function installApi(saved: string | null, slowLoad = false, slowSettings = false) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
   const listeners = new Set<Listener>();
   const invoke = (name: string, input: Record<string, unknown>): Promise<unknown> => {
@@ -26,7 +26,12 @@ function installApi(saved: string | null, slowLoad = false) {
         ? new Promise((resolve) => setTimeout(() => resolve(answer), 30))
         : Promise.resolve(answer);
     }
-    if (name === 'settings.get') return Promise.resolve({ selectedMicrophoneDeviceId: saved });
+    if (name === 'settings.get') {
+      const answer = { selectedMicrophoneDeviceId: saved };
+      return slowSettings
+        ? new Promise((resolve) => setTimeout(() => resolve(answer), 80))
+        : Promise.resolve(answer);
+    }
     return Promise.resolve({});
   };
   const on = (name: string, listener: Listener) => {
@@ -94,6 +99,37 @@ describe('MicrophoneSection', () => {
     });
     const starts = api.calls.filter((c) => c.name === 'audio.preview.start');
     expect(starts.map((c) => c.input)).toEqual([{ deviceId: 'mic-2' }]);
+  });
+
+  it('97: shows nothing and saves nothing until both answers arrive', async () => {
+    const api = installApi('mic-2', true, true);
+    render(
+      <Providers>
+        <MicrophoneSection />
+      </Providers>,
+    );
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
+    // The placeholder is showing, not a pick: the saved device is not selected yet.
+    expect(combo).not.toHaveTextContent('Test headset');
+    expect(api.calls.some((c) => c.name === 'settings.update')).toBe(false);
+    await waitFor(() => {
+      expect(combo).toHaveTextContent('Test headset');
+    });
+    expect(api.calls.some((c) => c.name === 'settings.update')).toBe(false);
+  });
+
+  it('97: a pick made before the saved id arrives is not overwritten by it', async () => {
+    installApi('mic-2', false, true);
+    render(
+      <Providers>
+        <MicrophoneSection />
+      </Providers>,
+    );
+    const combo = await screen.findByRole('combobox', { name: 'Default microphone' });
+    await userEvent.click(combo);
+    await userEvent.click(await screen.findByRole('option', { name: 'Test microphone' }));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(combo).toHaveTextContent('Test microphone');
   });
 
   it('saves a pick, and System default saves null', async () => {

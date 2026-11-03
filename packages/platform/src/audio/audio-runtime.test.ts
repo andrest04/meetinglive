@@ -68,7 +68,7 @@ describe('recording through the runtime', () => {
   });
 
   it('C7: a process capture on an old Windows says what is wrong, before any file exists', async () => {
-    const { runtime } = runtimeWith({ osBuild: new FakeOsBuild(19_045) });
+    const { runtime } = runtimeWith({ osBuild: new FakeOsBuild(18_363) });
     const target = path.join(dir, 'rec.wav');
     await expect(
       runtime.recording.start(target, processTreeSources(true, null, 4242)),

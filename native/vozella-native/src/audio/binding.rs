@@ -98,7 +98,7 @@ pub fn start_capture(
     let thread = std::thread::Builder::new()
         .name("vozella-capture".into())
         .spawn(move || {
-            capture::run(
+            capture::run_guarded(
                 source,
                 stop2,
                 move |r| {

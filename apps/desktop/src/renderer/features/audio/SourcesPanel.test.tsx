@@ -447,6 +447,28 @@ describe('SourcesPanel meeting audio', () => {
     expect(names(api.calls)).toContain('audio.sources.closeFallback');
   });
 
+  it('136: shows the fallback published as the take starts, and the user can close it', async () => {
+    const api = installApi();
+    const view = (active: boolean, locked: boolean) => (
+      <Providers>
+        <SourcesPanel active={active} locked={locked} />
+      </Providers>
+    );
+    const { rerender } = render(view(true, false));
+    await waitFor(() => {
+      expect(names(api.calls)).toContain('audio.sources.start');
+    });
+    // Record is pressed: the page locks, and main publishes the state with the fallback.
+    rerender(view(false, true));
+    api.emit('audio.sources.changed', pickerState({ fallbackAppName: 'Teams' }));
+    expect(await screen.findByText('Audio source changed')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Audio source changed')).toBeNull();
+    });
+    expect(names(api.calls)).toContain('audio.sources.closeFallback');
+  });
+
   it('stops the poller and the preview when the page goes away', async () => {
     const api = installApi();
     const view = render(

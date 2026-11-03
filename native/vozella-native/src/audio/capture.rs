@@ -180,6 +180,38 @@ pub fn run(
     stats
 }
 
+/// `run` with a panic guard: a panic on the capture thread still reaches `stopped` with an
+/// error, so the host hears about a source that went quiet instead of seeing nothing.
+pub fn run_guarded(
+    source: Source,
+    stop: Arc<AtomicBool>,
+    ready: impl FnOnce(Result<(), String>),
+    emit: impl FnMut(Frame),
+    stopped: impl FnOnce(Option<String>),
+) -> Stats {
+    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::sync::Mutex;
+    type Stopped<'a> = Box<dyn FnOnce(Option<String>) + 'a>;
+    let slot: Mutex<Option<Stopped<'_>>> = Mutex::new(Some(Box::new(stopped)));
+    let take = || slot.lock().ok().and_then(|mut g| g.take());
+    let outcome = catch_unwind(AssertUnwindSafe(|| {
+        run(source, stop, ready, emit, |e| {
+            if let Some(f) = take() {
+                f(e)
+            }
+        })
+    }));
+    match outcome {
+        Ok(stats) => stats,
+        Err(_) => {
+            if let Some(f) = take() {
+                f(Some("The audio capture thread crashed.".to_string()));
+            }
+            Stats::default()
+        }
+    }
+}
+
 /// A packet flagged SILENT carries uninitialised memory: it must read as silence (spec 3.2).
 fn zero_if_silent(raw: &mut VecDeque<u8>, silent: bool) {
     if silent {
@@ -307,6 +339,50 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn a_panic_on_the_capture_thread_still_reports_a_stop_with_an_error() {
+        let (tx, rx) = mpsc::channel::<Option<String>>();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stats = run_guarded(
+            Source::System,
+            stop,
+            |_| panic!("boom"),
+            |_| {},
+            move |e| {
+                let _ = tx.send(e);
+            },
+        );
+        assert_eq!(stats.frames, 0);
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(1)).unwrap(),
+            Some("The audio capture thread crashed.".to_string())
+        );
+    }
+
+    #[test]
+    fn an_apartment_already_initialised_in_another_mode_does_not_stop_the_thread() {
+        let handle = std::thread::spawn(|| {
+            let _ = wasapi::initialize_sta();
+            let (tx, rx) = mpsc::channel::<Result<(), String>>();
+            let stop = Arc::new(AtomicBool::new(false));
+            run(
+                Source::Process {
+                    pid: 0xFFFF_FFF0,
+                    include_tree: true,
+                },
+                stop,
+                move |r| {
+                    let _ = tx.send(r);
+                },
+                |_| {},
+                |_| {},
+            );
+            rx.recv_timeout(Duration::from_secs(1))
+        });
+        // Reaching ready (an error for a pid that does not exist) proves no panic and no hang.
+        assert!(handle.join().expect("thread must not panic").is_ok());
+    }
 
     #[test]
     fn silent_packets_read_as_zeros_and_others_are_kept() {

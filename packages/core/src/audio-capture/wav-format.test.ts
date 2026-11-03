@@ -90,6 +90,14 @@ describe('analyzeWav', () => {
     });
   });
 
+  it('S10, known limit: a chunk after a zero-size data chunk is counted as audio', () => {
+    // Repair cannot tell where audio ends when the size is lost. The app writes no trailing
+    // chunks; a foreign WAV with one is repaired as if the chunk were audio.
+    const trailing = cat(ascii('LIST'), u32(4), ascii('abcd'));
+    const result = analyzeWav(source(plain(0, 0, cat(audio(100), trailing))));
+    expect(result).toMatchObject({ status: 'NeedsRepair', dataSize: 112 });
+  });
+
   it('handles an extra LIST chunk before data', () => {
     const fmt = plain(0, 0, new Uint8Array(0)).subarray(12, 36);
     const list = cat(ascii('LIST'), u32(5), ascii('abcde'), new Uint8Array(1));

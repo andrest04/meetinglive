@@ -95,99 +95,103 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   if (options.length === 0) options.push(cardOption(systemCard, t, locked));
 
   return (
-    <section
-      aria-labelledby="record-sources-heading"
-      className={locked ? 'flex flex-col gap-5 opacity-60' : 'flex flex-col gap-5'}
-      data-testid="sources-panel"
-      inert={locked}
-    >
-      <div className="flex flex-col gap-1">
-        <h2 id="record-sources-heading" className="text-read-lg font-semibold text-ink">
-          {t('RecordPage_SourcesHeading.Text')}
-        </h2>
-        <p className="text-ui text-ink-muted" data-testid="sources-summary">
-          {summary}
-        </p>
-      </div>
-
-      <Field label={t('ComboRecordMicrophone.Header')}>
-        <div className="flex items-center gap-4">
-          <Select
-            label={t('ComboRecordMicrophone.AutomationProperties.Name')}
-            value={selectedMic ? micValue(selectedMic) : null}
-            options={micOptions}
-            onOpenChange={(open) => {
-              if (open) microphones.reload();
-            }}
-            onValueChange={(value) => {
-              const picked = micOptions.find((option) => option.value === value);
-              if (picked && (!selectedMic || micValue(selectedMic) !== value)) {
-                microphones.choose(picked.choice);
-              }
-            }}
-            className="w-64 max-w-full"
-          />
-          {locked ? null : (
-            <Meter
-              value={micKind === 'None' ? 0 : level}
-              label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
-              className="w-32"
-            />
-          )}
+    <div className="flex flex-col gap-5">
+      {/* Outside the inert section: the user must still see it, and close it, during the take. */}
+      {state?.fallbackAppName ? (
+        <Notice tone="warning" onDismiss={picker.closeFallback} dismissLabel={t('Ui_Close')}>
+          <p className="font-medium">{t('RecordPage_SourceFallback.Title')}</p>
+          <p className="text-ui text-ink-muted">
+            {t('RecordPage_SourceFallbackMessage', state.fallbackAppName)}
+          </p>
+        </Notice>
+      ) : null}
+      <section
+        aria-labelledby="record-sources-heading"
+        className={locked ? 'flex flex-col gap-5 opacity-60' : 'flex flex-col gap-5'}
+        data-testid="sources-panel"
+        inert={locked}
+      >
+        <div className="flex flex-col gap-1">
+          <h2 id="record-sources-heading" className="text-read-lg font-semibold text-ink">
+            {t('RecordPage_SourcesHeading.Text')}
+          </h2>
+          <p className="text-ui text-ink-muted" data-testid="sources-summary">
+            {summary}
+          </p>
         </div>
-      </Field>
 
-      <div className="flex flex-col gap-2">
-        <h3 className="text-ui font-medium text-ink">{t('RecordPage_MeetingAudioHeading.Text')}</h3>
+        <Field label={t('ComboRecordMicrophone.Header')}>
+          <div className="flex items-center gap-4">
+            <Select
+              label={t('ComboRecordMicrophone.AutomationProperties.Name')}
+              value={selectedMic ? micValue(selectedMic) : null}
+              options={micOptions}
+              onOpenChange={(open) => {
+                if (open) microphones.reload();
+              }}
+              onValueChange={(value) => {
+                const picked = micOptions.find((option) => option.value === value);
+                if (picked && (!selectedMic || micValue(selectedMic) !== value)) {
+                  microphones.choose(picked.choice);
+                }
+              }}
+              className="w-64 max-w-full"
+            />
+            {locked ? null : (
+              <Meter
+                value={micKind === 'None' ? 0 : level}
+                label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
+                className="w-32"
+              />
+            )}
+          </div>
+        </Field>
 
-        {!locked && state?.fallbackAppName ? (
-          <Notice tone="warning" onDismiss={picker.closeFallback} dismissLabel={t('Ui_Close')}>
-            <p className="font-medium">{t('RecordPage_SourceFallback.Title')}</p>
-            <p className="text-ui text-ink-muted">
-              {t('RecordPage_SourceFallbackMessage', state.fallbackAppName)}
-            </p>
-          </Notice>
-        ) : null}
+        <div className="flex flex-col gap-2">
+          <h3 className="text-ui font-medium text-ink">
+            {t('RecordPage_MeetingAudioHeading.Text')}
+          </h3>
 
-        {!locked && state?.suggestion ? (
-          <Notice
-            onDismiss={() => {
-              if (state.suggestion) picker.dismissSuggestion(state.suggestion.processId);
+          {!locked && state?.suggestion ? (
+            <Notice
+              onDismiss={() => {
+                if (state.suggestion) picker.dismissSuggestion(state.suggestion.processId);
+              }}
+              dismissLabel={t('Ui_Close')}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <p className="font-medium">
+                  {t('RecordPage_SuggestionTitle', state.suggestion.friendlyName)}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (state.suggestion) picker.select(state.suggestion.processId);
+                  }}
+                >
+                  {t('RecordPage_SuggestionAction', state.suggestion.friendlyName)}
+                </Button>
+              </div>
+            </Notice>
+          ) : null}
+
+          <RadioGroup
+            label={t('ListRecordAudioSource.AutomationProperties.Name')}
+            layout="rows"
+            value={selectedProcessId === null ? SYSTEM_VALUE : String(selectedProcessId)}
+            options={options}
+            onValueChange={(value) => {
+              picker.select(value === SYSTEM_VALUE ? null : Number(value));
             }}
-            dismissLabel={t('Ui_Close')}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <p className="font-medium">
-                {t('RecordPage_SuggestionTitle', state.suggestion.friendlyName)}
-              </p>
-              <Button
-                size="sm"
-                onClick={() => {
-                  if (state.suggestion) picker.select(state.suggestion.processId);
-                }}
-              >
-                {t('RecordPage_SuggestionAction', state.suggestion.friendlyName)}
-              </Button>
-            </div>
-          </Notice>
-        ) : null}
+            className="border-y border-hairline"
+          />
 
-        <RadioGroup
-          label={t('ListRecordAudioSource.AutomationProperties.Name')}
-          layout="rows"
-          value={selectedProcessId === null ? SYSTEM_VALUE : String(selectedProcessId)}
-          options={options}
-          onValueChange={(value) => {
-            picker.select(value === SYSTEM_VALUE ? null : Number(value));
-          }}
-          className="border-y border-hairline"
-        />
-
-        {state?.noAppsPlaying ? (
-          <p className="text-ui text-ink-muted">{t('RecordPage_NoAppsPlaying.Text')}</p>
-        ) : null}
-      </div>
-    </section>
+          {state?.noAppsPlaying ? (
+            <p className="text-ui text-ink-muted">{t('RecordPage_NoAppsPlaying.Text')}</p>
+          ) : null}
+        </div>
+      </section>
+    </div>
   );
 }
 

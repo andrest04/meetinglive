@@ -40,7 +40,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 3. **C4 (level bar shows the mix).** Decided: the bar shows the microphone alone, 100 ms peak of RMS, through the curve times 100, and never moves when the microphone is None. It matches the label "Microphone level" and the idle bar. The mix is still available as frames.
 4. **C7 (no capability check).** Decided: a process capture is refused with a plain message when the Windows build is below 20348, the build Microsoft documents. The gate is a preflight in the service, before any file or device. An unknown build passes through. Builds 19041 to 20347 may work; that is `pending-real-validation` and the constant is one line.
 5. **S1 (target exit not noticed).** Decided: the capture thread checks every 250 ms that the target process still exists. It ends with the error "the captured application exited", which the service treats like any process capture failure (stop, keep the audio).
-6. **S3 (error-free unexpected stop).** Kept as in the spec: nothing in the native code stops a capture without an error, so the case cannot occur. No code for it.
+6. **S3 (error-free unexpected stop).** Superseded by the third audit follow-up: a panic on the capture thread could end a capture with no stop callback. It now reports a stop with an error (`run_guarded`).
 7. **S8 (culture ordering).** Names are compared with an `en` collator, case-insensitive, accents distinct, on every machine.
 8. **Settings writes use `SettingsStore.update(patch)`** (read, modify, write under one lock) instead of load, mutate, save. The remember helpers return patches. Failures are ignored, as in the spec.
 9. **The renderer never names a file to write.** There is no channel that starts a recording. The recording module calls `AudioController.startRecording(path, microphoneChoice)` with a path it allocated. The pages get the picker, the microphone list, the idle preview, the import file picker, and events.
@@ -236,7 +236,7 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 
 | #   | Status   | Note                                                                                                                        |
 | --- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 115 | done     | `SessionMonitor.enumerate` resolves the default render endpoint every call                                                  |
+| 115 | done     | `SessionMonitor.enumerate` reads every active render endpoint, the default one only as a fallback                                                |
 | 116 | done     | Any error gives an empty list                                                                                               |
 | 117 | done     | System sounds by session identifier, and pid 0                                                                              |
 | 118 | done     | Strictly greater than 0.001                                                                                                 |
@@ -344,7 +344,7 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 | S1 exit of the captured app not noticed                                                                                  | Liveness poll in the capture thread                                                      | Real-device run. Stop reporting is in `native-audio-adapters.test.ts`                        |
 | S4 overlapping preview starts leak a capture                                                                             | A generation counter stops the loser                                                     | `microphone-import.test.ts` (S4)                                                             |
 | S8 culture-dependent ordering                                                                                            | Fixed collator                                                                           | `active-audio-apps.test.ts` (order)                                                          |
-| S9 apps on a non-default output not listed                                                                               | Not fixed: same default-endpoint rule as the spec; recorded as a known limit             | none                                                                                         |
+| S9 apps on a non-default output not listed                                                                               | Fixed: every active render endpoint is read (round 2); no Rust test, pending real validation                                                                                        |
 | S5 one COM enumerator leaked per call                                                                                    | Fixed by construction: each call drops its enumerator                                    | none                                                                                         |
 | S12 one bad endpoint hides every microphone                                                                              | Each endpoint is read on its own and skipped on error; a failing list gives an empty one | `audio-controller.test.ts` (S12), `audio-runtime.test.ts`                                    |
 | Found while porting: silent-flagged packets were copied as audio                                                         | Zeroed                                                                                   | Rust `silent_packets_read_as_zeros_and_others_are_kept`                                      |
@@ -352,7 +352,7 @@ Activation, the 12-byte blob, the property variant and the wait are inside the `
 | Found while porting: the napi layer rejects `null` for an optional field, so a microphone start with no id failed        | The id is left out when absent                                                           | `native-audio-adapters.test.ts`. Found by the real-device run                                |
 | Found while porting: the pump caught up without yielding, which would write silence over audio waiting in the event loop | It yields between chunks                                                                 | `recording-service.test.ts` (catch-up)                                                       |
 
-Not fixed, kept as the spec describes: C6 (normalizer unused), S2 (default device change is not followed: the source is reported lost), S6, S7 (1024-character path buffer), S9, S10, S11, S13, S14 (a start can take up to 12 s; the page must show progress).
+Not fixed, kept as the spec describes: C6 (normalizer unused), S2 (default device change is not followed: the source is reported lost), S6, S7 (1024-character path buffer), S10, S11, S13, S14 (a start can take up to 12 s; the page must show progress).
 
 ## User interface half
 
@@ -421,7 +421,7 @@ Fixed, with tests:
 Rejected or deferred, with the reason:
 
 - **S2 (default device change):** the C# app also reports the source lost, and the user can stop and record again. Re-opening mid-take needs a native re-open path and a seam in the mixer; deferred to a later module, the lost-source warning stays.
-- **S6, S9, S11:** the identity of an app is its exe path and the session list comes from the default endpoint, as in C#. Changing roll-up rules or enumerating every endpoint changes what the picker lists and needs a real multi-device run; there is none here. S11: two instances of one exe cannot be told apart after a restart, so the first one is kept deterministically.
+- **S6, S11:** the identity of an app is its exe path and the session list comes from the default endpoint, as in C#. Changing roll-up rules or enumerating every endpoint changes what the picker lists and needs a real multi-device run; there is none here. S11: two instances of one exe cannot be told apart after a restart, so the first one is kept deterministically.
 - **Rust tests for 82, 83, 85, 115, 117, S12, and >2 channel capture (15, C2):** they need real COM endpoints; the crate has no fake. Left as pending-real-validation. The downmix itself is covered by the resampler test.
 - **34 (pause skew to the live pass):** the live pass has no clock skew input and the accumulator dropped ClockSkew on purpose, so the value is returned but unused. Decision: not applied.
 - **148, 39 preview restart after a failed start/import:** follows from `active={idle}`, already covered by the idle toggle test; no extra test added.
@@ -457,3 +457,26 @@ Rejected or still open, with the reason:
 - **161, C5 wiring, 63, 65, 70, 77, 80:** unchanged. 161 and 63/65/70 depend on the gated real-device run; 77 and 80 are native thread behaviour without a test seam.
 - **Item 33:** C# always shows the paused text; the port shows an active warning over it while paused. Kept on purpose: the warning is still true while paused.
 - **Design notes (signal red, date row in the live preview, placeholder app icons, menu covering labels, scrolled Settings shot, existing em dashes):** not changed; the screenshots come from fake executables and fixtures. `audio-screens.spec.ts` is opt-in and was not re-run.
+
+## Third audit follow-up
+
+Fixed, with tests:
+
+- S3 (real case): a panic on the capture thread now reaches the stop callback with an error, so the page gets a source-lost warning instead of silence. Rust tests `a_panic_on_the_capture_thread_still_reports_a_stop_with_an_error` and the COM test below.
+- Item 80: Rust test `an_apartment_already_initialised_in_another_mode_does_not_stop_the_thread` initialises STA first, then runs a capture on a pid that does not exist and reaches `ready(Err)`.
+- Worker mapping (52, 53, 56, 57): `audio-worker-rpc.test.ts` ends a mic and a process source through the fake port and checks the `source-lost` and `output-failed` pushes. `FakeAudioCapture` now keeps the stop callbacks (`stopCallbacks`). `faulted` stays covered at the service level only.
+- Item 97: two tests in `MicrophoneSection.test.tsx` (empty before both answers, no save during load). A pick made before the saved id arrives is no longer overwritten by it (RED first).
+- Item 136: the fallback bar is shown during a take, outside the inert section, and can be closed. The source hook now hears `audio.sources.changed` pushes even when its poller is off, because main publishes the fallback as the take starts. Test in `SourcesPanel.test.tsx`.
+- Item 135: `record-sources.test.ts` selects a card while a fallback shows.
+- S10: pinned in `wav-format.test.ts` as a known limit (a chunk after a zero-size data chunk is counted as audio). No guard: it needs PCM parsing.
+- C7: decision 13. The gate drops from build 20348 to 19041 (Windows 10 version 2004, where the API first works and where the C# app records one app today). Wording says version 2004. `ports.test.ts` pins the boundary. Builds 19041-20347 are still `pending-real-validation`.
+
+Rejected or kept, with reason:
+
+- Item 15 / C3 proof: the fix is the OS mix-down through WASAPI autoconvert, not our code. No multichannel microphone is available here, so it stays `pending-real-validation`. The Rust test covers the downmixer only the import uses.
+- S2 (default device change): a change notification client would need a native re-open path and a real device switch to prove. Not built in this unattended run; stays open and deferred to the recording module.
+- Item 77: the 5 s join bound is dropped on purpose, a join that cannot finish would also leave the stream open, and there is no way to interrupt a thread stuck in WASAPI from Rust. No test seam for a stuck call.
+- Items 115 and S9: Rust COM code, no seam without a second render device. Row 115 now describes the current behaviour. Pending real validation.
+- Item 129 generation guards, item 117 AudioSrv check, S7 long paths, S8 accent ordering, item 120 root check, 63/64/65/70, startup recovery call, S1 loop branch: low risk, no behaviour change in this round, left as written.
+- Design notes: em dashes in earlier modules' copy are not changed here.
+

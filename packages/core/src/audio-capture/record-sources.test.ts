@@ -373,6 +373,16 @@ describe('RecordSourcePicker', () => {
     expect(picker.state.fallbackAppName).toBeNull();
   });
 
+  it('135: picking a card while the fallback shows clears the message', () => {
+    const picker = new RecordSourcePicker();
+    picker.applyRefresh([zoom]);
+    picker.select(1);
+    picker.resolveRecordingTarget(processes({}));
+    expect(picker.state.fallbackAppName).toBe('Zoom');
+    picker.select(1);
+    expect(picker.state.fallbackAppName).toBeNull();
+  });
+
   it('returns null target for all system audio', () => {
     expect(new RecordSourcePicker().resolveRecordingTarget(processes({}))).toBeNull();
   });
