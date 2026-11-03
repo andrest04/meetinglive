@@ -409,3 +409,54 @@ describe('parse', () => {
     expect(parse(`${head}---\n`, 'C:\\lib\\x.md').sourcePath).toBe('C:\\lib\\x.md');
   });
 });
+
+describe('golden sample (spec 4.1, every field)', () => {
+  const jev =
+    '{"meetingType":"standup","meetingTypeConfidence":0.85,"spokenLanguage":"en","urgencyScore":1,' +
+    '"urgencyConfidence":0.9,"containsDecisions":0.8,"containsCommitments":0.2,"piiRisk":0.01,' +
+    '"summaryFaithful":0.7,"suggestedFolderId":"inbox","folderConfidence":0.5,' +
+    '"actionItems":[{"text":"Follow up","relation":"supports","confidence":0.88}],' +
+    '"model":"jev-1.13.0","analyzedAt":"2026-09-01T13:00:00+00:00"}';
+  const sample = (jevLine: string) =>
+    '---\n' +
+    'id: 3f2b8c1e-9a47-4d0e-b1c2-5e6f7a8b9c0d\n' +
+    'title: Weekly sync: planning\n' +
+    'recordedAt: 2026-09-01T12:00:00.0000000-05:00\n' +
+    'endedAt: 2026-09-01T13:45:00.0000000-05:00\n' +
+    'audioFilePath: C:\\Users\\ana\\Documents\\MeetingLive\\Universidad\\2026-09-01 Weekly sync planning.wav\n' +
+    'folderId: 7d1e0a52-33c4-4f6b-8a90-0c1d2e3f4a5b\n' +
+    'summaryProvider: local\n' +
+    'calendarEventId: AAMkAGI2\n' +
+    'calendarId: cal-1\n' +
+    'seriesId: series-9\n' +
+    'joinUrl: https://teams.microsoft.com/l/meetup-join/abc\n' +
+    'noteTemplateId: one-on-one\n' +
+    'attendees: Ana Perez | Luis Gomez\n' +
+    '---\n' +
+    '\n## Brief\n\nLast meeting ended with two open questions.\n' +
+    '\n## Transcript\n\n[00:00:03] Ana: Hello everyone.\n' +
+    '\n## Summary\n\n### Notes\nHello\n\n## Decisions\nShip it\n' +
+    '\n## Action Items\n\n- [ ] Follow up with Luis\n- [x] Send the notes\n' +
+    `\n## Jev\n\n${jevLine}\n` +
+    '\n## Personal Notes\n\nRemember the exam date.\n' +
+    '\n## Follow-up\n\nSubject: recap\n' +
+    '\n## Project plan\n\n### Steps\nShip\n';
+
+  const escapedJev = jev.replace(/\+/g, '\\u002B');
+
+  it('re-renders byte for byte', () => {
+    const text = sample(escapedJev);
+    expect(renderMeetingMarkdown(parse(text, 'a.md'))).toBe(text);
+  });
+
+  it('reads the raw "+" form the same way and writes the escaped form', () => {
+    const raw = parse(sample(jev), 'a.md');
+    expect(raw).toEqual(parse(sample(escapedJev), 'a.md'));
+    expect(renderMeetingMarkdown(raw)).toBe(sample(escapedJev));
+  });
+
+  it('a CRLF copy of the sample parses to the same record', () => {
+    const text = sample(escapedJev);
+    expect(parse(text.replace(/\n/g, '\r\n'), 'a.md')).toEqual(parse(text, 'a.md'));
+  });
+});

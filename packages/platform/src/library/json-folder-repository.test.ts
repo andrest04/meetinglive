@@ -205,3 +205,23 @@ describe('locking', () => {
     );
   });
 });
+
+describe('reserved and device names', () => {
+  it.each([
+    ['Meetings', 'Meetings folder'],
+    ['Recordings', 'Recordings folder'],
+    ['Inbox', 'Inbox folder'],
+    ['CON', 'CON_'],
+    ['nul', 'nul_'],
+  ])('B8c, B10: a folder named %s is created as the directory %s', async (name, directory) => {
+    await fx.folders.save(folder(FOLDER_1, name));
+    expect(fs.statSync(path.join(fx.root, directory)).isDirectory()).toBe(true);
+    await fx.meetings.save(meeting({ folderId: FOLDER_1 }));
+    expect(tree(fx.root)).toContain(`${directory}/2026-09-01 Standup.md`);
+    // The flat-dump rule does not swallow it: the meeting is a current-layout file.
+    expect((await fx.meetings.list()).items).toHaveLength(1);
+    expect(await fx.meetings.locate(ID_A)).toEqual([
+      { path: path.join(fx.root, directory, '2026-09-01 Standup.md'), legacy: false },
+    ]);
+  });
+});
