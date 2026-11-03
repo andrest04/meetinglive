@@ -1,0 +1,634 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import type { AudioRpcCall } from '@vozella/contracts';
+import {
+  FakeOfflineTranscriber,
+  InMemorySettingsStore,
+  RecordingPipeline,
+  ScriptedMeetingStore,
+  SummaryStage,
+  Workspace,
+  rememberAppPatch,
+  rememberMicrophonePatch,
+  type Logger,
+} from '@vozella/core';
+import { JsonSettingsStore } from '@vozella/platform';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AudioController, type AudioHostLike } from '../audio/audio-controller';
+import { RecordingTakes } from '../audio/recording-take';
+import type { AudioPushEvent } from '../workers/audio-worker-host';
+import { RecordingService } from './recording-service';
+
+const logger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const TRANSCRIPT = '[00:04.00-00:06.00] hello\n[00:06.00-00:08.00] world';
+
+const app = (processId: number, friendlyName: string) => ({
+  processId,
+  exePath: `C:\\Apps\\${friendlyName}.exe`,
+  friendlyName,
+  isBrowser: false,
+  isKnownMeetingApp: true,
+  peak: 0.2,
+});
+
+/** The audio worker as the controller sees it: a recording creates the WAV like the real one. */
+class FakeHost implements AudioHostLike {
+  calls: AudioRpcCall[] = [];
+  listeners = new Set<(e: AudioPushEvent) => void>();
+  apps = [app(7, 'Zoom')];
+  processAlive = true;
+  failStart: Error | null = null;
+  failStop: Error | null = null;
+  /** Runs while the capture starts, e.g. to push a failure event. */
+  duringStart: (() => void) | null = null;
+
+  call<T>(call: AudioRpcCall): Promise<T> {
+    this.calls.push(call);
+    switch (call.method) {
+      case 'appsRefresh':
+        return Promise.resolve(this.apps as T);
+      case 'appsPeaks':
+        return Promise.resolve([] as T);
+      case 'listMicrophones':
+        return Promise.resolve([{ id: 'mic-1', name: 'Mic one' }] as T);
+      case 'getProcess':
+        return Promise.resolve(
+          (this.processAlive ? { processId: 7, exePath: 'C:\\Apps\\Zoom.exe' } : null) as T,
+        );
+      case 'recordStart':
+        fs.writeFileSync(call.path, 'RIFF');
+        this.duringStart?.();
+        return this.failStart ? Promise.reject(this.failStart) : Promise.resolve(null as T);
+      case 'recordStop':
+        return this.failStop ? Promise.reject(this.failStop) : Promise.resolve(null as T);
+      default:
+        return Promise.resolve(null as T);
+    }
+  }
+  onPush(listener: (e: AudioPushEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  push(e: AudioPushEvent): void {
+    for (const l of this.listeners) l(e);
+  }
+  methods(): string[] {
+    return this.calls.map((c) => c.method);
+  }
+}
+
+let root: string;
+let now: number;
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'vozella-recording-'));
+  now = new Date(2026, 10, 3, 10, 0, 0).getTime();
+});
+afterEach(() => {
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+interface Options {
+  folders?: Record<string, string>;
+  transcript?: string;
+  liveStartFails?: boolean;
+  liveDraft?: string | null;
+  providerReady?: boolean;
+}
+
+function build(options: Options = {}) {
+  const host = new FakeHost();
+  const settings = new InMemorySettingsStore();
+  void settings.update({
+    selectedSummaryProvider: 'ClaudeCode',
+    liveTranscriptionEnabled: true,
+  });
+  const folders: Record<string, string> = { ...options.folders };
+  const events: { name: string; payload: unknown }[] = [];
+  const broadcast = (channel: { name: string }, payload: unknown): void => {
+    events.push({ name: channel.name, payload });
+  };
+  const controller = new AudioController({
+    host,
+    settings,
+    broadcast,
+    logger,
+    scheduler: { every: () => () => undefined },
+  });
+  const liveListeners = new Set<(text: string) => void>();
+  const live = {
+    start: vi.fn((_at: number) => {
+      if (options.liveStartFails) return Promise.reject(new Error('model missing'));
+      return Promise.resolve(undefined);
+    }),
+    stop: vi.fn(() => Promise.resolve(options.liveDraft ?? null)),
+  };
+  const inbox = path.join(root, 'Inbox');
+  const takes = new RecordingTakes({
+    controller,
+    inboxDirectory: () => inbox,
+    nowMs: () => now,
+    wavDurationSeconds: () => 30,
+    logger,
+    live,
+  });
+  const store = new ScriptedMeetingStore();
+  const transcriber = new FakeOfflineTranscriber({ result: options.transcript ?? TRANSCRIPT });
+  const summary = new SummaryStage({
+    settings,
+    resolver: {
+      resolveSummaryProvider: () => Promise.resolve({ status: 'needs-setup' } as never),
+    },
+    generator: { generate: vi.fn() },
+    translate: (key) => key,
+  });
+  const pipeline = new RecordingPipeline({
+    meetings: store,
+    settings,
+    transcriber,
+    formatFailure: (e) => (e instanceof Error ? e.message : String(e)),
+    summary,
+  });
+  const workspace = new Workspace();
+  const repaired: string[] = [];
+  const service = new RecordingService({
+    takes,
+    controller,
+    library: {
+      audioDirectory: (folderId) =>
+        Promise.resolve(
+          folderId !== null && folders[folderId] !== undefined
+            ? path.join(root, folders[folderId])
+            : inbox,
+        ),
+      folderExists: (id) => Promise.resolve(folders[id] !== undefined),
+      ownsMarkdown: () => Promise.resolve(false),
+    },
+    files: {
+      remove: (file) => {
+        fs.rmSync(file, { force: true });
+      },
+      repair: (file) => {
+        repaired.push(file);
+      },
+    },
+    settings,
+    setup: {
+      loadSettings: () => settings.load(),
+      localModelFileExists: () => Promise.resolve(false),
+      cliOnPath: () => Promise.resolve(options.providerReady ?? true),
+      engineReady: () => Promise.resolve(true),
+    },
+    pipeline,
+    workspace,
+    live: {
+      onUpdate: (listener) => {
+        liveListeners.add(listener);
+        return () => liveListeners.delete(listener);
+      },
+    },
+    broadcast,
+    logger,
+    nowMs: () => now,
+    newId: () => 'meeting-1',
+    schedule: () => () => undefined,
+    defaultTitle: () => 'Meeting 3 Nov, 10:00',
+  });
+  return {
+    host,
+    settings,
+    controller,
+    takes,
+    live,
+    liveListeners,
+    store,
+    transcriber,
+    service,
+    workspace,
+    events,
+    repaired,
+    inbox,
+    folders,
+  };
+}
+
+const sources = {
+  title: 'Standup',
+  folderId: null,
+  microphone: { kind: 'SystemDefault' as const, deviceId: null },
+  processId: null,
+  appName: null,
+};
+
+describe('RecordingService start', () => {
+  it('records into the dated stem of the destination folder and publishes the state', async () => {
+    const t = build({ folders: { f1: 'Clients' } });
+    const result = await t.service.start({ ...sources, folderId: 'f1' });
+    expect(result).toMatchObject({ started: true, meetingId: 'meeting-1' });
+    const state = t.service.getState();
+    expect(state).toMatchObject({ phase: 'Recording', isRecording: true, isPaused: false });
+    expect(state.status).toEqual([{ key: 'Status_Recording', args: [], severity: 'info' }]);
+    const wav = path.join(root, 'Clients', '2026-11-03 Standup.wav');
+    expect(fs.existsSync(wav)).toBe(true);
+    expect(t.events.some((e) => e.name === 'recording.state')).toBe(true);
+  });
+
+  it('refuses a second start while a take holds the session', async () => {
+    const t = build();
+    await t.service.start(sources);
+    expect(await t.service.start(sources)).toMatchObject({ started: false, reason: 'busy' });
+  });
+
+  it('does not record when the setup gate says no, and says nothing about it', async () => {
+    const t = build({ providerReady: false });
+    const result = await t.service.start(sources);
+    expect(result).toEqual({ started: false, reason: 'not-ready', message: null });
+    expect(t.host.methods()).not.toContain('recordStart');
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('B-4: recordedAt is the instant the capture started, after the model loaded', async () => {
+    const t = build();
+    t.live.start.mockImplementation(() => {
+      now += 4000; // the model takes four seconds to load
+      return Promise.resolve(undefined);
+    });
+    const startedAt = now;
+    const result = await t.service.start(sources);
+    expect(result).toMatchObject({ started: true, recordedAtMs: startedAt + 4000 });
+  });
+
+  it('shows that the model is loading while the live session starts', async () => {
+    const t = build();
+    let statusDuringLoad: unknown;
+    t.live.start.mockImplementation(() => {
+      statusDuringLoad = t.service.getState().status[0]?.key;
+      return Promise.resolve(undefined);
+    });
+    await t.service.start(sources);
+    expect(statusDuringLoad).toBe('Status_LoadingModel');
+  });
+
+  it('uses the app name in the recording status', async () => {
+    const t = build();
+    await t.controller.startSources();
+    const result = await t.service.start({ ...sources, processId: 7, appName: 'Zoom' });
+    expect(result.started).toBe(true);
+    expect(t.service.getState().status[0]).toMatchObject({
+      key: 'Status_RecordingMicApp',
+      args: ['Zoom'],
+    });
+  });
+
+  it('48, 49: an app that is gone falls back to system audio with a notice', async () => {
+    const t = build();
+    await t.controller.startSources();
+    await t.controller.select(7);
+    t.host.processAlive = false;
+    await t.service.start({ ...sources, processId: 7, appName: 'Zoom' });
+    const state = t.service.getState();
+    expect(state.status[0]?.key).toBe('Status_Recording');
+    expect(state.captureNotices).toEqual([
+      { key: 'RecordPage_SourceFallbackMessage', args: ['Zoom'], severity: 'warning' },
+    ]);
+  });
+
+  it('B-23: a start that never loaded the sources restores the remembered microphone and app', async () => {
+    const t = build();
+    await t.settings.update({
+      ...rememberMicrophonePatch({ kind: 'Device', deviceId: 'mic-1' }),
+      ...rememberAppPatch('C:\\Apps\\Zoom.exe', 'Zoom'),
+    });
+    const result = await t.service.start({
+      title: 'Pill',
+      folderId: null,
+      microphone: null,
+      appName: null,
+    });
+    expect(result.started).toBe(true);
+    const start = t.host.calls.find((c) => c.method === 'recordStart');
+    expect(start).toMatchObject({
+      sources: { captureMicrophone: true, microphoneDeviceId: 'mic-1' },
+    });
+    expect(t.service.getState().status[0]).toMatchObject({ args: ['Zoom'] });
+  });
+});
+
+describe('RecordingService start failure', () => {
+  it('59, B-2: deletes the partial WAV, says so, and leaves the gate idle', async () => {
+    const t = build();
+    t.host.failStart = new Error('device busy');
+    const result = await t.service.start(sources);
+    expect(result).toMatchObject({
+      started: false,
+      reason: 'failed',
+      message: { key: 'Error_StartRecording', args: ['device busy'], severity: 'error' },
+    });
+    expect(fs.readdirSync(t.inbox)).toEqual([]);
+    expect(t.service.gate.phase).toBe('Idle');
+    expect(t.service.getState().status[0]?.key).toBe('Error_StartRecording');
+  });
+
+  it('B-29: a live session that failed midway is stopped', async () => {
+    const t = build({ liveStartFails: true });
+    const result = await t.service.start(sources);
+    expect(result).toMatchObject({ started: false, reason: 'failed' });
+    expect(t.live.stop).toHaveBeenCalledTimes(1);
+    expect(t.host.methods()).not.toContain('recordStart');
+  });
+
+  it('57: the idle preview stops before the capture and comes back after a failed start', async () => {
+    const t = build();
+    t.controller.startPreview('mic-1', 'record');
+    t.host.failStart = new Error('nope');
+    await t.service.start(sources);
+    const methods = t.host.methods();
+    expect(methods.indexOf('previewStop')).toBeLessThan(methods.indexOf('recordStart'));
+    expect(t.host.calls.filter((c) => c.method === 'previewStart')).toHaveLength(2);
+    expect(t.controller.previewState).toEqual({ owner: 'record', deviceId: 'mic-1' });
+  });
+
+  it('58: the capture event subscription is removed after a failed start', async () => {
+    const t = build();
+    t.host.failStart = new Error('nope');
+    await t.service.start(sources);
+    t.host.push({ type: 'faulted', message: 'late' });
+    expect(t.service.getState().captureNotices).toEqual([]);
+  });
+
+  it('60: a failure between capture start and the recording mark stops the take at once', async () => {
+    const t = build();
+    t.host.duringStart = () => {
+      t.host.push({ type: 'faulted', message: 'device lost' });
+    };
+    const result = await t.service.start(sources);
+    expect(result.started).toBe(true);
+    await t.service.completion;
+    expect(t.host.methods()).toContain('recordStop');
+    const state = t.service.getState();
+    expect(state.phase).toBe('Idle');
+    expect(state.status[0]).toEqual({
+      key: 'Error_CaptureFaulted',
+      args: ['device lost'],
+      severity: 'error',
+    });
+    expect(t.store.saves.length).toBeGreaterThan(0);
+  });
+});
+
+describe('RecordingService pause and highlights', () => {
+  it('65 to 67, 69: highlights are in WAV time, the pause is not counted', async () => {
+    const t = build();
+    await t.service.start(sources);
+    now += 5000;
+    expect(t.service.highlight()).toEqual({ marked: true, elapsedMs: 5000 });
+    now += 1000;
+    await t.service.pause();
+    expect(t.service.getState()).toMatchObject({
+      isPaused: true,
+      isTicking: false,
+      elapsedMs: 6000,
+    });
+    expect(t.service.getState().status[0]?.key).toBe('Status_Paused');
+    now += 10_000;
+    expect(t.service.highlight().elapsedMs).toBe(6000);
+    await t.service.resume();
+    now += 1000;
+    expect(t.service.highlight().elapsedMs).toBe(7000);
+    expect(t.service.getState().status[0]?.key).toBe('Status_Recording');
+
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.transcriber.calls[0]?.clockSkewMs).toBe(10_000);
+    const saved = t.store.saves.at(-1);
+    expect(saved?.transcript).toContain('* [00:04.00-00:06.00] hello');
+    expect(saved?.transcript).toContain('* [00:06.00-00:08.00] world');
+  });
+
+  it('refuses pause and highlight when nothing records', async () => {
+    const t = build();
+    expect(await t.service.pause()).toBe(false);
+    expect(t.service.highlight().marked).toBe(false);
+  });
+
+  it('B-15: the level meter reads zero while paused', async () => {
+    const t = build();
+    await t.service.start(sources);
+    t.host.push({ type: 'recording-level', level: 60 });
+    expect(t.service.getState().micLevel).toBe(60);
+    await t.service.pause();
+    t.host.push({ type: 'recording-level', level: 60 });
+    expect(t.service.getState().micLevel).toBe(0);
+  });
+
+  it('B-22, 110: the canvas stars the live text; the chat gets the plain transcript', async () => {
+    const t = build();
+    await t.service.start(sources);
+    for (const listener of t.liveListeners) listener(TRANSCRIPT);
+    now += 5000;
+    t.service.highlight();
+    const pushes = t.events.filter((e) => e.name === 'recording.liveText');
+    expect((pushes.at(-1)?.payload as { text: string }).text).toContain(
+      '* [00:04.00-00:06.00] hello',
+    );
+    expect(t.workspace.state.liveTranscript).toBe(TRANSCRIPT);
+  });
+});
+
+describe('RecordingService stop', () => {
+  it('74, 77, 78: saves the meeting with the title, folder and audio of the take', async () => {
+    const t = build({ folders: { f1: 'Clients' }, liveDraft: '[00:00.00-00:01.00] live' });
+    await t.service.start({ ...sources, folderId: 'f1' });
+    now += 30_000;
+    const stopped = t.service.stop();
+    expect(t.service.getState().isRecording).toBe(true);
+    await stopped;
+    expect(t.service.getState()).toMatchObject({ phase: 'Processing', isProcessing: true });
+    await t.service.completion;
+    const saved = t.store.saves[0];
+    expect(saved).toMatchObject({ id: 'meeting-1', title: 'Standup', folderId: 'f1' });
+    expect(saved?.audioFilePath).toBe(path.join(root, 'Clients', '2026-11-03 Standup.wav'));
+    const state = t.service.getState();
+    expect(state.phase).toBe('Idle');
+    expect(state.lastMeeting).toMatchObject({ id: 'meeting-1' });
+    expect(t.repaired).toContain(saved?.audioFilePath);
+    expect(t.workspace.state.lastProcessedMeetingId).toBe('meeting-1');
+  });
+
+  it('190: a destination folder deleted during the take files the meeting in the Inbox', async () => {
+    const t = build({ folders: { f1: 'Clients' } });
+    await t.service.start({ ...sources, folderId: 'f1' });
+    delete t.folders.f1;
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.store.saves[0]?.folderId).toBeNull();
+  });
+
+  it('74: a second stop joins the one that runs; the capture stops once', async () => {
+    const t = build();
+    await t.service.start(sources);
+    const first = t.service.stop();
+    const second = t.service.stop();
+    expect(await Promise.all([first, second])).toEqual([true, true]);
+    await t.service.completion;
+    expect(t.host.methods().filter((m) => m === 'recordStop')).toHaveLength(1);
+    expect(t.store.saves.length).toBeGreaterThan(0);
+    expect(await t.service.stop()).toBe(false);
+  });
+
+  it('75: a stop error is reported', async () => {
+    const t = build();
+    t.host.failStop = new Error('writer closed');
+    await t.service.start(sources);
+    await t.service.stop();
+    expect(t.service.getState().status.map((m) => m.key)).toContain('Error_StopRecording');
+    await t.service.completion;
+  });
+
+  it('75, B-30: a stop error never replaces a capture failure that was already notified', async () => {
+    const t = build();
+    t.host.failStop = new Error('writer closed');
+    await t.service.start(sources);
+    t.host.push({ type: 'faulted', message: 'device lost' });
+    await t.service.completion;
+    const keys = t.service.getState().status.map((m) => m.key);
+    expect(keys[0]).toBe('Error_CaptureFaulted');
+    expect(keys).not.toContain('Error_StopRecording');
+  });
+
+  it('94: a hard failure stops the take once and keeps the audio', async () => {
+    const t = build();
+    await t.service.start(sources);
+    t.host.push({ type: 'output-failed', message: 'loopback gone' });
+    t.host.push({ type: 'faulted', message: 'again' });
+    await t.service.completion;
+    expect(t.host.methods().filter((m) => m === 'recordStop')).toHaveLength(1);
+    const state = t.service.getState();
+    expect(state.captureNotices).toHaveLength(1);
+    expect(state.captureNotices[0]).toMatchObject({
+      key: 'Error_OutputCaptureFailed',
+      severity: 'error',
+    });
+    expect(t.store.saves[0]?.audioFilePath).toMatch(/\.wav$/);
+  });
+
+  it('76: when the live pass gives no draft the visible text is kept', async () => {
+    const t = build({ liveDraft: null });
+    t.transcriber.script.ready = false;
+    await t.service.start(sources);
+    for (const listener of t.liveListeners) listener('[00:00.00-00:01.00] on screen');
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.store.saves[0]?.transcript).toContain('on screen');
+  });
+});
+
+describe('RecordingService discard', () => {
+  it('72, 73: deletes the WAV, saves nothing, and says it was discarded', async () => {
+    const t = build();
+    await t.service.start(sources);
+    const wav = path.join(t.inbox, '2026-11-03 Standup.wav');
+    expect(fs.existsSync(wav)).toBe(true);
+    expect(await t.service.discard()).toBe(true);
+    expect(fs.existsSync(wav)).toBe(false);
+    expect(t.store.saves).toEqual([]);
+    const state = t.service.getState();
+    expect(state.phase).toBe('Idle');
+    expect(state.status).toEqual([
+      { key: 'Status_RecordingDiscarded', args: [], severity: 'info' },
+    ]);
+    expect(state.meetingId).toBeNull();
+    expect(state.lastMeeting).toBeNull();
+    expect(t.live.stop).toHaveBeenCalled();
+  });
+
+  it('never touches a linked meeting', async () => {
+    const t = build();
+    await t.service.start(sources, { meetingId: 'linked' });
+    await t.service.discard();
+    expect(t.store.saves).toEqual([]);
+    expect(t.service.runs.currentMeetingId).toBeNull();
+  });
+
+  it('refuses when nothing records', async () => {
+    expect(await build().service.discard()).toBe(false);
+  });
+});
+
+describe('RecordingService notes', () => {
+  it('130, 131: notes live in main, are saved trimmed, and refused while idle', async () => {
+    const t = build();
+    expect(t.service.setNotes('before')).toBe(false);
+    await t.service.start(sources);
+    t.service.setNotes('  decide the date  \n');
+    expect(t.service.getState().notes).toBe('  decide the date  \n');
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.store.saves[0]?.notes).toBe('decide the date');
+  });
+
+  it('saves null notes when they are blank', async () => {
+    const t = build();
+    await t.service.start(sources);
+    t.service.setNotes('   ');
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.store.saves[0]?.notes).toBeNull();
+  });
+
+  it('B-10: notes of one take never reach the next one', async () => {
+    const t = build();
+    await t.service.start(sources);
+    t.service.setNotes('first take');
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.service.getState().notes).toBe('');
+    now += 60_000;
+    await t.service.start({ ...sources, title: 'Second' });
+    expect(t.service.getState().notes).toBe('');
+    t.service.setNotes('second take');
+    await t.service.discard();
+    expect(t.service.getState().notes).toBe('');
+  });
+});
+
+describe('RecordingService retry', () => {
+  it('B-11: a failed first save can be processed again from the same audio', async () => {
+    const t = build({ liveDraft: null });
+    t.store.failSaves = new Set([1]);
+    t.transcriber.script.ready = false;
+    await t.service.start(sources);
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.service.getState().canRetry).toBe(true);
+    t.transcriber.script.ready = true;
+    expect(t.service.retryProcessing()).toBe(true);
+    await t.service.completion;
+    expect(t.service.getState().canRetry).toBe(false);
+    expect(t.store.records.get('meeting-1')?.transcript).toContain('hello');
+  });
+
+  it('refuses a retry when there is nothing to retry', () => {
+    expect(build().service.retryProcessing()).toBe(false);
+  });
+});
+
+describe('settings writes (B-31)', () => {
+  it('186: concurrent remember patches all reach the file', async () => {
+    const store = new JsonSettingsStore({
+      settingsFilePath: path.join(root, 'settings.json'),
+    });
+    await Promise.all([
+      store.update(rememberMicrophonePatch({ kind: 'Device', deviceId: 'mic-9' })),
+      store.update(rememberAppPatch('C:\\Apps\\Zoom.exe', 'Zoom')),
+      store.update({ liveTranscriptionEnabled: false }),
+    ]);
+    const loaded = await store.load();
+    expect(loaded).toMatchObject({
+      recordMicrophoneKind: 'Device',
+      recordMicrophoneDeviceId: 'mic-9',
+      recordAppExePath: 'C:\\Apps\\Zoom.exe',
+      liveTranscriptionEnabled: false,
+    });
+  });
+});

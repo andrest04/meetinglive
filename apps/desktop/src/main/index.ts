@@ -91,6 +91,8 @@ import { TranscriptionController } from './transcription/transcription-controlle
 import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
+import { composeRecording } from './recording/compose-recording';
+import { registerRecordingHandlers } from './ipc/recording-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -560,6 +562,22 @@ function main(): void {
         },
       },
     });
+    const recordingTakes = new RecordingTakes({
+      controller: audioController,
+      inboxDirectory: () => library.paths.inboxDirectory,
+      nowMs: () => Date.now(),
+      wavDurationSeconds: readWavDurationSeconds,
+      logger: logger.child('recording'),
+      // The call popup stays away while a take runs (spec 2.6, item 106).
+      onCaptureActive: (active) => {
+        workspace.setCaptureActive(active);
+      },
+      // The transcription controller is built below; the take only calls it later.
+      live: {
+        start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
+        stop: () => transcriptionController.stopLive(),
+      },
+    });
     registerAudioHandlers({
       server: {
         ipc: ipcMain,
@@ -567,22 +585,7 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: audioController,
-      takes: new RecordingTakes({
-        controller: audioController,
-        inboxDirectory: () => library.paths.inboxDirectory,
-        nowMs: () => Date.now(),
-        wavDurationSeconds: readWavDurationSeconds,
-        logger: logger.child('recording'),
-        // The call popup stays away while a take runs (spec 2.6, item 106).
-        onCaptureActive: (active) => {
-          workspace.setCaptureActive(active);
-        },
-        // The transcription controller is built below; the take only calls it later.
-        live: {
-          start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
-          stop: () => transcriptionController.stopLive(),
-        },
-      }),
+      takes: recordingTakes,
       appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
       pickAudioFile: async (extensions) => {
         const options = {
@@ -728,6 +731,37 @@ function main(): void {
     });
     app.on('before-quit', () => {
       transcriptionController.dispose();
+    });
+
+    // Recording: the service owns a take from Record to the saved summary.
+    const recording = composeRecording({
+      library,
+      controller: audioController,
+      takes: recordingTakes,
+      transcription: transcriptionController,
+      summaryService,
+      resolver: summaryRuntime.resolver,
+      summaryModels,
+      cli: summaryCli,
+      settings: library.settings,
+      workspace,
+      broadcast,
+      logger: logger.child('recording'),
+      translate: (key, ...args) => locale.t(key, ...args),
+      locale: () => locale.locale,
+      titleCatalog: (tag) => ({
+        MeetingTitleFormat: mainCatalogs[tag].MeetingTitleFormat ?? '',
+        MeetingTitleDateFormat: mainCatalogs[tag].MeetingTitleDateFormat ?? '',
+      }),
+      formatFailure: (error) => summaries.formatError(error),
+    });
+    registerRecordingHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      service: recording,
     });
 
     mainWindow = createMainWindow({

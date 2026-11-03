@@ -128,7 +128,7 @@ describe('audio handlers', () => {
     const { call, controller } = setup();
     await call('audio.preview.start', { deviceId: null });
     await call('audio.preview.stop', {});
-    expect(controller.startPreview).toHaveBeenCalledWith(null);
+    expect(controller.startPreview).toHaveBeenCalledWith(null, 'settings');
     expect(controller.stopPreview).toHaveBeenCalledOnce();
   });
 
@@ -202,7 +202,7 @@ describe('audio handlers', () => {
       value: { phase: 'idle', notices: [] },
     });
     await call('audio.preview.start', { deviceId: 'x' });
-    expect(controller.startPreview).toHaveBeenCalledWith('x');
+    expect(controller.startPreview).toHaveBeenCalledWith('x', 'settings');
   });
 
   it('starts, pauses, resumes and stops a take through the take object', async () => {

@@ -365,3 +365,43 @@ describe('import and preview', () => {
     ]);
   });
 });
+
+describe('preview ownership (B-32)', () => {
+  const previewCalls = (r: ReturnType<typeof rig>, method: string) =>
+    r.host.calls.filter((c) => c.method === method).length;
+
+  it('a Settings stop cannot end a preview the Record page owns', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview('settings');
+    expect(previewCalls(r, 'previewStop')).toBe(0);
+    expect(r.controller.previewState).toEqual({ owner: 'record', deviceId: 'd1' });
+  });
+
+  it('a Settings start does not take the meter from Record', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.startPreview('d2', 'settings');
+    expect(previewCalls(r, 'previewStart')).toBe(1);
+    expect(r.controller.previewState?.deviceId).toBe('d1');
+  });
+
+  it('the owner stops its own preview, and a stop without an owner forces it', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview('record');
+    expect(previewCalls(r, 'previewStop')).toBe(1);
+    expect(r.controller.previewState).toBeNull();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview();
+    expect(previewCalls(r, 'previewStop')).toBe(2);
+  });
+
+  it('Settings can start and stop its own preview', () => {
+    const r = rig();
+    r.controller.startPreview('d1');
+    r.controller.stopPreview('settings');
+    expect(previewCalls(r, 'previewStart')).toBe(1);
+    expect(previewCalls(r, 'previewStop')).toBe(1);
+  });
+});

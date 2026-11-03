@@ -56,13 +56,13 @@ export function registerAudioHandlers(deps: AudioHandlerDeps): void {
     controller.dismissSuggestion(processId),
   );
   registerRequest(server, audioSourcesCloseFallback, () => controller.closeFallback());
-  registerRequest(server, audioPreviewStart, ({ deviceId }) => {
+  registerRequest(server, audioPreviewStart, ({ deviceId, owner }) => {
     // Spec item 92: the preview never competes with a take for the microphone.
-    if (!takes.busy) controller.startPreview(deviceId);
+    if (!takes.busy) controller.startPreview(deviceId, owner ?? 'settings');
     return { started: true as const };
   });
-  registerRequest(server, audioPreviewStop, () => {
-    controller.stopPreview();
+  registerRequest(server, audioPreviewStop, ({ owner }) => {
+    controller.stopPreview(owner);
     return { stopped: true as const };
   });
   registerRequest(server, audioImportPickFile, async () => {

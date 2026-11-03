@@ -14,3 +14,4 @@ export * from './pipeline/save-record';
 export * from './pipeline/summary-stage';
 export * from './runs/pipeline-run';
 export * from './runs/recording-runs';
+export * from './live-highlights';

@@ -36,7 +36,7 @@ export interface LivePass {
 }
 
 export type StartOutcome =
-  | { readonly started: true; readonly recordedAtMs: number }
+  | { readonly started: true; readonly recordedAtMs: number; readonly path: string }
   | { readonly started: false; readonly code: string | null; readonly message: string };
 
 export interface StopOutcome {
@@ -59,6 +59,11 @@ export type ImportOutcome =
 export interface PickedFile {
   readonly path: string;
   readonly recordedAtMs: number;
+}
+
+/** How the recording module places the WAV: its folder's directory and the real id lookup (B-9). */
+export interface StartOptions {
+  readonly allocate?: (title: string, atMs: number) => string | Promise<string>;
 }
 
 export type Phase = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping' | 'importing';
@@ -99,6 +104,11 @@ export class RecordingTakes {
     return this.phase;
   }
 
+  /** The WAV of the running take, or null. */
+  get currentFile(): string | null {
+    return this.file;
+  }
+
   get busy(): boolean {
     return this.phase !== 'idle';
   }
@@ -108,30 +118,42 @@ export class RecordingTakes {
     return this.liveDraft;
   }
 
-  async start(title: string, microphone: MicrophoneChoiceDto): Promise<StartOutcome> {
+  async start(
+    title: string,
+    microphone: MicrophoneChoiceDto,
+    options: StartOptions = {},
+  ): Promise<StartOutcome> {
     if (this.phase !== 'idle') {
       return { started: false, code: 'busy', message: 'A take is already in progress.' };
     }
     this.phase = 'starting';
-    const recordedAtMs = this.deps.nowMs();
+    const requestedAtMs = this.deps.nowMs();
+    let file: string | null = null;
+    let liveAttempted = false;
     try {
-      const file = this.allocate(title, recordedAtMs);
+      file = options.allocate
+        ? await options.allocate(title, requestedAtMs)
+        : this.allocate(title, requestedAtMs);
       this.file = file;
-      this.recordedAtMs = recordedAtMs;
+      this.recordedAtMs = requestedAtMs;
       this.pausedMs = 0;
       this.pausedAt = null;
       this.liveDraft = null;
       // C# order: the model loads first so no frame is missed and the live clock starts with the audio.
-      await this.startLive(recordedAtMs);
-      try {
-        await this.deps.controller.startRecording(file, microphone);
-      } catch (error) {
-        await this.stopLive();
-        throw error;
-      }
+      liveAttempted = true;
+      await this.startLive(requestedAtMs);
+      await this.deps.controller.startRecording(file, microphone);
+      // B-4: the take starts when the audio does, not when the model began to load.
+      const recordedAtMs = this.deps.nowMs();
+      this.recordedAtMs = recordedAtMs;
       this.phase = 'recording';
-      return { started: true, recordedAtMs };
+      return { started: true, recordedAtMs, path: file };
     } catch (error) {
+      // B-29: a live session that failed midway is stopped, so the next take starts clean.
+      if (liveAttempted) await this.stopLive();
+      this.liveDraft = null;
+      // B-2: the worker opens the file before the devices start; a failed start leaves no WAV.
+      if (file !== null) removeQuietly(file);
       this.reset();
       return { started: false, code: codeOf(error), message: messageOf(error) };
     }

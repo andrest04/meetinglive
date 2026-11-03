@@ -3,6 +3,7 @@ import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as library from './library';
 import * as meetingPrompt from './meeting-prompt';
+import * as recording from './recording';
 import * as settings from './settings';
 import * as summaries from './summaries';
 import * as transcription from './transcription';
@@ -154,6 +155,16 @@ export const requestChannels = {
   [summaries.summariesChooseLocalModel.name]: summaries.summariesChooseLocalModel,
   [summaries.summariesCancelLocalModel.name]: summaries.summariesCancelLocalModel,
   [summaries.summariesChooseCli.name]: summaries.summariesChooseCli,
+  [recording.recordingGetState.name]: recording.recordingGetState,
+  [recording.recordingStart.name]: recording.recordingStart,
+  [recording.recordingPause.name]: recording.recordingPause,
+  [recording.recordingResume.name]: recording.recordingResume,
+  [recording.recordingStop.name]: recording.recordingStop,
+  [recording.recordingDiscard.name]: recording.recordingDiscard,
+  [recording.recordingHighlight.name]: recording.recordingHighlight,
+  [recording.recordingSetNotes.name]: recording.recordingSetNotes,
+  [recording.recordingCancelProcessing.name]: recording.recordingCancelProcessing,
+  [recording.recordingRetryProcessing.name]: recording.recordingRetryProcessing,
 } as const;
 
 export const eventChannels = {
@@ -180,6 +191,8 @@ export const eventChannels = {
   [transcription.retranscriptionStateChanged.name]: transcription.retranscriptionStateChanged,
   [transcription.retranscriptionFinished.name]: transcription.retranscriptionFinished,
   [summaries.summariesProgress.name]: summaries.summariesProgress,
+  [recording.recordingStateChanged.name]: recording.recordingStateChanged,
+  [recording.recordingLiveText.name]: recording.recordingLiveText,
 } as const;
 
 export type RequestChannels = typeof requestChannels;
