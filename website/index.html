@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vozella</title>
+<meta name="description" content="Vozella takes notes for your meetings on Windows. No bot joins the call. Your meetings stay as Markdown files.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout idea: the page is one meeting, read top to bottom. Every section is stamped with the moment it happens. */
+  :root {
+    --paper: #ffffff; --paper-raised: #f5f5f5; --ink: #0a0a0a; --on-ink: #ffffff;
+    --ink-muted: #525252; --ink-faint: #6e6e6e; --on-ink-muted: #a3a3a3;
+    --border-control: #8a8a8a; --hairline: #e5e5e5; --hairline-on-ink: #333333;
+    --signal: #d92d20;
+    --sans: "Schibsted Grotesk", "Segoe UI Variable", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+    --gutter: clamp(16px, 4vw, 48px);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0a0a0a; --paper-raised: #171717; --ink: #ffffff; --on-ink: #0a0a0a;
+      --ink-muted: #a3a3a3; --ink-faint: #8a8a8a; --on-ink-muted: #525252;
+      --border-control: #6b6b6b; --hairline: #262626; --hairline-on-ink: #d4d4d4;
+      --signal: #ff5a4f; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0a0a0a; --paper-raised: #171717; --ink: #ffffff; --on-ink: #0a0a0a;
+    --ink-muted: #a3a3a3; --ink-faint: #8a8a8a; --on-ink-muted: #525252;
+    --border-control: #6b6b6b; --hairline: #262626; --hairline-on-ink: #d4d4d4;
+    --signal: #ff5a4f; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/24px var(--sans); -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, p, ul, ol, figure, dl, dd { margin: 0; padding: 0; }
+  ul, ol { list-style: none; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding-inline: var(--gutter); }
+  .mono { font: 400 13px/20px var(--mono); font-variant-numeric: tabular-nums; }
+
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 4px; font: 500 14px/20px var(--sans); text-decoration: none; background: var(--ink); color: var(--on-ink); border: 0; cursor: pointer; transition: opacity 160ms; }
+  .btn:hover { opacity: .82; }
+  .on-ink .btn { background: var(--on-ink); color: var(--ink); }
+  .on-ink :focus-visible { outline-color: var(--on-ink); }
+
+  /* Header */
+  .top { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  .brand { display: inline-flex; align-items: center; gap: 8px; font: 600 20px/1 var(--sans); letter-spacing: -.01em; text-decoration: none; }
+  .brand svg { width: 24px; height: 24px; }
+  .top nav { display: flex; align-items: center; gap: 24px; font: 500 14px/20px var(--sans); }
+  .top nav a:not(.btn) { text-decoration: none; color: var(--ink-muted); }
+  .top nav a:not(.btn):hover { color: var(--ink); }
+  .top .btn { min-height: 36px; padding: 0 14px; }
+
+  /* Hero */
+  .hero { padding-block: clamp(40px, 7vw, 88px) clamp(32px, 4vw, 56px); }
+  h1 { font: 600 clamp(56px, 11.4vw, 164px)/.92 var(--sans); letter-spacing: -.05em; text-wrap: balance; }
+  .hero-foot { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-top: clamp(24px, 3vw, 40px); }
+  .lead { max-width: 34em; font-size: 20px; line-height: 30px; color: var(--ink-muted); }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+  .cta small { font: 400 13px/20px var(--mono); color: var(--ink-faint); }
+
+  /* Product window */
+  .app { border: 1px solid var(--border-control); border-radius: 4px; overflow: hidden; background: var(--paper); }
+  .app-bar { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-bottom: 1px solid var(--hairline); font: 500 13px/1 var(--sans); }
+  .app-bar svg { width: 16px; height: 16px; }
+  .app-body { display: grid; grid-template-columns: 176px minmax(0, 1fr); }
+  .app-nav { padding: 16px 8px; background: var(--paper-raised); display: grid; gap: 2px; align-content: start; font: 500 14px/20px var(--sans); color: var(--ink-muted); }
+  .app-nav li { padding: 8px 12px; border-radius: 4px; }
+  .app-nav li.on { background: var(--ink); color: var(--on-ink); }
+  .stage { display: grid; min-height: 468px; }
+  .panel { grid-area: 1 / 1; padding: clamp(16px, 2.4vw, 32px); min-width: 0; transition: opacity 320ms; }
+  .panel[hidden] { display: block; opacity: 0; visibility: hidden; }
+  .panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hairline); }
+  .panel-head h3 { font: 600 20px/28px var(--sans); letter-spacing: -.01em; }
+  .live { display: inline-flex; align-items: center; gap: 12px; }
+  .state { display: inline-flex; align-items: center; gap: 8px; font: 500 14px/20px var(--sans); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--signal); }
+  .state.is-live { color: var(--signal); }
+  .level { display: inline-flex; align-items: flex-start; gap: 2px; height: 20px; width: 24px; }
+  .level i { width: 3px; height: 100%; background: var(--ink); transform-origin: top; }
+  .stop { min-height: 32px; padding: 0 12px; font: 500 13px/1 var(--sans); background: transparent; color: var(--ink); border: 1px solid var(--border-control); border-radius: 4px; display: inline-flex; align-items: center; }
+  .lines { display: grid; gap: 12px; padding-top: 16px; }
+  .line { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; transition: opacity 420ms; }
+  .line .mono { color: var(--ink-faint); padding-top: 2px; }
+  .line b { font-weight: 500; display: block; font-size: 13px; line-height: 20px; color: var(--ink-muted); }
+  .line.off { opacity: 0; }
+  .hint { margin-top: 16px; font-size: 13px; line-height: 20px; color: var(--ink-faint); }
+  .polish { padding-top: 96px; max-width: 420px; }
+  .polish p { font: 500 16px/24px var(--sans); }
+  .track { height: 2px; margin-top: 12px; background: var(--hairline); }
+  .track i { display: block; height: 100%; background: var(--ink); transform-origin: left; transform: scaleX(0); }
+  .note { max-width: 62ch; padding-top: 16px; color: var(--ink-muted); }
+  .sub { margin-top: 24px; font: 600 14px/20px var(--sans); }
+  .items { display: grid; gap: 8px; margin-top: 8px; }
+  .items li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 12px; }
+  .items li::before { content: ""; width: 16px; height: 16px; margin-top: 4px; border: 1px solid var(--border-control); border-radius: 4px; }
+
+  .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 12px; }
+  .steps .sample { color: var(--ink-faint); margin-right: auto; }
+  .steps button { min-height: 40px; padding: 0 4px; background: none; border: 0; cursor: pointer; font: 500 14px/20px var(--sans); color: var(--ink-faint); border-bottom: 2px solid transparent; }
+  .steps button[aria-current="step"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+  /* The timeline */
+  .timeline { padding-block: clamp(56px, 9vw, 120px) clamp(48px, 7vw, 96px); }
+  .moment { display: grid; grid-template-columns: 104px minmax(0, 5fr) minmax(0, 6fr); gap: 24px clamp(24px, 4vw, 64px); padding-block: clamp(32px, 5vw, 64px); border-top: 1px solid var(--ink); align-items: start; }
+  .stamp { font: 400 15px/40px var(--mono); font-variant-numeric: tabular-nums; }
+  h2 { font: 600 clamp(32px, 4.4vw, 56px)/1.04 var(--sans); letter-spacing: -.03em; text-wrap: balance; }
+  .moment p.copy { margin-top: 16px; max-width: 46ch; font-size: 18px; line-height: 28px; color: var(--ink-muted); }
+
+  .card { background: var(--paper-raised); border-radius: 4px; padding: clamp(16px, 2.4vw, 24px); }
+  .toast { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; max-width: 400px; padding: 16px; background: var(--paper); border: 1px solid var(--border-control); border-radius: 4px; }
+  .toast svg { width: 32px; height: 32px; }
+  .toast strong { font-weight: 600; display: block; }
+  .toast span { color: var(--ink-muted); font-size: 14px; line-height: 20px; display: block; }
+  .toast .btn { grid-column: 2; justify-self: start; min-height: 32px; padding: 0 12px; font-size: 13px; cursor: default; }
+  .toast .btn:hover { opacity: 1; }
+  .rows { background: var(--paper); border: 1px solid var(--hairline); border-radius: 4px; }
+  .rows li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 16px; border-top: 1px solid var(--hairline); font-size: 14px; line-height: 20px; }
+  .rows li:first-child { border-top: 0; }
+  .rows li span { color: var(--ink-muted); }
+  .rows li.sel { font-weight: 500; }
+  .rows li.sel::after { content: "Selected"; font-weight: 400; font-size: 13px; color: var(--ink-muted); }
+  .status { margin-top: 12px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+  .status + .status { margin-top: 0; }
+  .q { font-weight: 500; }
+  .a { margin-top: 8px; color: var(--ink-muted); font-size: 14px; line-height: 20px; }
+  .label { font: 400 13px/20px var(--mono); color: var(--ink-faint); margin-bottom: 8px; }
+  .ghost { display: inline-flex; align-items: center; min-height: 32px; margin-top: 16px; padding: 0 12px; font: 500 13px/1 var(--sans); border: 1px solid var(--border-control); border-radius: 4px; }
+  .seq li { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-top: 1px solid var(--hairline); font-size: 14px; line-height: 20px; }
+  .seq li:first-child { border-top: 0; padding-top: 0; }
+  .seq li:last-child { padding-bottom: 0; }
+  .seq .mono { color: var(--ink-faint); }
+  .scopes { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+  .scopes span { padding: 4px 10px; font-size: 13px; line-height: 20px; border-radius: 4px; color: var(--ink-muted); border: 1px solid var(--hairline); background: var(--paper); }
+  .scopes span.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+  .a u { text-underline-offset: 2px; color: var(--ink); }
+
+  /* The slab: the one loud place on the page. */
+  .on-ink { background: var(--ink); color: var(--on-ink); }
+  .slab { position: relative; overflow: hidden; }
+  .hang { display: block; width: 100%; height: clamp(180px, 34vw, 500px); }
+  .hang rect { fill: var(--on-ink); }
+  .slab-body { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 32px clamp(24px, 5vw, 80px); padding-block: clamp(32px, 5vw, 72px) clamp(56px, 8vw, 112px); align-items: start; }
+  .slab h2 { font-size: clamp(44px, 7.4vw, 104px); line-height: .96; letter-spacing: -.045em; }
+  .slab p.copy { margin-top: 24px; max-width: 42ch; font-size: 18px; line-height: 28px; opacity: .74; }
+  .file { border: 1px solid var(--hairline-on-ink); border-radius: 4px; padding: 16px; font: 400 13px/22px var(--mono); overflow-x: auto; white-space: pre; }
+  .file em { font-style: normal; opacity: .62; }
+
+  /* Engines */
+  .engines { padding-block: clamp(56px, 8vw, 112px); }
+  .engines h2 { max-width: 16ch; }
+  .engine-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px clamp(24px, 5vw, 80px); align-items: start; }
+  .engine-grid p.copy { margin-top: 16px; max-width: 42ch; font-size: 18px; line-height: 28px; color: var(--ink-muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 22px; }
+  th, td { text-align: left; vertical-align: top; padding: 14px 16px 14px 0; border-top: 1px solid var(--hairline); }
+  tr:first-child th, tr:first-child td { border-top: 1px solid var(--ink); }
+  th { font-weight: 500; width: 34%; }
+  td { color: var(--ink-muted); }
+  .langs { margin-top: 24px; font-size: 14px; line-height: 22px; color: var(--ink-faint); max-width: 64ch; }
+
+  /* Close */
+  .close { border-top: 1px solid var(--ink); padding-block: clamp(56px, 8vw, 112px); display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 32px; }
+  .close h2 { font-size: clamp(40px, 6.4vw, 88px); line-height: .98; letter-spacing: -.04em; max-width: 13ch; }
+  footer { border-top: 1px solid var(--hairline); padding-block: 24px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--ink-faint); font-size: 14px; line-height: 20px; }
+
+  @media (max-width: 900px) {
+    .moment { grid-template-columns: minmax(0, 1fr); }
+    .stamp { line-height: 20px; }
+    .slab-body, .engine-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .top nav a:not(.btn) { display: none; }
+    .app-body { grid-template-columns: minmax(0, 1fr); }
+    .app-nav { display: flex; overflow: hidden; padding: 8px; }
+    .app-nav li { padding: 4px 10px; font-size: 13px; }
+    .app-nav .wide { display: none; }
+    .stage { min-height: 560px; }
+    .polish { padding-top: 48px; }
+    .line { grid-template-columns: 52px minmax(0, 1fr); }
+    .steps .sample { width: 100%; }
+    th { width: 40%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24">
+    <path fill="currentColor" d="M5 6h2v3H5zM8 6h2v8H8zM11 6h2v13h-2zM14 6h2v8h-2zM17 6h2v3h-2z"/>
+  </symbol>
+  <symbol id="tile" viewBox="0 0 24 24">
+    <rect width="24" height="24" rx="5.4" fill="#0a0a0a"/>
+    <path fill="#ffffff" d="M5 6h2v3H5zM8 6h2v8H8zM11 6h2v13h-2zM14 6h2v8h-2zM17 6h2v3h-2z"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top" aria-label="Vozella home"><svg aria-hidden="true"><use href="#mark"/></svg>Vozella</a>
+    <nav aria-label="Main">
+      <a href="#timeline">How it works</a>
+      <a href="#files">Your files</a>
+      <a href="#engines">Engines</a>
+    </nav>
+  </header>
+</div>
+
+<main id="top">
+  <section class="wrap hero">
+    <h1>Every meeting, written down.</h1>
+    <div class="hero-foot">
+      <p class="lead">Vozella listens to your microphone and your computer's audio, then gives you a transcript, a summary and your action items. No bot joins the call.</p>
+      <div class="cta">
+        <a class="btn" href="#timeline">See how it works</a>
+        <small>Coming soon for Windows</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" aria-label="Product demo">
+    <figure>
+      <div class="app" role="img" aria-label="Vozella on a sample meeting. It records with a live transcript, polishes the transcript after you stop, then shows a summary and action items.">
+        <div class="app-bar"><svg aria-hidden="true"><use href="#tile"/></svg>Vozella</div>
+        <div class="app-body">
+          <ul class="app-nav">
+            <li data-nav="record" class="on">Record</li>
+            <li data-nav="library">Library</li>
+            <li class="wide">Settings</li>
+          </ul>
+          <div class="stage">
+            <div class="panel" data-panel="listen">
+              <div class="panel-head">
+                <h3>Pricing review</h3>
+                <div class="live">
+                  <span class="level" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                  <span class="state is-live"><span class="dot"></span>Recording</span>
+                  <span class="mono" data-clock>47:01</span>
+                  <span class="stop">Stop</span>
+                </div>
+              </div>
+              <div class="lines">
+                <div class="line" data-at="0"><span class="mono">46:54</span><p><b>Speaker 1</b>So the annual plan stays where it is. The question is the monthly one.</p></div>
+                <div class="line" data-at="0"><span class="mono">46:58</span><p><b>Speaker 2</b>Support tickets went up after the last change. I'd rather not touch it before the launch.</p></div>
+                <div class="line" data-at="3"><span class="mono">47:01</span><p><b>Speaker 3</b>Then we hold it until the 18th and look at the numbers again after.</p></div>
+                <div class="line" data-at="6.5"><span class="mono">47:04</span><p><b>Speaker 1</b>Fine. Marta, can you tell sales today so nobody quotes the new price?</p></div>
+                <div class="line" data-at="10"><span class="mono">47:07</span><p><b>Speaker 2</b>Yes, and I'll send you last quarter's ticket numbers before Friday.</p></div>
+              </div>
+              <p class="hint">Live preview only. The transcript that is saved is generated from the recording after you stop.</p>
+            </div>
+            <div class="panel" data-panel="polish" hidden>
+              <div class="panel-head"><h3>Pricing review</h3><span class="state">Stopped</span></div>
+              <div class="polish">
+                <p>Polishing transcript...</p>
+                <div class="track"><i data-progress></i></div>
+              </div>
+            </div>
+            <div class="panel" data-panel="summary" hidden>
+              <div class="panel-head"><h3>Pricing review</h3><span class="mono" style="color:var(--ink-faint)">47:08</span></div>
+              <p class="note">The team kept annual pricing as is and held the monthly change until after the launch on the 18th, because support tickets rose after the last change. The numbers get reviewed again after launch.</p>
+              <p class="sub">Action items</p>
+              <ul class="items">
+                <li>Tell sales today to keep quoting the current monthly price.</li>
+                <li>Send last quarter's ticket numbers before Friday.</li>
+                <li>Review the pricing numbers after the launch on the 18th.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption class="steps">
+        <span class="mono sample">Sample meeting, redrawn from the app.</span>
+        <button type="button" data-step="0" aria-current="step">Record</button>
+        <button type="button" data-step="1">Stop</button>
+        <button type="button" data-step="2">Summary</button>
+      </figcaption>
+    </figure>
+  </section>
+
+  <div class="wrap timeline" id="timeline">
+    <section class="moment">
+      <div class="stamp">-01:00</div>
+      <div>
+        <h2>It sees the meeting coming.</h2>
+        <p class="copy">Vozella reads your Windows calendar and reminds you a minute before any meeting with two or more people. Join a Zoom, Teams or Meet call out of nowhere and it notices that too.</p>
+      </div>
+      <div class="card">
+        <div class="toast">
+          <svg aria-hidden="true"><use href="#tile"/></svg>
+          <div><strong>A call is happening</strong><span>Take notes in Vozella so you don't miss it.</span></div>
+          <span class="btn">Start recording</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="moment">
+      <div class="stamp">00:00</div>
+      <div>
+        <h2>Nothing joins the call.</h2>
+        <p class="copy">No bot, no invite, nobody asking who that extra guest is. Vozella records on your PC, from your microphone and either all system audio or the one app you pick.</p>
+      </div>
+      <div class="card">
+        <ul class="rows">
+          <li class="sel">All system audio</li>
+          <li>Zoom</li>
+          <li>Microsoft Teams</li>
+        </ul>
+        <p class="status">Recording... mic + system audio.</p>
+        <p class="status">Paused. The break is not recorded.</p>
+      </div>
+    </section>
+
+    <section class="moment">
+      <div class="stamp">12:41</div>
+      <div>
+        <h2>Lost the thread? Ask.</h2>
+        <p class="copy">The Live copilot stays on top of your call. It spots the questions people ask out loud and answers from what has been said so far, so you can look up without losing your place.</p>
+      </div>
+      <div class="card">
+        <p class="label">Live copilot</p>
+        <p class="q">Did we agree on a date for the launch?</p>
+        <p class="a">Not yet. Marta suggested the 18th a few minutes ago and nobody has confirmed it.</p>
+        <span class="ghost">What did I miss?</span>
+      </div>
+    </section>
+
+    <section class="moment">
+      <div class="stamp">47:08</div>
+      <div>
+        <h2>Stop, and it writes.</h2>
+        <p class="copy">The live text is only a preview. When you stop, Vozella goes back to the recording and makes the transcript properly, then writes the summary and action items.</p>
+      </div>
+      <div class="card">
+        <ol class="seq">
+          <li><span class="mono">Stop</span><span>You end the recording.</span></li>
+          <li><span class="mono">Transcript</span><span>Generated again from the full audio, with Speaker 1–4 labels if you turn them on.</span></li>
+          <li><span class="mono">Summary</span><span>Written by the engine you chose, from your template.</span></li>
+          <li><span class="mono">Action items</span><span>Listed under the summary, ready to check off.</span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="moment">
+      <div class="stamp">Next week</div>
+      <div>
+        <h2>Ask what you already decided.</h2>
+        <p class="copy">Chat with one meeting, a folder or everything you have recorded. Answers link back to the meetings they came from.</p>
+      </div>
+      <div class="card">
+        <div class="scopes"><span>Meeting</span><span>Folder</span><span class="on">All meetings</span></div>
+        <p class="q">Why did we hold the monthly price?</p>
+        <p class="a">Support tickets rose after the last change, so the team waited until after the launch on the 18th. See <u>Pricing review</u>.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="on-ink slab" id="files">
+    <svg class="hang" viewBox="0 0 1440 500" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+      <rect x="240" width="160" height="115"/>
+      <rect x="480" width="160" height="307"/>
+      <rect x="720" width="160" height="500"/>
+      <rect x="960" width="160" height="307"/>
+      <rect x="1200" width="160" height="115"/>
+    </svg>
+    <div class="wrap slab-body">
+      <div>
+        <h2>Your meetings are files.</h2>
+        <p class="copy">Each meeting is a Markdown file in your Documents folder, with its recording next to it. Open them in any editor, back them up however you like, and keep them if you ever stop using Vozella.</p>
+      </div>
+      <div class="file" tabindex="0" aria-label="A meeting saved as a Markdown file">---
+title: Pricing review
+---
+
+## Summary
+The team kept annual pricing as is and held
+the monthly change until after the launch.
+
+## Action Items
+- [ ] Tell sales today
+- [ ] Send last quarter's ticket numbers</div>
+    </div>
+  </section>
+
+  <section class="wrap engines" id="engines">
+    <div class="engine-grid">
+      <div>
+        <h2>You choose who reads the transcript.</h2>
+        <p class="copy">Transcription always runs on your PC. For summaries and chat, pick the engine you trust. Pick a cloud one and the transcript goes to that provider.</p>
+      </div>
+      <div>
+        <table>
+          <tr><th scope="row">Transcription</th><td>NVIDIA Nemotron, on this PC. Needs about 0.74 GB, fetched once during setup.</td></tr>
+          <tr><th scope="row">Local</th><td>Runs entirely on this PC, with no account, no server and no cost.</td></tr>
+          <tr><th scope="row">Claude Code, Codex</th><td>Your own installed and signed-in command line tool.</td></tr>
+          <tr><th scope="row">Grok</th><td>xAI, with SuperGrok or an API key.</td></tr>
+        </table>
+        <p class="langs">Transcribes English, Spanish, Portuguese, French, German, Italian, Dutch, Japanese and Chinese, or detects the language for you. The app and its summaries are in English and Spanish.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <section class="close" id="soon">
+      <h2>Coming soon for Windows.</h2>
+    </section>
+    <footer>
+      <span>Vozella</span>
+      <span>For Windows</span>
+    </footer>
+  </div>
+</main>
+
+<script>
+  (function () {
+    var STEPS = [
+      { id: "listen", dur: 14, nav: "record" },
+      { id: "polish", dur: 4, nav: "record" },
+      { id: "summary", dur: 9, nav: "library" }
+    ];
+    var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var panels = {};
+    document.querySelectorAll("[data-panel]").forEach(function (p) { panels[p.dataset.panel] = p; });
+    var lines = Array.from(document.querySelectorAll(".line"));
+    var bars = Array.from(document.querySelectorAll(".level i"));
+    var buttons = Array.from(document.querySelectorAll("[data-step]"));
+    var navs = Array.from(document.querySelectorAll("[data-nav]"));
+    var clock = document.querySelector("[data-clock]");
+    var progress = document.querySelector("[data-progress]");
+    var figure = document.querySelector("figure");
+
+    // Everything on screen comes from (step, t), so the demo can jump, freeze and stand still.
+    var step = 0, t = 6, visible = true, last = performance.now();
+
+    function fmt(seconds) {
+      var s = Math.floor(seconds);
+      return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    }
+
+    function draw() {
+      var current = STEPS[step];
+      Object.keys(panels).forEach(function (id) { panels[id].hidden = id !== current.id; });
+      buttons.forEach(function (b, i) {
+        if (i === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+      });
+      navs.forEach(function (n) { n.classList.toggle("on", n.dataset.nav === current.nav); });
+      if (current.id === "listen") {
+        lines.forEach(function (l) { l.classList.toggle("off", t < Number(l.dataset.at)); });
+        clock.textContent = fmt(46 * 60 + 54 + Math.min(t, current.dur));
+        bars.forEach(function (b, i) {
+          var shape = [.35, .7, 1, .7, .35][i];
+          var level = reduced ? 1 : .55 + .45 * Math.abs(Math.sin(t * (1.7 + i * .6) + i));
+          b.style.transform = "scaleY(" + (shape * level).toFixed(3) + ")";
+        });
+      }
+      if (current.id === "polish") progress.style.transform = "scaleX(" + Math.min(t / current.dur, 1).toFixed(3) + ")";
+    }
+
+    function endFrame() { t = STEPS[step].dur; draw(); }
+
+    buttons.forEach(function (b, i) {
+      b.addEventListener("click", function () {
+        step = i;
+        if (reduced) endFrame(); else { t = 0; draw(); }
+      });
+    });
+
+    if (reduced) { step = 2; endFrame(); return; }
+
+    new IntersectionObserver(function (entries) {
+      visible = entries[0].isIntersecting;
+      last = performance.now();
+    }, { threshold: .15 }).observe(figure);
+
+    setInterval(function () {
+      var now = performance.now();
+      var dt = Math.min((now - last) / 1000, .25);
+      last = now;
+      if (!visible || document.hidden) return;
+      t += dt;
+      if (t >= STEPS[step].dur) { step = (step + 1) % STEPS.length; t = 0; }
+      draw();
+    }, 50);
+
+    draw();
+  })();
+</script>
+</body>
+</html>
