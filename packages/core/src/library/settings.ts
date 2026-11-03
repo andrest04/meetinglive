@@ -1,4 +1,9 @@
 import { resolveMeetingLanguageCode, resolveSummaryLanguageCode } from '../settings/languages';
+import {
+  DEFAULT_CLAUDE_MODEL,
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_EFFORT,
+} from '../settings/inference-options';
 import { escapeLikeDotNet, stripBom } from './dotnet-json';
 import { LibraryFileCorruptError } from './errors';
 
@@ -172,15 +177,19 @@ export const resolveTranscriptionLanguage = (s: AppSettings): string =>
 export const resolveSummaryLanguage = (s: AppSettings): string =>
   resolveSummaryLanguageCode(s.summaryLanguage);
 export const resolveClaudeModelId = (s: AppSettings): string =>
-  blank(s.selectedClaudeModelId) ? 'sonnet' : (s.selectedClaudeModelId ?? 'sonnet');
+  blank(s.selectedClaudeModelId)
+    ? DEFAULT_CLAUDE_MODEL
+    : (s.selectedClaudeModelId ?? DEFAULT_CLAUDE_MODEL);
 export const resolveClaudeEffort = (s: AppSettings): string =>
-  blank(s.selectedClaudeEffort) ? 'low' : (s.selectedClaudeEffort ?? 'low');
+  blank(s.selectedClaudeEffort) ? DEFAULT_EFFORT : (s.selectedClaudeEffort ?? DEFAULT_EFFORT);
 export const resolveCodexModelId = (s: AppSettings): string =>
-  blank(s.selectedCodexModelId) ? 'gpt-5.6' : (s.selectedCodexModelId ?? 'gpt-5.6');
+  blank(s.selectedCodexModelId)
+    ? DEFAULT_CODEX_MODEL
+    : (s.selectedCodexModelId ?? DEFAULT_CODEX_MODEL);
 export const resolveCodexEffort = (s: AppSettings): string =>
-  blank(s.selectedCodexEffort) ? 'low' : (s.selectedCodexEffort ?? 'low');
+  blank(s.selectedCodexEffort) ? DEFAULT_EFFORT : (s.selectedCodexEffort ?? DEFAULT_EFFORT);
 export const resolveXaiEffort = (s: AppSettings): string =>
-  blank(s.selectedXaiEffort) ? 'low' : (s.selectedXaiEffort ?? 'low');
+  blank(s.selectedXaiEffort) ? DEFAULT_EFFORT : (s.selectedXaiEffort ?? DEFAULT_EFFORT);
 
 /** Case-sensitive name match only; numeric text no longer maps to an undefined value (B18). */
 export function resolveSummaryProviderKind(s: AppSettings): SummaryProviderKind {

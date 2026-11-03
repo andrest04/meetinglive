@@ -138,6 +138,22 @@ describe('status', () => {
   });
 });
 
+describe('status pushes', () => {
+  it('pushes a status when the backend usage changes', async () => {
+    const { runtime, events } = setup();
+    runtime.status.report({ backend: 'cpu', fallbackReason: null, diarization: 'model-missing' });
+    await flush();
+    expect(events.filter((e) => e.channel === 'transcription.statusChanged')).toHaveLength(1);
+  });
+
+  it('pushes a status when the live drops change', async () => {
+    const { runtime, events } = setup();
+    runtime.status.reportLiveDrops({ droppedMs: 500, totalMs: 10_000 });
+    await flush();
+    expect(events.filter((e) => e.channel === 'transcription.statusChanged')).toHaveLength(1);
+  });
+});
+
 describe('ensureEngine', () => {
   it('downloads what is missing, reports staged progress, and ends ready', async () => {
     const { controller, events, models } = setup({ ready: false });

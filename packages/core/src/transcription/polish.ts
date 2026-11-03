@@ -104,10 +104,14 @@ export function polishKeepsStructure(original: string, polished: string): boolea
   const before = original.split(/\r\n|\n/).filter((l) => l.trim() !== '');
   const after = polished.split(/\r\n|\n/).filter((l) => l.trim() !== '');
   if (before.length !== after.length) return false;
-  const stamp = /^(?:\* )?(\[\d+:\d{2}\.\d{2}-\d+:\d{2}\.\d{2}\])/;
+  const stamp = /^(\* )?(\[\d+:\d{2}\.\d{2}-\d+:\d{2}\.\d{2}\])/;
   return before.every((line, i) => {
     const next = after[i] ?? '';
-    return stamp.exec(line)?.[1] === stamp.exec(next)?.[1] && speakerOf(line) === speakerOf(next);
+    const a = stamp.exec(line);
+    const b = stamp.exec(next);
+    return (
+      a?.[2] === b?.[2] && (a?.[1] ?? '') === (b?.[1] ?? '') && speakerOf(line) === speakerOf(next)
+    );
   });
 }
 

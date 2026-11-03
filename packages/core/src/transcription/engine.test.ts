@@ -305,7 +305,9 @@ describe('TranscriptionEngineInstaller', () => {
       const { models, installer } = make(null);
       models.model = true;
       models.deleteModelError = new Error('EBUSY');
+      models.diarization = true;
       expect(await installer.deleteEngine()).toBe('Incomplete');
+      expect(models.diarization).toBe(false);
     });
   });
 });

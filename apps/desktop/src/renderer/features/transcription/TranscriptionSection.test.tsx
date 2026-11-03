@@ -361,4 +361,37 @@ describe('TranscriptionSection number format', () => {
     );
     expect(await screen.findByText(/12,3\s?%/)).toBeVisible();
   });
+
+  const missingCopy =
+    'Speaker labels are on, but the speaker model is not installed, so transcripts have no labels.';
+
+  it('drops the stale warning once the speaker model is installed', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({
+        ...baseStatus,
+        speakerLabelsEnabled: true,
+        speakerModelInstalled: true,
+        usage: { backend: 'cpu', fallbackReason: null, diarization: 'model-missing' },
+      }),
+    });
+    mount();
+    const section = await screen.findByTestId('transcription-section');
+    await within(section).findByRole('button', { name: 'Delete Speaker model' });
+    expect(within(section).queryByText(missingCopy)).toBeNull();
+  });
+
+  it('drops the stale warning once labels are off', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({
+        ...baseStatus,
+        speakerLabelsEnabled: false,
+        speakerModelInstalled: false,
+        usage: { backend: 'cpu', fallbackReason: null, diarization: 'model-missing' },
+      }),
+    });
+    mount();
+    const section = await screen.findByTestId('transcription-section');
+    await within(section).findByRole('button', { name: 'Download Speaker model' });
+    expect(within(section).queryByText(missingCopy)).toBeNull();
+  });
 });

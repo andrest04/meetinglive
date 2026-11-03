@@ -25,6 +25,12 @@ export function TranscriptionSection() {
   const [speakerBusy, setSpeakerBusy] = useState<'download' | 'delete' | null>(null);
   const [speakerPercent, setSpeakerPercent] = useState(0);
   const speakerRunning = useRef(false);
+  // The recognizer snapshot only counts while it still matches the current settings.
+  const speakerModelMissing =
+    status !== null &&
+    status.usage?.diarization === 'model-missing' &&
+    status.speakerLabelsEnabled &&
+    !status.speakerModelInstalled;
   const alive = useRef(true);
 
   useEffect(() => {
@@ -228,7 +234,7 @@ export function TranscriptionSection() {
           {t('Settings_DeleteSpeakers.Content')}
         </Button>
       </SettingRow>
-      {speakerBusy !== null || speakerNote || status?.usage?.diarization === 'model-missing' ? (
+      {speakerBusy !== null || speakerNote || speakerModelMissing ? (
         <div className="flex flex-col gap-2.5 border-b border-hairline py-3">
           {speakerBusy === 'download' ? (
             <Progress
@@ -243,7 +249,7 @@ export function TranscriptionSection() {
               {speakerNote}
             </p>
           ) : null}
-          {status?.usage?.diarization === 'model-missing' ? (
+          {speakerModelMissing ? (
             <Notice tone="warning">{t('Ui_SpeakerModelMissing')}</Notice>
           ) : null}
         </div>

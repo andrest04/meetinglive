@@ -319,6 +319,17 @@ describe('transcript polish', () => {
     ).toBe(false);
   });
 
+  it('B16: a polished answer that drops the highlight star fails the guard', () => {
+    const original = '* [00:00.00-00:01.00] hola\n[00:01.00-00:02.00] adios';
+    expect(polishKeepsStructure(original, original)).toBe(true);
+    expect(
+      polishKeepsStructure(original, '[00:00.00-00:01.00] Hola.\n[00:01.00-00:02.00] Adiós.'),
+    ).toBe(false);
+    expect(
+      polishKeepsStructure(original, '* [00:00.00-00:01.00] Hola.\n* [00:01.00-00:02.00] Adiós.'),
+    ).toBe(false);
+  });
+
   it('polishOrKeep propagates a cancel instead of returning the raw transcript', async () => {
     const signal = { cancelled: true, onCancel: () => () => undefined };
     await expect(

@@ -109,12 +109,18 @@ export class TranscriptionEngineInstaller {
       if (error instanceof RuntimeInUseError) return 'RuntimeInUse';
       return 'Incomplete';
     }
+    // Both are attempted: a locked ASR file must not keep the speaker model on disk (B6).
+    let complete = true;
     try {
       await this.deps.models.deleteModel();
+    } catch {
+      complete = false;
+    }
+    try {
       await this.deps.models.deleteDiarizationModel();
     } catch {
-      return 'Incomplete';
+      complete = false;
     }
-    return 'Deleted';
+    return complete ? 'Deleted' : 'Incomplete';
   }
 }

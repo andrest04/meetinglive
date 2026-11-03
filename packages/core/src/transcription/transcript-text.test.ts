@@ -94,6 +94,9 @@ describe('stamp formatter', () => {
 describe('highlights', () => {
   const t =
     'Recorded x\n[00:00.00-00:10.00] one\n[00:12.00-00:20.00] two\n[00:30.00-00:41.55] three';
+  it('clamps a negative mark to the start', () => {
+    expect(applyHighlights(t, [-5000])).toBe(applyHighlights(t, [0]));
+  });
   it('Apply_WhenNoHighlights_ReturnsTranscriptUnchanged', () => {
     expect(applyHighlights(t, [])).toBe(t);
     expect(applyHighlights(null, [])).toBe('');
