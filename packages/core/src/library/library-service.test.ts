@@ -169,6 +169,24 @@ describe('renameFolder', () => {
     expect(t.folders.folders[1]?.name).toBe('B');
   });
 
+  it('B7 with B26b: an orphan folder shown as a root blocks a real root of the same name', async () => {
+    const t = setup();
+    t.folders.folders = [folder('o', 'Trabajo', 'gone'), folder('r', 'Otro')];
+    expect(await t.service.createFolder({ name: 'trabajo', parentId: null })).toMatchObject({
+      ok: false,
+      reason: 'name-taken',
+    });
+    expect(await t.service.renameFolder({ id: 'r', name: 'TRABAJO' })).toMatchObject({
+      ok: false,
+      reason: 'name-taken',
+    });
+    t.folders.folders = [folder('o', 'Trabajo', 'gone'), folder('p', 'Trabajo2', 'gone')];
+    expect(await t.service.renameFolder({ id: 'p', name: 'trabajo' })).toMatchObject({
+      ok: false,
+      reason: 'name-taken',
+    });
+  });
+
   it('B13: a failed save leaves nothing changed in memory or in the store', async () => {
     const t = setup();
     const original = folder('a', 'Old');

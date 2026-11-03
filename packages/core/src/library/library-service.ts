@@ -180,8 +180,13 @@ export class LibraryService {
     name: string,
     selfId: string | null,
   ): boolean {
+    // A folder whose parent no longer exists sits at the top level (B26b), so it competes with roots.
+    const known = new Set(folders.map((f) => f.id));
+    const effective = (f: FolderRecord): string | null =>
+      f.parentId !== null && known.has(f.parentId) ? f.parentId : null;
+    const wanted = parentId !== null && known.has(parentId) ? parentId : null;
     return folders.some(
-      (f) => f.id !== selfId && f.parentId === parentId && sameDirectory(f.name, name),
+      (f) => f.id !== selfId && effective(f) === wanted && sameDirectory(f.name, name),
     );
   }
 

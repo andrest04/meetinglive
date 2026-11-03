@@ -58,8 +58,14 @@ export function NameDialog({
   const submit = async (): Promise<void> => {
     if (blank || busy) return;
     setBusy(true);
-    const failure = await onSubmit(value);
-    setBusy(false);
+    let failure: string | null;
+    try {
+      failure = await onSubmit(value);
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    } finally {
+      setBusy(false);
+    }
     if (failure === null) onOpenChange(false);
     else setError(failure);
   };

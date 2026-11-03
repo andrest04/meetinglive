@@ -273,8 +273,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 155 | pending-real-validation | Needs a library written by the WinUI app. Agents may not read the real folder; only spec-derived samples were used |
-| 156 | pending-real-validation | Needs the WinUI app to open a library written here |
+| 155 | done | A library written by the C# repositories opens whole (folders, nested folder, accents, note with a newline, color, icon, every meeting field). Fixture `packages/platform/src/library/fixtures/winui-library` (folders.json is stored as folders.json.fixture so Prettier keeps its bytes) was produced by running `JsonFolderRepository` and `MarkdownMeetingRepository` from MeetingLive.Core through a throwaway console project against a temp folder; only the audioFilePath prefix was replaced. Test: `winui-library.test.ts`. It is not a library from a real user install |
+| 156 | done | Observed once, not committed as a test: a tree written by the TypeScript repositories was read by the same C# repositories (throwaway console project, outside the repo) with every folder, parent, note, color, icon, attendee, action item and section intact. Committed proof: the TypeScript side rewrites the C# fixture byte for byte (CRLF folders.json, `á` escapes included), so the formats agree in both directions |
 | 157 | done | Minimal, full, header-escaped, CRLF and legacy flat dump samples round-trip (`meeting-markdown.test.ts`, `markdown-meeting-repository.test.ts`) |
 
 ## Bugs fixed (section 7)
@@ -294,7 +294,7 @@ Each has a regression test; the test name starts with the bug id.
 | B10 | `Meetings` and `Recordings` reserved folder names | `names.test.ts`, `json-folder-repository.test.ts` |
 | B11 | No empty legacy folders created | `migrations.test.ts` |
 | B12 | Legacy copy never overwrites a newer meeting | `migrations.test.ts` |
-| B13 | No mutation of the snapshot; busy check on move; typed failures | `library-service.test.ts` |
+| B13 | No mutation of the snapshot; busy check on move; typed failures | `library-service.test.ts`, `LibraryRoute.audit.test.tsx` (failed create, rename and personality save show the folder message and change nothing) |
 | B15 | `showNoMatches` | `library-view.test.ts` |
 | B17 | Patch updates under one lock; unknown keys kept | `settings.test.ts`, `json-settings-store.test.ts` |
 | B18 | Numeric provider text rejected | `settings.test.ts` |
@@ -370,3 +370,13 @@ Rejected:
 - Tests added for gaps: #23 raw trimmed text, #13 `headerEscaping` last after attendees, #111 date text and `formatMeetingDate`, #114 right click and menu order on a meeting row, #115 Inbox preselected for a dangling folder id and a real folder preselected.
 - Decided, not changed: #110 and B16 stay pending-real-validation; a window death with an invoke in flight cannot be proven here, and the 400 ms autosave plus before-quit wait is the mitigation. #155 and #156 stay pending: no WinUI app or C#-written library may be used. Meeting locks: the ledger line for #61 should read that meetings use one `KeyedMutex` per repository instance; production builds one, so no race.
 - Decided, not changed: design notes (narrow-pane popover, outline weight of buttons, Data card paths, folder notes affordance) are low severity and stay as is; unviewed screenshots and env-gated screenshot specs were not re-run.
+
+## Audit round 3 decisions
+
+- Fixed: B13 folder half now has renderer proof (create, rename and personality failures reach the status bar). Item 105 preview follows the picked color and icon, now asserted.
+- Fixed: B7 with B26b. `nameTaken` treats a folder with a dangling parent as a root, for create and rename, so an orphan shown at the top level blocks a same-name root. Test in `library-service.test.ts` (RED before the change).
+- Fixed: `NameDialog` no longer stays busy if the submit handler rejects; the error shows in the dialog.
+- #155 and #156: closed as above with the C#-written fixture.
+- Rejected, no change: #110 and B16 stay pending-real-validation. The WM_CLOSE e2e skips itself in this session (no top-level window is enumerable), and a title-bar close with an invoke in flight cannot be reproduced here. Existing mitigation stays: 400 ms autosave, blur, unmount and pagehide saves, and the `before-quit` wait. No failing-before test exists, and none was invented.
+- Rejected, no change: narrow-pane overlay covering the first rows (an overlay by design) and the empty versus disabled state tone (identical on purpose).
+

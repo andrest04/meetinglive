@@ -344,6 +344,59 @@ describe('status messages and startup', () => {
     expect(screen.getByText('Review')).toBeInTheDocument();
   });
 
+  it('B13: a failed create, rename or personality save shows the folder message', async () => {
+    const { api, user } = await mount(seed);
+    vi.spyOn(api.folders, 'save').mockRejectedValue(new Error('disk full'));
+
+    await user.click(screen.getByRole('button', { name: 'New folder' }));
+    let dialog = await screen.findByRole('dialog', { name: 'New folder' });
+    await user.type(within(dialog).getByRole('textbox', { name: 'Name' }), 'Trabajo{Enter}');
+    expect(await screen.findByText(/The folder was not changed: .*disk full/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText(/The folder was not changed/)).not.toBeInTheDocument();
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: /Universidad/ }),
+    });
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename' }));
+    dialog = await screen.findByRole('dialog', { name: 'Rename folder' });
+    const name = within(dialog).getByRole('textbox', { name: 'Name' });
+    await user.clear(name);
+    await user.type(name, 'Estudios{Enter}');
+    expect(await screen.findByText(/The folder was not changed: .*disk full/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect((await api.folders.getAll()).find((f) => f.id === UNI)?.name).toBe('Universidad');
+
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    await user.click(screen.getByRole('button', { name: 'Folder actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Personality' }));
+    dialog = await screen.findByRole('dialog', { name: 'Folder personality' });
+    await user.click(within(dialog).getByRole('radio', { name: 'purple' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(/The folder was not changed: .*disk full/)).toBeInTheDocument();
+    expect((await api.folders.getAll()).find((f) => f.id === UNI)?.colorKey).toBe('teal');
+  });
+
+  it('item 105: the personality preview follows the picked color and icon', async () => {
+    const { user } = await mount(seed);
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    await user.click(screen.getByRole('button', { name: 'Folder actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Personality' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Folder personality' });
+    const dot = (): string | undefined =>
+      dialog.querySelector<HTMLElement>('span.rounded-full')?.style.backgroundColor;
+    const glyph = (): string => dialog.querySelector('.h-9.rounded-control svg')?.innerHTML ?? '';
+    const colorBefore = dot();
+    const iconBefore = glyph();
+    expect(colorBefore).toBeTruthy();
+    await user.click(within(dialog).getByRole('radio', { name: 'purple' }));
+    await user.click(within(dialog).getByRole('radio', { name: 'book' }));
+    expect(dot()).toBeTruthy();
+    expect(dot()).not.toBe(colorBefore);
+    expect(glyph()).not.toBe(iconBefore);
+  });
+
   it('item 123: the status notice has a Close that clears the message', async () => {
     const { api, user } = await mount(seed);
     api.meetings.lockedIds.add('c');
