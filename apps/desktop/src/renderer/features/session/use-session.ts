@@ -42,6 +42,8 @@ export function useSession(): SessionModel {
   const idRef = useRef<string | null>(null);
   const tabRef = useRef<SessionTab>('Transcript');
   const started = useRef(false);
+  const bootRef = useRef<(() => void) | null>(null);
+  const bootFailed = useRef(false);
   const sequence = useRef(0);
   const tracker = useRef<ReturnType<typeof createSlideTracker> | null>(null);
 
@@ -107,18 +109,23 @@ export function useSession(): SessionModel {
       }
     };
     let alive = true;
-    void window.vozella
-      .invoke('workspace.getState', {})
-      .then((state) => {
-        // A change event may already have started the page; getState then adds nothing.
-        if (alive && !started.current) apply(state);
-      })
-      .catch(() => {
-        if (!alive) return;
-        started.current = true;
-        setFailed(true);
-        setLoading(false);
-      });
+    const boot = (): void => {
+      bootFailed.current = false;
+      void window.vozella
+        .invoke('workspace.getState', {})
+        .then((state) => {
+          // A change event may already have started the page; getState then adds nothing.
+          if (alive && !started.current) apply(state);
+        })
+        .catch(() => {
+          if (!alive) return;
+          bootFailed.current = true;
+          setFailed(true);
+          setLoading(false);
+        });
+    };
+    bootRef.current = boot;
+    boot();
     const offChanged = window.vozella.on('workspace.changed', ({ state }) => {
       apply(state);
     });
@@ -174,6 +181,13 @@ export function useSession(): SessionModel {
   }, [load]);
 
   const retry = useCallback(() => {
+    // The workspace state itself failed to read: no meeting id is known, so read it again.
+    if (bootFailed.current && bootRef.current) {
+      setFailed(false);
+      setLoading(true);
+      bootRef.current();
+      return;
+    }
     void load(idRef.current, false);
   }, [load]);
 

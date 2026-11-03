@@ -456,8 +456,20 @@ export class TranscriptionController {
       run: async (request, callbacks, cancel) => {
         const saved = await this.replaceTranscript(request, callbacks, cancel);
         if (!saved || cancel.cancelled || this.deps.summarize === undefined) return;
+        // No summary provider chosen: the run ends with the transcript only (spec 113).
+        const provider = (await this.deps.settings.load()).selectedSummaryProvider;
+        if (provider === null || provider.trim() === '') return;
         callbacks.onStatus(this.deps.t('Status_GeneratingSummary'));
-        const summary = await this.deps.summarize(request, cancel);
+        let summary: Awaited<ReturnType<NonNullable<typeof this.deps.summarize>>>;
+        try {
+          summary = await this.deps.summarize(request, cancel);
+        } catch (error) {
+          // The new transcript is already saved: a throw here is a failed summary, not a failed run (121).
+          callbacks.onSummaryFailedAfterTranscriptSaved(
+            error instanceof Error ? error.message : String(error),
+          );
+          return;
+        }
         if (summary.status === 'completed') {
           callbacks.onMeetingCompleted();
           this.deps.onMeetingChanged(request.meetingId);

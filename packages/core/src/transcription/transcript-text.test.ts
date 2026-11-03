@@ -130,8 +130,19 @@ describe('highlights', () => {
   });
   it('keeps CRLF and survives huge minute counts (B19)', () => {
     const out = applyHighlights('[99999999999:00.00-99999999999:05.00] a\r\nb', [1]);
-    expect(out.startsWith('* [')).toBe(true);
-    expect(out).toContain('\r\n');
+    expect(out).toBe('* [99999999999:00.00-99999999999:05.00] a\r\nb');
+    expect(out.replace(/\r\n/g, '')).not.toContain('\n');
+  });
+  it('keeps LF when the transcript is LF only, and CRLF when appending marks (83)', () => {
+    expect(applyHighlights('[00:00.00-00:01.00] a\nb', [0])).not.toContain('\r');
+    expect(applyHighlights('plain\r\nmore', [2000])).toBe('plain\r\nmore\r\n* 00:02.00');
+  });
+  it('de-duplicates equal marks before writing mark lines (76)', () => {
+    expect(applyHighlights('', [1500, 1500, 5000])).toBe('* 00:01.50\n* 00:05.00');
+    expect(applyHighlights('plain', [2000, 2000])).toBe('plain\n* 00:02.00');
+  });
+  it('recovers marks-only starred lines for re-applying (B8)', () => {
+    expect(starredLineStarts(applyHighlights('', [1500, 5000]))).toEqual([1500, 5000]);
   });
   it('reads starred lines back for re-applying (B8)', () => {
     const starred = applyHighlights(t, [15_000, 31_000]);

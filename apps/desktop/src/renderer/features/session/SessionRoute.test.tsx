@@ -55,6 +55,7 @@ interface Fake {
   renameStatus: string;
   clipboard: string[];
   failLoad: boolean;
+  failState: boolean;
   hasAudio: boolean;
   availability: 'Available' | 'NoAudio' | 'Busy';
   run: { isRunning: boolean; meetingId: string | null; status: string };
@@ -76,6 +77,7 @@ function install(init: Partial<Fake> = {}): Fake {
     renameStatus: 'renamed',
     clipboard: [],
     failLoad: false,
+    failState: false,
     hasAudio: true,
     availability: 'Available',
     run: { isRunning: false, meetingId: null, status: '' },
@@ -87,6 +89,7 @@ function install(init: Partial<Fake> = {}): Fake {
     fake.calls.push({ name, input });
     switch (name) {
       case 'workspace.getState':
+        if (fake.failState) throw new Error('state gone');
         return { ...fake.state };
       case 'workspace.dispatch': {
         const action = input.action as { type: string; tab?: 'Transcript' | 'Summary' };
@@ -177,6 +180,8 @@ describe('SessionRoute', () => {
     const fake = install({ state: { selectedMeetingId: A, sessionTab: 'Summary' } });
     mount();
     expect(await screen.findByTestId('summary-stub')).toBeTruthy();
+    // Applying the stored tab never writes it back (item 11).
+    expect(fake.calls.filter((c) => c.name === 'workspace.dispatch')).toEqual([]);
     await userEvent.click(screen.getByRole('tab', { name: 'Transcript' }));
     expect(fake.calls.at(-1)).toEqual({
       name: 'workspace.dispatch',
@@ -214,6 +219,61 @@ describe('SessionRoute', () => {
     fake.failLoad = false;
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Weekly sync' })).toBeTruthy();
+  });
+
+  it('re-reads the workspace state on Retry when getState itself failed (B9)', async () => {
+    const fake = install({ failState: true });
+    mount();
+    expect(await screen.findByText(/could not be opened/i)).toBeTruthy();
+    fake.failState = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Weekly sync' })).toBeTruthy();
+    expect(fake.calls.filter((c) => c.name === 'workspace.getState')).toHaveLength(2);
+  });
+
+  it('applies slide directions to the panel and clears them on reload (21, B15)', async () => {
+    install();
+    mount();
+    await screen.findByRole('heading', { level: 1 });
+    const panelClass = (id: string): string =>
+      screen.getByTestId(id).parentElement?.className ?? '';
+    expect(panelClass('transcript-stub')).not.toMatch(/animate-slide/);
+    await userEvent.click(screen.getByRole('tab', { name: 'Summary' }));
+    expect(panelClass('summary-stub')).toContain('animate-slide-from-right');
+    await userEvent.click(screen.getByRole('tab', { name: 'Transcript' }));
+    expect(panelClass('transcript-stub')).toContain('animate-slide-from-left');
+  });
+
+  it('drops to the empty state when the record disappears on meetingChanged (13)', async () => {
+    const fake = install();
+    mount();
+    await screen.findByRole('heading', { level: 1 });
+    fake.titles[A] = null;
+    act(() => {
+      fake.emit('workspace.meetingChanged', { id: A });
+    });
+    expect(await screen.findByText('Open a meeting from Library, or record one.')).toBeTruthy();
+  });
+
+  it('refreshes HasAudio on meetingChanged (13)', async () => {
+    const fake = install();
+    mount();
+    expect(await screen.findByTestId('BtnSessionRetranscribe')).toBeTruthy();
+    fake.hasAudio = false;
+    act(() => {
+      fake.emit('workspace.meetingChanged', { id: A });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('BtnSessionRetranscribe')).toBeNull();
+    });
+  });
+
+  it('keeps a long title on one truncated line inside the 720 px column (25)', async () => {
+    install({ titles: { [A]: 'x'.repeat(200), [B]: 'y' } });
+    mount();
+    const heading = await screen.findByRole('heading', { level: 1 });
+    expect(heading.className).toContain('truncate');
+    expect(heading.closest('section')?.className).toMatch(/max-w-\[720px\]/);
   });
 
   it('falls to the empty state when the open meeting is deleted (B20)', async () => {
@@ -272,18 +332,17 @@ describe('SessionRoute', () => {
     const fake = install();
     const view = mount();
     await screen.findByRole('heading', { level: 1 });
-    expect(fake.listenerCount('workspace.meetingChanged')).toBe(1);
-    view.unmount();
-    for (const name of [
+    const names = [
       'workspace.changed',
       'workspace.meetingChanged',
       'workspace.meetingDeleted',
       'workspace.navigationRequested',
       'retranscription.stateChanged',
       'retranscription.finished',
-    ]) {
-      expect(fake.listenerCount(name)).toBe(0);
-    }
+    ];
+    for (const name of names) expect(fake.listenerCount(name)).toBeGreaterThan(0);
+    view.unmount();
+    for (const name of names) expect(fake.listenerCount(name)).toBe(0);
   });
 
   describe('rename', () => {
@@ -309,6 +368,42 @@ describe('SessionRoute', () => {
       });
       expect(await screen.findByRole('heading', { level: 1, name: 'Friday plan' })).toBeTruthy();
       expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('remounts the inner tab after a successful rename (35)', async () => {
+      install();
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      const stub = screen.getByTestId('transcript-stub');
+      await userEvent.click(screen.getByTestId('BtnSessionRename'));
+      const dialog = await screen.findByRole('dialog');
+      await userEvent.type(within(dialog).getByRole('textbox'), 'b');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('transcript-stub')).not.toBe(stub);
+      });
+    });
+
+    it('confirms with Enter and closes with Cancel without renaming (28)', async () => {
+      const fake = install();
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      await userEvent.click(screen.getByTestId('BtnSessionRename'));
+      let dialog = await screen.findByRole('dialog');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
+      expect(fake.calls.some((c) => c.name === 'session.rename')).toBe(false);
+      await userEvent.click(screen.getByTestId('BtnSessionRename'));
+      dialog = await screen.findByRole('dialog');
+      await userEvent.type(within(dialog).getByRole('textbox'), 'z{Enter}');
+      await waitFor(() => {
+        expect(fake.calls.find((c) => c.name === 'session.rename')?.input).toEqual({
+          id: A,
+          title: 'Weekly syncz',
+        });
+      });
     });
 
     it('stays open and says why when a re-transcription blocks the rename', async () => {

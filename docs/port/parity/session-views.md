@@ -455,3 +455,26 @@ Rejected or deferred
 - Item 63 adapter: `shell.showItemInFolder` is a one-line platform call; a real call is not exercised in tests.
 - Tests not added this round (coverage-only, behavior unchanged): items 21, 25, 28, 35, 53, 57 failure path, 107, 108, 124, 126, 129, bug 2/3/20, item 85 literal.
 - Design notes (double scrollbar, button styles, empty-state wording, quiet-load error) are polish, left for the final review.
+
+## Audit round (session-views)
+
+Fixed, with tests:
+
+- B9: when `workspace.getState` itself fails, Retry now reads the workspace state again instead of landing on the empty state (`SessionRoute.test.tsx`).
+- Tests added for items 11 (no write-back of the stored tab), 12 (all six subscriptions exist before unmount), 13 (HasAudio refresh and drop to the empty state), 21 and B15 (slide classes on the panel), 25 (truncate, 720 px column), 28 (Enter confirms, Cancel closes), 35 (inner tab remounts after rename).
+- 76, 83: de-duplication and exact CRLF/LF output are now asserted. Bug 1: marks-only starred lines (`* mm:ss.ff`) are recovered by `starredLineStarts`.
+- 113: a blank summary provider ends the run as TranscriptOnly without calling the summary stage. 121: a throwing summary stage keeps the saved transcript and ends as SummaryFailed. Bug 3 and items 103, 118: calendar keys, brief, jev, notes, follow-up and plan survive a run (controller test). Rows 113, 121 are now `done`.
+- Items 145 to 152: the sidebar is a fixed 232 px column; the Splitter, its localStorage key and the e2e resize test are removed (`navigationPaneLength` is still read and rewritten on disk).
+
+Rejected or recorded, with reason:
+
+- Dead suggest-title strings stay in the generated catalogs (byte-checked); no consumer exists.
+- Item 23: the deep link has no WinUI counterpart and the tasks dialog is the JEV scope cut (owner decision 2026-11-03, may return later). Record finish is the recording module's.
+- Item 32: the file name follows date and title as in C# (decision above); the `{id}.md` wording in row 32 is superseded.
+- Item 70 is `improved` (quiet padding). Rows 79 and 80 are `improved`: a mark exactly on a line start goes to the line starting there (B8 round trip).
+- Item 73: the ink bar on starred lines is a recorded variance for readability; text and clipboard stay literal.
+- Bug 5 and item 102: `pausedSeconds` is 0 because a re-transcription of a saved file has no pause; the offline pass takes no pause parameter. Decision: nothing to apply.
+- Bug 4 and item 114: the record is reloaded before each save, so a rename is kept. Notes are read live when the summary starts; capturing them at the start is not ported. Rename stays disabled during a run (decision 1).
+- Items 120, 126, 129 and the terminal status lines: the UI shows the outcome bar only; no extra status string is set. Cancel before the pipeline starts is covered by the cancel gate inside the pipeline; no write happens before text exists.
+- B20 non-empty corrupt audio: counted as audio; a failed run reports the error. Decision: not probing wav headers.
+- pnpm check platform failures were load-sensitive tests outside this module.

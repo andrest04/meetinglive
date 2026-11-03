@@ -63,6 +63,7 @@ function setup(
     ready?: boolean;
     gpuName?: string | null;
     summarize?: SummarizeHook;
+    provider?: string | null;
     captureActive?: () => boolean;
   } = {},
 ) {
@@ -84,6 +85,9 @@ function setup(
     stores: { models, runtimes },
   });
   const settings = new InMemorySettingsStore();
+  if (options.provider !== null) {
+    void settings.update({ selectedSummaryProvider: options.provider ?? 'Local' });
+  }
   const meetings = new InMemoryMeetingRepository();
   const busy = new MeetingBusyRegistry();
   const events: { channel: string; payload: unknown }[] = [];
@@ -454,6 +458,62 @@ describe('re-transcription', () => {
     expect(summarize.mock.calls[0]?.[0].meetingId).toBe('m1');
     expect(finishedWith(events)).toEqual({ meetingId: 'm1', outcome: 'Completed', message: null });
     expect(changed).toEqual(['m1', 'm1']);
+  });
+
+  it('113: a blank summary provider ends as TranscriptOnly without calling summarize', async () => {
+    const summarize = vi.fn<SummarizeHook>(() => Promise.resolve({ status: 'completed' as const }));
+    const { controller, engine, meetings, events } = setup({ summarize, provider: null });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(summarize).not.toHaveBeenCalled();
+    expect(finishedWith(events)).toEqual({
+      meetingId: 'm1',
+      outcome: 'TranscriptOnly',
+      message: null,
+    });
+  });
+
+  it('121: a throwing summary stage keeps the new transcript and ends as SummaryFailed', async () => {
+    const summarize = vi.fn<SummarizeHook>(() => Promise.reject(new Error('boom')));
+    const { controller, engine, meetings, events } = setup({ summarize });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(finishedWith(events)).toEqual({
+      meetingId: 'm1',
+      outcome: 'SummaryFailed',
+      message: 'boom',
+    });
+    expect((await meetings.get('m1'))?.transcript).toContain('nuevo texto');
+  });
+
+  it('keeps the calendar, brief, jev, notes and plan fields on disk across a run (bug 3, 103, 118)', async () => {
+    const kept = {
+      calendarEventId: 'ev1',
+      calendarId: 'cal1',
+      seriesId: 'ser1',
+      joinUrl: 'https://example.test/join',
+      brief: 'the brief',
+      notes: 'my notes',
+      followUp: 'follow up',
+      projectPlan: 'plan',
+      jevAnalysis: 'jev',
+    };
+    const { controller, engine, meetings, events } = setup();
+    await meetings.save(record(kept as never));
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(await meetings.get('m1')).toMatchObject(kept);
   });
 
   it('S15: a failed summary stage keeps the new transcript and ends as SummaryFailed', async () => {

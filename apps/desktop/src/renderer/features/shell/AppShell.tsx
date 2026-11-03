@@ -2,17 +2,12 @@ import type { ShellTag } from '@vozella/core';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { Library, Mic, Settings, type LucideIcon } from 'lucide-react';
-import { readStored, writeStored } from '../../app/preference-storage';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { CallPromptBar } from './CallPromptBar';
-import { Icon, Mark, Splitter, cn } from '../../ui';
+import { Icon, Mark, cn } from '../../ui';
 
-const SIDEBAR_KEY = 'vozella.sidebarWidth';
-const SIDEBAR_DEFAULT = 232;
-const SIDEBAR_MIN = 184;
-const SIDEBAR_MAX = 360;
-
+// Fixed width: the resizable navigation pane was dropped (owner decision 2026-11-03).
 interface NavEntry {
   readonly to: '/record' | '/library' | '/settings';
   readonly label: StringKey;
@@ -62,13 +57,6 @@ function useWorkspaceNavigation(): void {
   }, [pathname]);
 }
 
-function storedSidebarWidth(): number {
-  const stored = Number(readStored(SIDEBAR_KEY));
-  return Number.isFinite(stored) && stored >= SIDEBAR_MIN && stored <= SIDEBAR_MAX
-    ? stored
-    : SIDEBAR_DEFAULT;
-}
-
 /** Window frame: a sidebar and a content area that share the custom title bar strip at the top. */
 export function AppShell() {
   const t = useT();
@@ -87,39 +75,27 @@ export function AppShell() {
       >
         {t('Ui_SkipToContent')}
       </button>
-      <Splitter
-        orientation="horizontal"
-        defaultSize={storedSidebarWidth()}
-        minSize={SIDEBAR_MIN}
-        maxSize={SIDEBAR_MAX}
-        label={t('Nav_ResizePane')}
-        onSizeChange={(size) => {
-          writeStored(SIDEBAR_KEY, String(size));
-        }}
-        className="h-screen"
-        first={<Sidebar />}
-        second={
-          <>
-            {/* Empty chrome: drags the window and sits behind the caption buttons. */}
-            <div className="app-drag h-10 shrink-0" />
-            <main
-              id="content"
-              tabIndex={-1}
-              className="min-h-0 flex-1 overflow-y-auto pb-16 outline-none"
+      <div className="flex h-screen">
+        <div className="w-[232px] shrink-0 border-e border-hairline">
+          <Sidebar />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Empty chrome: drags the window and sits behind the caption buttons. */}
+          <div className="app-drag h-10 shrink-0" />
+          <main
+            id="content"
+            tabIndex={-1}
+            className="min-h-0 flex-1 overflow-y-auto pb-16 outline-none"
+          >
+            <div
+              className={cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')}
             >
-              <div
-                className={cn(
-                  'mx-auto w-full px-10 pt-8',
-                  wide ? 'max-w-[960px]' : 'max-w-[720px]',
-                )}
-              >
-                <CallPromptBar />
-                <Outlet />
-              </div>
-            </main>
-          </>
-        }
-      />
+              <CallPromptBar />
+              <Outlet />
+            </div>
+          </main>
+        </div>
+      </div>
     </div>
   );
 }
