@@ -33,11 +33,11 @@ The user wants the product on Electron so the brand tokens drive the UI and macO
 
 ## Tasks
 
-- [ ] T1 Research the stack per area and write behavior specs per module (`docs/port/research`, `docs/port/specs`)
-- [ ] T2 Decide the stack and architecture (`docs/port/stack.md`), resolve project skills
-- [ ] T3 Scaffold `apps/desktop`: shell, design system, IPC contract, test harness
+- [x] T1 Research the stack per area and write behavior specs per module (`docs/port/research`, `docs/port/specs`)
+- [x] T2 Decide the stack and architecture (`docs/port/stack.md`), resolve project skills
+- [x] T3 Scaffold `apps/desktop`: shell, design system, IPC contract, test harness
   - [x] T3.1 Foundation: pnpm workspace, typed IPC, hardened shell, data-root guard, native addon, workers, test harness, NSIS packaging (see progress)
-  - [ ] T3.2 Design system (`ui/`, tokens, fonts, i18n scaffolding): not started
+  - [x] T3.2 Design system, i18n (647 keys, en/es parity), shell. Independent verifier: check passes, e2e 9 passed and 3 screenshot specs skipped by default
 - [ ] T4 Port the domain and persistence layer
 - [ ] T5 Port native capture and ASR
 - [ ] T6 Port summaries, chat, and integrations
@@ -66,6 +66,13 @@ Branch created from `main` at 53438c5.
 - Fuses: the release build is hardened; the e2e variant keeps only the node CLI inspect fuse on (`VOZELLA_PACKAGE_VARIANT=e2e`).
 - Pending in T3: design system, i18n scaffolding, signing, app icon, auto-update. Not validated: real device capture (tests open no audio device), clean-VM install, Windows 10.
 
+### Accepted changes (owner, 2026-11-03)
+
+- Topology: remaining modules run in parallel waves, each module in its own worktree under `C:\Code\vozella-worktrees`, on `port/<module>` branches merged into this branch after each wave. Waves: summaries and call detection; recording and chat; session views and live copilot; shell and platform.
+- Method: small work packages per module, audit slices of at most 25 items with file:line evidence, and a fix after every audit round. The first four modules were re-audited this way because the earlier audits left findings open.
+- Cut from the port, may return later: JEV/TypeSafe; calendar reading (Coming up, reminders, event linking, calendar settings, pre-meeting brief), while call detection and its popup stay; xAI/Grok; suggest title, custom note template, nav-pane resize grip, meeting-app suggestion bar; chat thread history and user recipes. On-disk keys for these stay readable and are preserved.
+- Open: the last fix of each re-audited module had no audit after it, so T8 audits them again. Settings and audio capture were converging poorly.
+
 ## Next step
 
-T3.2 design system, then T4.
+Run the waves, then T8.
