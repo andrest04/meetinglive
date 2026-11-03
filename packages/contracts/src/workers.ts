@@ -16,6 +16,8 @@ export const audioWorkerCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping') }),
   z.object({ type: z.literal('start'), source: audioSourceSchema }),
   z.object({ type: z.literal('stop') }),
+  /** End the process (used by the host on app quit). `stop` only ends a capture. */
+  z.object({ type: z.literal('shutdown') }),
 ]);
 export type AudioWorkerCommand = z.infer<typeof audioWorkerCommandSchema>;
 
@@ -38,7 +40,7 @@ export const audioWorkerEventSchema = z.discriminatedUnion('type', [
   /** 16 kHz mono PCM16 little-endian, 20 ms per frame. */
   z.object({
     type: z.literal('frame'),
-    pcm: z.instanceof(Uint8Array),
+    pcm: z.custom<Uint8Array>((value) => value instanceof Uint8Array),
     tsMs: z.number(),
     synthesized: z.boolean(),
   }),
@@ -50,7 +52,7 @@ export type AudioWorkerEvent = z.infer<typeof audioWorkerEventSchema>;
 export const asrWorkerCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping') }),
   z.object({ type: z.literal('load'), binDir: z.string().min(1) }),
-  z.object({ type: z.literal('stop') }),
+  z.object({ type: z.literal('shutdown') }),
 ]);
 export type AsrWorkerCommand = z.infer<typeof asrWorkerCommandSchema>;
 

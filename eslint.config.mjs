@@ -14,6 +14,7 @@ export default tseslint.config(
       '**/test-results/**',
       '**/playwright-report/**',
       '**/resources/native/**',
+      'native/**/index.d.ts',
       'MeetingLive*/**',
       'website/**',
       'docs/**',
@@ -44,7 +45,10 @@ export default tseslint.config(
   {
     files: ['**/*.mjs', '**/*.cjs', '**/*.js'],
     ...tseslint.configs.disableTypeChecked,
-    languageOptions: { globals: { ...globals.node } },
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: { ...globals.node },
+    },
     rules: { ...tseslint.configs.disableTypeChecked.rules, 'no-console': 'off' },
   },
   {
