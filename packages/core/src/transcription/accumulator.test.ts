@@ -171,6 +171,28 @@ describe('StreamingTranscriptAccumulator', () => {
     expect(acc.displayText).toBe(expected);
   });
 
+  it('parity 25: a multi-line interim is committed line by line', () => {
+    const acc = make();
+    acc.apply(result(false, 'one two', 40, [word(0, 3, 0), word(3, 5, 1)]));
+    const shown = acc.displayText.split(NL).slice(1);
+    expect(shown.length).toBeGreaterThan(1);
+    acc.commitRemainingInterim();
+    expect(acc.committedText.split(NL)).toEqual([header, ...shown]);
+  });
+
+  it('parity 27: a no-word result never ends before the last committed end', () => {
+    const acc = make();
+    acc.apply(final('first', 0, 5));
+    acc.apply(result(true, 'late', 2, []));
+    expect(acc.committedText).toBe([header, line(0, 5, 'first'), line(5, 5, 'late')].join(NL));
+  });
+
+  it('parity 24: an interim alone shows without a header when the time is unknown', () => {
+    const acc = make(null);
+    acc.apply(interim('hello'));
+    expect(acc.displayText).toBe('hello');
+  });
+
   it('Apply_UntaggedWords_KeepsOldFormatWithoutSpeakerPrefix', () => {
     const acc = make();
     acc.apply(result(true, 'hello there', 2, [word(0, 1, 0), word(1, 2, 0)]));

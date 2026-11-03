@@ -122,7 +122,7 @@ export function RetranscribeControl({
         open={confirming}
         onOpenChange={setConfirming}
         title={t('SessionRetranscribe_Title')}
-        description={t('SessionRetranscribe_Content', meetingTitle)}
+        description={t('Ui_RetranscribeConfirm', meetingTitle)}
         closeLabel={t('Ui_Close')}
         initialFocus={cancelRef}
         actions={

@@ -268,6 +268,36 @@ describe('settings', () => {
     expect((await settings.load()).speakerDiarizationEnabled).toBe(false);
   });
 
+  it('B7: deleting the engine also turns the speaker labels off', async () => {
+    const { controller, settings, models } = setup();
+    await controller.setSpeakerLabels(true);
+    expect(await controller.deleteEngine()).toBe('Deleted');
+    expect(models.diarization).toBe(false);
+    expect((await settings.load()).speakerDiarizationEnabled).toBe(false);
+  });
+
+  it('B17: a speaker model download is not mistaken for an engine install', async () => {
+    const { controller, models, runtimes } = setup({ ready: false });
+    let finish: () => void = () => undefined;
+    models.download = (file) => {
+      if (!file.fileName.startsWith('diar')) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        finish = () => {
+          models.diarization = true;
+          resolve();
+        };
+      });
+    };
+    const speaker = controller.downloadSpeakerModel();
+    await flush();
+    const engine = controller.ensureEngine();
+    await flush();
+    finish();
+    expect(await speaker).toEqual({ status: 'ready' });
+    await engine;
+    expect(runtimes.ready.size).toBeGreaterThan(0);
+  });
+
   it('B22: a locked speaker model is a message, not a crash', async () => {
     const { controller, models } = setup();
     models.deleteDiarError = new Error('EBUSY: resource busy or locked');
@@ -315,6 +345,16 @@ describe('live pass', () => {
     await flush();
     runtime.live.stop = () => Promise.reject(new Error('native stop failed'));
     expect(await controller.stopLive()).toBe('[00:00.00-00:01.00] en pantalla');
+  });
+
+  it('item 19: a blank on-screen text becomes null when stopping fails', async () => {
+    const { controller, engine, frameListeners, runtime } = setup();
+    engine.script = { afterPush: [[final('   ', 1)]] };
+    await controller.startLive(null);
+    for (const listener of frameListeners) listener(pcm(1600));
+    await flush();
+    runtime.live.stop = () => Promise.reject(new Error('native stop failed'));
+    expect(await controller.stopLive()).toBeNull();
   });
 
   it('uses the saved language and the speaker label setting', async () => {

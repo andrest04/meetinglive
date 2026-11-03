@@ -22,7 +22,7 @@ export function TranscriptionSection() {
   const install = useEngineInstall();
   const [engineNote, setEngineNote] = useState<string | null>(null);
   const [speakerNote, setSpeakerNote] = useState<string | null>(null);
-  const [speakerBusy, setSpeakerBusy] = useState(false);
+  const [speakerBusy, setSpeakerBusy] = useState<'download' | 'delete' | null>(null);
   const [speakerPercent, setSpeakerPercent] = useState(0);
   const speakerRunning = useRef(false);
   const alive = useRef(true);
@@ -64,10 +64,10 @@ export function TranscriptionSection() {
 
   /** Runs one speaker model action; `action` answers the failure message or null. */
   const runSpeakerAction = useCallback(
-    async (action: () => Promise<string | null>) => {
+    async (action: () => Promise<string | null>, kind: 'download' | 'delete' = 'download') => {
       if (speakerRunning.current) return;
       speakerRunning.current = true;
-      setSpeakerBusy(true);
+      setSpeakerBusy(kind);
       setSpeakerPercent(0);
       setSpeakerNote(null);
       let failure: string | null;
@@ -78,12 +78,14 @@ export function TranscriptionSection() {
       }
       speakerRunning.current = false;
       if (alive.current) {
-        setSpeakerBusy(false);
+        setSpeakerBusy(null);
         setSpeakerPercent(0);
         setSpeakerNote(
           failure === null
             ? null
-            : `${t('Error_DownloadFailedCaption', failure)} ${t('Ui_SpeakerModelFailed')}`,
+            : kind === 'delete'
+              ? t('Ui_SpeakerDeleteFailed', failure)
+              : `${t('Error_DownloadFailedCaption', failure)} ${t('Ui_SpeakerModelFailed')}`,
         );
       }
       await refresh();
@@ -99,10 +101,13 @@ export function TranscriptionSection() {
   };
 
   const setSpeakerLabels = (enabled: boolean): void => {
-    void runSpeakerAction(async () => {
-      const result = await window.vozella.invoke('transcription.setSpeakerLabels', { enabled });
-      return result.status === 'failed' ? result.message : null;
-    });
+    void runSpeakerAction(
+      async () => {
+        const result = await window.vozella.invoke('transcription.setSpeakerLabels', { enabled });
+        return result.status === 'failed' ? result.message : null;
+      },
+      enabled ? 'download' : 'delete',
+    );
   };
 
   const downloadSpeakerModel = (): void => {
@@ -116,7 +121,7 @@ export function TranscriptionSection() {
     void runSpeakerAction(async () => {
       const result = await window.vozella.invoke('transcription.deleteSpeakerModel', {});
       return result.status === 'failed' ? result.message : null;
-    });
+    }, 'delete');
   };
 
   const installing = install.phase === 'running';
@@ -196,7 +201,7 @@ export function TranscriptionSection() {
             aria-labelledby={titleId}
             label={status?.speakerLabelsEnabled ? t('Ui_SwitchOn') : t('Ui_SwitchOff')}
             checked={status?.speakerLabelsEnabled ?? false}
-            disabled={status === null || speakerBusy}
+            disabled={status === null || speakerBusy !== null}
             onCheckedChange={setSpeakerLabels}
           />
         )}
@@ -209,26 +214,26 @@ export function TranscriptionSection() {
           </Badge>
         ) : null}
         <Button
-          disabled={status === null || status.speakerModelInstalled || speakerBusy}
+          disabled={status === null || status.speakerModelInstalled || speakerBusy !== null}
           aria-label={`${t('Settings_DownloadSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
           onClick={downloadSpeakerModel}
         >
           {t('Settings_DownloadSpeakers.Content')}
         </Button>
         <Button
-          disabled={status === null || !status.speakerModelInstalled || speakerBusy}
+          disabled={status === null || !status.speakerModelInstalled || speakerBusy !== null}
           aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
           onClick={deleteSpeakerModel}
         >
           {t('Settings_DeleteSpeakers.Content')}
         </Button>
       </SettingRow>
-      {speakerBusy || speakerNote || status?.usage?.diarization === 'model-missing' ? (
+      {speakerBusy !== null || speakerNote || status?.usage?.diarization === 'model-missing' ? (
         <div className="flex flex-col gap-2.5 border-b border-hairline py-3">
-          {speakerBusy ? (
+          {speakerBusy === 'download' ? (
             <Progress
               className="max-w-sm"
-              label={t('Ui_SpeakerDownloadProgressName')}
+              label={t('Status_DownloadingSpeakerModel')}
               value={speakerPercent}
               showValue
             />

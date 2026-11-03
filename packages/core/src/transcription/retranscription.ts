@@ -153,7 +153,7 @@ export class MeetingRetranscriptionRunner {
     if (this.state.isRunning) return false;
     const cancel = new CancelSource();
     this.cancelSource = cancel;
-    this.setState({ isRunning: true, meetingId: record.id, status: 'Transcribing audio...' });
+    this.setState({ isRunning: true, meetingId: record.id, status: '' });
 
     let completed = false;
     let summaryFailure: string | null = null;

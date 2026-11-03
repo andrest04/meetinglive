@@ -227,6 +227,19 @@ describe('TranscriptionSection switches', () => {
     });
   });
 
+  it('a failed delete says so and draws no download bar', async () => {
+    const api = installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, speakerModelInstalled: true }),
+      'transcription.deleteSpeakerModel': () => ({ status: 'failed', message: 'EBUSY' }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete Speaker model' }));
+    expect(await screen.findByText('Could not delete the speaker model: EBUSY')).toBeVisible();
+    expect(screen.queryByText(/Download failed/)).toBeNull();
+    expect(screen.queryByRole('progressbar', { name: /Sortformer/ })).toBeNull();
+    expect(api.calls.some((c) => c.name === 'transcription.deleteSpeakerModel')).toBe(true);
+  });
+
   it('says so when labels are on but the model is missing', async () => {
     installTranscriptionApi({
       'transcription.getStatus': () => ({

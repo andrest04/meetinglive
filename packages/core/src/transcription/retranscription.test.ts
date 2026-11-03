@@ -194,7 +194,7 @@ describe('MeetingRetranscriptionRunner', () => {
       cb.onStatus('Transcribing audio... 40%');
       cb.onMeetingSaved('m1');
     });
-    expect(out.states[0]).toBe('Transcribing audio...');
+    expect(out.states[0]).toBe('');
     expect(out.states).toContain('Transcribing audio... 40%');
     expect(out.changed).toEqual(['m1']);
     expect(out.runner.current).toEqual({ isRunning: false, meetingId: null, status: '' });

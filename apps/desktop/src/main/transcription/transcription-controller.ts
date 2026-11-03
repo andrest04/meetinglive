@@ -80,7 +80,11 @@ const messageOf = (error: unknown): string =>
  */
 export class TranscriptionController {
   private installing: InstallProgressDto | null = null;
-  private install: { cancel: CancelSource; done: Promise<InstallOutcomeDto> } | null = null;
+  private install: {
+    cancel: CancelSource;
+    done: Promise<InstallOutcomeDto>;
+    kind: 'engine' | 'speaker-model';
+  } | null = null;
   private unsubscribeFrames: (() => void) | null = null;
   private unsubscribeUpdates: (() => void) | null = null;
   private lastDisplayText = '';
@@ -172,6 +176,10 @@ export class TranscriptionController {
     // A transfer that was cancelled still ends on its own time; a new call waits for it and starts
     // again, so it is not handed the cancelled outcome.
     if (this.install?.cancel.cancelled) return this.install.done.then(() => this.ensureEngine());
+    // Another kind of install is not this one: wait for it, then check again.
+    if (this.install && this.install.kind !== 'engine') {
+      return this.install.done.then(() => this.ensureEngine());
+    }
     if (this.install) return this.install.done;
     const cancel = new CancelSource();
     const done = this.runInstall(cancel, async () => {
@@ -188,7 +196,7 @@ export class TranscriptionController {
       }
       return { status: 'ready' };
     });
-    this.install = { cancel, done };
+    this.install = { cancel, done, kind: 'engine' };
     return done;
   }
 
@@ -223,6 +231,13 @@ export class TranscriptionController {
   async deleteEngine(): Promise<'Deleted' | 'RuntimeInUse' | 'Incomplete'> {
     if (this.install) return 'Incomplete';
     const outcome = await this.deps.runtime.installer.deleteEngine();
+    // The engine delete removes the speaker model too, so the labels go off with it (B7).
+    if (
+      !this.deps.runtime.models.isDiarizationModelDownloaded() &&
+      (await this.deps.settings.load()).speakerDiarizationEnabled
+    ) {
+      await this.deps.settings.update({ speakerDiarizationEnabled: false });
+    }
     void this.publishStatus();
     return outcome;
   }
@@ -265,6 +280,9 @@ export class TranscriptionController {
     if (this.install?.cancel.cancelled) {
       return this.install.done.then(() => this.downloadSpeakerModel());
     }
+    if (this.install && this.install.kind !== 'speaker-model') {
+      return this.install.done.then(() => this.downloadSpeakerModel());
+    }
     if (this.install) return this.install.done;
     const cancel = new CancelSource();
     const done = this.runInstall(cancel, async () => {
@@ -275,7 +293,7 @@ export class TranscriptionController {
         ? { status: 'ready' }
         : { status: 'failed', message: this.deps.t('Error_EngineNotReady') };
     });
-    this.install = { cancel, done };
+    this.install = { cancel, done, kind: 'speaker-model' };
     return done;
   }
 
@@ -334,13 +352,15 @@ export class TranscriptionController {
   async stopLive(): Promise<string | null> {
     this.unsubscribeFrames?.();
     this.unsubscribeFrames = null;
-    this.unsubscribeUpdates?.();
-    this.unsubscribeUpdates = null;
+    // Updates stay subscribed while Stop drains the queue, so the last text still reaches the pane.
     try {
       return await this.deps.runtime.live.stop();
     } catch (error) {
       this.deps.logger.warn('live transcription did not stop cleanly', { error: messageOf(error) });
       return this.lastDisplayText.trim() === '' ? null : this.lastDisplayText;
+    } finally {
+      this.unsubscribeUpdates?.();
+      this.unsubscribeUpdates = null;
     }
   }
 

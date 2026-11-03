@@ -65,5 +65,7 @@
   "Ui_RetranscribeNeedsEngine": "El motor de transcripción aún no está instalado. Descárgalo primero.",
   "Ui_RetranscribeStatusName": "Estado de la nueva transcripción",
   "Ui_SpeakerModelFailed": "Las etiquetas de hablante siguen desactivadas.",
+  "Ui_SpeakerDeleteFailed": "No se pudo eliminar el modelo de hablantes: {0}",
+  "Ui_RetranscribeConfirm": "Al volver a transcribir \"{0}\", se reemplaza su transcripción por una nueva generada a partir del audio guardado. El resumen actual se conserva.",
   "Ui_SpeakerModel": "Modelo de hablantes"
 }

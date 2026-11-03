@@ -192,7 +192,7 @@ describe('RecordingTakes', () => {
   });
 
   describe('live transcription', () => {
-    it('starts the live pass after the capture and stops it with the take', async () => {
+    it('starts the live pass before the capture and stops it with the take', async () => {
       const order: string[] = [];
       const live = {
         start: vi.fn(() => {
@@ -217,12 +217,12 @@ describe('RecordingTakes', () => {
       );
       await takes.start('T', mic);
       await takes.stop();
-      expect(order).toEqual(['capture', 'live-start', 'live-stop']);
+      expect(order).toEqual(['live-start', 'capture', 'live-stop']);
       expect(live.start).toHaveBeenCalledWith(clock);
       expect(controller.stop).toHaveBeenCalled();
     });
 
-    it('stops the capture and reports the failure when the live pass cannot start', async () => {
+    it('reports the failure without starting the capture when the live pass cannot start', async () => {
       const live = {
         start: vi.fn(() => Promise.reject(new Error('model failed to load'))),
         stop: vi.fn(() => Promise.resolve(null)),
@@ -230,8 +230,23 @@ describe('RecordingTakes', () => {
       const { takes, controller } = setup({}, 12.5, live);
       const result = await takes.start('T', mic);
       expect(result).toEqual({ started: false, code: null, message: 'model failed to load' });
-      expect(controller.stop).toHaveBeenCalledTimes(1);
+      expect(controller.stop).not.toHaveBeenCalled();
       expect(takes.busy).toBe(false);
+    });
+
+    it('stops the live pass when the capture cannot start', async () => {
+      const live = {
+        start: vi.fn(() => Promise.resolve()),
+        stop: vi.fn(() => Promise.resolve(null)),
+      };
+      const { takes } = setup(
+        { startRecording: vi.fn(() => Promise.reject(new Error('no mic'))) },
+        12.5,
+        live,
+      );
+      const result = await takes.start('T', mic);
+      expect(result).toMatchObject({ started: false, message: 'no mic' });
+      expect(live.stop).toHaveBeenCalledTimes(1);
     });
 
     it('still ends the take when the live pass fails to stop', async () => {

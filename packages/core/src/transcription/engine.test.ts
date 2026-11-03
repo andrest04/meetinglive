@@ -366,6 +366,18 @@ describe('TranscriptionService (offline pass)', () => {
     expect([...(push?.samples ?? [])]).toEqual([0.5, 0.5, 0.5]);
   });
 
+  it('skips a frame that has no whole sample per channel', async () => {
+    const { engine, factory } = setup();
+    const audio = new FakeAudioReader(new Float32Array([1]), 16_000, 2);
+    await new TranscriptionService({ factory, audio }).transcribe({
+      audioPath: 'a.wav',
+      language: 'en',
+      recordedAtMs: null,
+      speakerDiarization: false,
+    });
+    expect(engine.recognizers[0]?.streams[0]?.pushes ?? []).toHaveLength(0);
+  });
+
   it('commits the leftover interim at the end', async () => {
     const { engine, factory } = setup();
     engine.script = { afterPush: [[interim('tail words', 1)]] };

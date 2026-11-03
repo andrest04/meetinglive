@@ -36,6 +36,8 @@ describe('RetranscribeControl', () => {
     await userEvent.click(await button());
     const dialog = await screen.findByRole('dialog', { name: 'Re-transcribe this meeting?' });
     expect(dialog).toHaveTextContent('Re-transcribing "Weekly sync" replaces its transcript');
+    expect(dialog).toHaveTextContent('The current summary is kept.');
+    expect(dialog).not.toHaveTextContent('regenerates');
     expect(api.calls.some((c) => c.name === 'retranscription.start')).toBe(false);
     await userEvent.click(within(dialog).getByRole('button', { name: 'Re-transcribe' }));
     await waitFor(() => {

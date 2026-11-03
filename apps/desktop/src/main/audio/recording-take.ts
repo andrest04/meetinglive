@@ -99,8 +99,14 @@ export class RecordingTakes {
       this.pausedMs = 0;
       this.pausedAt = null;
       this.liveDraft = null;
-      await this.deps.controller.startRecording(file, microphone);
+      // C# order: the model loads first so no frame is missed and the live clock starts with the audio.
       await this.startLive(recordedAtMs);
+      try {
+        await this.deps.controller.startRecording(file, microphone);
+      } catch (error) {
+        await this.stopLive();
+        throw error;
+      }
       this.phase = 'recording';
       return { started: true, recordedAtMs };
     } catch (error) {
@@ -145,25 +151,9 @@ export class RecordingTakes {
     return { ...outcome, pausedSeconds, error };
   }
 
-  /**
-   * Spec 2.3: if the live pass cannot start, the capture is stopped and the take fails with the
-   * message, so the page can say so and the microphone preview can come back.
-   */
+  /** Spec 2.3: if the live pass cannot start, the take fails before any audio is captured. */
   private async startLive(recordedAtMs: number): Promise<void> {
-    const live = this.deps.live;
-    if (!live) return;
-    try {
-      await live.start(recordedAtMs);
-    } catch (error) {
-      try {
-        await this.deps.controller.stop();
-      } catch (stopError) {
-        this.deps.logger.warn('stopping the capture after a live failure failed', {
-          error: messageOf(stopError),
-        });
-      }
-      throw error;
-    }
+    await this.deps.live?.start(recordedAtMs);
   }
 
   private async stopLive(): Promise<void> {

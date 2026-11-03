@@ -65,5 +65,7 @@
   "Ui_RetranscribeNeedsEngine": "The transcription engine is not installed yet. Download it first.",
   "Ui_RetranscribeStatusName": "Re-transcription status",
   "Ui_SpeakerModelFailed": "Speaker labels stay off.",
+  "Ui_SpeakerDeleteFailed": "Could not delete the speaker model: {0}",
+  "Ui_RetranscribeConfirm": "Re-transcribing \"{0}\" replaces its transcript with a new one made from the saved audio. The current summary is kept.",
   "Ui_SpeakerModel": "Speaker model"
 }
