@@ -150,7 +150,8 @@ export class XaiAccountService {
       if (current) this.models = mergeModelList(this.models, listed, resolved);
       let saved = settings;
       // Self healing: a model that vanished, or was never chosen, is replaced and kept.
-      if (settings.selectedXaiModelId !== resolved) {
+      // A refresh that lost to a newer one must not write: its list is the old account's.
+      if (current && settings.selectedXaiModelId !== resolved) {
         saved = await this.deps.store.update({ selectedXaiModelId: resolved });
       }
       if (current) {

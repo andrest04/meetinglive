@@ -130,6 +130,18 @@ export function useSettingsPage(): SettingsPageModel {
     void load();
   }, [load]);
 
+  // A new data folder holds other settings: drop the kept snapshot and read again behind the
+  // skeleton, so nothing from the previous folder can be acted on (spec 8.4).
+  useEffect(() => {
+    return window.vozella.on('library.changed', (event) => {
+      if (event.reason !== 'location') return;
+      lastPage = null;
+      setPage(null);
+      setLoading(true);
+      void load();
+    });
+  }, [load]);
+
   const fail = useCallback((message: string) => {
     if (alive.current) setProblem(tRef.current('Ui_SettingsSaveFailed', message));
   }, []);

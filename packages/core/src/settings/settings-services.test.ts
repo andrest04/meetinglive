@@ -543,7 +543,7 @@ describe('XaiAccountService', () => {
   });
 
   it('B12: a refresh that started before a key swap cannot publish its old models', async () => {
-    const { service, port } = xai();
+    const { service, port, store } = xai();
     port.kind = 'ApiKey';
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -566,6 +566,31 @@ describe('XaiAccountService', () => {
     expect(calls).toBe(2);
     expect(result).toMatchObject({ status: 'saved', view: { models: ['new-model'] } });
     expect((await service.status()).models).toEqual(['new-model']);
+    expect((await store.load()).selectedXaiModelId).toBe('new-model');
+  });
+
+  it('B12: a stale refresh that lands last does not write its old model over the new choice', async () => {
+    const { service, port, store } = xai();
+    port.kind = 'ApiKey';
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    port.listModels = async () => {
+      calls += 1;
+      if (calls === 1) {
+        await gate;
+        return ['old-model'];
+      }
+      return ['new-model'];
+    };
+    const stale = service.refresh();
+    await service.saveApiKey('xai-new');
+    expect((await store.load()).selectedXaiModelId).toBe('new-model');
+    release();
+    await stale;
+    expect((await store.load()).selectedXaiModelId).toBe('new-model');
   });
 
   it('save key: blank is a no-op, otherwise stores, refreshes and says so', async () => {

@@ -74,8 +74,25 @@ function pageDto(extra: Record<string, unknown> = {}): SettingsPageDto {
   } as unknown as SettingsPageDto;
 }
 
+const labelOf = (element: HTMLElement): HTMLElement => {
+  const found: HTMLElement | null = element.closest<HTMLElement>('label');
+  if (found === null) throw new Error('no label around the control');
+  return found;
+};
+const groupOf = (element: HTMLElement): HTMLElement => {
+  const found: HTMLElement | null = element.closest<HTMLElement>('[role="radiogroup"]');
+  if (found === null) throw new Error('no radio group around the control');
+  return found;
+};
+
+const allOn = { xaiAccount: true, xaiSignIn: false, localModels: true };
+
 type Handler = (input: unknown) => unknown;
 const listeners = new Map<string, (payload: unknown) => void>();
+const everyListener = new Set<[string, (payload: unknown) => void]>();
+const emit = (name: string, payload: unknown) => {
+  for (const [target, listener] of everyListener) if (target === name) listener(payload);
+};
 
 function install(handlers: Record<string, Handler>) {
   const calls: { name: string; input: unknown }[] = [];
@@ -95,8 +112,11 @@ function install(handlers: Record<string, Handler>) {
     }),
     on: (name: string, listener: (payload: unknown) => void) => {
       listeners.set(name, listener);
+      const entry: [string, (payload: unknown) => void] = [name, listener];
+      everyListener.add(entry);
       return () => {
         listeners.delete(name);
+        everyListener.delete(entry);
       };
     },
   };
@@ -104,10 +124,10 @@ function install(handlers: Record<string, Handler>) {
   return calls;
 }
 
-const mount = () =>
+const mount = (locale: 'en' | 'es' = 'en') =>
   render(
     <ThemeProvider>
-      <Providers>
+      <Providers locale={locale}>
         <SettingsRoute />
       </Providers>
     </ThemeProvider>,
@@ -640,5 +660,237 @@ describe('Settings page', () => {
     expect(listeners.has('transcription.statusChanged')).toBe(true);
     view.unmount();
     expect(listeners.has('transcription.statusChanged')).toBe(false);
+  });
+
+  it('keeps the kept snapshot and says so when a revisit refresh fails (8.10)', async () => {
+    let n = 0;
+    install({
+      'settings.getPage': () => {
+        n += 1;
+        if (n === 1) return pageDto();
+        throw new Error('disk unreadable');
+      },
+    });
+    const first = mount();
+    await screen.findByRole('radio', { name: 'Local (on this device)' });
+    first.unmount();
+    mount();
+    expect(
+      await screen.findByText('The settings could not be loaded. disk unreadable'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Local (on this device)' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('says so when the read after a command fails, instead of leaving a stale control (8.10)', async () => {
+    let n = 0;
+    install({
+      'settings.getPage': () => {
+        n += 1;
+        if (n >= 2) throw new Error('disk unreadable');
+        return pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' });
+      },
+      'settings.setCliOption': () => ({ status: 'saved', settings: {}, feedback: null }),
+    });
+    mount();
+    const user = userEvent.setup();
+    await screen.findByText('Detected on PATH.');
+    await user.click(screen.getByRole('combobox', { name: 'Model' }));
+    await user.click(await screen.findByRole('option', { name: 'opus' }));
+    expect(
+      await screen.findByText('The settings could not be loaded. disk unreadable'),
+    ).toBeInTheDocument();
+  });
+
+  it('drops the kept snapshot when the data folder changes, and reads the new one (8.4)', async () => {
+    let n = 0;
+    install({
+      'settings.getPage': () => {
+        n += 1;
+        return n === 1 ? pageDto({ provider: 'Codex' }) : pageDto({ provider: 'ClaudeCode' });
+      },
+    });
+    mount();
+    expect(await screen.findByRole('radio', { name: /Codex/ })).toBeChecked();
+    act(() => {
+      emit('library.changed', { reason: 'location' });
+    });
+    expect(screen.queryByRole('radio', { name: /Codex/ })).toBeNull();
+    expect(await screen.findByRole('radio', { name: /Claude Code CLI/ })).toBeChecked();
+  });
+
+  it('fades only on the first reveal, never on a revisit (8.5)', async () => {
+    install({ 'settings.getPage': () => pageDto() });
+    const first = mount();
+    expect(await screen.findByTestId('settings-content')).toHaveClass('animate-fade-in');
+    first.unmount();
+    mount();
+    expect(screen.getByTestId('settings-content')).not.toHaveClass('animate-fade-in');
+  });
+
+  it('lists Local, Claude Code, Codex and Grok in that order, each with its mark (28)', async () => {
+    install({ 'settings.getPage': () => pageDto({ capabilities: allOn }) });
+    mount();
+    const group = await screen.findByRole('radiogroup', {
+      name: 'Choose where summaries are generated',
+    });
+    const radios = within(group).getAllByRole('radio');
+    expect(radios.map((r) => labelOf(r).textContent.trim())).toEqual([
+      'Local (on this device)',
+      'Claude Code CLI',
+      'Codex CLI',
+      'Grok (xAI)',
+    ]);
+    for (const radio of radios) expect(labelOf(radio).querySelector('svg')).not.toBeNull();
+  });
+
+  it('labels the four providers in Spanish (28)', async () => {
+    install({ 'settings.getPage': () => pageDto({ capabilities: allOn }) });
+    mount('es');
+    const radio = await screen.findByRole('radio', { name: 'Local (en este dispositivo)' });
+    const group = groupOf(radio);
+    expect(
+      within(group)
+        .getAllByRole('radio')
+        .map((r) => labelOf(r).textContent.trim()),
+    ).toEqual(['Local (en este dispositivo)', 'CLI de Claude Code', 'CLI de Codex', 'Grok (xAI)']);
+  });
+
+  it('shows the detection text in Spanish, and a new answer after Check again (35)', async () => {
+    let detected: 'missing' | 'detected' = 'missing';
+    install({
+      'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'missing' }),
+      'settings.detectCli': () => ({ status: detected }),
+    });
+    mount('es');
+    expect(
+      await screen.findByText('No se encontró en el PATH: instálalo antes de grabar.'),
+    ).toBeInTheDocument();
+    detected = 'detected';
+    await userEvent.click(screen.getByRole('button', { name: 'Comprobar de nuevo' }));
+    expect(await screen.findByText('Detectado en el PATH.')).toBeInTheDocument();
+    expect(screen.queryByText(/No se encontró/)).toBeNull();
+  });
+
+  it('draws only the block of the chosen provider (38)', async () => {
+    for (const [provider, expected] of [
+      ['Local', { claude: false, codex: false, local: true, status: false }],
+      ['ClaudeCode', { claude: true, codex: false, local: false, status: true }],
+      ['Codex', { claude: false, codex: true, local: false, status: true }],
+      ['Xai', { claude: false, codex: false, local: false, status: false }],
+    ] as const) {
+      resetSettingsPageCache();
+      install({
+        'settings.getPage': () =>
+          pageDto({
+            provider,
+            capabilities: allOn,
+            cliStatus: provider === 'ClaudeCode' || provider === 'Codex' ? 'detected' : null,
+          }),
+        'settings.xai.refresh': () => xai(),
+      });
+      const view = mount();
+      await screen.findByRole('radio', { name: 'Local (on this device)' });
+      const shown = (query: HTMLElement | null) => query !== null;
+      expect(shown(screen.queryByRole('heading', { level: 3, name: 'Claude Code' }))).toBe(
+        expected.claude,
+      );
+      expect(shown(screen.queryByRole('heading', { level: 3, name: 'Codex' }))).toBe(
+        expected.codex,
+      );
+      expect(shown(screen.queryByRole('heading', { level: 3, name: 'Summary models' }))).toBe(
+        expected.local,
+      );
+      expect(shown(screen.queryByText('Detected on PATH.'))).toBe(expected.status);
+      view.unmount();
+    }
+  });
+
+  it('opens the Claude Code and Codex blocks with mark and description (45)', async () => {
+    for (const [provider, name, description] of [
+      ['ClaudeCode', 'Claude Code', 'Model alias and effort passed to the Claude CLI.'],
+      ['Codex', 'Codex', 'Model and reasoning effort passed to the Codex CLI.'],
+    ] as const) {
+      resetSettingsPageCache();
+      install({ 'settings.getPage': () => pageDto({ provider, cliStatus: 'detected' }) });
+      const view = mount();
+      const heading = await screen.findByRole('heading', { level: 3, name });
+      expect(heading.querySelector('svg')).not.toBeNull();
+      expect(screen.getByText(description)).toBeInTheDocument();
+      view.unmount();
+    }
+  });
+
+  it('signs in with SuperGrok from the card and says so (75, 61)', async () => {
+    const calls = install({
+      'settings.getPage': () =>
+        pageDto({ provider: 'Xai', capabilities: { ...allOn, xaiSignIn: true } }),
+      'settings.xai.signIn': () => ({
+        status: 'signed-in',
+        view: xai({ signedIn: true, credentialKind: 'OAuth', title: 'oauth', models: ['grok-4'] }),
+        feedback: { key: 'Xai_FeedbackSignedIn', args: [] },
+      }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with SuperGrok' }));
+    expect(await screen.findByText('Signed in with SuperGrok.')).toBeInTheDocument();
+    expect(calls.some((call) => call.name === 'settings.xai.signIn')).toBe(true);
+  });
+
+  it('says why a SuperGrok sign in failed (75)', async () => {
+    install({
+      'settings.getPage': () =>
+        pageDto({ provider: 'Xai', capabilities: { ...allOn, xaiSignIn: true } }),
+      'settings.xai.signIn': () => ({ status: 'failed', message: 'browser closed' }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign in with SuperGrok' }));
+    expect(await screen.findByText(/browser closed/)).toBeInTheDocument();
+  });
+
+  it('shows the Grok model placeholder when signed in with no saved model (77)', async () => {
+    const signedIn = xai({
+      signedIn: true,
+      credentialKind: 'ApiKey',
+      title: 'api-key',
+      models: ['grok-4'],
+      modelsLoaded: true,
+      selectedModelId: null,
+    });
+    install({
+      'settings.getPage': () => pageDto({ provider: 'Xai', xai: signedIn }),
+      'settings.xai.refresh': () => signedIn,
+    });
+    mount();
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'Choose a Grok model',
+    );
+  });
+
+  it('keeps the Grok effort and model disabled while signed out (69)', async () => {
+    install({ 'settings.getPage': () => pageDto({ provider: 'Xai' }) });
+    mount();
+    await screen.findByText('Not signed in');
+    expect(screen.getByRole('combobox', { name: 'Effort' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Model' })).toBeDisabled();
+  });
+
+  it('closes the saved bar when the user presses Close (76)', async () => {
+    install({
+      'settings.getPage': () => pageDto({ provider: 'ClaudeCode', cliStatus: 'detected' }),
+      'settings.setCliOption': () => ({
+        status: 'saved',
+        settings: {},
+        feedback: { key: 'Xai_FeedbackModel', args: ['opus'] },
+      }),
+    });
+    mount();
+    const user = userEvent.setup();
+    await screen.findByText('Detected on PATH.');
+    await user.click(screen.getByRole('combobox', { name: 'Model' }));
+    await user.click(await screen.findByRole('option', { name: 'opus' }));
+    expect(await screen.findByText('Saved. Using opus.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByText('Saved. Using opus.')).toBeNull();
   });
 });

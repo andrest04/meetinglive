@@ -16,9 +16,10 @@ function page(
     cli?: Record<string, boolean>;
     hardware?: HardwareProbe;
     models?: Set<string>;
+    store?: InMemorySettingsStore;
   } = {},
 ) {
-  const store = new InMemorySettingsStore();
+  const store = options.store ?? new InMemorySettingsStore();
   const files = options.models ?? new Set<string>();
   const modelStore: LocalModelStore = {
     isDownloaded: (m) => Promise.resolve(files.has(m.fileName)),
@@ -110,6 +111,29 @@ describe('SettingsPageService.load', () => {
     const snapshot = await service.load();
     expect(snapshot.hardware).toBeNull();
     expect(snapshot.models.rows.every((row) => row.fit === null)).toBe(true);
+  });
+
+  it('8.6: starts the settings read and the hardware probe together', async () => {
+    const started: string[] = [];
+    class SpyStore extends InMemorySettingsStore {
+      override load() {
+        started.push('settings');
+        return super.load();
+      }
+    }
+    const { service } = page({
+      store: new SpyStore(),
+      hardware: {
+        detect: () => {
+          started.push('hardware');
+          return new Promise(() => undefined);
+        },
+      },
+    });
+    void service.load();
+    // The probe never answers, yet the settings read has already started: nothing waits.
+    await Promise.resolve();
+    expect(started.sort()).toEqual(['hardware', 'settings']);
   });
 
   it('lists the models with the active one and the missing active id', async () => {

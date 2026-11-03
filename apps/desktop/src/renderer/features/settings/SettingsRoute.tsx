@@ -1,5 +1,5 @@
 import { SETTINGS_SECTIONS, type SettingsSectionId } from '@vozella/core';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useRef, type ReactNode } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
 import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
@@ -44,6 +44,8 @@ export function SettingsRoute() {
   const t = useT();
   const model = useSettingsPage();
   const { page } = model;
+  // The fade belongs to the first reveal; a revisit paints the kept snapshot silently (spec 8.5).
+  const revealed = useRef(model.page === null).current;
   const built = new Set(
     SETTINGS_SECTIONS.filter((section) => section.status === 'built').map((section) => section.id),
   );
@@ -92,7 +94,7 @@ export function SettingsRoute() {
         <SkeletonText lines={6} className="py-3" label={t('Ui_SettingsLoading')} />
       ) : null}
 
-      {page === null && model.loadError !== null ? (
+      {model.loadError !== null ? (
         <div className="flex flex-col items-start gap-3">
           <Notice tone="warning" className="self-stretch">
             {t('Ui_SettingsLoadFailed', model.loadError)}
@@ -108,7 +110,10 @@ export function SettingsRoute() {
       ) : null}
 
       {page ? (
-        <div className="flex animate-fade-in flex-col gap-8" data-testid="settings-content">
+        <div
+          className={`flex flex-col gap-8${revealed ? ' animate-fade-in' : ''}`}
+          data-testid="settings-content"
+        >
           {page.notices.map((notice) => (
             <Notice
               key={notice.id}

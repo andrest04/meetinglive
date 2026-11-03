@@ -70,6 +70,15 @@ describe('app strings (item 105 to 112)', () => {
     }
   });
 
+  it('the JSON catalogs keep the source order: app strings first, then the core ones', () => {
+    for (const locale of ['en', 'es'] as const) {
+      const app = resw[locale].map(([key]) => key);
+      const seen = new Set(app);
+      const extra = core[locale].map(([key]) => key).filter((key) => !seen.has(key));
+      expect(Object.keys(locale === 'en' ? en : es)).toEqual([...app, ...extra]);
+    }
+  });
+
   it('keeps 271 plain and 333 dotted keys, split at the first dot', () => {
     const keys = resw.en.map(([k]) => k);
     expect(keys.filter((k) => !k.includes('.'))).toHaveLength(271);

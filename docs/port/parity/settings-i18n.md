@@ -216,7 +216,7 @@ Audit fix: these rows were `done` because the double passes them, but a real bui
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 105 | done | Test compares every key and text of both `.resw` files and both `.resx` files with the JSON catalogs (604 and 43, merged) |
+| 105 | done | The JSON catalogs keep the source order (app strings, then the core ones not already present) since the third audit; the converter no longer sorts and a test checks the order. Test compares every key and text of both `.resw` files and both `.resx` files with the JSON catalogs (604 and 43, merged) |
 | 106 | done | Same key sets, placeholder index sets, no empty values, per file and merged |
 | 107 | done | 271 plain, 333 dotted, 244 uids, counted from the sources |
 | 108 | done | 62 values with placeholders; positional rendering tested |
@@ -228,7 +228,7 @@ Audit fix: these rows were `done` because the double passes them, but a real bui
 | 114 | improved | B8. Selected locale, then English, then the key; each miss is reported (`MissingKeyReport`). The renderer logs a miss once to the main log |
 | 115 | done | `LocaleState` and `createLookup` take the locale; nothing is global |
 | 116 | improved | B9. Names are keys resolved at use |
-| 117 | done | B16. `Ui_MicLevelName`, `Ui_EngineDownloadProgressName`, `Ui_SpeakerDownloadProgressName` in both languages. The modules that own those bars use them |
+| 117 | done | B16. `Ui_MicLevelName`, `Ui_EngineDownloadProgressName`, `Ui_SpeakerDownloadProgressName` in both languages. The bars are named by `Settings_MicLevel.Text` and the `Status_*` labels; the three `Ui_` keys exist for the owning modules and are not rendered by Settings |
 | 118 | improved | B21. A test fails if the code asks for a key that does not exist, and if a hand-written `Ui_` key is unused. "Every key is referenced" cannot hold until all modules are ported, so the second audit added the assertion for the groups Settings uses (`Settings_*`, `SettingsPage_*`, `SettingsLanguageRestart_*`, `Xai_*`, `Hardware_*`, `Fit_*`, `Model_*`). Keys of the hardware, microphone, engine, recording, calendar and TypeSafe sections, the setup dialog (`Hardware_*`, `Model_Downloaded`) and the recording caption (`Xai_ProviderName`) are an explicit list for their modules. `Xai_StatusError` and `Settings_XaiStatus.Header` are listed as unused by decision (7.23), and a second test fails if a listed key becomes used, so the list cannot go stale |
 
 ### Tests
@@ -245,9 +245,9 @@ Audit fix: these rows were `done` because the double passes them, but a real bui
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 124 | done | The page draws the blocks marked `built` in order and nothing for a `slot`; a module adds its block to `SettingsRoute` at the position `SETTINGS_SECTIONS` gives it |
+| 124 | partial | TypeSafe, Recording and Calendar are `slot` entries that draw nothing until their modules land; Microphone, Transcription, Data and About are mounted. The page draws the blocks marked `built` in order and nothing for a `slot`; a module adds its block to `SettingsRoute` at the position `SETTINGS_SECTIONS` gives it |
 | 125 | done | `SettingsRuntime.exitGates.register(gate)`; `RestartService` asks it. The recording module registers its gate |
-| 126 | done | `HardwareProbe`, `LocalModelStore`, `XaiAccountPort`, `CliPathProbe` in `settings/ports.ts`, with adapters and doubles. The note template store is passed to `noteTemplateOptions` |
+| 126 | done | `HardwareProbe`, `LocalModelStore`, `XaiAccountPort`, `CliPathProbe` in `settings/ports.ts`, with adapters and doubles. `noteTemplateOptions` takes a plain `{name}` value and nothing in production calls it yet: the note template store port belongs to the notes module, which will pass its store here |
 
 ## Bugs fixed (section 7)
 
@@ -334,3 +334,11 @@ Decisions:
 - Spec 7.1 B1 core test uses an unlocked store; the locking proof is `settings-runtime.test.ts`. Unchanged.
 - Bug 19 replacement key, item 101 notice placement, 87 to 90 and 126 callers, 125 gates: owned by later modules, as already recorded.
 - MeetingLanguageSection renderer test, item 83 language change between starts: covered indirectly, not added.
+
+Third audit:
+
+- Fixed: a load that fails on a revisit or right after a command now draws the load error with Try again over the kept snapshot (8.10). A data folder change (`library.changed` with reason `location`) drops the kept snapshot and reads again behind the skeleton (8.4). The fade now runs only on the first reveal (8.5). A refresh that lost to a newer one no longer writes its model id over the new account's choice (xai-account self heal). `convert-strings.mjs` keeps source order (105).
+- Tests added: parallel start of the settings and hardware reads (8.6); provider radio order, labels in both languages and marks (28); Spanish detection text and Check again (35); block visibility per provider (38); Claude and Codex block mark and description (45); SuperGrok sign in and failure in the renderer (75, 61); Grok model placeholder (77); disabled effort and model when signed out and the Close button on the saved bar (69, 76); legacy pill X/Y round trip (96, bug 24); stale refresh keeps the saved model id (B12).
+- Row 22 stays `pending-real-validation`: a real relaunch has not been observed. Driving it needs a launcher outside the Playwright process in an unattended run; not attempted.
+- Rejected: all four models carrying `Recommended` is the hardware fit rating, true on a 16 GB machine and informative on a smaller one. The `API key saved.` bar is the transient confirmation the C# page shows after saving and closes itself after 4 s. The em dash in the English `Settings_SummaryModels.Description` and `Status_CliMissing` comes from the C# resource strings reused as is; changing them would break the converter parity check. `Ui_` names for 114 (log level `error` for a missing key) differ from the spec wording only in severity; no behavior depends on it. Unlocalized refresh error text is what spec 2.5 asks for. The generic `settings.update` channel accepting any value stays as recorded (reads are strict). Bug 13 stays as recorded: an out of list value shows and is passed on as saved.
+- 75 stays `pending-xai-module`: the shipped build has no SuperGrok sign in; the renderer path is now tested with a double.

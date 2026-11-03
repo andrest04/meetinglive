@@ -58,10 +58,6 @@ export function mergeCatalogs(files) {
   return merged;
 }
 
-function sorted(object) {
-  return Object.fromEntries(Object.entries(object).sort(([a], [b]) => (a < b ? -1 : 1)));
-}
-
 function main(check) {
   fs.mkdirSync(outDir, { recursive: true });
   let stale = false;
@@ -73,7 +69,7 @@ function main(check) {
       })),
     );
     const target = path.join(outDir, `${locale}.json`);
-    const json = `${JSON.stringify(sorted(catalog), null, 2)}\n`;
+    const json = `${JSON.stringify(catalog, null, 2)}\n`;
     if (check) {
       const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
       if (current.replace(/\r\n/g, '\n') !== json) {

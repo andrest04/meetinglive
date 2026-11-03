@@ -33,6 +33,16 @@ describe('JsonSettingsStore', () => {
     expect(doc.disabledCalendarIds).toEqual([]);
   });
 
+  it('bug 24: a legacy pill position in the file survives an update and is written back unchanged', async () => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ liveCopilotPillX: -1200, liveCopilotPillY: 340 }));
+    await store().update({ uiLanguage: 'es' });
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+    expect(doc.liveCopilotPillX).toBe(-1200);
+    expect(doc.liveCopilotPillY).toBe(340);
+    expect(await store().load()).toMatchObject({ liveCopilotPillX: -1200, liveCopilotPillY: 340 });
+  });
+
   it('B17: concurrent updates of different fields both survive', async () => {
     const a = store();
     const b = store();
