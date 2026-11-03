@@ -52,6 +52,8 @@ export interface RecordingSessionProps {
   readonly emptyText: string;
   /** The notes block, beside the canvas when there is room (spec 2.1). */
   readonly side: ReactNode;
+  /** The typed question box under the canvas. */
+  readonly dock?: ReactNode;
   readonly sideBySide: boolean;
 }
 
@@ -72,6 +74,7 @@ export function RecordingSession({
   statusText,
   emptyText,
   side,
+  dock = null,
   sideBySide,
 }: RecordingSessionProps) {
   const t = useT();
@@ -136,18 +139,21 @@ export function RecordingSession({
         }
         data-testid="record-session"
       >
-        <LiveCanvas
-          heading={t('RecordPage_LiveTranscript.Text')}
-          live={!paused}
-          text={liveText}
-          committedLines={committedLines}
-          emptyText={emptyText}
-          highlightFeedback={feedback.value}
-          statusText={statusText === '' ? null : statusText}
-          copied={copied}
-          onCopy={null}
-          className="h-[clamp(18rem,calc(100vh-19rem),48rem)]"
-        />
+        <div className="flex min-w-0 flex-col gap-3">
+          <LiveCanvas
+            heading={t('RecordPage_LiveTranscript.Text')}
+            live={!paused}
+            text={liveText}
+            committedLines={committedLines}
+            emptyText={emptyText}
+            highlightFeedback={feedback.value}
+            statusText={statusText === '' ? null : statusText}
+            copied={copied}
+            onCopy={null}
+            className="h-[clamp(16rem,calc(100vh-26rem),48rem)]"
+          />
+          {dock}
+        </div>
         {side}
       </div>
       <DiscardDialog

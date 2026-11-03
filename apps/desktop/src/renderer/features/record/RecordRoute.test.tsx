@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Providers } from '../library/library-test-kit';
 import { RecordRoute } from './RecordRoute';
+import { applyAnswer, resetLiveAskStore } from './use-live-ask';
 import { resetRecordingStore } from './use-recording';
 
 type Listener = (payload: unknown) => void;
@@ -127,6 +128,8 @@ function installApi(overrides: Record<string, Handler> = {}) {
 
 beforeEach(() => {
   resetRecordingStore();
+  resetLiveAskStore();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -477,5 +480,126 @@ describe('RecordRoute take notes request', () => {
     await waitFor(() => {
       expect(api.named('recording.start')).toHaveLength(1);
     });
+  });
+});
+
+describe('RecordRoute processing (spec 2.10, 2.11, items 163 and 154)', () => {
+  const processing = {
+    ...idleState,
+    phase: 'Processing' as const,
+    isProcessing: true,
+    status: [{ key: 'Status_Transcribing', args: [], severity: 'info' as const }],
+  };
+
+  it('shows the status in a polite live region, an indeterminate bar and an enabled Cancel', async () => {
+    const api = installApi({
+      'recording.getState': () => ({ ...processing, liveText: '' }),
+      'recording.cancelProcessing': () => ({ cancelled: true }),
+    });
+    mount();
+    const status = await screen.findByTestId('recording-status');
+    expect(status).toHaveTextContent('Transcribing audio...');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const cancel = screen.getByRole('button', { name: 'Cancel transcription or summary' });
+    expect(cancel).toBeEnabled();
+    expect(cancel).toHaveTextContent('Cancel');
+    await userEvent.click(cancel);
+    expect(api.named('recording.cancelProcessing')[0]?.input).toEqual({ meetingId: null });
+  });
+
+  it('B-21: a quiet Cancel summary appears on the result card only while the summary runs', async () => {
+    const api = installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        lastMeeting: { id: 'm-9', title: 'Weekly sync' },
+        status: [{ key: 'Status_GeneratingSummary', args: [], severity: 'info' }],
+        liveText: '',
+      }),
+      'recording.cancelProcessing': () => ({ cancelled: true }),
+    });
+    mount();
+    const card = await screen.findByTestId('result-card');
+    await userEvent.click(within(card).getByRole('button', { name: 'Cancel summary' }));
+    expect(api.named('recording.cancelProcessing')[0]?.input).toEqual({ meetingId: 'm-9' });
+    expect(screen.queryByTestId('BtnCancelProcessing')).toBeNull();
+  });
+
+  it('shows no Cancel summary once the summary is done', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        lastMeeting: { id: 'm-9', title: 'Weekly sync' },
+        status: [{ key: 'Status_Done', args: [], severity: 'info' }],
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('result-card');
+    expect(screen.queryByRole('button', { name: 'Cancel summary' })).toBeNull();
+  });
+
+  it('B-11: a failed first save offers Try saving again, which runs retryProcessing', async () => {
+    const api = installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        canRetry: true,
+        status: [{ key: 'Error_ProcessRecording', args: ['disk full'], severity: 'error' }],
+        liveText: '',
+      }),
+      'recording.retryProcessing': () => ({ started: true }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Try saving again' }));
+    expect(api.named('recording.retryProcessing')).toHaveLength(1);
+  });
+
+  it('offers no retry when nothing can be retried', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    expect(screen.queryByRole('button', { name: 'Try saving again' })).toBeNull();
+  });
+});
+
+describe('RecordRoute live ask (spec 2.8, items 113 and 128)', () => {
+  const recording = {
+    ...idleState,
+    phase: 'Recording' as const,
+    isRecording: true,
+    title: 'Live take',
+  };
+  const answerOf = (extra: Record<string, unknown>) => ({
+    isAnswering: false,
+    text: '',
+    error: null,
+    usedWeb: false,
+    canUseWebSearch: true,
+    ...extra,
+  });
+
+  it('shows the dock under the transcript and the answer card beside it', async () => {
+    installApi({ 'recording.getState': () => ({ ...recording, liveText: '' }) });
+    mount();
+    const box = await screen.findByRole('textbox', { name: 'Type a question' });
+    expect(box).toHaveAttribute('id', 'TxtLiveAsk');
+    expect(box).toHaveAttribute('placeholder', 'Type a question, then press Ctrl+Enter');
+    expect(screen.queryByTestId('answer-card')).toBeNull();
+    act(() => {
+      applyAnswer(answerOf({ text: 'Because of the budget.', usedWeb: true }));
+    });
+    const card = screen.getByTestId('answer-card');
+    expect(within(card).getByRole('heading', { name: 'Answer' })).toBeInTheDocument();
+    expect(card).toHaveTextContent('Because of the budget.');
+    expect(card).toHaveTextContent('Searched the web');
+  });
+
+  it('has no dock outside a recording and no armed question controls', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    expect(screen.queryByRole('textbox', { name: 'Type a question' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Dismiss the detected question' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Answer the detected question' })).toBeNull();
   });
 });

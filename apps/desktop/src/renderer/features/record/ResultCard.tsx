@@ -10,9 +10,12 @@ import { Button, Icon } from '../../ui';
 export function ResultCard({
   title,
   onOpen,
+  onCancelSummary = null,
 }: {
   readonly title: string;
   readonly onOpen: () => void;
+  /** Set while the summary runs in the background (B-21): a quiet way to stop it. */
+  readonly onCancelSummary?: (() => void) | null;
 }) {
   const t = useT();
   return (
@@ -25,6 +28,11 @@ export function ResultCard({
       <p className="min-w-0 flex-1 truncate text-ui-lg font-medium text-ink" title={title}>
         {title}
       </p>
+      {onCancelSummary === null ? null : (
+        <Button variant="quiet" size="sm" data-testid="BtnCancelSummary" onClick={onCancelSummary}>
+          {t('Ui_CancelSummary')}
+        </Button>
+      )}
       <Button variant="primary" onClick={onOpen} data-testid="BtnOpenResult">
         {t('RecordPage_Open.Content')}
       </Button>

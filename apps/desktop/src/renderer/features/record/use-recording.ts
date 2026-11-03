@@ -280,3 +280,23 @@ export async function cancelProcessing(): Promise<void> {
     // The run goes on.
   }
 }
+
+/** B-21: cancels the summary that keeps running after the hand-off, without touching the meeting. */
+export async function cancelBackgroundSummary(meetingId: string): Promise<boolean> {
+  try {
+    const result = await window.vozella.invoke('recording.cancelProcessing', { meetingId });
+    return result.cancelled;
+  } catch {
+    return false;
+  }
+}
+
+/** B-11: runs the pipeline again on the audio of a take whose first save failed. */
+export async function retryProcessing(): Promise<boolean> {
+  try {
+    const result = await window.vozella.invoke('recording.retryProcessing', {});
+    return result.started;
+  } catch {
+    return false;
+  }
+}

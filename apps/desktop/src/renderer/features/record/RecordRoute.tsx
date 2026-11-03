@@ -2,10 +2,13 @@ import { defaultMeetingTitle } from '@vozella/core';
 import { FileUp, Mic } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
-import { Button, Progress, SectionHeader } from '../../ui';
+import { Button, SectionHeader } from '../../ui';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
 import { useEngineStatus } from '../transcription/use-engine-status';
+import { AnswerCard } from './AnswerCard';
+import { LiveAskDock } from './LiveAskDock';
 import { LiveCanvas } from './LiveCanvas';
+import { ProcessingBar, RetryAction } from './ProcessingBar';
 import { NotepadPanel } from './notepad/NotepadPanel';
 import { RecordIdle } from './RecordIdle';
 import { buildDestinations } from './destinations';
@@ -21,14 +24,17 @@ import { SetupChecklist } from './SetupChecklist';
 import { StatusBars, useStatusText } from './StatusBars';
 import { useEnsureReady } from './use-ensure-ready';
 import {
+  cancelBackgroundSummary,
   cancelProcessing,
   connectRecording,
   importRecording,
+  retryProcessing,
   setFolderId,
   setTitle,
   startRecording,
   useRecordingStore,
 } from './use-recording';
+import { useLiveAskStore } from './use-live-ask';
 import { useTakeNotesRequest } from './use-take-notes';
 
 const NO_SELECTION: SourcesSelection = {
@@ -77,6 +83,7 @@ export function RecordRoute() {
   const [selection, setSelection] = useState<SourcesSelection>(NO_SELECTION);
   const { status: engine } = useEngineStatus();
   const { ensureReady, dialogs } = useEnsureReady();
+  const answer = useLiveAskStore((s) => s.answer);
   const width = useWindowWidth();
 
   useEffect(() => connectRecording(), []);
@@ -90,6 +97,10 @@ export function RecordRoute() {
     !active && state?.lastMeeting && state.lastMeeting.id !== store.clearedMeetingId
       ? state.lastMeeting
       : null;
+
+  // After the hand-off the summary runs on its own; main's status says so (B-21).
+  const summarizing =
+    !active && (state?.status ?? []).some((message) => message.key === 'Status_GeneratingSummary');
 
   const flags = deriveRecordLayout({
     isRecording,
@@ -210,6 +221,13 @@ export function RecordRoute() {
         ) : null}
 
         {!active ? <StatusBars messages={messages} scope="idle" /> : null}
+        {!active && state?.canRetry ? (
+          <RetryAction
+            onRetry={() => {
+              void retryProcessing();
+            }}
+          />
+        ) : null}
       </RecordIdle>
 
       {isRecording && state ? (
@@ -223,7 +241,13 @@ export function RecordRoute() {
             sources={selection.summary}
             statusText={captionText}
             emptyText={emptyText}
-            side={<NotepadPanel maxHeight={panels.notesMaxHeight} />}
+            side={
+              <div className="flex min-w-0 flex-col gap-4">
+                <AnswerCard answer={answer} />
+                <NotepadPanel maxHeight={panels.notesMaxHeight} />
+              </div>
+            }
+            dock={<LiveAskDock enabled={state.phase === 'Recording'} />}
             sideBySide={panels.sideBySide}
           />
         </>
@@ -237,20 +261,11 @@ export function RecordRoute() {
           data-testid="record-session"
         >
           <div className="flex min-w-0 flex-col gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button data-testid="BtnCancelProcessing" onClick={() => void cancelProcessing()}>
-                {t('RecordPage_CancelProcessing.Content')}
-              </Button>
-              <p
-                role="status"
-                aria-live="polite"
-                className="min-w-0 flex-1 text-ui-lg text-ink"
-                data-testid="recording-status"
-              >
-                {statusText}
-              </p>
-            </div>
-            <Progress value={null} label={statusText} />
+            <ProcessingBar
+              statusText={statusText}
+              canCancel={(state?.isProcessing ?? false) || busy === 'importing'}
+              onCancel={() => void cancelProcessing()}
+            />
             <StatusBars messages={messages} scope="session" />
             {flags.showTranscriptCanvas ? (
               <LiveCanvas
@@ -267,7 +282,10 @@ export function RecordRoute() {
               />
             ) : null}
           </div>
-          <NotepadPanel />
+          <div className="flex min-w-0 flex-col gap-4">
+            <AnswerCard answer={answer} />
+            <NotepadPanel />
+          </div>
         </div>
       ) : null}
 
@@ -277,6 +295,13 @@ export function RecordRoute() {
           onOpen={() => {
             void openMeeting(savedMeeting.id);
           }}
+          onCancelSummary={
+            summarizing
+              ? () => {
+                  void cancelBackgroundSummary(savedMeeting.id);
+                }
+              : null
+          }
         />
       ) : null}
 

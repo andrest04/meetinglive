@@ -5,6 +5,8 @@ import { Library, Mic, Settings, type LucideIcon } from 'lucide-react';
 import { readStored, writeStored } from '../../app/preference-storage';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
+import { CloseDialogs } from '../record/CloseDialogs';
+import { connectLiveAsk } from '../record/use-live-ask';
 import { CallPromptBar } from './CallPromptBar';
 import { Icon, Mark, Splitter, cn } from '../../ui';
 
@@ -73,6 +75,8 @@ function storedSidebarWidth(): number {
 export function AppShell() {
   const t = useT();
   useWorkspaceNavigation();
+  // The live answer and the close dialogs belong to the window, not to one page.
+  useEffect(() => connectLiveAsk(), []);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   // The library has a folder pane beside its list, so it gets a wider column than the documents.
   const wide = pathname === '/library' || pathname === '/record';
@@ -120,6 +124,7 @@ export function AppShell() {
           </>
         }
       />
+      <CloseDialogs />
     </div>
   );
 }

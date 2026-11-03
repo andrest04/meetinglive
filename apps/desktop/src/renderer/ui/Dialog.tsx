@@ -16,6 +16,8 @@ export interface DialogProps {
   readonly actions?: ReactNode;
   /** What takes focus on open. Defaults to the first control; destructive confirmations pass Cancel. */
   readonly initialFocus?: RefObject<HTMLElement | null>;
+  /** False for a dialog that only informs while work runs: no close button, Escape does nothing. */
+  readonly dismissible?: boolean;
 }
 
 /** Modal: focus is trapped, Escape closes, focus returns to what opened it. */
@@ -28,9 +30,20 @@ export function Dialog({
   children,
   actions,
   initialFocus,
+  dismissible = true,
 }: DialogProps) {
   return (
-    <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
+    <BaseDialog.Root
+      open={open}
+      onOpenChange={
+        dismissible
+          ? onOpenChange
+          : (next, details) => {
+              if (next) onOpenChange(next);
+              else details.cancel();
+            }
+      }
+    >
       <BaseDialog.Portal>
         <BaseDialog.Backdrop
           className={cn(
@@ -58,9 +71,11 @@ export function Dialog({
                 </BaseDialog.Description>
               ) : null}
             </div>
-            <BaseDialog.Close
-              render={<IconButton label={closeLabel} icon={X} size="sm" tooltip={false} />}
-            />
+            {dismissible ? (
+              <BaseDialog.Close
+                render={<IconButton label={closeLabel} icon={X} size="sm" tooltip={false} />}
+              />
+            ) : null}
           </div>
           {children ? <div className="overflow-y-auto">{children}</div> : null}
           {actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
