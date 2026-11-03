@@ -22,5 +22,17 @@
   "Ui_LibraryFolderShared": "Esta carpeta contiene una biblioteca de una versión anterior. Ambas versiones leen y escriben los mismos archivos.",
   "Ui_LibraryFolders": "Carpetas",
   "Ui_LibraryFolderActions": "Acciones de la carpeta",
-  "Ui_LibraryOpenFailed": "No se pudo abrir la carpeta: {0}"
+  "Ui_LibraryOpenFailed": "No se pudo abrir la carpeta: {0}",
+  "Ui_SettingsLoadFailed": "No se pudieron cargar los ajustes. {0}",
+  "Ui_SettingsLoading": "Cargando ajustes",
+  "Ui_SettingsSaveFailed": "Este ajuste no se guardó. {0}",
+  "Ui_SettingsRecovered": "No se pudo leer el archivo de ajustes, así que se usan los valores predeterminados. El archivo dañado se guardó en {0}.",
+  "Ui_ModelDownloadFailed": "No se pudo descargar {0}. {1}",
+  "Ui_ModelDeleteFailed": "No se pudo eliminar {0}. {1}",
+  "Ui_ModelDeleteBusy": "{0} se está descargando. Cancela la descarga primero.",
+  "Ui_ModelMissing": "El modelo seleccionado {0} no está en este equipo. Descárgalo de nuevo o elige otro.",
+  "Ui_ModelCancelDownload": "Cancelar descarga",
+  "Ui_RestartFailed": "Vozella no pudo reiniciarse. {0}",
+  "Ui_CliCheckAgain": "Comprobar de nuevo",
+  "Ui_XaiRetry": "Intentar de nuevo"
 }

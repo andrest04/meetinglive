@@ -22,5 +22,17 @@
   "Ui_LibraryFolderShared": "This folder holds a library from an earlier version. Both versions read and write the same files.",
   "Ui_LibraryFolders": "Folders",
   "Ui_LibraryFolderActions": "Folder actions",
-  "Ui_LibraryOpenFailed": "The folder could not be opened: {0}"
+  "Ui_LibraryOpenFailed": "The folder could not be opened: {0}",
+  "Ui_SettingsLoadFailed": "The settings could not be loaded. {0}",
+  "Ui_SettingsLoading": "Loading settings",
+  "Ui_SettingsSaveFailed": "This setting was not saved. {0}",
+  "Ui_SettingsRecovered": "Your settings file could not be read, so the defaults are in use. The damaged file was kept at {0}.",
+  "Ui_ModelDownloadFailed": "Could not download {0}. {1}",
+  "Ui_ModelDeleteFailed": "Could not delete {0}. {1}",
+  "Ui_ModelDeleteBusy": "{0} is downloading. Cancel the download first.",
+  "Ui_ModelMissing": "The selected model {0} is not on this PC. Download it again or choose another.",
+  "Ui_ModelCancelDownload": "Cancel download",
+  "Ui_RestartFailed": "Vozella could not restart. {0}",
+  "Ui_CliCheckAgain": "Check again",
+  "Ui_XaiRetry": "Try again"
 }

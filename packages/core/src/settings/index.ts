@@ -11,3 +11,4 @@ export * from './xai-account';
 export * from './exit-gate';
 export * from './notices';
 export * from './page-service';
+export * from './sections';
