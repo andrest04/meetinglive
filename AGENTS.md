@@ -40,7 +40,7 @@ Project skills live in `.agents/skills/` (see `skills-lock.json`). Claude Code a
 | MSIX, signing, Store, release CI | `winui-packaging` | Packaging is its own pipeline |
 | Machine toolchain missing (WinApp CLI, Developer Mode) | `winui-setup` | **Only** when the user explicitly asks to set up or repair the toolchain |
 
-Exact paths are in `.atl/skill-registry.md`. Example: `C:\Users\andres\Code\meetinglive\.agents\skills\winui-design\SKILL.md`.
+Exact paths are in `.atl/skill-registry.md`. Example: `C:\Code\vozella\.agents\skills\winui-design\SKILL.md`.
 
 ### Project override the skills must not fight
 
