@@ -25,7 +25,6 @@ import {
   FakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
-  FakeLocalModelStore,
   FakeSummaryProvider,
   fakeSummaryOptionsFromEnv,
   FileLocalModelStore,
@@ -77,6 +76,10 @@ import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { SummariesController } from './summaries/summaries-controller';
+import {
+  fakeModelScriptFromEnv,
+  ScriptedFakeModelStore,
+} from './summaries/scripted-fake-model-store';
 import { TranscriptionController } from './transcription/transcription-controller';
 import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
@@ -306,12 +309,16 @@ function main(): void {
 
   // One hardware read per process, shared by the Settings page and the transcription engine.
   const hardware: HardwareProbe = fakeNative
-    ? new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 })
+    ? new FakeHardwareProbe(
+        process.env.VOZELLA_FAKE_NO_GPU === '1'
+          ? { totalRamGb: 16, gpuName: null, gpuVramGb: null }
+          : { totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 },
+      )
     : new SystemHardwareProbe();
 
   // The model folder and the CLI probe are shared by the Settings page and the summary module.
   const summaryModels = fakeNative
-    ? new FakeLocalModelStore()
+    ? new ScriptedFakeModelStore(fakeModelScriptFromEnv(process.env))
     : new FileLocalModelStore({ directory: path.join(paths.appData, 'SummaryModels') });
   const summaryCli = fakeNative ? new FakeCliProbe(new Set(['claude'])) : new PathCliProbe();
 

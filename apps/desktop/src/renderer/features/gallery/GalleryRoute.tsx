@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { isThemePreference, useTheme } from '../../app/theme';
+import { SetupWizardDialog } from '../summaries/SetupWizardDialog';
+import type { WizardMode } from '../summaries/wizard-state';
 import {
   Badge,
   Button,
@@ -114,6 +116,7 @@ export function GalleryRoute() {
   const [folder, setFolder] = useState<string | null>('clients-a');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [progress, setProgress] = useState(64);
+  const [wizard, setWizard] = useState<WizardMode | null>(null);
 
   const menuEntries: MenuEntry[] = [
     { id: 'rename', label: 'Rename', icon: Pencil, shortcut: 'F2', onSelect: () => undefined },
@@ -394,6 +397,32 @@ export function GalleryRoute() {
             action={<Button variant="secondary">Record a meeting</Button>}
           />
         </div>
+      </Section>
+
+      <Section title="Summary setup wizard">
+        <Row>
+          <Button
+            onClick={() => {
+              setWizard('choose');
+            }}
+          >
+            Open the wizard
+          </Button>
+          <Button
+            onClick={() => {
+              setWizard('local-only');
+            }}
+          >
+            Open on the model step
+          </Button>
+        </Row>
+        <SetupWizardDialog
+          open={wizard !== null}
+          mode={wizard ?? 'choose'}
+          onFinished={() => {
+            setWizard(null);
+          }}
+        />
       </Section>
     </div>
   );

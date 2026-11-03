@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, SectionHeader, cn } from '../../ui';
 import { SummaryTab } from '../summaries/SummaryTab';
+import { useSummarySetup } from '../summaries/use-summary-setup';
 import { RetranscribeControl } from '../transcription/RetranscribeControl';
 
 /**
@@ -15,6 +16,7 @@ export function SessionRoute() {
   const t = useT();
   const [meeting, setMeeting] = useState<MeetingRecordDto | null | undefined>(undefined);
   const [tab, setTab] = useState<'Transcript' | 'Summary'>('Transcript');
+  const setup = useSummarySetup();
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -60,11 +62,12 @@ export function SessionRoute() {
         <>
           <SectionHeader level={1} title={meeting.title} />
           {tab === 'Summary' ? (
-            <SummaryTab key={meeting.id} meetingId={meeting.id} />
+            <SummaryTab key={meeting.id} meetingId={meeting.id} runSetup={setup.runSetup} />
           ) : (
             <p className="text-ui-lg text-ink-muted">{t('SessionPage_TabTranscript.Text')}</p>
           )}
           <RetranscribeControl meetingId={meeting.id} meetingTitle={meeting.title} />
+          {setup.dialog}
         </>
       )}
     </section>

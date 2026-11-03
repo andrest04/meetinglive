@@ -303,9 +303,39 @@ test('with no engine set up the run ends as setup cancelled and the file is unto
     await expect(page.getByTestId('BtnGenerateSummary')).toBeVisible();
     const before = fs.readFileSync(fileOf(launched.dataRoot, FRESH), 'utf8');
     await page.getByTestId('BtnGenerateSummary').click();
+    // The Local engine has no model, so the wizard opens on the model step; leaving it cancels.
+    const wizard = page.getByRole('dialog', { name: 'Set up summary generation' });
+    await expect(wizard.getByText('Choose a model to generate summaries')).toBeVisible();
+    await wizard.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByTestId('TxtSummaryStatus')).toContainText('Setup cancelled.');
     await expect(page.getByTestId('BtnGenerateSummary')).toBeEnabled();
     expect(fs.readFileSync(fileOf(launched.dataRoot, FRESH), 'utf8')).toBe(before);
+  } finally {
+    await launched.close();
+  }
+});
+
+test('with no model the wizard downloads one and the run goes on to a summary', async () => {
+  const launched = await launchApp({ VOZELLA_E2E_SHOW: '1' }, seed);
+  try {
+    const page = await launched.app.firstWindow();
+    await expect(page.getByRole('navigation')).toBeVisible();
+    await page.evaluate(async (id) => {
+      await window.vozella.invoke('workspace.dispatch', {
+        action: { type: 'selectMeeting', id },
+      });
+      await window.vozella.invoke('workspace.dispatch', {
+        action: { type: 'openSession', tab: 'Summary' },
+      });
+    }, FRESH);
+    await expect(page.getByTestId('BtnGenerateSummary')).toBeVisible();
+    await page.getByTestId('BtnGenerateSummary').click();
+    await page.getByTestId('BtnDownloadModel').click();
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByTestId('TxtSummaryStatus')).toContainText('Summary generated.');
+    expect(fs.readFileSync(fileOf(launched.dataRoot, FRESH), 'utf8')).toContain(
+      'The team went over the plan',
+    );
   } finally {
     await launched.close();
   }

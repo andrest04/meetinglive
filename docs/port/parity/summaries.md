@@ -424,6 +424,36 @@ Decisions (S17):
 - **Title.** The renderer reloads the tab after a generated outcome; the title comes from main as before (a title the user set is kept, a placeholder is renamed).
 - **Screenshots.** `docs/port/screens/summaries/generate-*` in light and dark (bar, templates, more menu, copied notice, confirm dialog, running, done) and the confirm dialog in Spanish.
 
+### Setup wizard (S18)
+
+| #   | Item                                                       | Status   | Notes                                                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 126 | Title, Cancel, size and one panel per state                | done     | `SetupWizardDialog` on the shared `Dialog` (30 rem wide, content scrolls). `Setup_Title.*`; Cancel is always in the footer. States are the reducer phases `ChoosingEngine`, `DetectingHardware`, `SelectingModel`, `Downloading`, `CheckingCli`, `Completed` (closes at once, no Done panel). |
+| 127 | Engine rows in order                                       | improved | Claude Code, Codex, Local models, with the `Setup_*` names and hints and `ProviderMark` (Cpu icon for Local). The Grok row is dropped (owner decision 2026-11-03, may return later). Test ids `BtnEngineClaudeCode`, `BtnEngineCodex`, `BtnEngineLocal`.                                      |
+| 128 | Local choice reads hardware, default selection             | done     | `summaries.hardware` gives rows with fit and downloaded flag and `defaultFileName` (first downloaded, else first Recommended, else first); the reducer falls back to the first row.                                                                                                           |
+| 129 | Hardware line with and without GPU                         | done     | `hardwareLine`: `Hardware_WithGpu` when VRAM is above 0, else `Hardware_NoGpu`. Numbers print without padding, as .NET did.                                                                                                                                                                   |
+| 130 | Model rows                                                 | done     | Display name (`Model_Downloaded` when on disk), use case, `Model_SpeedQuality` with `0.#` GB, fit badge. All labels are catalog keys resolved when drawn (B20 UI half); a locale change relabels an open dialog.                                                                              |
+| 131 | A downloaded model finishes at once                        | done     | The primary button saves it through `summaries.chooseLocalModel` and completes with no download panel. The button, not the row click, finishes it, as in WinUI.                                                                                                                               |
+| 132 | Downloading panel, cancel, failure                         | improved | Determinate `Progress` plus `Download_ModelProgress`, fed by `settings.modelEvent`. B6 and B7 below.                                                                                                                                                                                          |
+| 133 | Finish saves model and provider Local, resolves the caller | improved | Main writes both in one serialized update (`chooseLocalModel`). The wizard resolves `{ kind: 'Local', fileName }`, not a path: the renderer has no use for the path and the contract does not return it.                                                                                      |
+| 136 | xAI hand-off                                               | dropped  | owner decision 2026-11-03, may return later.                                                                                                                                                                                                                                                  |
+| 137 | Local-only entry                                           | done     | `mode: 'local-only'` starts the reducer on `DetectingHardware`, so the chooser never renders (B33). `mode: 'choose'` starts on the chooser.                                                                                                                                                   |
+| 138 | Settings writes serialized                                 | done     | The wizard writes nothing itself; `chooseLocalModel` goes through `SettingsStore.update` in main (B19).                                                                                                                                                                                       |
+| 189 | Fit badge colors from brand tokens                         | improved | Ink only, icon and words: Recommended (check, neutral fill), May be slow (clock, outline), Not recommended (alert icon, full ink border). No `signal` red; a test asserts no red classes.                                                                                                     |
+
+Decisions (S18):
+
+- **Stale answers.** The reducer numbers every request (`attempt`). An answer carries its number and is dropped if the wizard moved on, so a late answer after Cancel download, after a retry, or after the dialog closed cannot change the screen or finish the wizard. `downloadCancelled` carries the attempt too, so an old cancelled answer cannot stop a newer download.
+- **Cancel semantics.** Cancel download returns to the list at once and asks main to cancel through `summaries.cancelLocalModel` (the shared `LocalModelsService`). Closing the dialog (Cancel, Escape, close button) does the same and reports `null`. Main saves only after a finished download, so a cancel saves nothing. If the file had already finished at the instant of the click, main still saves the model; the wizard has closed by then and `runSetup` already resolved `cancelled`.
+- **Retry.** After a failure the list shows the `Error_DownloadModel` notice and the primary button reads `Ui_XaiRetry` ("Try again"). Choosing another row clears the notice.
+- **Hardware read failure.** A thrown `summaries.hardware` call shows the message with a Try again on the detection step. Main itself never throws here (a failed probe gives no fit badges).
+- **CLI slot.** `SetupWizardDialog` takes `renderCliPanel({ kind, onBack, onReady })` for `CheckingCli`. Without it the state shows only a Back button; S19 supplies the panel and calls `onReady` after `summaries.chooseCli` saves.
+- **Host.** `useSummarySetup` (mounted in `SessionRoute`) opens the wizard in `local-only` mode for a Local `needs-setup` and resolves `completed` or `cancelled`. A CLI request resolves `cancelled` until S19.
+- **Chooser entry.** Nothing in the app opens `mode: 'choose'` yet. The component gallery has two dev-only buttons for it, which the e2e uses. S19 or S20 decides where the chooser belongs (Settings provider section or the first-run gate).
+- **Fake build scripting.** `VOZELLA_FAKE_MODEL_STEP_MS`, `VOZELLA_FAKE_MODEL_FAIL`, `VOZELLA_FAKE_MODEL_FAIL_COUNT`, `VOZELLA_FAKE_MODEL_PRESENT` (comma list) and `VOZELLA_FAKE_NO_GPU=1` script the fake model folder and hardware (`ScriptedFakeModelStore`). They are read only in the fake native build.
+- **Screenshots.** `docs/port/screens/summaries/wizard-{engine,models,downloading,failed}-{light,dark}.png`, and `wizard-{engine,models}-es.png`.
+- **Verification.** Reducer and component tests (jsdom) and `e2e/summaries-wizard.spec.ts` (10 specs: chooser order and no Grok, GPU and no-GPU lines, rows, cancel and close during a download with nothing saved, finish saves model and Local, downloaded model finishes at once, failure with retry, Spanish, axe on every panel). Pending-real-validation: a real download over the network and a screen reader pass.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -460,6 +490,10 @@ Decisions (S17):
 - **B16** (S17): the copy message has no error title and a success dismisses itself after 4 s.
 - **B28** (S17): the failure text shown in the UI is the localized sentence, never an English exception message.
 - **B34** (S17): "Setup cancelled." is shown only when the setup was cancelled; other outcomes have their own text.
+- **B6** (S18): the download can be cancelled with a Cancel download button and by closing the dialog; main cancels the shared transfer and saves nothing (e2e reads `settings.json`).
+- **B7** (S18): a failed download returns to the model list with a visible `Error_DownloadModel` notice and a Try again button.
+- **B20** (S18, UI half): the wizard resolves every label key when drawn; tested in Spanish.
+- **B33** (S18): local-only mode opens on hardware detection, the chooser is never rendered (tested).
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -503,6 +537,9 @@ Decisions (S17):
 - S16 to the shell or main: opening links from a summary needs a `setWindowOpenHandler` that passes http and https URLs to `shell.openExternal`; today they are denied. Pending-real-validation: forced-colors rendering and a screen reader pass were not run.
 - S17 to S18 and S19: pass `runSetup` to `<SummaryTab>` (mounted in `SessionRoute`). It receives `{ kind, reason }` from the `needs-setup` outcome, opens the Local wizard or the CLI dialog, and resolves `completed` when the engine is ready or `cancelled` when the user closes it. Show a failed download in the dialog itself.
 - S17 to the session module: `SummaryTab` shows the status line and the copy message itself; a header-level copy command can use the same `summaries.writeClipboard` channel.
+- S18 to S19: pass `renderCliPanel` to `SetupWizardDialog` (or extend `useSummarySetup`) to build the CheckingCli panel with `summaries.checkCli` and `summaries.chooseCli`; call `onReady` when the CLI is saved and `onBack` for Back. `useSummarySetup` resolves a CLI `needs-setup` as `cancelled` until then.
+- S18 to S20: decide where `mode: 'choose'` is opened from (Settings provider section or a first-run gate). The gallery buttons are only a dev entry.
+- S18 to the final review: no real network download was run; the 1B model integration of S11 covers the runtime side.
 
 ## Dropped by the owner
 
