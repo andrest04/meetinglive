@@ -228,11 +228,11 @@ B-2, B-4, B-9, B-10, B-23, B-29, B-31, B-32 (main half; see the rows). B-15 (met
 | 126 | Streaming with 80 ms flush, no publish before visible text, trim, empty-answer error, used-web flag.           | R7    | done | stream in LiveAskSession: no publish before visible text, trimStart first, then every 80 ms on the injected clock, trimmed final, empty error, usedWeb |
 | 127 | Stop and Discard cancel any running answer and judgment; session reset at Start.                               | R7    | done | LiveAsk.hooks wired into RecordingService: reset at start, cancel at stop and discard (recording-service.test.ts) |
 | 128 | Answer card with heading, web badge, selectable text, max height 160.                                          | R7    | open     |                                                                                                                                                                                                                                                |
-| 129 | Notes box with header, placeholder, wrapping, live binding; visible per ShowSessionNotes.                      | R8    | open     |                                                                                                                                                                                                                                                |
+| 129 | Notes box with header, placeholder, wrapping, live binding; visible per ShowSessionNotes.                      | R8    | improved | Notes box is a TipTap editor (hairline edge, 15 px reading type, id and test id TxtRecordingNotes, accessible name Notes, existing placeholder key). Shown while recording or processing (no calendar condition). Tests: Notepad.test.tsx, use-notepad.test.tsx, e2e recording-notepad.spec.ts. |
 | 130 | Notes cleared at Start unless a coming-up note is open; linked meeting notes restored.                         | R8    | done | Notes are held in main, cleared at Start, at Discard and when the run releases the page (B-10). Restoring notes of a linked meeting is a calendar feature and stays cut. |
 | 131 | Notes saved trimmed as ## Personal Notes, null when blank; read live at each save through the run callback.    | R8    | done | Notes are read live through the run host callback; trimmed and null when blank at each save (pipeline). |
 | 132 | Run keeps a notes snapshot after hand-off; next take's notes never leak into it.                               | R8    | improved | R4 half: PipelineRun keeps the notes snapshot taken at stop; CurrentSessionNotes returns it once the run lost the page. R8 owns the notepad. |
-| 133 | Prep notes saved to the linked meeting on blur and on navigate-away when idle. FIX B-8: persist or keep a d... | R8    | open     |                                                                                                                                                                                                                                                |
+| 133 | Prep notes saved to the linked meeting on blur and on navigate-away when idle. FIX B-8: persist or keep a d... | R8    | dropped | owner decision 2026-11-03, may return later (calendar cut; prep notes belong to Coming up). |
 | 134 | Notes passed as raw notes to the summarizer enhancement context (only when non-blank).                         | R8    | done     | Live host.currentSessionNotes read at the summary call (R3). Test: summary-stage.test.ts "reads the session notes at call time". Notes clearing and snapshot rules stay with R4/R5. |
 | 135 | First save before any step that can fail, per ShouldSaveBeforeTranscribing; draft vs existing content rules.   | R2    | done | packages/core/src/recording/pipeline/pipeline.ts part1 step 1; rules.test.ts (4 RecordingPipelineRulesTests cases); pipeline.test.ts "first save" (draft saves null summary, no draft keeps existing, same audio saves nothing first) |
 | 136 | Transcript stamped with Recorded/Ended headers on every save; EnsureEndedHeader idempotent rules.              | R2    | done | ensureEndedHeader in transcription/stamp-format.ts, tests in transcription/transcript-text.test.ts (EnsureEndedHeader, 12 stamp cases); pipeline.test.ts "stamps the Recorded and Ended header" at every save |
@@ -307,9 +307,9 @@ B-2, B-4, B-9, B-10, B-23, B-29, B-31, B-32 (main half; see the rows). B-15 (met
 | B-5  | Only 2-channel sources are downmixed. A device or loopback with more than 2 channels (5.1/7.1 ren... | R12   | open     |                                                              |
 | B-6  | Every save builds a fresh record and does not copy JevAnalysis; saves 4-5 in a re-transcribe or a... | R2    | fixed | fixed in R2: record carries Jev, notes, attendees, calendar ids, template (item 151) |
 | B-7  | A new transcript save during re-transcription writes summary = null, actionItems = [] before the ... | R2    | fixed | fixed in R2: old summary kept until the new one succeeds (item 153) |
-| B-8  | Prep notes typed in a coming-up note whose event has no saved meeting are not persisted anywhere ... | -     | dropped  | owner decision 2026-11-03, may return later (calendar cut)   |
+| B-8  | Prep notes typed in a coming-up note whose event has no saved meeting are not persisted anywhere ... | -     | dropped | owner decision 2026-11-03, may return later (calendar cut) |
 | B-9  | CreateLibraryAudioPathAsync passes _ => null as the id lookup, so the allocator can never recogni... | R5    | fixed | R5: allocateAudioPath with the real id lookup (audio-path.test.ts). |
-| B-10 | Stale notes leak into the next take or another meeting: after a run resets, SessionNotes keeps th... | R8    | fixed | R5: notes cleared at Start, Discard and release (tests). |
+| B-10 | Stale notes leak into the next take or another meeting: after a run resets, SessionNotes keeps th... | R8    | fixed | R5 clears the notes in main at Start, Discard and release. R8 UI half: the editor re-seeds from recording.state when not focused, so the next take never shows the previous text (use-notepad.test.tsx, Notepad.test.tsx, e2e discard then start). |
 | B-11 | In the first-save-failed-with-no-draft case (store fault on the first save) the WAV exists but no... | R2    | fixed | fixed in R2: first-save-failed outcome, re-runnable (item 154) |
 | B-12 | Error detection is a string-prefix test. Capture failure messages (Error_OutputCaptureFailed, Err... | R1    | improved | domain half done in R1 (typed severity); renderer half R9    |
 | B-13 | While recording, the bar named "Microphone level" shows the RMS of the mixed stream (mic + meetin... | R10   | open     |                                                              |
@@ -394,3 +394,34 @@ B-2, B-4, B-9, B-10, B-23, B-29, B-31, B-32 (main half; see the rows). B-15 (met
 - R11: the dock (question box, Ctrl+Enter, web toggle with `LiveCopilot_WebTooltipOn/Off`, progress ring, error bar `RecordPage_LiveAnswerError.Title`, answer card with web badge) over `recording.ask`, `recording.cancelAsk` and the `recording.answer` event. Also read `canUseWebSearch` from the first `recording.answer` after take start (item 113, 128).
 - live-copilot module: the pill chips call `recording.ask` with `preset: true` and the prompts `LiveCopilot_PromptMissed` and `LiveCopilot_PromptExplain`; import the core live-ask code instead of porting 3.1 to 3.3 again.
 - A page that reloads mid-answer has no `recording.getAnswer`; add one in R11 if the dock needs it (the state is `LiveAsk.session.current`).
+
+## Decisions (R8)
+
+- Editor: TipTap 3 (`@tiptap/react`, `starter-kit`, `markdown`, `extension-placeholder`, `extension-list` for task lists). The subset is paragraph, headings 1 to 3, bold, italic, strike, code, code block, bullet, ordered and task lists, blockquote, horizontal rule, link. Underline is off because Markdown cannot store it. Links do not open on click and do not autolink.
+- Markdown is the only stored form. `Notepad` pushes `editor.getMarkdown()` (trimmed, empty string when the document is empty) through `recording.setNotes`, debounced 250 ms, flushed on blur and on unmount. Main keeps the text; the pipeline trims and saves null for blank text. `notesForSave` in `notepad-markdown.ts` mirrors that rule for tests.
+- Main owns truth: the editor re-seeds from `recording.state` notes only when it is not focused and has no unsent edit. Main's echo of the text the editor just sent is equal, so nothing is rewritten.
+- Notes loaded from a file are never rewritten unless the user edits them: the editor only pushes after a user edit, so plain text written by the WinUI app keeps its exact bytes until then. Plain text round trips unchanged (tests).
+- The notepad is mounted by `NotepadPanel` inside `RecordRoute` (one line); R9 will place it in the final layout. It is visible while `isRecording || isProcessing` and stays editable while processing.
+- Prep notes and linked-meeting note restore are dropped with the calendar (133, B-8, and the restore half of 130).
+- The Record page still starts takes through `audio.recording.*` until R9, so the e2e starts a take with `recording.start` (the service that owns the notes).
+
+## Accepted lossy cases (R8)
+
+Tested in `notepad-markdown.test.ts`. The meaning is kept; the spelling is the editor's, and only when the user edits the notes in the editor:
+
+- `*` and `+` bullets become `-`; `_a_` and `__b__` become `*a*` and `**b**`; setext headings become `#` headings; indented code becomes a fenced block; closing hashes on a heading are dropped; an ordered list renumbers from its first number.
+- Characters that Markdown reads as syntax (`* _ [ ] \ `` ` ``) are escaped with a backslash and read back as the same text.
+- CRLF and lone CR become LF; trailing whitespace is trimmed at save; a hard break at the very end is lost.
+- Raw HTML is not kept as markup.
+- Lines equal to a meeting section header (`## Summary`, `## Transcript` and the others) survive through the library's `headerEscaping` rule: verified with the real `renderMeetingMarkdown` and `parseMeetingMarkdown` round trip.
+
+## Bugs fixed (R8)
+
+- B-10 UI half: the next take never shows the previous text (editor re-seeds from main when not focused; tested in jsdom and e2e).
+- Typing is never overwritten by a late state event while the editor has focus (test: never replaces what the user is typing).
+
+## Left for other modules (R8)
+
+- R9: place `NotepadPanel` in the final Record layout (side panel at width 1100 or more, below the transcript otherwise) and move the page to `recording.*`.
+- Session views: the same `Notepad` component can edit the notes of a saved meeting; it needs a save path that does not rewrite untouched text.
+- Real e2e of typing during processing waits for R12 (the fake take finishes too fast to hold the processing phase).

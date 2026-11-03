@@ -7,6 +7,7 @@ import { Button, Field, Input, Notice, SectionHeader } from '../../ui';
 import { EngineSetupDialog } from '../transcription/EngineSetupDialog';
 import { LiveTranscript } from '../transcription/LiveTranscript';
 import { useEngineStatus } from '../transcription/use-engine-status';
+import { NotepadPanel } from './notepad/NotepadPanel';
 import { useTake, useTakeNotesRequest } from './use-take';
 
 const NO_SELECTION: SourcesSelection = { microphone: null, processId: null, appName: null };
@@ -130,6 +131,7 @@ export function RecordRoute() {
       ) : shown && engine ? (
         <p className="text-ui-lg text-ink-muted">{t('Ui_LiveSkipped')}</p>
       ) : null}
+      <NotepadPanel />
       <EngineSetupDialog
         open={setupOpen}
         onFinished={(ready) => {
