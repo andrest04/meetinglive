@@ -257,3 +257,108 @@ describe('TranscriptionSection switches', () => {
     ).toBeVisible();
   });
 });
+
+describe('TranscriptionSection speaker download progress', () => {
+  it('draws the bar with the pushed percent while the download runs', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const api = installTranscriptionApi({
+      'transcription.downloadSpeakerModel': () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download Speaker model' }));
+    api.emit('transcription.installProgress', {
+      stage: 'speaker-model',
+      percent: 40,
+      stepIndex: 0,
+      stepCount: 1,
+    });
+    const bar = await screen.findByRole('progressbar', {
+      name: 'Downloading Sortformer speaker model...',
+    });
+    expect(bar).toHaveAttribute('aria-valuenow', '40');
+    api.emit('transcription.installProgress', {
+      stage: 'engine',
+      percent: 90,
+      stepIndex: 0,
+      stepCount: 1,
+    });
+    expect(bar).toHaveAttribute('aria-valuenow', '40');
+    finish({ status: 'ready' });
+    await waitFor(() => {
+      expect(screen.queryByRole('progressbar')).toBeNull();
+    });
+  });
+
+  it('keeps Delete engine disabled while a speaker download runs', async () => {
+    const api = installTranscriptionApi({
+      'transcription.downloadSpeakerModel': () => new Promise(() => undefined),
+    });
+    mount();
+    expect(await screen.findByRole('button', { name: `Delete ${ENGINE}` })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Download Speaker model' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: `Delete ${ENGINE}` })).toBeDisabled();
+    });
+    expect(api.calls.some((c) => c.name === 'transcription.deleteEngine')).toBe(false);
+  });
+
+  it('a failed Download button says so and keeps speaker labels off', async () => {
+    installTranscriptionApi({
+      'transcription.downloadSpeakerModel': () => ({ status: 'failed', message: 'offline' }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download Speaker model' }));
+    expect(await screen.findByText(/Download failed: offline/)).toBeVisible();
+  });
+});
+
+describe('TranscriptionSection status pushes', () => {
+  it('follows a push after mount without asking again', async () => {
+    const api = installTranscriptionApi();
+    mount();
+    expect(await screen.findByText('Installed')).toBeVisible();
+    const asked = api.calls.filter((c) => c.name === 'transcription.getStatus').length;
+    api.emit('transcription.statusChanged', notReady);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: `Download ${ENGINE}` })).toBeEnabled();
+    });
+    expect(api.calls.filter((c) => c.name === 'transcription.getStatus')).toHaveLength(asked);
+  });
+
+  it('a push that lands before the first answer wins over that answer', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    const api = installTranscriptionApi({
+      'transcription.getStatus': () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    });
+    mount();
+    await waitFor(() => {
+      expect(api.calls.some((c) => c.name === 'transcription.getStatus')).toBe(true);
+    });
+    api.emit('transcription.statusChanged', notReady);
+    answer(baseStatus);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: `Download ${ENGINE}` })).toBeEnabled();
+    });
+    expect(screen.getByRole('button', { name: `Delete ${ENGINE}` })).toBeDisabled();
+  });
+});
+
+describe('TranscriptionSection number format', () => {
+  it('writes the dropped percent in the app language', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, liveDroppedPercent: 12.34 }),
+    });
+    render(
+      <Providers locale="es">
+        <TranscriptionSection />
+      </Providers>,
+    );
+    expect(await screen.findByText(/12,3\s?%/)).toBeVisible();
+  });
+});

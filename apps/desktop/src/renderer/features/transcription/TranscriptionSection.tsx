@@ -150,7 +150,7 @@ export function TranscriptionSection() {
           {t('Settings_DownloadEngine.Content')}
         </Button>
         <Button
-          disabled={!anyEngineFile || installing}
+          disabled={!anyEngineFile || installing || speakerBusy !== null}
           aria-label={`${t('Settings_DeleteEngine.Content')} ${t('Settings_NemotronCard.Header')}`}
           onClick={() => {
             void deleteEngine();

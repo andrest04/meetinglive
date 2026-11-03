@@ -1,3 +1,4 @@
+import path from 'node:path';
 import {
   asrWorkerCommandSchema,
   type AsrResultDto,
@@ -43,7 +44,7 @@ export function createAsrWorker(deps: AsrWorkerDeps): (raw: unknown) => Promise<
 
   /** Loads are serialized by the single message loop; a failed load caches nothing, so the next call retries. */
   const libraryFor = (binDir: string): NemoLibrary => {
-    const key = binDir.toLowerCase();
+    const key = path.resolve(binDir).toLowerCase();
     const cached = libraries.get(key);
     if (cached) return cached;
     const library = deps.openLibrary(binDir);

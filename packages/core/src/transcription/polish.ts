@@ -97,6 +97,8 @@ export function stripCodeFences(output: string): string {
   return match ? (match[1] ?? '') : trimmed;
 }
 
+const speakerOf = (line: string): string | null => /\[ Speaker-\d+ \]/.exec(line)?.[0] ?? null;
+
 /** The polished text keeps every line and every stamp, or it is not used (B16). */
 export function polishKeepsStructure(original: string, polished: string): boolean {
   const before = original.split(/\r\n|\n/).filter((l) => l.trim() !== '');
@@ -104,9 +106,8 @@ export function polishKeepsStructure(original: string, polished: string): boolea
   if (before.length !== after.length) return false;
   const stamp = /^(?:\* )?(\[\d+:\d{2}\.\d{2}-\d+:\d{2}\.\d{2}\])/;
   return before.every((line, i) => {
-    const a = stamp.exec(line)?.[1];
-    const b = stamp.exec(after[i] ?? '')?.[1];
-    return a === b;
+    const next = after[i] ?? '';
+    return stamp.exec(line)?.[1] === stamp.exec(next)?.[1] && speakerOf(line) === speakerOf(next);
   });
 }
 
@@ -123,7 +124,9 @@ export async function polishOrKeep(
   try {
     const polished = stripCodeFences(await polisher.polish(transcript, meetingLanguage, signal));
     return polished !== '' && polishKeepsStructure(transcript, polished) ? polished : transcript;
-  } catch {
+  } catch (error) {
+    // A cancel is not a failure: the caller must be able to tell them apart.
+    if (signal?.cancelled) throw error;
     return transcript;
   }
 }

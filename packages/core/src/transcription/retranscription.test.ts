@@ -201,6 +201,14 @@ describe('MeetingRetranscriptionRunner', () => {
     expect(out.results).toHaveLength(1);
   });
 
+  it('resets IsRunning, MeetingId and Status before Finished is raised', async () => {
+    const out = await run(() => undefined);
+    const seen: unknown[] = [];
+    out.runner.onFinished(() => seen.push({ ...out.runner.current }));
+    await out.runner.start(record());
+    expect(seen).toEqual([{ isRunning: false, meetingId: null, status: '' }]);
+  });
+
   it('only one run at a time', async () => {
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {
@@ -297,6 +305,27 @@ describe('transcript polish', () => {
       false,
     );
   });
+  it('B16: a renamed or dropped speaker label fails the structure guard', () => {
+    const original = '[00:00.00-00:01.00] [ Speaker-1 ] Hola.\n[00:01.00-00:02.00] Adiós.';
+    expect(polishKeepsStructure(original, original)).toBe(true);
+    expect(
+      polishKeepsStructure(
+        original,
+        '[00:00.00-00:01.00] [ Speaker-2 ] Hola.\n[00:01.00-00:02.00] Adiós.',
+      ),
+    ).toBe(false);
+    expect(
+      polishKeepsStructure(original, '[00:00.00-00:01.00] Hola.\n[00:01.00-00:02.00] Adiós.'),
+    ).toBe(false);
+  });
+
+  it('polishOrKeep propagates a cancel instead of returning the raw transcript', async () => {
+    const signal = { cancelled: true, onCancel: () => () => undefined };
+    await expect(
+      polishOrKeep({ polish: () => Promise.reject(new Error('cancelled')) }, 'x', 'es', signal),
+    ).rejects.toThrow('cancelled');
+  });
+
   it('B2/B16: polishOrKeep returns the raw transcript on failure or damage', async () => {
     const original = '[00:00.00-00:01.00] hola';
     expect(

@@ -134,6 +134,21 @@ describe('asr worker core', () => {
     expect(opened).toEqual(['C:/engine/bin', 'C:/other/bin']);
   });
 
+  it('treats slash style and a trailing separator as the same folder', async () => {
+    const { rpc, opened } = setup();
+    await rpc({
+      method: 'createRecognizer',
+      recognizerId: 'a',
+      settings: settings('C:/engine/bin'),
+    });
+    await rpc({
+      method: 'createRecognizer',
+      recognizerId: 'b',
+      settings: settings('C:\\engine\\bin\\'),
+    });
+    expect(opened).toHaveLength(1);
+  });
+
   it('maps the latency profile to the encoder right context', async () => {
     const { rpc, library } = setup();
     await rpc({ method: 'createRecognizer', recognizerId: 'live', settings: settings() });

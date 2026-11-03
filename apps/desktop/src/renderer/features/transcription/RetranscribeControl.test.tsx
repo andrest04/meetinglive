@@ -87,6 +87,17 @@ describe('RetranscribeControl', () => {
     ).toBeVisible();
   });
 
+  it('falls back to the localized transcribing status when the runner status is empty', async () => {
+    const api = installTranscriptionApi({
+      'retranscription.availability': () => ({ availability: 'Available' }),
+      'retranscription.getState': () => idle,
+    });
+    mount();
+    await screen.findByRole('button', { name: 'Re-transcribe' });
+    api.emit('retranscription.stateChanged', { isRunning: true, meetingId: 'm1', status: '' });
+    expect(await screen.findByRole('progressbar', { name: 'Transcribing audio...' })).toBeVisible();
+  });
+
   it('shows the percent while it runs, cancels, and tells how it ended', async () => {
     const api = installTranscriptionApi({
       'retranscription.availability': () => ({ availability: 'Available' }),
