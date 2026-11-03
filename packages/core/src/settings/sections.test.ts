@@ -29,7 +29,6 @@ describe('settings sections', () => {
     expect(slots.map((s) => [s.id, s.owner])).toEqual([
       ['typeSafe', 'jev-typesafe'],
       ['recording', 'recording'],
-      ['calendar', 'calendar-detection'],
     ]);
   });
 

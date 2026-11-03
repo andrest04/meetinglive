@@ -7,7 +7,7 @@ import { Button, Field, Input, Notice, SectionHeader } from '../../ui';
 import { EngineSetupDialog } from '../transcription/EngineSetupDialog';
 import { LiveTranscript } from '../transcription/LiveTranscript';
 import { useEngineStatus } from '../transcription/use-engine-status';
-import { useTake } from './use-take';
+import { useTake, useTakeNotesRequest } from './use-take';
 
 const NO_SELECTION: SourcesSelection = { microphone: null, processId: null, appName: null };
 
@@ -47,6 +47,10 @@ export function RecordRoute() {
     if (ready) await begin();
     else setSetupOpen(true);
   };
+
+  useTakeNotesRequest(take.phase, () => {
+    void record();
+  });
 
   return (
     <section className="flex flex-col gap-8">

@@ -5,6 +5,7 @@ import { Library, Mic, Settings, type LucideIcon } from 'lucide-react';
 import { readStored, writeStored } from '../../app/preference-storage';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
+import { CallPromptBar } from './CallPromptBar';
 import { Icon, Mark, Splitter, cn } from '../../ui';
 
 const SIDEBAR_KEY = 'vozella.sidebarWidth';
@@ -112,6 +113,7 @@ export function AppShell() {
                   wide ? 'max-w-[960px]' : 'max-w-[720px]',
                 )}
               >
+                <CallPromptBar />
                 <Outlet />
               </div>
             </main>

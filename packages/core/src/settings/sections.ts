@@ -61,7 +61,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'calendar',
     headingKey: 'Settings_Calendar.Text',
     owner: 'calendar-detection',
-    status: 'slot',
+    status: 'built',
   },
   { id: 'data', headingKey: 'Settings_Data.Text', owner: 'library-storage', status: 'built' },
   { id: 'about', headingKey: null, owner: 'library-storage', status: 'built' },
