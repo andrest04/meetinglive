@@ -90,6 +90,10 @@ describe('recognizer factory', () => {
     expect(selectBackend({ gpuName: 'Intel UHD' })).toBe('cpu');
     expect(hasNvidiaGpu({ gpuName: '  ' })).toBe(false);
     expect(hasNvidiaGpu({ gpuName: null })).toBe(false);
+    expect(hasNvidiaGpu({ gpuName: 'NVIDIA RTX A2000' })).toBe(true);
+    expect(hasNvidiaGpu({ gpuName: 'GeForce GTX 1650' })).toBe(true);
+    expect(hasNvidiaGpu({ gpuName: 'AMD Radeon RX 7800' })).toBe(false);
+    expect(hasNvidiaGpu({ gpuName: 'RTX 3070' })).toBe(false);
   });
 
   it('Create_WhenDiarizationDisabled_DoesNotRequireDiarModel', async () => {

@@ -6,7 +6,7 @@ import path from 'node:path';
 import { CancelSource, SUMMARY_MODELS } from '@vozella/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JsonSettingsStore } from '../library/json-settings-store';
-import { downloadToFile } from './download-to-file';
+import { downloadToFile, sha256OfFile } from './download-to-file';
 import { FileLocalModelStore } from './file-local-model-store';
 import { parseGpuReport, SystemHardwareProbe } from './system-hardware-probe';
 import { PathCliProbe } from './path-cli-probe';
@@ -252,8 +252,47 @@ describe('downloadToFile', () => {
   });
 });
 
+describe('downloadToFile verification (B18)', () => {
+  it('a size mismatch removes the part and never creates the target', async () => {
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 3 });
+      res.end('abc');
+    });
+    try {
+      const target = path.join(dir, 'm', 'a.gguf');
+      await expect(downloadToFile({ url: server.url, target, expectedBytes: 5 })).rejects.toThrow(
+        /expected 5 bytes, got 3/,
+      );
+      expect(fs.existsSync(target)).toBe(false);
+      expect(fs.existsSync(`${target}.part`)).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('the right size and hash move into place; a wrong hash does not', async () => {
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 3 });
+      res.end('abc');
+    });
+    try {
+      const target = path.join(dir, 'm', 'b.gguf');
+      const sha256 = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
+      await expect(
+        downloadToFile({ url: server.url, target, expectedBytes: 3, sha256: '0'.repeat(64) }),
+      ).rejects.toThrow(/SHA-256/);
+      expect(fs.existsSync(target)).toBe(false);
+      await downloadToFile({ url: server.url, target, expectedBytes: 3, sha256 });
+      expect(fs.readFileSync(target, 'utf8')).toBe('abc');
+    } finally {
+      await server.close();
+    }
+  });
+});
+
 describe('FileLocalModelStore', () => {
-  const model = SUMMARY_MODELS[0]!;
+  // The catalog entry with a small pinned size, so no test writes 800 MB.
+  const model = { ...SUMMARY_MODELS[0]!, sizeBytes: 4, sha256: undefined };
 
   it('is downloaded exactly when the file is there; a .part file does not count', async () => {
     const store = new FileLocalModelStore({ directory: path.join(dir, 'SummaryModels') });
@@ -261,7 +300,9 @@ describe('FileLocalModelStore', () => {
     fs.mkdirSync(path.join(dir, 'SummaryModels'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'SummaryModels', `${model.fileName}.part`), 'x');
     expect(await store.isDownloaded(model)).toBe(false);
-    fs.writeFileSync(path.join(dir, 'SummaryModels', model.fileName), 'x');
+    fs.writeFileSync(path.join(dir, 'SummaryModels', model.fileName), 'xxx');
+    expect(await store.isDownloaded(model)).toBe(false);
+    fs.writeFileSync(path.join(dir, 'SummaryModels', model.fileName), 'xxxx');
     expect(await store.isDownloaded(model)).toBe(true);
   });
 
@@ -278,6 +319,56 @@ describe('FileLocalModelStore', () => {
       expect(fs.readFileSync(path.join(directory, model.fileName), 'utf8')).toBe('GGUF');
       expect(percents.at(-1)).toBe(100);
       expect(await store.isDownloaded(model)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('B18: a download of the wrong size leaves no final file and no part', async () => {
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 3 });
+      res.end('GGU');
+    });
+    try {
+      const directory = path.join(dir, 'SummaryModels');
+      const store = new FileLocalModelStore({ directory, urlFor: () => server.url });
+      await expect(
+        store.download(model, () => undefined, new CancelSource().signal),
+      ).rejects.toThrow(/expected 4 bytes, got 3/);
+      expect(fs.existsSync(path.join(directory, model.fileName))).toBe(false);
+      expect(await store.isDownloaded(model)).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('B18: a dropped transfer keeps the .part and the next call resumes with a Range request', async () => {
+    const full = Buffer.from('GGUF');
+    const ranges: (string | undefined)[] = [];
+    const server = await serve((req, res, hit) => {
+      ranges.push(req.headers.range);
+      if (hit === 1) {
+        res.writeHead(200, { 'content-length': 4 });
+        res.write(full.subarray(0, 2));
+        setTimeout(() => res.destroy(), 20);
+        return;
+      }
+      res.writeHead(206, { 'content-length': 2 });
+      res.end(full.subarray(2));
+    });
+    try {
+      const directory = path.join(dir, 'SummaryModels');
+      const store = new FileLocalModelStore({ directory, urlFor: () => server.url });
+      await expect(
+        store.download(model, () => undefined, new CancelSource().signal),
+      ).rejects.toThrow();
+      const part = path.join(directory, `${model.fileName}.part`);
+      expect(fs.readFileSync(part, 'utf8')).toBe('GG');
+      expect(await store.isDownloaded(model)).toBe(false);
+      await store.download(model, () => undefined, new CancelSource().signal);
+      expect(ranges).toEqual([undefined, 'bytes=2-']);
+      expect(fs.readFileSync(path.join(directory, model.fileName), 'utf8')).toBe('GGUF');
+      expect(fs.existsSync(part)).toBe(false);
     } finally {
       await server.close();
     }
@@ -350,6 +441,51 @@ describe('hardware probe', () => {
     expect(queries).toBe(1);
   });
 
+  it('B17: a failed GPU query is not cached, so the next call can find the GPU', async () => {
+    let calls = 0;
+    const probe = new SystemHardwareProbe({
+      totalMemoryBytes: () => 8 * 1024 ** 3,
+      queryGpu: () => {
+        calls += 1;
+        return calls === 1
+          ? Promise.reject(new Error('powershell busy'))
+          : Promise.resolve({ name: 'GPU', vramGb: 8 });
+      },
+    });
+    expect(await probe.detect()).toEqual({ totalRamGb: 8, gpuName: null, gpuVramGb: null });
+    expect(await probe.detect()).toEqual({ totalRamGb: 8, gpuName: 'GPU', gpuVramGb: 8 });
+    await probe.detect();
+    expect(calls).toBe(2);
+  });
+
+  it('B17: a rejected read is not cached either', async () => {
+    let memory = 0;
+    const probe = new SystemHardwareProbe({
+      totalMemoryBytes: () => {
+        memory += 1;
+        if (memory === 1) throw new Error('os failed');
+        return 4 * 1024 ** 3;
+      },
+      queryGpu: () => Promise.resolve({ name: null, vramGb: null }),
+    });
+    await expect(probe.detect()).rejects.toThrow('os failed');
+    expect((await probe.detect()).totalRamGb).toBe(4);
+  });
+
+  it('a GPU-less machine (query succeeded, no adapter) is cached', async () => {
+    let calls = 0;
+    const probe = new SystemHardwareProbe({
+      totalMemoryBytes: () => 8 * 1024 ** 3,
+      queryGpu: () => {
+        calls += 1;
+        return Promise.resolve({ name: null, vramGb: null });
+      },
+    });
+    await probe.detect();
+    await probe.detect();
+    expect(calls).toBe(1);
+  });
+
   it('a failing GPU query still gives the RAM', async () => {
     const probe = new SystemHardwareProbe({
       totalMemoryBytes: () => 8 * 1024 ** 3,
@@ -373,5 +509,15 @@ describe('JsonSettingsStore damage notice (item 101)', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]?.keptAs).toBe(`${file}.corrupt`);
     expect(fs.existsSync(`${file}.corrupt`)).toBe(true);
+  });
+});
+
+// The 1B file the spikes folder holds. Skipped on a machine without it.
+const SPIKE_1B = 'C:/Code/vozella-spikes/llm/work/Llama-3.2-1B-Instruct-Q4_K_M.gguf';
+describe.skipIf(!fs.existsSync(SPIKE_1B))('catalog pins match the real 1B file (B18)', () => {
+  it('has the pinned size and SHA-256', async () => {
+    const model = SUMMARY_MODELS[0]!;
+    expect(fs.statSync(SPIKE_1B).size).toBe(model.sizeBytes);
+    expect(await sha256OfFile(SPIKE_1B)).toBe(model.sha256);
   });
 });

@@ -273,19 +273,39 @@ describe('LocalModelsService: download', () => {
     expect(service.inFlight()).toEqual([]);
   });
 
-  it('B17: a second download of the same file joins the first and starts nothing', async () => {
-    const { service, store } = models();
+  it('B18: two concurrent downloads of one file run one transfer and both see its result', async () => {
+    const { service, store, events } = models();
     let release!: () => void;
     store.gate = new Promise<void>((resolve) => {
       release = resolve;
     });
     const a = service.download(first.fileName);
-    const b = await service.download(first.fileName);
-    expect(b).toEqual({ status: 'ignored', reason: 'already-downloading' });
-    expect(service.inFlight()).toEqual([{ fileName: first.fileName, percent: 100 }]);
+    const b = service.download(first.fileName);
+    expect(service.inFlight()).toEqual([{ fileName: first.fileName, percent: 0 }]);
     release();
-    expect(await a).toEqual({ status: 'done' });
+    expect(await Promise.all([a, b])).toEqual([{ status: 'done' }, { status: 'done' }]);
     expect(store.started).toEqual([first.fileName]);
+    expect(events.flatMap((e) => (e.type === 'progress' ? [e.percent] : []))).toEqual([
+      10, 55, 100,
+    ]);
+    expect(events.filter((e) => e.type === 'finished')).toHaveLength(1);
+    expect(service.inFlight()).toEqual([]);
+  });
+
+  it('B18: a join that arrives mid transfer gets the cancel and failure outcomes too', async () => {
+    const { service, store } = models();
+    store.failDownload = new Error('HTTP 503');
+    const [a, b] = await Promise.all([
+      service.download(first.fileName),
+      service.download(first.fileName),
+    ]);
+    expect(a).toEqual({ status: 'failed', message: 'HTTP 503' });
+    expect(b).toEqual(a);
+    expect(store.started).toEqual([first.fileName]);
+    // After the transfer ends, a new call starts a fresh one.
+    store.failDownload = null;
+    expect(await service.download(first.fileName)).toEqual({ status: 'done' });
+    expect(store.started).toHaveLength(2);
   });
 
   it('different models can download at the same time', async () => {

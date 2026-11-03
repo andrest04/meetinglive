@@ -23,6 +23,7 @@ import {
   normalizeTemplateId,
 } from './note-templates';
 import {
+  FIT_LABEL_KEYS,
   SUMMARY_MODELS,
   formatModelSize,
   rateFor,
@@ -146,6 +147,33 @@ describe('summary model catalog', () => {
     }
   });
 
+  it('B18: pins the exact byte size of every file and the hash of the 1B file only', () => {
+    expect(SUMMARY_MODELS.map((m) => m.sizeBytes)).toEqual([
+      807_694_464, 3_106_738_272, 4_977_171_584, 7_121_861_440,
+    ]);
+    for (const model of SUMMARY_MODELS) {
+      expect(Number.isInteger(model.sizeBytes)).toBe(true);
+      // The rounded GB label agrees with the byte size.
+      expect(Math.round((model.sizeBytes / 1e9) * 100) / 100).toBe(model.fileSizeGb);
+    }
+    expect(SUMMARY_MODELS.map((m) => m.sha256)).toEqual([
+      '6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('B20: the catalog holds label keys, never translated text', () => {
+    for (const model of SUMMARY_MODELS) {
+      for (const key of [model.speedKey, model.qualityKey, model.useCaseKey]) {
+        expect(key).toMatch(/^Model(Speed|Quality|UseCase)[A-Za-z0-9]+$/);
+        expect(key).not.toContain(' ');
+      }
+    }
+    for (const key of Object.values(FIT_LABEL_KEYS)) expect(key).toMatch(/^Fit_[A-Za-z]+$/);
+  });
+
   it('pins every URL, size and catalog key', () => {
     expect(
       SUMMARY_MODELS.map((m) => [
@@ -230,6 +258,33 @@ describe('fit rating', () => {
     expect(rateFor(model, hw(8, 0))).toBe('NotRecommended');
     expect(rateFor(model, hw(8, null))).toBe('NotRecommended');
     expect(rateFor(model, hw(12, 0))).toBe('MayBeSlow');
+  });
+});
+
+describe('fit rating by runtime backend (B17)', () => {
+  const model: SummaryModelInfo = { ...SUMMARY_MODELS[3]!, minRamGb: 16 };
+  const gpu: HardwareProfile = { totalRamGb: 8, gpuName: 'GPU', gpuVramGb: 8 };
+
+  it('a CPU backend cannot use the VRAM, a GPU backend can', () => {
+    expect(rateFor(model, gpu, { gpuOffload: false })).toBe('NotRecommended');
+    expect(rateFor(model, gpu, { gpuOffload: true })).toBe('Recommended');
+  });
+
+  it('the default keeps the GPU rule', () => {
+    expect(rateFor(model, gpu)).toBe('Recommended');
+    expect(rateFor(model, gpu, {})).toBe('Recommended');
+  });
+
+  it('the RAM rules do not depend on the backend (boundaries 1.0, 0.75)', () => {
+    const cpu = { gpuOffload: false };
+    const ram = (gb: number): HardwareProfile => ({
+      totalRamGb: gb,
+      gpuName: null,
+      gpuVramGb: null,
+    });
+    expect(rateFor(model, ram(16), cpu)).toBe('Recommended');
+    expect(rateFor(model, ram(12), cpu)).toBe('MayBeSlow');
+    expect(rateFor(model, ram(11.9), cpu)).toBe('NotRecommended');
   });
 });
 

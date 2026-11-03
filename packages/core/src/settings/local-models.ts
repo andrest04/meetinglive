@@ -8,6 +8,8 @@ import {
   SUMMARY_MODELS,
   type FitRating,
   type HardwareProfile,
+  type RateOptions,
+  type SummaryModelInfo,
 } from './summary-models';
 
 export type ModelEvent =
@@ -65,6 +67,8 @@ export interface LocalModelsDeps {
 interface Transfer {
   readonly cancel: CancelSource;
   percent: number;
+  /** The one running transfer; a second caller for the same file awaits it. */
+  outcome: Promise<DownloadOutcome>;
 }
 
 /**
@@ -81,7 +85,7 @@ export class LocalModelsService {
     return [...this.transfers].map(([fileName, t]) => ({ fileName, percent: t.percent }));
   }
 
-  async rows(hardware: HardwareProfile | null): Promise<ModelRows> {
+  async rows(hardware: HardwareProfile | null, rate: RateOptions = {}): Promise<ModelRows> {
     const settings = await this.deps.settings.load();
     const selected = settings.selectedSummaryModelId;
     const rows: ModelRow[] = [];
@@ -99,7 +103,7 @@ export class LocalModelsService {
         speedKey: model.speedKey,
         qualityKey: model.qualityKey,
         useCaseKey: model.useCaseKey,
-        fit: hardware ? rateFor(model, hardware) : null,
+        fit: hardware ? rateFor(model, hardware, rate) : null,
         downloaded,
         active,
         downloading: transfer !== undefined,
@@ -111,13 +115,30 @@ export class LocalModelsService {
     return { rows, missingActiveId };
   }
 
-  async download(fileName: string): Promise<DownloadOutcome> {
+  /**
+   * One transfer per file. A second call while it runs joins it and gets the same outcome, so the
+   * wizard and the Settings list can both ask without starting two downloads (B18). Progress
+   * reaches every listener through `notify`.
+   */
+  download(fileName: string): Promise<DownloadOutcome> {
     const model = findSummaryModel(fileName);
-    if (!model) return { status: 'ignored', reason: 'unknown-model' };
-    if (this.transfers.has(fileName)) return { status: 'ignored', reason: 'already-downloading' };
-    // Registered before the first await, so a second call sees it.
-    const transfer: Transfer = { cancel: new CancelSource(), percent: 0 };
+    if (!model) return Promise.resolve({ status: 'ignored', reason: 'unknown-model' });
+    const running = this.transfers.get(fileName);
+    if (running) return running.outcome;
+    const transfer: Transfer = {
+      cancel: new CancelSource(),
+      percent: 0,
+      outcome: Promise.resolve({ status: 'done' }),
+    };
     this.transfers.set(fileName, transfer);
+    transfer.outcome = this.run(model, transfer).finally(() => {
+      this.transfers.delete(fileName);
+    });
+    return transfer.outcome;
+  }
+
+  private async run(model: SummaryModelInfo, transfer: Transfer): Promise<DownloadOutcome> {
+    const { fileName } = model;
     try {
       if (await this.deps.store.isDownloaded(model)) {
         return { status: 'ignored', reason: 'already-downloaded' };
@@ -138,8 +159,6 @@ export class LocalModelsService {
       const message = messageOf(error);
       this.deps.notify({ type: 'failed', fileName, message });
       return { status: 'failed', message };
-    } finally {
-      this.transfers.delete(fileName);
     }
   }
 

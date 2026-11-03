@@ -6,22 +6,22 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ## Where things are
 
-| Concern | Code |
-| --- | --- |
-| Summary, title, part and merge prompt builders; enhancement context; language names and headings (S01) | `packages/core/src/summaries/prompt-builders.ts` (tests beside it) |
-| Response splitter (S02) | `packages/core/src/summaries/summary-splitter.ts` |
-| Action item parser and renderer (S02) | `packages/core/src/summaries/action-items.ts` |
-| Title normalization and placeholder check (S02) | `packages/core/src/summaries/suggested-title.ts` |
-| Provider port, result, default stream, cancellation (S03) | `packages/core/src/summaries/provider.ts` |
-| Provider contract test helper, reused by S04 and S11 (S03) | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
-| CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03) | `packages/core/src/summaries/cli-failure.ts` |
-| Failure codes, key maps, `formatFailure` (S03) | `packages/core/src/summaries/cli-failure-messages.ts` |
-| CLI argv builders, B30 validation, legacy string form (S04) | `packages/core/src/summaries/cli-invocation.ts` |
-| CLI provider base, Claude Code and Codex providers, web-search factories (S04) | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts` |
-| `FakeCliProcessRunner` test double (S04) | `packages/core/src/summaries/test-kit.ts` (not exported from the index) |
-| Node CLI process runner, `.cmd` wrapper, tree kill (S05) | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts` |
-| PATH lookup with `resolve()` (S05, shared with Settings) | `packages/platform/src/settings/path-cli-probe.ts` |
-| Catalog key parity test (S03) | `apps/desktop/src/main/summary-failure-catalog.test.ts` |
+| Concern                                                                                                   | Code                                                                                                                |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Summary, title, part and merge prompt builders; enhancement context; language names and headings (S01)    | `packages/core/src/summaries/prompt-builders.ts` (tests beside it)                                                  |
+| Response splitter (S02)                                                                                   | `packages/core/src/summaries/summary-splitter.ts`                                                                   |
+| Action item parser and renderer (S02)                                                                     | `packages/core/src/summaries/action-items.ts`                                                                       |
+| Title normalization and placeholder check (S02)                                                           | `packages/core/src/summaries/suggested-title.ts`                                                                    |
+| Provider port, result, default stream, cancellation (S03)                                                 | `packages/core/src/summaries/provider.ts`                                                                           |
+| Provider contract test helper, reused by S04 and S11 (S03)                                                | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
+| CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03) | `packages/core/src/summaries/cli-failure.ts`                                                                        |
+| Failure codes, key maps, `formatFailure` (S03)                                                            | `packages/core/src/summaries/cli-failure-messages.ts`                                                               |
+| CLI argv builders, B30 validation, legacy string form (S04)                                               | `packages/core/src/summaries/cli-invocation.ts`                                                                     |
+| CLI provider base, Claude Code and Codex providers, web-search factories (S04)                            | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts`                                                   |
+| `FakeCliProcessRunner` test double (S04)                                                                  | `packages/core/src/summaries/test-kit.ts` (not exported from the index)                                             |
+| Node CLI process runner, `.cmd` wrapper, tree kill (S05)                                                  | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts`                     |
+| PATH lookup with `resolve()` (S05, shared with Settings)                                                  | `packages/platform/src/settings/path-cli-probe.ts`                                                                  |
+| Catalog key parity test (S03)                                                                             | `apps/desktop/src/main/summary-failure-catalog.test.ts`                                                             |
 
 ## Decisions
 
@@ -54,70 +54,70 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ### Prompts (S01)
 
-| # | Item | Status | Notes |
-| --- | --- | --- | --- |
-| 7 | Summary prompt matches 3.1 verbatim, with U+2013 in "3–8" | done | Exact-text snapshot test; dash checked on its own. |
-| 8 | Language name mapping | done | Blank and unknown give Spanish; trim and lowercase. |
-| 9 | Subheadings and examples English only for `en` | done | Trimmed, case-insensitive. |
-| 10 | `<ended_at>` only when an end time exists, round-trip form | done | Test for both cases, plus the never-say-not-recorded rule. |
-| 11 | `<recorded_at>` always, round-trip form | done | Seven fraction digits and offset. |
-| 12 | Enhancement suffix only when something is present | done | Blank notes, agenda, instructions and blank-only attendees add nothing. |
-| 13 | Rules text; raw-notes line only with raw notes | improved | LF and no indentation (see Decisions). |
-| 14 | Block order, trimming, attendee join | improved | LF and no indentation. |
-| 15 | Title-only prompt matches 3.2 verbatim | done | Snapshot test. |
-| 16 | Part prompt matches 3.5 verbatim | done | Snapshot test; used by S10. |
-| 17 | Merge prompt matches 3.5 verbatim | done | Snapshot test; used by S10. |
+| #   | Item                                                       | Status   | Notes                                                                   |
+| --- | ---------------------------------------------------------- | -------- | ----------------------------------------------------------------------- |
+| 7   | Summary prompt matches 3.1 verbatim, with U+2013 in "3–8"  | done     | Exact-text snapshot test; dash checked on its own.                      |
+| 8   | Language name mapping                                      | done     | Blank and unknown give Spanish; trim and lowercase.                     |
+| 9   | Subheadings and examples English only for `en`             | done     | Trimmed, case-insensitive.                                              |
+| 10  | `<ended_at>` only when an end time exists, round-trip form | done     | Test for both cases, plus the never-say-not-recorded rule.              |
+| 11  | `<recorded_at>` always, round-trip form                    | done     | Seven fraction digits and offset.                                       |
+| 12  | Enhancement suffix only when something is present          | done     | Blank notes, agenda, instructions and blank-only attendees add nothing. |
+| 13  | Rules text; raw-notes line only with raw notes             | improved | LF and no indentation (see Decisions).                                  |
+| 14  | Block order, trimming, attendee join                       | improved | LF and no indentation.                                                  |
+| 15  | Title-only prompt matches 3.2 verbatim                     | done     | Snapshot test.                                                          |
+| 16  | Part prompt matches 3.5 verbatim                           | done     | Snapshot test; used by S10.                                             |
+| 17  | Merge prompt matches 3.5 verbatim                          | done     | Snapshot test; used by S10.                                             |
 
 ### Splitter, parser and titles (S02)
 
-| # | Item | Status | Notes |
-| --- | --- | --- | --- |
-| 18 | CRLF to LF | done | Tested. |
-| 19 | Title block joined by a space, null when empty or absent, not normalized | done | Quotes kept for `normalizeTitle`. |
-| 20 | Action section at the first action header, else first checkbox line | improved | Header case and bold form (B25). |
-| 21 | No action section and no checkbox: whole reply is summary | done | |
-| 22 | Title block removed, leading `## Summary` dropped, trimmed | done | Summary header is case-insensitive. |
-| 23 | Item rules per 3.4 | improved | B26. |
-| 24 | Text trimmed, done for x and X | done | |
-| 25 | Render `- [x] text
-`, empty for none | done | Round-trip test. |
-| 26 | Splitter tolerates fences and header case | improved | B25. |
-| 27 | `normalizeTitle` per 3.8 | done | All listed cases. |
-| 28 | `titleFromModelResponse`, heading-only gives null | done | |
-| 29 | `resolveTitle` replaces only placeholders, blank counts | done | |
-| 30 | Every localized auto title recognized | improved | B10, patterns passed as data. |
+| #                 | Item                                                                     | Status           | Notes                               |
+| ----------------- | ------------------------------------------------------------------------ | ---------------- | ----------------------------------- |
+| 18                | CRLF to LF                                                               | done             | Tested.                             |
+| 19                | Title block joined by a space, null when empty or absent, not normalized | done             | Quotes kept for `normalizeTitle`.   |
+| 20                | Action section at the first action header, else first checkbox line      | improved         | Header case and bold form (B25).    |
+| 21                | No action section and no checkbox: whole reply is summary                | done             |                                     |
+| 22                | Title block removed, leading `## Summary` dropped, trimmed               | done             | Summary header is case-insensitive. |
+| 23                | Item rules per 3.4                                                       | improved         | B26.                                |
+| 24                | Text trimmed, done for x and X                                           | done             |                                     |
+| 25                | Render `- [x] text                                                       |
+| `, empty for none | done                                                                     | Round-trip test. |
+| 26                | Splitter tolerates fences and header case                                | improved         | B25.                                |
+| 27                | `normalizeTitle` per 3.8                                                 | done             | All listed cases.                   |
+| 28                | `titleFromModelResponse`, heading-only gives null                        | done             |                                     |
+| 29                | `resolveTitle` replaces only placeholders, blank counts                  | done             |                                     |
+| 30                | Every localized auto title recognized                                    | improved         | B10, patterns passed as data.       |
 
 ### Provider port and failures (S03)
 
-| # | Item | Status | Notes |
-| --- | --- | --- | --- |
-| 1 | `SummaryProvider` port with summarize, suggestTitle, completePrompt, streamPrompt | done | Cancel is a `CancelSignal`. |
-| 2 | `SummaryResult` shape | done | |
-| 3 | Suggested title from the same response, no second inference | done | Contract test counts model calls. |
-| 4 | `streamPrompt` default yields one chunk; chunks concatenate to the answer | done | `withDefaultStream` and the contract test. |
-| 5 | `ProviderId` is local, claude-code, codex | improved | xAI dropped (S07). |
-| 6 | Every provider uses the shared builders and splitter | done | `describeSummaryProviderContract`; S04 and S11 must call it. |
-| 72 | Classification order and keyword lists | improved | B12. |
-| 73 | Kind to message key with display name | done | `CLI_FAILURE_UI_KEYS`, `CLI_FAILURE_CORE_KEYS`. |
-| 74 | Unknown appends a sanitized snippet, never the exit code | done | |
-| 75 | Redaction pattern and 120 character cap | done | |
-| 76 | UI mapping to `Error_Cli*`; other errors show their message | done | |
-| 77 | Error text localized in the UI layer | improved | B28, new `Ui_Summary*` keys. |
-| 188 | Six `CliFailure*` and the `ModelSpeed/Quality/UseCase` keys in both catalogs | done | Parity test. |
+| #   | Item                                                                              | Status   | Notes                                                        |
+| --- | --------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------ |
+| 1   | `SummaryProvider` port with summarize, suggestTitle, completePrompt, streamPrompt | done     | Cancel is a `CancelSignal`.                                  |
+| 2   | `SummaryResult` shape                                                             | done     |                                                              |
+| 3   | Suggested title from the same response, no second inference                       | done     | Contract test counts model calls.                            |
+| 4   | `streamPrompt` default yields one chunk; chunks concatenate to the answer         | done     | `withDefaultStream` and the contract test.                   |
+| 5   | `ProviderId` is local, claude-code, codex                                         | improved | xAI dropped (S07).                                           |
+| 6   | Every provider uses the shared builders and splitter                              | done     | `describeSummaryProviderContract`; S04 and S11 must call it. |
+| 72  | Classification order and keyword lists                                            | improved | B12.                                                         |
+| 73  | Kind to message key with display name                                             | done     | `CLI_FAILURE_UI_KEYS`, `CLI_FAILURE_CORE_KEYS`.              |
+| 74  | Unknown appends a sanitized snippet, never the exit code                          | done     |                                                              |
+| 75  | Redaction pattern and 120 character cap                                           | done     |                                                              |
+| 76  | UI mapping to `Error_Cli*`; other errors show their message                       | done     |                                                              |
+| 77  | Error text localized in the UI layer                                              | improved | B28, new `Ui_Summary*` keys.                                 |
+| 188 | Six `CliFailure*` and the `ModelSpeed/Quality/UseCase` keys in both catalogs      | done     | Parity test.                                                 |
 
 ### CLI providers (S04)
 
-| # | Item | Status | Notes |
-| --- | --- | --- | --- |
-| 55 | Executables `claude`/`codex`, display names, 5 minute timeout | done | Timeout injectable (B31). |
-| 56 | Claude argv order `-p`, `--model`, `--effort`, tools | improved | Array form; each part only when set; legacy string kept (B30). |
-| 57 | Codex argv `--search` before `exec -`, `-m`, `-c model_reasoning_effort="..."` | improved | Array form (B30). |
-| 59 | Not on PATH gives NotInstalled before spawn | done | Tested with the fake runner: no spawn. |
-| 60 | Non-zero exit classified; empty stdout EmptyOutput | done | Via `runRequiredStdout`. |
-| 61 | Cancellation never wrapped | done | Tested. |
-| 62 | Other errors wrapped by kind | done | Runner timeout gives TimedOut. |
-| 70 | B30 model and effort validated, argv items | improved | See Decisions. |
-| 71 | Web search variants only for live answers | done | Explicit factories. |
+| #   | Item                                                                           | Status   | Notes                                                          |
+| --- | ------------------------------------------------------------------------------ | -------- | -------------------------------------------------------------- |
+| 55  | Executables `claude`/`codex`, display names, 5 minute timeout                  | done     | Timeout injectable (B31).                                      |
+| 56  | Claude argv order `-p`, `--model`, `--effort`, tools                           | improved | Array form; each part only when set; legacy string kept (B30). |
+| 57  | Codex argv `--search` before `exec -`, `-m`, `-c model_reasoning_effort="..."` | improved | Array form (B30).                                              |
+| 59  | Not on PATH gives NotInstalled before spawn                                    | done     | Tested with the fake runner: no spawn.                         |
+| 60  | Non-zero exit classified; empty stdout EmptyOutput                             | done     | Via `runRequiredStdout`.                                       |
+| 61  | Cancellation never wrapped                                                     | done     | Tested.                                                        |
+| 62  | Other errors wrapped by kind                                                   | done     | Runner timeout gives TimedOut.                                 |
+| 70  | B30 model and effort validated, argv items                                     | improved | See Decisions.                                                 |
+| 71  | Web search variants only for live answers                                      | done     | Explicit factories.                                            |
 
 Contract: both providers run `describeSummaryProviderContract`. Ported tests: CliInvocationTests (6 cases), CliToolProviderBaseTests and both provider test classes (`cli-invocation.test.ts`, `cli-providers.test.ts`). Items 58, 63 to 69 belong to S05.
 
@@ -125,18 +125,39 @@ Pending-real-validation: S04 ran only against `FakeCliProcessRunner`. The real `
 
 ### CLI process runner (S05)
 
-| # | Item | Status | Notes |
-| --- | --- | --- | --- |
-| 58 | Stdin written as UTF-8 bytes, no BOM, flushed and closed | done | First bytes checked on the fake child. |
-| 63 | `isOnPath`: PATH split, blank entries skipped, PATHEXT default `.EXE;.CMD;.BAT` | done | Shared `PathCliProbe`. |
-| 64 | `resolveExecutable` returns the full path | improved | New `resolve()`; the resolved path is what is launched (B11). |
-| 65 | Stdout, stderr, stdin write and exit awaited together under one deadline | done | 4 MB prompt echoed back, no deadlock. |
-| 66 | Closed stdin is "not delivered"; success with undelivered stdin throws, non-zero returns | done | Node reports the closed pipe as an EOF error in the end callback, which counts as not delivered. |
-| 67 | Spawn ENOENT becomes a not found error (`code` kept) | done | Classified NotInstalled. |
-| 68 | Timeout kills the tree and throws `CliTimeoutError` | done | `taskkill /T /F` on Windows, process group elsewhere. Pid asserted gone, also for a `.cmd`. |
-| 69 | Cancellation kills the tree and rethrows `CancelledError` | done | Also while stdin is blocked. |
+| #   | Item                                                                                     | Status   | Notes                                                                                            |
+| --- | ---------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
+| 58  | Stdin written as UTF-8 bytes, no BOM, flushed and closed                                 | done     | First bytes checked on the fake child.                                                           |
+| 63  | `isOnPath`: PATH split, blank entries skipped, PATHEXT default `.EXE;.CMD;.BAT`          | done     | Shared `PathCliProbe`.                                                                           |
+| 64  | `resolveExecutable` returns the full path                                                | improved | New `resolve()`; the resolved path is what is launched (B11).                                    |
+| 65  | Stdout, stderr, stdin write and exit awaited together under one deadline                 | done     | 4 MB prompt echoed back, no deadlock.                                                            |
+| 66  | Closed stdin is "not delivered"; success with undelivered stdin throws, non-zero returns | done     | Node reports the closed pipe as an EOF error in the end callback, which counts as not delivered. |
+| 67  | Spawn ENOENT becomes a not found error (`code` kept)                                     | done     | Classified NotInstalled.                                                                         |
+| 68  | Timeout kills the tree and throws `CliTimeoutError`                                      | done     | `taskkill /T /F` on Windows, process group elsewhere. Pid asserted gone, also for a `.cmd`.      |
+| 69  | Cancellation kills the tree and rethrows `CancelledError`                                | done     | Also while stdin is blocked.                                                                     |
 
 Real `claude` and `codex` invocation: pending-real-validation.
+
+### Model catalog, hardware and download (S06)
+
+| #   | Item                                                                           | Status   | Notes                                                                                                                                                                                                                    |
+| --- | ------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 115 | Hardware profile, `HasDedicatedGpu`, `HasNvidiaGpu` (four tokens)              | done     | `hasNvidiaGpu` tests now cover NVIDIA, GeForce, Quadro, Tesla true and AMD, Intel, bare `RTX`, blank, null false.                                                                                                        |
+| 116 | Detected once and cached; failures not cached                                  | improved | B17: a failed GPU query or a rejected read clears the cached promise, so the next call asks again. A machine with no adapter (query succeeded) stays cached.                                                             |
+| 117 | Fit rating, 0.75 and half-minimum rules                                        | improved | B17: `rateFor(model, hardware, { gpuOffload })`. With `gpuOffload: false` the VRAM no longer stands in for RAM. Default is true, the old behavior, until S12 passes the chosen llama backend.                            |
+| 118 | Four catalog entries, order, minimum RAM, URLs, label keys                     | done     | Pinned in `catalogs.test.ts`.                                                                                                                                                                                            |
+| 119 | Labels resolved at render time                                                 | done     | B20: the catalog holds keys only; a test checks the key shapes.                                                                                                                                                          |
+| 120 | Model path is `<dir>/<FileName>`; downloaded means the pinned size             | improved | B18: `sizeBytes` per model; `isDownloaded` needs a file of that size.                                                                                                                                                    |
+| 121 | Stream to `.part`, percent only with a known length, atomic move, no half file | done     | Plus size check, then SHA-256 when pinned, before the move; a mismatch removes the part.                                                                                                                                 |
+| 122 | No download timeout                                                            | done     | `stallTimeoutMs` stays off by default.                                                                                                                                                                                   |
+| 123 | True resume, one download per model                                            | improved | B18: the store passes `resume: true`, so a dropped transfer keeps `.part` and continues with a Range request (tested on a local server). `LocalModelsService.download` joins a running transfer and returns its outcome. |
+| 124 | Delete removes the file, ignores a missing one                                 | done     | Existing tests.                                                                                                                                                                                                          |
+| 125 | Deleting the active model clears the selection                                 | done     | Existing test.                                                                                                                                                                                                           |
+| 186 | Models directory and `.part` convention                                        | done     | `<dir>/<FileName>` and `<FileName>.part`.                                                                                                                                                                                |
+
+Sizes (Content-Length from a HEAD on 2026-11-03): 1B 807694464, E2B 3106738272, E4B 4977171584, 12B 7121861440 bytes. SHA-256 is pinned only for the 1B file, taken from the spikes download (a test checks it against that file when present). The other three were never downloaded here, so they have a size and no hash. Decision: the unpinned hashes can be added when someone downloads them.
+
+Decision: a second `download()` for a file already in flight now returns the first call's outcome instead of `ignored: already-downloading`. The contract enum keeps that value; nothing returns it.
 
 ## Bugs fixed
 
@@ -149,6 +170,9 @@ Real `claude` and `codex` invocation: pending-real-validation.
 - **B30** (S04): model and effort are validated and passed as separate argv items; no shell string is ever built.
 - **B11** (S05): the resolved path is launched; `.cmd`/`.bat` go through an explicit cmd.exe wrapper with quoted arguments and no user text in a shell string.
 - **B24** (S05): stdin is UTF-8 with no byte order mark, tested on the fake child.
+- **B17** (S06): a failed hardware read is not cached for the process; the rating can ignore VRAM when the runtime has no GPU backend.
+- **B18** (S06): pinned byte size (and SHA-256 for the 1B file) verified before the atomic move; "downloaded" needs the pinned size; resume by Range; one transfer per model shared by every caller.
+- **B20** (S06): catalog labels are keys, asserted by a test.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -161,20 +185,22 @@ Real `claude` and `codex` invocation: pending-real-validation.
 - S12 builds `new NodeCliProcessRunner()` (exported from `@vozella/platform`) and gives it to the CLI providers; S19's CLI check can use `isOnPath`. Real CLI flags and a real `.cmd` install of claude/codex stay pending-real-validation.
 - Token budgeting that uses the part and merge prompts: S10.
 
+- S06 to S12: pass `{ gpuOffload }` from the chosen llama backend (S08) to `rateFor` and `LocalModelsService.rows`; the Settings page and the wizard (S18) both call the one `LocalModelsService` so they share its in-flight map. Hashes for the three Gemma files are not pinned.
+
 ## Dropped by the owner
 
 Reason for every row: owner decision 2026-11-03, may return later. Auditors: these are not missing.
 
-| Item | Status | Reason |
-| --- | --- | --- |
+| Item                                                                                                                                                                                                            | Status  | Reason                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------- |
 | JEV/TypeSafe: API client, credentials, post-summary analysis, the "What do I need to do" dialog, settings section, automatic live-question detection, armed questions that depend on it, Jev needs-web judgment | dropped | owner decision 2026-11-03, may return later |
-| Calendar: Coming up, reminder toasts, event-started takes, event metadata linking, Calendar settings, pre-meeting brief | dropped | owner decision 2026-11-03, may return later |
-| xAI/Grok provider: OAuth, API key, credential store, settings expander (an existing `Xai` selection still loads and asks for another provider; see S07) | dropped | owner decision 2026-11-03, may return later |
-| Suggest-title button | dropped | owner decision 2026-11-03, may return later |
-| Custom note template | dropped | owner decision 2026-11-03, may return later |
-| Nav-pane resize grip | dropped | owner decision 2026-11-03, may return later |
-| Meeting-app suggestion bar on Record | dropped | owner decision 2026-11-03, may return later |
-| Chat thread history and user recipes | dropped | owner decision 2026-11-03, may return later |
+| Calendar: Coming up, reminder toasts, event-started takes, event metadata linking, Calendar settings, pre-meeting brief                                                                                         | dropped | owner decision 2026-11-03, may return later |
+| xAI/Grok provider: OAuth, API key, credential store, settings expander (an existing `Xai` selection still loads and asks for another provider; see S07)                                                         | dropped | owner decision 2026-11-03, may return later |
+| Suggest-title button                                                                                                                                                                                            | dropped | owner decision 2026-11-03, may return later |
+| Custom note template                                                                                                                                                                                            | dropped | owner decision 2026-11-03, may return later |
+| Nav-pane resize grip                                                                                                                                                                                            | dropped | owner decision 2026-11-03, may return later |
+| Meeting-app suggestion bar on Record                                                                                                                                                                            | dropped | owner decision 2026-11-03, may return later |
+| Chat thread history and user recipes                                                                                                                                                                            | dropped | owner decision 2026-11-03, may return later |
 
 On-disk compatibility still applies: `typeSafeEnabled`, calendar settings, Jev frontmatter, event frontmatter keys and the Brief section of existing meetings are read and rewritten without loss.
 

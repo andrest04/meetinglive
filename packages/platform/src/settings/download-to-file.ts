@@ -12,6 +12,8 @@ export interface DownloadOptions {
   readonly cancel?: CancelSignal;
   /** Tests replace it; production uses the global `fetch`. */
   readonly fetch?: typeof fetch;
+  /** The size the finished file must have. A different size removes the file (B18). */
+  readonly expectedBytes?: number;
   /** Lowercase hex SHA-256 the finished file must have. A mismatch removes the file. */
   readonly sha256?: string;
   /**
@@ -151,6 +153,14 @@ async function attempt(options: DownloadOptions, part: string, mayRetry: boolean
     await handle.sync();
     await handle.close();
     handle = undefined;
+    if (options.expectedBytes !== undefined) {
+      const actualBytes = (await fsp.stat(part)).size;
+      if (actualBytes !== options.expectedBytes) {
+        throw new ChecksumError(
+          `The download is damaged: expected ${String(options.expectedBytes)} bytes, got ${String(actualBytes)}.`,
+        );
+      }
+    }
     if (options.sha256 !== undefined) {
       const actual = await sha256OfFile(part);
       if (actual !== options.sha256.toLowerCase()) {

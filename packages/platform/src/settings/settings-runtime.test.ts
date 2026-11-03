@@ -192,7 +192,8 @@ describe('LocalModelStore contract', () => {
   ];
 
   describe.each(adapters)('%s', (_name, make) => {
-    const model = SUMMARY_MODELS[0]!;
+    // Pinned to the four bytes the test server sends.
+    const model = { ...SUMMARY_MODELS[0]!, sizeBytes: 4, sha256: undefined };
 
     it('not downloaded, then downloaded with progress ending at 100, then deleted', async () => {
       const store = make();

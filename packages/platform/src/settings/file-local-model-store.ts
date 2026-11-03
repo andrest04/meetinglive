@@ -16,14 +16,19 @@ export interface FileLocalModelStoreOptions {
   readonly fetch?: typeof fetch;
 }
 
-/** GGUF summary models as files in one folder. The file name is the model id. */
+/**
+ * GGUF summary models as files in one folder. The file name is the model id. A model counts as
+ * downloaded only when the file has the pinned size; a download keeps its .part for a Range
+ * resume after a failure and is checked (size, then SHA-256 when pinned) before the atomic move.
+ */
 export class FileLocalModelStore implements LocalModelStore {
   constructor(private readonly options: FileLocalModelStoreOptions) {}
 
   async isDownloaded(model: SummaryModelInfo): Promise<boolean> {
     const file = this.pathOf(model);
     try {
-      return (await fs.stat(file)).isFile();
+      const stat = await fs.stat(file);
+      return stat.isFile() && stat.size === model.sizeBytes;
     } catch {
       return false;
     }
@@ -39,6 +44,9 @@ export class FileLocalModelStore implements LocalModelStore {
       target: this.pathOf(model),
       onProgress,
       cancel: signal,
+      resume: true,
+      expectedBytes: model.sizeBytes,
+      ...(model.sha256 === undefined ? {} : { sha256: model.sha256 }),
       ...(this.options.fetch ? { fetch: this.options.fetch } : {}),
     });
   }
