@@ -2,6 +2,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { formatMeetingDate } from './format';
 import { LibraryRoute } from './LibraryRoute';
 import { Providers, folderRecord, installFakeApi, meetingRecord } from './library-test-kit';
 
@@ -150,6 +151,40 @@ describe('loading', () => {
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument();
   });
 
+  it('item 87: the stored selection still applies when a refresh replaces the first load', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { api } = await mount(
+      (a) => {
+        seed(a);
+        a.workspace.publishSelectedFolder(CALC);
+        const load = a.service.load.bind(a.service);
+        let first = true;
+        vi.spyOn(a.service, 'load').mockImplementation(async () => {
+          if (first) {
+            first = false;
+            await gate;
+          }
+          return load();
+        });
+      },
+      { waitForLoad: false },
+    );
+    await waitFor(() => {
+      expect(api.calls.filter((c) => c.name === 'library.load')).toHaveLength(1);
+    });
+    api.emit('library.changed', { reason: 'folder' });
+    await waitFor(() => {
+      expect(screen.getByRole('treeitem', { name: /Calculo/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    });
+    release();
+  });
+
   it('item 96: the skeleton clears even when the stored selection cannot be read', async () => {
     await mount((a) => {
       seed(a);
@@ -207,6 +242,76 @@ describe('the folder note', () => {
     await waitFor(async () => {
       expect((await api.folders.getAll()).find((f) => f.id === UNI)?.note).toBe('Fall termAB');
     });
+  });
+});
+
+describe('the meeting row', () => {
+  it('item 114: right click and the more button both open Open summary, Move, Delete in that order', async () => {
+    const { user } = await mount(seed);
+    const names = (): (string | null)[] =>
+      screen.getAllByRole('menuitem').map((item) => item.textContent);
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: within(rowOf(/Standup/)).getByRole('button', { name: /Standup/ }),
+    });
+    await screen.findByRole('menuitem', { name: 'Move' });
+    expect(names()).toEqual(['Open summary', 'Move', 'Delete']);
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    });
+    await user.click(within(rowOf(/Standup/)).getByRole('button', { name: 'More actions' }));
+    await screen.findByRole('menuitem', { name: 'Move' });
+    expect(names()).toEqual(['Open summary', 'Move', 'Delete']);
+  });
+
+  it('item 111: the row shows the local short date and time of the meeting', async () => {
+    await mount(seed);
+    const expected = formatMeetingDate('2026-09-01T09:00:00.0000000+00:00', 'en');
+    expect(expected).not.toBe('');
+    expect(within(rowOf(/Standup/)).getByText(expected)).toBeInTheDocument();
+  });
+
+  it('item 115: Move preselects Inbox for a dangling folder id and the real folder otherwise', async () => {
+    const { user } = await mount(seed);
+    await user.click(within(rowOf(/Review/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Move meeting' });
+    let options = within(dialog).getAllByRole('radio');
+    expect(options.map((o) => o.getAttribute('aria-checked') === 'true')).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Move meeting' })).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
+    await user.click(within(rowOf(/Standup/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
+    dialog = await screen.findByRole('dialog', { name: 'Move meeting' });
+    const third = within(dialog).getAllByRole('radio')[2];
+    if (!third) throw new Error('no destination');
+    await user.click(third);
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Move meeting' })).not.toBeInTheDocument();
+    });
+    screen.getByRole('treeitem', { name: /Universidad/ }).focus();
+    await user.keyboard('{ArrowRight}');
+    await user.click(await screen.findByRole('treeitem', { name: /Calculo/ }));
+    await user.click(within(rowOf(/Standup/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
+    dialog = await screen.findByRole('dialog', { name: 'Move meeting' });
+    options = within(dialog).getAllByRole('radio');
+    expect(options.map((o) => o.getAttribute('aria-checked') === 'true')).toEqual([
+      false,
+      false,
+      true,
+    ]);
   });
 });
 

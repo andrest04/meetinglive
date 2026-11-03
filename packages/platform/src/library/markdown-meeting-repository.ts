@@ -5,9 +5,11 @@ import {
   LibraryFileCorruptError,
   MeetingFormatError,
   fileStem,
+  folderChain,
   meetingSnippet,
   parseMeetingMarkdown,
   renderMeetingMarkdown,
+  sanitizeName,
   siblingWavPath,
   type FolderRecord,
   type Logger,
@@ -196,6 +198,16 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return first === 'meetings' || first === 'recordings';
   }
 
+  /**
+   * B10: WinUI reserves only "Inbox", so its top-level folder "Meetings" or "Recordings" has
+   * the directory `Library/Meetings`. A file there that belongs to that folder is not a dump.
+   */
+  private async isUserFolderDirectory(path: string, record: MeetingRecord): Promise<boolean> {
+    const first = nodePath.relative(this.root, path).split(/[\\/]/)[0]?.toLowerCase();
+    const top = folderChain(await this.folderList(), record.folderId)[0];
+    return top !== undefined && sanitizeName(top.name).toLowerCase() === first;
+  }
+
   /** Spec 3.6 step 4 and B2: a recording the saving meeting already owns does not force " 2". */
   private async allocateStem(
     directory: string,
@@ -290,9 +302,10 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     const cached = this.cache.get(path);
     if (cached?.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached;
 
-    const legacy = this.isLegacyFlatDump(path);
+    let legacy = this.isLegacyFlatDump(path);
     try {
       const record = await this.parseFile(path);
+      if (legacy && (await this.isUserFolderDirectory(path, record))) legacy = false;
       return {
         path,
         mtimeMs: stat.mtimeMs,

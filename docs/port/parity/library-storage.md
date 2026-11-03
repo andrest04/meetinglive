@@ -76,7 +76,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 20 | done | golden sample |
 | 21 | done | golden sample |
 | 22 | improved | B21 fixed: whitespace-only Transcript, Summary and Notes are skipped |
-| 23 | done | |
+| 23 | done | Proof: `meeting-markdown.test.ts` '23' checks the written text for a padded body (fails if the write-side trim is removed) |
 | 24 | improved | B22: newlines inside action item text become a space |
 | 25 | done | |
 | 26 | done | header escaping tests |
@@ -262,7 +262,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 146 | done | |
 | 147 | done | |
 | 148 | done | |
-| 149 | improved | B10 |
+| 149 | done | B10. Audit fix: WinUI only reserves Inbox, so its top-level folder Meetings or Recordings has the directory `Library/Meetings`. A file there that belongs to that folder is no longer legacy (`markdown-meeting-repository.ts` `isUserFolderDirectory`) and the layout migration leaves it in place. Plain dump files still move. Test in `migrations.test.ts` |
 | 150 | improved | B12: a current-layout copy wins and the legacy copy is removed |
 | 151 | done | |
 | 152 | done | |
@@ -359,7 +359,14 @@ Still pending-real-validation, not provable here:
 
 Rejected:
 
-- #149: a WinUI library cannot hold a user folder directory named Meetings or Recordings. The folder name rules (`names.ts`, ported from C#) store such a folder as "Meetings folder" or "Recordings folder", so the legacy-dump test by directory name is the same as the C# one (`MarkdownMeetingRepository.cs:155`). Added a test that such a folder stays out of the layout migration.
+- #149 was first rejected with a wrong reason (the C# `SanitizeName` reserves only Inbox). Accepted on re-audit and fixed, see the row. New saves still go to "Meetings folder" or "Recordings folder" (port choice, kept so a new folder never collides with a dump).
 - Jev leniency: a wrong-typed Jev property reads as its default and the file is kept, where System.Text.Json would drop the file. Deliberate: losing a whole meeting over one bad property is worse. Only invalid JSON or a non-object root is a format error.
 - meetings.json keys are read with exact case. Files written by the app always use the written case; not changed.
 - Remaining design notes (outline weight of buttons and the search field, dark Cancel weight, popover pointer) and the minor proof gaps for #80, #82 and #88 are left as they are: low severity, no user to ask.
+
+## Second audit round
+
+- Fixed: #149 (above); first-load selection lost when a live refresh replaced the first load (`use-library.ts` `selectionApplied`, test in `LibraryRoute.audit.test.tsx`).
+- Tests added for gaps: #23 raw trimmed text, #13 `headerEscaping` last after attendees, #111 date text and `formatMeetingDate`, #114 right click and menu order on a meeting row, #115 Inbox preselected for a dangling folder id and a real folder preselected.
+- Decided, not changed: #110 and B16 stay pending-real-validation; a window death with an invoke in flight cannot be proven here, and the 400 ms autosave plus before-quit wait is the mitigation. #155 and #156 stay pending: no WinUI app or C#-written library may be used. Meeting locks: the ledger line for #61 should read that meetings use one `KeyedMutex` per repository instance; production builds one, so no race.
+- Decided, not changed: design notes (narrow-pane popover, outline weight of buttons, Data card paths, folder notes affordance) are low severity and stay as is; unviewed screenshots and env-gated screenshot specs were not re-run.

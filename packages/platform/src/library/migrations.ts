@@ -13,7 +13,7 @@ import {
   type MeetingRecord,
 } from '@vozella/core';
 import { writeFileAtomic } from '../fs/atomic-write';
-import { errorCode, exists, isUnder, moveFile } from './library-layout';
+import { errorCode, exists, isUnder, moveFile, samePath } from './library-layout';
 import type { MarkdownMeetingRepository } from './markdown-meeting-repository';
 import type { JsonFolderRepository } from './json-folder-repository';
 import { existsSync } from 'node:fs';
@@ -139,6 +139,8 @@ export async function migrateLibraryLayout(deps: LayoutMigrationDeps): Promise<v
 
     // B12: a current-layout copy of this meeting wins; legacy content never overwrites it.
     const copies = await meetings.locate(record.id);
+    // B10: the file of a WinUI user folder named Meetings or Recordings is not a dump.
+    if (copies.find((c) => samePath(c.path, file))?.legacy === false) continue;
     if (copies.some((c) => !c.legacy)) {
       logger?.warn('layout migration dropped a legacy copy: a newer one exists', { id: record.id });
       await fs.unlink(file);

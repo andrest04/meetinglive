@@ -108,6 +108,8 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   const selectedRef = useRef<string | null>(null);
   const noteRef = useRef('');
   const loadSeq = useRef(0);
+  // The first load can be replaced by a live refresh; the stored selection must still land.
+  const selectionApplied = useRef(false);
 
   const setSelected = useCallback((id: string | null) => {
     selectedRef.current = id;
@@ -163,7 +165,8 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
         const wanted = restore === undefined ? selectedRef.current : restore;
         const folder = wanted === null ? undefined : result.folders.find((f) => f.id === wanted);
         const next = folder ? folder.id : null;
-        if (next !== selectedRef.current || firstLoad) {
+        if (next !== selectedRef.current || firstLoad || !selectionApplied.current) {
+          selectionApplied.current = true;
           setSelected(next);
           void window.vozella.invoke('workspace.dispatch', {
             action: { type: 'publishSelectedFolder', folderId: next },

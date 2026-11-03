@@ -336,6 +336,25 @@ describe('runStartupMigrations', () => {
     expect((await fx.meetings.locate(ID_A)).map((c) => c.legacy)).toEqual([false]);
   });
 
+  it('149: a WinUI folder whose directory is Library/Meetings keeps its files, and a plain dump file still moves', async () => {
+    // WinUI only reserves "Inbox", so its folder "Meetings" lives in Library/Meetings.
+    await fx.folders.save(folder(FOLDER_1, 'Meetings'));
+    const owned = put(
+      path.join(fx.root, 'Meetings', '2026-09-01 Standup.md'),
+      renderMeetingMarkdown(meeting({ folderId: FOLDER_1 })),
+    );
+    const dump = put(
+      path.join(fx.paths.meetingsDirectory, `${ID_B}.md`),
+      renderMeetingMarkdown(meeting({ id: ID_B, title: 'Loose' })),
+    );
+    await migrateLibraryLayout(deps());
+    expect(fs.existsSync(owned)).toBe(true);
+    expect(fs.existsSync(dump)).toBe(false);
+    expect(tree(fx.root)).not.toContain('Meetings folder/2026-09-01 Standup.md');
+    expect((await fx.meetings.locate(ID_A)).map((c) => c.legacy)).toEqual([false]);
+    expect((await fx.meetings.locate(ID_B)).map((c) => c.legacy)).toEqual([false]);
+  });
+
   it('is idempotent', async () => {
     put(
       path.join(fx.paths.legacyMeetingsDirectory, `${ID_A}.md`),

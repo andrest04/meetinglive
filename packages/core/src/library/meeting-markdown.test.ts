@@ -279,6 +279,23 @@ describe('header escaping', () => {
     expect(parse(renderMeetingMarkdown(record))).toEqual({ ...record, sourcePath: 'x.md' });
   });
 
+  it('23: text bodies are trimmed in the written text itself', () => {
+    const text = renderMeetingMarkdown(meeting({ notes: '\n\n  keep me  \n\n', summary: ' s\n' }));
+    expect(text).toContain('## Summary\n\ns\n');
+    expect(text).toContain('## Personal Notes\n\nkeep me\n');
+    expect(text).not.toMatch(/\n\n\n/);
+  });
+
+  it('13: headerEscaping is the last header key, after attendees', () => {
+    const text = renderMeetingMarkdown(
+      meeting({ notes: 'a\n## Summary\nb', attendees: ['Ana', 'Luis'] }),
+    );
+    const lines = text.split('\n');
+    const close = lines.indexOf('---', 1);
+    expect(lines[close - 1]).toBe('headerEscaping: 1');
+    expect(lines[close - 2]).toMatch(/^attendees: /);
+  });
+
   it('keeps a header line that trimming exposes', () => {
     const record = meeting({ notes: '\n\n## Summary\nrest\n' });
     expect(parse(renderMeetingMarkdown(record)).notes).toBe('## Summary\nrest');

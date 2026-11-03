@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeSkipped } from './format';
+import { describeSkipped, formatMeetingDate } from './format';
 
 describe('describeSkipped', () => {
   it('names the file and the reason, from either kind of path', () => {
@@ -17,5 +17,19 @@ describe('describeSkipped', () => {
     expect(describeSkipped([{ path: 'x.md', reason: 'r'.repeat(80) }])).toBe(
       `x.md (${'r'.repeat(60)}...)`,
     );
+  });
+});
+
+describe('formatMeetingDate', () => {
+  it('shows a short date and a short time in the given locale, and nothing for bad text', () => {
+    const at = '2026-09-01T09:30:00.0000000+00:00';
+    const expected = new Intl.DateTimeFormat('en', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date(at));
+    expect(formatMeetingDate(at, 'en')).toBe(expected);
+    expect(formatMeetingDate(at, 'en')).toMatch(/\d/);
+    expect(formatMeetingDate(at, 'es')).not.toBe('');
+    expect(formatMeetingDate('not a date', 'en')).toBe('');
   });
 });
