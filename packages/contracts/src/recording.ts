@@ -134,6 +134,40 @@ export const recordingRetryProcessing = defineRequest('recording.retryProcessing
   output: z.object({ started: z.boolean() }),
 });
 
+/**
+ * Imports an audio file through the same pipeline as a take (spec 2.12). The page picked the file
+ * with `audio.import.pickFile`; main reads its time, converts it and runs the pipeline.
+ */
+export const recordingImport = defineRequest('recording.import', {
+  input: z.object({
+    title: z.string(),
+    folderId: z.string().nullable(),
+    path: z.string(),
+  }),
+  output: z.discriminatedUnion('started', [
+    z.object({ started: z.literal(true), meetingId: z.string() }),
+    z.object({
+      started: z.literal(false),
+      reason: z.enum(['busy', 'not-ready', 'failed', 'cancelled']),
+      message: recordingMessageSchema.nullable(),
+    }),
+  ]),
+});
+
+/**
+ * Close protection (165). Main asks the shell for one dialog at a time; the shell answers
+ * `recording.closeAnswer` for `confirm-stop` and `save-failed`. `saving` is shown until `done`.
+ */
+export const recordingCloseDialogSchema = z.enum(['confirm-stop', 'saving', 'save-failed', 'done']);
+export const recordingCloseRequest = defineEvent('recording.closeRequest', {
+  payload: z.object({ requestId: z.string(), dialog: recordingCloseDialogSchema }),
+});
+/** `accepted`: Stop and save (confirm-stop) or Close anyway (save-failed). */
+export const recordingCloseAnswer = defineRequest('recording.closeAnswer', {
+  input: z.object({ requestId: z.string(), accepted: z.boolean() }),
+  output: z.object({ received: z.boolean() }),
+});
+
 export const recordingStateChanged = defineEvent('recording.state', {
   payload: recordingStateSchema,
 });

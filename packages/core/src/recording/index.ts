@@ -15,3 +15,6 @@ export * from './pipeline/summary-stage';
 export * from './runs/pipeline-run';
 export * from './runs/recording-runs';
 export * from './live-highlights';
+export * from './handoff';
+export * from './import-times';
+export * from './entry-points';

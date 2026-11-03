@@ -146,6 +146,11 @@ export class RecordingRuns implements RunOwner {
     return this.linkedMeetingId === meetingId && this.ports.gate.phase !== 'Idle';
   }
 
+  /** True while a run has not completed (2.16 HasPendingSaves). */
+  get hasUnfinishedRuns(): boolean {
+    return this.runList.some((run) => !run.isCompleted);
+  }
+
   /** The deleted meeting is no longer the last one (162). */
   clearLastMeetingIf(meetingId: string): void {
     if (this.last?.id !== meetingId) return;
