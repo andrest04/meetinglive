@@ -166,6 +166,7 @@ describe('keys the settings domain points at (item 116, 118)', () => {
     ...Object.values(CLI_STATUS_KEYS),
     'Xai_FeedbackModel',
     'Xai_FeedbackApiKey',
+    'Xai_FeedbackSignedIn',
     'Xai_FeedbackSignedOut',
     'Xai_StatusSuperGrok',
     'Xai_StatusApiKey',

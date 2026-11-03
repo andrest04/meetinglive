@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
 import * as library from './library';
+import * as settings from './settings';
 
 /** No input. An object keeps room to add optional fields without breaking callers. */
 const empty = z.object({}).strict();
@@ -85,6 +86,23 @@ export const requestChannels = {
   [library.settingsUpdate.name]: library.settingsUpdate,
   [library.workspaceGetState.name]: library.workspaceGetState,
   [library.workspaceDispatch.name]: library.workspaceDispatch,
+  [settings.settingsGetPage.name]: settings.settingsGetPage,
+  [settings.settingsSetUiLanguage.name]: settings.settingsSetUiLanguage,
+  [settings.settingsSetSummaryProvider.name]: settings.settingsSetSummaryProvider,
+  [settings.settingsSetCliOption.name]: settings.settingsSetCliOption,
+  [settings.settingsSetMeetingLanguage.name]: settings.settingsSetMeetingLanguage,
+  [settings.settingsDetectCli.name]: settings.settingsDetectCli,
+  [settings.settingsDismissNotice.name]: settings.settingsDismissNotice,
+  [settings.settingsModelsDownload.name]: settings.settingsModelsDownload,
+  [settings.settingsModelsCancel.name]: settings.settingsModelsCancel,
+  [settings.settingsModelsSelect.name]: settings.settingsModelsSelect,
+  [settings.settingsModelsDelete.name]: settings.settingsModelsDelete,
+  [settings.settingsXaiRefresh.name]: settings.settingsXaiRefresh,
+  [settings.settingsXaiSaveApiKey.name]: settings.settingsXaiSaveApiKey,
+  [settings.settingsXaiSignOut.name]: settings.settingsXaiSignOut,
+  [settings.settingsXaiSignIn.name]: settings.settingsXaiSignIn,
+  [settings.i18nGetLocale.name]: settings.i18nGetLocale,
+  [settings.appRestart.name]: settings.appRestart,
 } as const;
 
 export const eventChannels = {
@@ -95,6 +113,8 @@ export const eventChannels = {
   [library.workspaceMeetingDeleted.name]: library.workspaceMeetingDeleted,
   [library.workspaceMeetingChanged.name]: library.workspaceMeetingChanged,
   [library.workspaceTakeNotesRequested.name]: library.workspaceTakeNotesRequested,
+  [settings.settingsModelEvent.name]: settings.settingsModelEvent,
+  [settings.i18nLocaleChanged.name]: settings.i18nLocaleChanged,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

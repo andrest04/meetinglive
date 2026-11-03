@@ -12,9 +12,14 @@ import {
 } from '@vozella/contracts';
 import { MeetingBusyRegistry, Workspace } from '@vozella/core';
 import {
+  FakeCliProbe,
+  FakeHardwareProbe,
+  FakeLocalModelStore,
+  FakeXaiAccount,
   ForbiddenDataRootError,
   LibraryRuntime,
   RotatingFileLogger,
+  SettingsRuntime,
   SystemClock,
   type RunMode,
 } from '@vozella/platform';
@@ -36,10 +41,14 @@ import {
   type BootstrappedPaths,
 } from './bootstrap/data-roots';
 import { isFakeNative, resolveRunMode } from './bootstrap/run-mode';
+import { acquireSingleInstance, RELAUNCH_ARG, sleepSync } from './bootstrap/single-instance';
 import { installGlobalErrorHandling } from './errors/global-errors';
+import { LocaleState, resolveStartupLanguage } from './i18n/locale-state';
+import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
+import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
 import { buildCsp } from './security/csp';
 import { mimeTypeFor, resolveAppAssetPath } from './security/app-protocol';
 import { hardenSession, hardenWebContents } from './security/harden';
@@ -101,7 +110,13 @@ function main(): void {
     exit: (code) => app.exit(code),
   });
 
-  if (!app.requestSingleInstanceLock()) {
+  if (
+    !acquireSingleInstance({
+      requestLock: () => app.requestSingleInstanceLock(),
+      relaunched: process.argv.includes(RELAUNCH_ARG),
+      sleep: sleepSync,
+    })
+  ) {
     logger.info('another instance is running, quitting');
     app.exit(0);
     return;
@@ -236,6 +251,32 @@ function main(): void {
     onChanged: (reason) => {
       broadcast(libraryChanged, { reason });
     },
+    onSettingsDamaged: (info) => {
+      settings.notices.add({ kind: 'settings-recovered', keptAs: info.keptAs });
+    },
+  });
+
+  // Settings page services. In the fake native build the machine, the CLIs, the model downloads
+  // and the xAI account are doubles, so nothing touches the network or a real account.
+  const settings: SettingsRuntime = new SettingsRuntime({
+    store: library.settings,
+    appDataDirectory: paths.appData,
+    osLanguages: () => app.getPreferredSystemLanguages(),
+    relaunch: () => {
+      // The new process starts as this one exits; it waits for the single instance lock.
+      const args = process.argv.slice(1).filter((arg) => arg !== RELAUNCH_ARG);
+      app.relaunch({ args: [...args, RELAUNCH_ARG] });
+      setImmediate(() => app.quit());
+    },
+    notifyModel: modelEventBridge(broadcast),
+    ...(fakeNative
+      ? {
+          hardware: new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 }),
+          cli: new FakeCliProbe(new Set(['claude'])),
+          modelStore: new FakeLocalModelStore(),
+          xaiAccount: new FakeXaiAccount(),
+        }
+      : {}),
   });
 
   function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {
@@ -272,6 +313,22 @@ function main(): void {
     }
     bridgeWorkspace(workspace, broadcast);
 
+    // The language of the app is applied before any window exists (spec 2.1, 4.5).
+    const locale = new LocaleState(
+      await resolveStartupLanguage(
+        () => library.settings.load(),
+        app.getPreferredSystemLanguages(),
+        (error) => {
+          logger.warn('could not read the saved app language; using the OS language', { error });
+        },
+      ),
+      mainCatalogs,
+      (key, requested, fallback) => {
+        logger.warn('missing string', { key, locale: requested, fallback });
+      },
+    );
+    logger.info('app language', { tag: locale.tag, saved: locale.saved });
+
     registerHandlers({
       logger,
       info,
@@ -282,6 +339,16 @@ function main(): void {
         logger,
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
+    });
+    registerSettingsHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      runtime: settings,
+      locale,
+      broadcast,
     });
     libraryWrites = registerLibraryHandlers({
       server: {
