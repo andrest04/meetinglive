@@ -30,6 +30,11 @@ export class ManualPumpClock implements PumpClock {
     });
   }
 
+  /** Time passes without anyone sleeping: work that took long. */
+  jump(ms: number): void {
+    this.time += ms;
+  }
+
   /** Moves time forward in small steps, letting woken code run between steps. */
   async advance(ms: number): Promise<void> {
     const end = this.time + ms;

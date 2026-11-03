@@ -372,7 +372,9 @@ export class AudioCaptureService {
         }
         const expectedMs = (bytesWritten * 1000) / FILE_BYTES_PER_SECOND;
         const sleepMs = expectedMs - (clock.nowMs() - startedAt - pauseAccumulatedMs);
-        if (sleepMs > 0) await clock.sleep(Math.trunc(sleepMs), cancel);
+        // Behind schedule: no sleep, but still a turn of the event loop, so the audio that
+        // arrived meanwhile reaches the source buffers before the next chunk is read.
+        await clock.sleep(sleepMs > 0 ? Math.trunc(sleepMs) : 0, cancel);
       }
     } catch (error) {
       const failure = toError(error);

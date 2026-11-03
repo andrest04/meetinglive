@@ -167,6 +167,31 @@ describe('mixing and file output', () => {
     expect(r.writer.bytes).toBe(6 * PUMP_CHUNK_BYTES);
   });
 
+  it('catches up without sleeping when it falls behind, yielding between chunks', async () => {
+    const r = rig();
+    await r.service.start('a.wav', systemOnly);
+    await r.clock.advance(400);
+    expect(r.writer.chunks).toHaveLength(3);
+    // The disk stalls for one second: the pump is 5 chunks behind.
+    r.clock.jump(1000);
+    await r.clock.advance(0);
+    expect(r.writer.chunks).toHaveLength(8);
+    // Caught up: back to one chunk per 200 ms.
+    await r.clock.advance(200);
+    expect(r.writer.chunks).toHaveLength(9);
+  });
+
+  it('lets audio that arrived while catching up reach the buffers before the next read', async () => {
+    const r = rig();
+    await r.service.start('a.wav', systemOnly);
+    await flush();
+    r.clock.jump(600);
+    r.port.output?.emit(5000, 3200);
+    await r.clock.advance(0);
+    // The burst reads the data that arrived, it does not write silence over it.
+    expect(r.writer.samples().includes(5000)).toBe(true);
+  });
+
   it('fills with silence where a source delivered nothing', async () => {
     const r = rig();
     await r.service.start('a.wav', systemOnly);

@@ -58,19 +58,3 @@ export class AudioMixer {
     return out;
   }
 }
-
-/**
- * Averages interleaved channels to mono, any channel count (fixes C2 and C3). One channel
- * passes through; two use weights 0.5 and 0.5.
- */
-export function downmixToMono(interleaved: Float32Array, channels: number): Float32Array {
-  if (channels <= 1) return interleaved;
-  const frames = Math.floor(interleaved.length / channels);
-  const out = new Float32Array(frames);
-  for (let f = 0; f < frames; f += 1) {
-    let sum = 0;
-    for (let c = 0; c < channels; c += 1) sum += interleaved[f * channels + c] ?? 0;
-    out[f] = sum / channels;
-  }
-  return out;
-}

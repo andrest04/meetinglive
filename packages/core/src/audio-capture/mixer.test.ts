@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AudioMixer, downmixToMono, SOURCE_BUFFER_SAMPLES } from './mixer';
+import { AudioMixer, SOURCE_BUFFER_SAMPLES } from './mixer';
 
 function pcm(...values: number[]): Uint8Array {
   return new Uint8Array(new Int16Array(values).buffer);
@@ -50,23 +50,5 @@ describe('AudioMixer', () => {
     const all = out(m.read(SOURCE_BUFFER_SAMPLES + 3));
     expect(all[SOURCE_BUFFER_SAMPLES - 1]).toBe(7);
     expect(all.slice(SOURCE_BUFFER_SAMPLES)).toEqual([0, 0, 0]);
-  });
-});
-
-describe('downmixToMono', () => {
-  it('passes one channel through', () => {
-    const x = new Float32Array([0.1, 0.2]);
-    expect(downmixToMono(x, 1)).toBe(x);
-  });
-
-  it('averages stereo with weights 0.5 and 0.5', () => {
-    expect([...downmixToMono(new Float32Array([1, 0, 0.5, 0.5]), 2)]).toEqual([0.5, 0.5]);
-  });
-
-  it('averages any channel count (fixes C2 and C3)', () => {
-    const six = new Float32Array([0.6, 0.6, 0.6, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
-    const mono = downmixToMono(six, 6);
-    expect(mono[0]).toBeCloseTo(0.3, 6);
-    expect(mono[1]).toBeCloseTo(1, 6);
   });
 });
