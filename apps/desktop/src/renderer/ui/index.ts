@@ -9,6 +9,7 @@ export { Icon, ICON_STROKE, type IconProps } from './Icon';
 export { Input, Textarea } from './Input';
 export { Kbd } from './Kbd';
 export { Mark } from './Mark';
+export { Meter, type MeterProps } from './Meter';
 export { ContextMenu, Menu, type MenuEntry } from './Menu';
 export { Notice, type NoticeProps } from './Notice';
 export { Progress, type ProgressProps } from './Progress';

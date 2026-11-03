@@ -42,7 +42,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     id: 'microphone',
     headingKey: 'Settings_Microphone.Text',
     owner: 'audio-capture',
-    status: 'slot',
+    status: 'built',
   },
   {
     id: 'meetingLanguage',

@@ -67,3 +67,44 @@ export class FakeOsBuild implements OsBuildProbe {
     return this.build;
   }
 }
+
+export interface FakeAudioApp {
+  readonly processId: number;
+  readonly exePath: string;
+  /** The file description the picker shows as the app name. */
+  readonly name: string;
+  /** Master peak 0..1. */
+  readonly peak: number;
+}
+
+/**
+ * Makes the fake audio session list and process table hold these apps, so e2e runs and
+ * screenshots have something to pick. Only the fake native build calls it.
+ */
+export function seedFakeAudioApps(
+  ports: { readonly sessions: AudioSessionSource; readonly processes: ProcessInfoProvider },
+  apps: readonly FakeAudioApp[],
+): void {
+  const { sessions, processes } = ports;
+  if (!(sessions instanceof FakeAudioSessionSource) || !(processes instanceof FakeProcessInfo)) {
+    return;
+  }
+  for (const app of apps) {
+    sessions.sessions.push({
+      processId: app.processId,
+      isSystemSounds: false,
+      isStateActive: true,
+      peak: app.peak,
+    });
+    sessions.peaks.set(app.processId, app.peak);
+    const fileName = app.exePath.split(/[\\/]/).pop() ?? app.exePath;
+    processes.processes.set(app.processId, {
+      processId: app.processId,
+      parentProcessId: 0,
+      exePath: app.exePath,
+      processName: fileName.replace(/\.exe$/i, ''),
+      startTimeUtcMs: null,
+    });
+    processes.versions.set(app.exePath, { fileDescription: app.name, productName: null });
+  }
+}

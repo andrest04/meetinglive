@@ -18,6 +18,8 @@ export interface SelectProps {
   readonly label: string;
   readonly placeholder?: string;
   readonly disabled?: boolean;
+  /** Fires when the list opens or closes, for pages that refresh the options on open. */
+  readonly onOpenChange?: (open: boolean) => void;
   readonly className?: string;
 }
 
@@ -28,6 +30,7 @@ export function Select({
   label,
   placeholder,
   disabled,
+  onOpenChange,
   className,
 }: SelectProps) {
   return (
@@ -38,6 +41,7 @@ export function Select({
         if (typeof next === 'string') onValueChange(next);
       }}
       disabled={disabled}
+      onOpenChange={onOpenChange}
     >
       <BaseSelect.Trigger
         aria-label={label}

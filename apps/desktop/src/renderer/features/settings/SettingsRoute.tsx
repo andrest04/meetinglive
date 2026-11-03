@@ -2,6 +2,7 @@ import { SETTINGS_SECTIONS } from '@vozella/core';
 import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
 import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
+import { MicrophoneSection } from '../audio/MicrophoneSection';
 import { DataSection } from './DataSection';
 import { LanguageSection } from './LanguageSection';
 import { MeetingLanguageSection } from './MeetingLanguageSection';
@@ -94,6 +95,7 @@ export function SettingsRoute() {
             <LanguageSection current={page.uiLanguage} onChange={model.setUiLanguage} />
           ) : null}
           {built.has('summaryProvider') ? <ProviderSection page={page} model={model} /> : null}
+          {built.has('microphone') ? <MicrophoneSection /> : null}
           {built.has('meetingLanguage') ? (
             <MeetingLanguageSection
               transcription={page.transcriptionLanguage}

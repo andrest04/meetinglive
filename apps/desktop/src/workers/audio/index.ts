@@ -1,6 +1,6 @@
 // utilityProcess entry for audio capture. Loads the Rust addon (or the fakes) and speaks the
 // protocol in packages/contracts/src/workers.ts with the main process.
-import { createNativePorts } from '@vozella/platform';
+import { createNativePorts, seedFakeAudioApps, type FakeAudioApp } from '@vozella/platform';
 import { createAudioWorker } from './audio-worker-core';
 
 const parentPort = process.parentPort;
@@ -14,7 +14,11 @@ const handle = createAudioWorker({
   },
   createPorts: () => {
     if (process.env.VOZELLA_FAKE_NATIVE === '1') {
-      return createNativePorts({ fake: true });
+      const ports = createNativePorts({ fake: true });
+      // E2E and screenshots only: apps that "play" audio in the fake build.
+      const seeded = process.env.VOZELLA_FAKE_AUDIO_APPS;
+      if (seeded) seedFakeAudioApps(ports, JSON.parse(seeded) as FakeAudioApp[]);
+      return ports;
     }
     const addonPath = process.env.VOZELLA_NATIVE_ADDON;
     if (!addonPath) throw new Error('VOZELLA_NATIVE_ADDON is not set');
