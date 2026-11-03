@@ -356,6 +356,31 @@ Decisions (S14):
 - **Out-of-range toggle** answers `out-of-range` and writes nothing.
 - **RED run (S14).** The pure tests (flags, queue, related) were run first against missing modules and failed; the service tests were written before the service file but the first run was after it.
 
+### Summaries IPC and main composition (S15)
+
+No parity numbers; this package is wiring. Status words as above.
+
+- **done**: `packages/contracts/src/summaries.ts` (zod) with `summaries.loadTab`, `generate`, `cancel`, `saveNotes`, `toggleAction`, `copyActions`, `setTemplate`, `providerStatus`, `hardware`, `checkCli`, `chooseLocalModel`, `cancelLocalModel`, `chooseCli` and the event `summaries.progress`. Registered in `channels.ts` and `index.ts`; the preload and `api.ts` are generic over the channel table, so they needed no edit. Model progress reuses `settings.modelEvent`.
+- **done**: `generate` answers every `GenerateOutcome` as a value. A failed run carries the sentence already localized (`describeFailed` with the active catalog). `needs-setup` and `unavailable` (Xai) are values.
+- **done**: `SummariesController` (`apps/desktop/src/main/summaries/summaries-controller.ts`) owns one `CancelSource` per meeting. A second `generate` for the same meeting answers `busy` and leaves the first alone. `cancel` answers whether anything was running. `loadTab` adds `generating`, so a page opened mid-run shows it.
+- **done**: `summaries.hardware` returns the catalog rows with fit and downloaded flags and `defaultFileName` by the rule first downloaded, else first Recommended, else first (`defaultModelFileName`, pure, tested).
+- **done**: `summaries.checkCli(kind)` returns `found`, the executable name and the install hint key (`Cli_ClaudeHint`, `Cli_CodexHint`). `chooseCli` saves the provider only when the executable is found.
+- **done**: `summaries.chooseLocalModel(fileName)` downloads through the shared `LocalModelsService` (joining a running download), then saves `selectedSummaryModelId` and `selectedSummaryProvider: 'Local'` in one `SettingsStore.update`. A failed or cancelled download saves nothing. `cancelLocalModel` cancels it.
+- **done**: `summaries.setTemplate` (new `SummaryTabService.setTemplate`, queued with the other writes) stores the picker choice; only a built-in id is stored.
+- **done**: pipeline hook. `SummariesController.summarizeForPipeline(request, cancel)` is the S13 generate core with the request agenda and note template; `GenerateRequest` gained `agenda` and `skipBusyProbe` (the pipeline holds the meeting busy itself). The result is `completed`, `cancelled` or `failed` with a localized message. `TranscriptionController` takes it as `summarize`: after the new transcript is saved it runs the stage, so a re-transcription ends `Completed`, `SummaryFailed` or `Cancelled` instead of `TranscriptOnly`. Without the hook it still ends `TranscriptOnly`. `templateInstructions` is `resolveTemplateInstructions(record.noteTemplateId)` and `formatFailure` is `formatFailure` from S03.
+- **done**: composition in `main/index.ts`: one `FileLocalModelStore` and one CLI probe shared by Settings and the summary module, `SummaryRuntime`, `SummaryService` with both locales' `MeetingTitleFormat`, `SummaryTabService`, handlers, and disposal on `before-quit` and `will-quit` (`SummariesController.dispose` cancels runs, then `SummaryRuntime.dispose` kills the llama-server synchronously and waits for it).
+- **done**: fake native build (`VOZELLA_FAKE_NATIVE=1`): `FakeSummaryProvider` (deterministic three-section reply; `VOZELLA_FAKE_SUMMARY_DELAY_MS`, `VOZELLA_FAKE_SUMMARY_FAIL` set to a CLI failure kind or any text for `Unknown`), a fake model store (now with `pathFor`) and a fake CLI probe with `claude` on PATH. `SummaryProviderFactory` takes an optional `override`; `SummaryRuntime` takes `providerOverride`.
+- **done**: a settings file that selects `Xai` answers `providerStatus` `unavailable` and `generate` `unavailable` (e2e).
+- **pending-real-validation**: in a real build main loads the native addon a second time only to get the kill-on-close job (`createNativePorts(...).processJob`); if the load fails it logs and the sidecar watchdog runs. Not run with Electron main as the owner of a real llama-server.
+- **new copy**: `Ui_SummaryMeetingBusy` and `Ui_SummaryMeetingGone` (en and es), used for the pipeline's busy and missing-meeting sentences.
+
+Decisions (S15):
+
+- **Busy registry.** A meeting being summarized is reported busy to the registry, so it cannot be deleted, moved or re-transcribed mid-run. `SummaryService` still refuses a manual run on a meeting the recording or re-transcription holds, except from the pipeline.
+- **Rating without a backend.** `summaries.hardware` rates with `gpuOffload` true (the `rateFor` default), because the llama backend is only chosen on the first generate. The Settings list does the same.
+- **Clipboard.** `copyActions` returns the text; the write belongs to the renderer (S16/S17).
+- **No RED run (S15).** Code and tests were written together and the first run was green. The e2e spec `apps/desktop/e2e/summaries-ipc.spec.ts` drives the real contract in the fake build: gate, wizard options, model choice, generate, tab, toggle, copy, notes, template, CLI failure, busy, cancel and Xai.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -386,6 +411,7 @@ Decisions (S14):
 - **B19** (S12): gate and wizard writes use `SettingsStore.update(patch)`, a serialized read-modify-write; three parallel patches to different fields all reach the disk.
 - **B35** (S12): unknown, numeric or blank provider names resolve to Local; `Xai` stays `unavailable`.
 - **B5** (S14): action item toggles (and notes saves) go through a per-meeting queue; 20 rapid toggles on slow saves end in order with the last value persisted, and one failing save does not block the next (tested).
+- **S15**: no numbered bug. A re-transcription no longer ends as `TranscriptOnly` only (the summary stage is plugged in); generate for a meeting that is already running no longer replaces the first run's cancel source (the second request answers `busy`).
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -418,6 +444,11 @@ Decisions (S14):
 
 - S13 to S15 and S17: S15 builds `new SummaryService({ meetings, settings, resolver: runtime.resolver, clock, notifyMeetingChanged: (id) => workspace.notifyMeetingChanged(id), busy, placeholderFormats: [en MeetingTitleFormat, es MeetingTitleFormat] })` once and keeps one `CancelSource` per meeting for the cancel channel. S17 sends the picked `templateId`, maps `needs-setup` to the wizard (Local) or the CLI setup dialog, shows `failed` through `describeFailed`, and shows `Status_SetupCancelled` when the dialogs are closed. `Status_GeneratingSummary` and `Status_SummaryGenerated` are the UI's.
 - S14 to S15 and S16: S15 builds `new SummaryTabService({ meetings, translate, getSelectedMeetingId: () => workspace.state.selectedMeetingId, selectMeeting: (id) => workspace.selectMeeting(id) })` once and may pass a shared `PatchQueue`. The clipboard write for `copied` and `copyText` is the shell's; S16 shows `message` from `empty` as an error draft message, `message` from a failed toggle as the status line, and builds the related-item date label from `recordedAt`. S16 recomputes flags with `deriveTabFlags` for notes mode and while generating.
+
+- S15 to S16 and S17: the renderer calls the `summaries.*` channels through `window.vozella.invoke`, listens to `summaries.progress` and `settings.modelEvent`, recomputes `deriveTabFlags` for notes mode and `isGenerating`, writes the clipboard from `copyActions` and `copyText`, maps `needs-setup` to the wizard (Local) or the CLI dialog, and shows `unavailable` with `Ui_SummaryProviderXaiRemoved`.
+- S15 to S18 and S19: `summaries.hardware` gives the wizard rows and the default; `chooseLocalModel` and `cancelLocalModel` drive the download step; `checkCli` and `chooseCli` drive the CLI check and the Check again button with the hint key.
+- S15 to the recording module: call `summaries.summarizeForPipeline(request, cancel)` (agenda and note template come from the request) as the summary stage of `RecordingPipelineRequest`, and the same `templateInstructions` and `formatFailure`.
+- S15 to the final review: the real-build composition (second addon load for the kill-on-close job, real llama-server under Electron main) was not run.
 
 ## Dropped by the owner
 

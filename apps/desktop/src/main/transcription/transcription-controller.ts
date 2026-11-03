@@ -54,6 +54,15 @@ export interface TranscriptionControllerDeps {
   /** Tells the workspace a meeting changed so other views refresh. */
   readonly onMeetingChanged: (meetingId: string) => void;
   readonly formatFailure?: (error: unknown) => string;
+  /** The summary stage after a re-transcription saved its transcript; the summary module supplies it. */
+  readonly summarize?: (
+    request: RecordingPipelineRequest,
+    cancel: CancelSignal,
+  ) => Promise<
+    | { readonly status: 'completed' }
+    | { readonly status: 'cancelled' }
+    | { readonly status: 'failed'; readonly message: string }
+  >;
   readonly defer?: (task: () => void) => void;
 }
 
@@ -425,7 +434,16 @@ export class TranscriptionController {
   private pipeline(): RetranscriptionPipeline {
     return {
       run: async (request, callbacks, cancel) => {
-        await this.replaceTranscript(request, callbacks, cancel);
+        const saved = await this.replaceTranscript(request, callbacks, cancel);
+        if (!saved || cancel.cancelled || this.deps.summarize === undefined) return;
+        callbacks.onStatus(this.deps.t('Status_GeneratingSummary'));
+        const summary = await this.deps.summarize(request, cancel);
+        if (summary.status === 'completed') {
+          callbacks.onMeetingCompleted();
+          this.deps.onMeetingChanged(request.meetingId);
+        } else if (summary.status === 'failed') {
+          callbacks.onSummaryFailedAfterTranscriptSaved(summary.message);
+        }
       },
     };
   }
@@ -434,11 +452,11 @@ export class TranscriptionController {
     request: RecordingPipelineRequest,
     callbacks: RetranscriptionPipelineCallbacks,
     cancel: CancelSignal,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { t } = this.deps;
     if (!this.deps.runtime.installer.isReady()) {
       callbacks.onFinished(t('Error_EngineNotReady'));
-      return;
+      return false;
     }
     const recordedAt = parseOffsetDate(request.recordedAt)?.ms ?? null;
     const endedAt =
@@ -456,16 +474,16 @@ export class TranscriptionController {
     } catch (error) {
       if (error instanceof TranscriptionCancelledError || cancel.cancelled) throw error;
       callbacks.onFinished(t('Error_TranscriptionFailedAudioKept', messageOf(error)));
-      return;
+      return false;
     }
     if (text.trim() === '') {
       callbacks.onFinished(t('Error_NoTranscript'));
-      return;
+      return false;
     }
     const current = await this.deps.meetings.get(request.meetingId);
     if (current === null) {
       callbacks.onFinished(t('Error_NoTranscript'));
-      return;
+      return false;
     }
     const transcript = applyHighlights(
       ensureEndedHeader(text, recordedAt, endedAt),
@@ -473,5 +491,6 @@ export class TranscriptionController {
     );
     await this.deps.meetings.save({ ...current, transcript });
     callbacks.onMeetingSaved(request.meetingId);
+    return true;
   }
 }

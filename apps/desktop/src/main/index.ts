@@ -10,7 +10,14 @@ import {
   type PayloadInputOf,
   type ThemePreference,
 } from '@vozella/contracts';
-import { MeetingBusyRegistry, Workspace, type HardwareProbe } from '@vozella/core';
+import {
+  MeetingBusyRegistry,
+  resolveTemplateInstructions,
+  SummaryService,
+  SummaryTabService,
+  Workspace,
+  type HardwareProbe,
+} from '@vozella/core';
 import {
   fakeEngineOptionsFromEnv,
   SteppedModelStore,
@@ -19,6 +26,12 @@ import {
   FakeHardwareProbe,
   FakeSpeechEngine,
   FakeLocalModelStore,
+  FakeSummaryProvider,
+  fakeSummaryOptionsFromEnv,
+  FileLocalModelStore,
+  PathCliProbe,
+  createNativePorts,
+  SummaryRuntime,
   ForbiddenDataRootError,
   LibraryRuntime,
   readWavDurationSeconds,
@@ -61,6 +74,8 @@ import { registerHandlers } from './ipc/handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
+import { registerSummariesHandlers } from './ipc/summaries-handlers';
+import { SummariesController } from './summaries/summaries-controller';
 import { TranscriptionController } from './transcription/transcription-controller';
 import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
@@ -293,6 +308,12 @@ function main(): void {
     ? new FakeHardwareProbe({ totalRamGb: 16, gpuName: 'Fake GPU', gpuVramGb: 8 })
     : new SystemHardwareProbe();
 
+  // The model folder and the CLI probe are shared by the Settings page and the summary module.
+  const summaryModels = fakeNative
+    ? new FakeLocalModelStore()
+    : new FileLocalModelStore({ directory: path.join(paths.appData, 'SummaryModels') });
+  const summaryCli = fakeNative ? new FakeCliProbe(new Set(['claude'])) : new PathCliProbe();
+
   // Settings page services. In the fake native build the machine, the CLIs, the model downloads
   // are doubles, so nothing touches the network.
   const settings: SettingsRuntime = new SettingsRuntime({
@@ -316,10 +337,25 @@ function main(): void {
     },
     notifyModel: modelEventBridge(broadcast),
     hardware,
-    ...(fakeNative
-      ? { cli: new FakeCliProbe(new Set(['claude'])), modelStore: new FakeLocalModelStore() }
-      : {}),
+    cli: summaryCli,
+    modelStore: summaryModels,
   });
+
+  /** The kill-on-close job that leaves no llama-server behind. Without it the sidecar watchdog runs. */
+  function loadProcessJob() {
+    try {
+      return createNativePorts({
+        fake: false,
+        addonPath: nativeAddonPath,
+        // A real require, so the bundler leaves the .node load to runtime.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        load: (file) => require(file) as unknown,
+      }).processJob;
+    } catch (error) {
+      logger.warn('native process job unavailable; using the watchdog', { error: String(error) });
+      return undefined;
+    }
+  }
 
   function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {
     for (const window of BrowserWindow.getAllWindows()) {
@@ -470,6 +506,76 @@ function main(): void {
       audioController.dispose();
     });
 
+    // Summaries: one runtime owns the providers and the single local llama-server. The fake
+    // native build answers every engine with a double, so e2e needs no model or CLI.
+    const summaryRuntime = new SummaryRuntime({
+      settings: library.settings,
+      hardware,
+      models: summaryModels,
+      llamaRoot: path.join(paths.appData, 'LlamaRuntime'),
+      cli: summaryCli,
+      ...(fakeNative
+        ? {
+            providerOverride: (kind) =>
+              new FakeSummaryProvider(
+                kind === 'ClaudeCode' ? 'claude-code' : kind === 'Codex' ? 'codex' : 'local',
+                fakeSummaryOptionsFromEnv(process.env),
+              ),
+          }
+        : { processJob: loadProcessJob() }),
+    });
+    const summaryService = new SummaryService({
+      meetings: library.meetings,
+      settings: library.settings,
+      resolver: summaryRuntime.resolver,
+      clock: new SystemClock(),
+      notifyMeetingChanged: (id) => {
+        workspace.notifyMeetingChanged(id);
+      },
+      busy,
+      placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
+        const format = catalog.MeetingTitleFormat;
+        return format === undefined ? [] : [format];
+      }),
+    });
+    // A meeting being summarized cannot be re-transcribed, deleted or moved from under the run.
+    busy.register({ isBusy: (id) => summaryService.isGenerating(id) });
+    const summaries = new SummariesController({
+      service: summaryService,
+      tab: new SummaryTabService({
+        meetings: library.meetings,
+        translate: (key, ...args) => locale.t(key, ...args),
+        getSelectedMeetingId: () => workspace.state.selectedMeetingId,
+        selectMeeting: (id) => {
+          workspace.selectMeeting(id);
+        },
+      }),
+      resolver: summaryRuntime.resolver,
+      models: settings.models,
+      hardware,
+      cli: summaryCli,
+      settings: library.settings,
+      runtime: summaryRuntime,
+      broadcast,
+      logger: logger.child('summaries'),
+      t: (key, ...args) => locale.t(key, ...args),
+    });
+    registerSummariesHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: summaries,
+    });
+    // No llama-server may outlive the app: kill it now, then let it end cleanly.
+    app.on('before-quit', () => {
+      void summaries.dispose();
+    });
+    app.on('will-quit', () => {
+      void summaries.dispose();
+    });
+
     // Transcription: the engine runs in its own process; the controller serves the pages and
     // gives the recording module the live pass and the offline pass.
     const transcription = new TranscriptionRuntime({
@@ -506,6 +612,11 @@ function main(): void {
       onMeetingChanged: (id) => {
         workspace.notifyMeetingChanged(id);
       },
+      // Re-transcription also regenerates the summary (the recording module reuses the same hook).
+      summarize: (request, cancel) => summaries.summarizeForPipeline(request, cancel),
+      templateInstructions: (record) =>
+        Promise.resolve(resolveTemplateInstructions(record.noteTemplateId)),
+      formatFailure: (error) => summaries.formatError(error),
     });
     registerTranscriptionHandlers({
       server: {

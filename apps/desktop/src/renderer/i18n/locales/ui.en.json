@@ -73,5 +73,7 @@
   "Ui_SummaryCannotCondense": "The local summary model could not condense this meeting enough to summarize it. Use another summary provider.",
   "Ui_SummaryPromptTooLong": "The text is too long for the local summary model. Use another summary provider.",
   "Ui_SummaryProviderXaiRemoved": "Grok (xAI) is no longer available. Pick Local, Claude Code or Codex to summarize your meetings.",
+  "Ui_SummaryMeetingBusy": "This meeting is in use right now. Try the summary again in a moment.",
+  "Ui_SummaryMeetingGone": "The meeting could not be found, so no summary was made.",
   "Ui_SummaryProviderCardDescription": "Local runs entirely on this PC for free. Claude Code and Codex use an already-installed CLI."
 }

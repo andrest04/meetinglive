@@ -273,7 +273,7 @@ Not changed: B2 (see Left for other modules), B15 (local polisher), B23 (GPU cho
 ## Left for other modules
 
 - **Recording module.** `startLive` and `stopLive` are already called by `RecordingTakes`; take `lastLiveDraft` as the draft. Call `transcribeFile` after Stop and after import, with the progress and a `CancelSource`. Use `resolveTranscriptionStage` and `ensureEndedHeader` for the saved transcript and `applyHighlights` with the marks of the take. The Record gate and the setup dialog are built (decision 13).
-- **Summary module.** Plug into `RetranscriptionPipeline` so a re-transcription also regenerates the summary (today it ends as `TranscriptOnly` and the summary is kept). Provide the note template text through `templateInstructions` and the failure text through `formatFailure` (`CliFailureUserMessage`).
+- **Summary module.** Done (summaries S15): `TranscriptionController` takes `summarize`, `templateInstructions` and `formatFailure` from the summaries controller, so a re-transcription also regenerates the summary and ends `Completed` or `SummaryFailed`. The recording module reuses the same hook.
 - **Polish (B2, B15).** The four providers, their selection, the call from the pipeline, and the local model chunk budget. `TranscriptPolisher`, `buildPolishPrompt`, `splitTimestampedChunks` and `polishOrKeep` are ready.
 - **Session page.** The transcript and summary tabs belong to the session module. When it lands, mount `RetranscribeControl` in its header and reload the meeting from `onFinished`.
 - **Library.** CRLF in the meeting file if byte parity of transcripts matters; the accumulator now produces `\n`.
