@@ -337,3 +337,9 @@ Left for other modules:
 - Settings section heading reads "Calendar" while only the call-popup toggle remains: rejected. The key is reused on purpose (copy rule), the section is the home of calendar-related settings that may return (owner decision 2026-11-03, may return later), and the toggle label states what it does.
 - Settings screenshot shows the toggle only in the off state: rejected. The on state is the default and is covered by `CallDetectionSection.test.tsx` and the persistence e2e; a second screenshot adds no information.
 - First e2e run had one flaky meeting-popup menuitem click under machine contention; the retry passed. Not a product defect.
+
+## Audit follow-up 3
+
+- "Calendar" heading over a section holding only the popup toggle: rejected again, same reason as follow-up 2 (key reused on purpose, owner decision 2026-11-03, may return later).
+- Open popup menu covers the Start recording button: rejected. The 480x72 window has no room to open the menu elsewhere without clipping; the menu is transient and Escape closes it (see the Popup menu decision above).
+- Light and dark popup shots near identical: rejected. The card is always dark by design and the e2e asserts it.
