@@ -12,3 +12,7 @@ export * from './offset-date';
 export * from './settings';
 export * from './snippet';
 export * from './workspace';
+export * from './app-paths';
+export * from './in-memory-library';
+export * from './library-service';
+export * from './ports';
