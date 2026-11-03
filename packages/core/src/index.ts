@@ -9,3 +9,4 @@ export * from './library';
 export * from './i18n';
 export * from './settings';
 export * from './transcription';
+export * from './meeting-detection';

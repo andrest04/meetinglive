@@ -128,9 +128,9 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 96  | R20 | pending (cd-8) |                                                                                                                                                                                                                                                                            |
 | 97  | R21 | dropped        | owner decision 2026-11-03, may return later                                                                                                                                                                                                                                |
 | 98  | C1  | pending (cd-3) |                                                                                                                                                                                                                                                                            |
-| 99  | C2  | pending (cd-2) |                                                                                                                                                                                                                                                                            |
-| 100 | C3  | pending (cd-2) |                                                                                                                                                                                                                                                                            |
-| 101 | C4  | pending (cd-2) |                                                                                                                                                                                                                                                                            |
+| 99 | C2 | done. `isMeeting` in `packages/core/src/meeting-detection/call-detector.ts`; cpthost any title, zoom Meeting/Webinar, teams/ms-teams, other apps false. |
+| 100 | C3 | done. Browsers chrome, msedge, firefox, brave, opera, vivaldi need the code regex `[a-z]{3}-[a-z]{4}-[a-z]{3}` (i) and "Meet" in the title. |
+| 101 | C4 | done. Process name trimmed and lower-cased; blank is false. |
 | 102 | C5  | pending (cd-4) |                                                                                                                                                                                                                                                                            |
 | 103 | C6  | pending (cd-3) |                                                                                                                                                                                                                                                                            |
 | 104 | C7  | pending (cd-3) |                                                                                                                                                                                                                                                                            |
@@ -194,10 +194,14 @@ Kept and owned by later packages: `MeetingCallDetectorTests` (cd-2), `MeetingPop
 
 ## Bugs fixed (section 7)
 
-- None fixed by this package; it changes no production behavior. B7 (in-app bar shown while the popup is off) and B8 (`Calls | Microsoft Teams` matches; Webex, Slack, Discord and Skype never get the popup) and S6 to S9 belong to cd-2 to cd-8, which record their decisions here.
+- B8 (cd-2), Teams half: fixed. Teams/ms-teams now match `Meeting` or `Call` as whole words, so `Calls | Microsoft Teams` and `Meetings | Microsoft Teams` are false while `Call with Ana` stays true. RED-first test: "B8: a Teams window titled Calls or Meetings is not a call". Decision recorded by cd-2 (unattended).
+- B8 (cd-2), other half: kept as in C#. Webex, Slack, Discord and Skype never produce a popup; the detector list stays zoom/teams/cpthost/browsers (test "B8 kept").
+- Not fixed by cd-1: B7 (in-app bar shown while the popup is off) and S6 to S9 belong to cd-2 to cd-8, which record their decisions here.
 - Dropped with the cut code: B1 to B6, B9, B10, S1 to S5, S10 to S13. Reason: owner decision 2026-11-03, may return later.
 
 ## Left for other modules
+
+- cd-3 and cd-4 call `isMeeting` from `@vozella/core` (exported via `meeting-detection`); cd-4 must supply process name without `.exe`.
 
 - cd-8 owns the popup toggle row in Settings and the Spanish strings (item 144).
 - The take-notes request that starts a blank take (items 96, 112, 121) is wired by cd-6 and cd-8 against the existing recording entry point.
@@ -208,3 +212,5 @@ Kept and owned by later packages: `MeetingCallDetectorTests` (cd-2), `MeetingPop
 - `packages/core/src/library/settings.test.ts`: "cd-1: a file with calendar settings, no Xai and Jev flags survives load and rewrite unchanged", "cd-1: a file that still selects Xai loads and rewrites with the provider kept".
 - `packages/core/src/library/meeting-markdown.test.ts`: "keeps event keys, the attendee separator and the Brief section through load and rewrite", "writes the event keys only when set".
 - `packages/core/src/audio-capture/record-sources.test.ts`: "cd-1 A5: no suggestion is offered for an app the restore just selected".
+
+- `packages/core/src/meeting-detection/call-detector.test.ts`: every MeetingCallDetectorTests row plus B8 cases (cd-2).
