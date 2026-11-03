@@ -4,6 +4,19 @@ import path from 'node:path';
 import { resolveDataRoots, type DataRoots, type RunMode } from '@vozella/platform';
 import type { App } from 'electron';
 
+/** The folders the data-root guard compares against. Also used to guard a folder the user picks. */
+export function resolveGuardInput(
+  app: Pick<App, 'getPath'>,
+  env: NodeJS.ProcessEnv,
+): { localAppData: string; documents: string; tempDir: string; realpath: (p: string) => string } {
+  return {
+    localAppData: env.LOCALAPPDATA ?? path.join(app.getPath('home'), 'AppData', 'Local'),
+    documents: app.getPath('documents'),
+    tempDir: os.tmpdir(),
+    realpath: (p) => fs.realpathSync.native(p),
+  };
+}
+
 export interface BootstrappedPaths extends DataRoots {
   readonly logsDir: string;
 }
@@ -18,15 +31,7 @@ export function bootstrapDataRoots(
   mode: RunMode,
   env: NodeJS.ProcessEnv,
 ): BootstrappedPaths {
-  const localAppData = env.LOCALAPPDATA ?? path.join(app.getPath('home'), 'AppData', 'Local');
-  const roots = resolveDataRoots({
-    env,
-    mode,
-    localAppData,
-    documents: app.getPath('documents'),
-    tempDir: os.tmpdir(),
-    realpath: (p) => fs.realpathSync.native(p),
-  });
+  const roots = resolveDataRoots({ env, mode, ...resolveGuardInput(app, env) });
 
   const electronDir = path.join(roots.appData, 'electron');
   const logsDir = path.join(roots.appData, 'logs');

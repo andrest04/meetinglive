@@ -8,5 +8,16 @@
   "Ui_Close": "Close",
   "Ui_NavMain": "Main",
   "Ui_Loading": "Loading",
-  "Ui_SkipToContent": "Skip to content"
+  "Ui_SkipToContent": "Skip to content",
+  "Ui_LibraryNameTaken": "A folder with this name already exists here.",
+  "Ui_LibraryFolderFailed": "The folder was not changed: {0}",
+  "Ui_LibraryMoveFailed": "The meeting was not moved: {0}",
+  "Ui_LibrarySearchEmpty": "No meetings match your search.",
+  "Ui_LibraryFoldersDamaged": "The folder list could not be read. Your meetings are safe. {0}",
+  "Ui_LibraryMigrationFailed": "Meetings from an earlier version could not be moved yet. {0}",
+  "Ui_LibrarySkippedFiles": "Some files in the library are not meetings and were skipped.",
+  "Ui_LibraryChooseFolder": "Choose folder",
+  "Ui_LibraryResetFolder": "Use the default folder",
+  "Ui_LibraryFolderRefused": "That folder cannot be used. {0}",
+  "Ui_LibraryFolderShared": "This folder holds a library from an earlier version. Both versions read and write the same files."
 }

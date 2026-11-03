@@ -8,5 +8,16 @@
   "Ui_Close": "Cerrar",
   "Ui_NavMain": "Principal",
   "Ui_Loading": "Cargando",
-  "Ui_SkipToContent": "Saltar al contenido"
+  "Ui_SkipToContent": "Saltar al contenido",
+  "Ui_LibraryNameTaken": "Ya existe una carpeta con este nombre aquí.",
+  "Ui_LibraryFolderFailed": "La carpeta no se modificó: {0}",
+  "Ui_LibraryMoveFailed": "La reunión no se movió: {0}",
+  "Ui_LibrarySearchEmpty": "Ninguna reunión coincide con tu búsqueda.",
+  "Ui_LibraryFoldersDamaged": "No se pudo leer la lista de carpetas. Tus reuniones están a salvo. {0}",
+  "Ui_LibraryMigrationFailed": "Las reuniones de una versión anterior todavía no se pudieron mover. {0}",
+  "Ui_LibrarySkippedFiles": "Algunos archivos de la biblioteca no son reuniones y se omitieron.",
+  "Ui_LibraryChooseFolder": "Elegir carpeta",
+  "Ui_LibraryResetFolder": "Usar la carpeta predeterminada",
+  "Ui_LibraryFolderRefused": "No se puede usar esa carpeta. {0}",
+  "Ui_LibraryFolderShared": "Esta carpeta contiene una biblioteca de una versión anterior. Ambas versiones leen y escriben los mismos archivos."
 }

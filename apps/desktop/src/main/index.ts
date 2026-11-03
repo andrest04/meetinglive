@@ -1,14 +1,44 @@
 // Composition root of the main process. Everything is wired here and nowhere else.
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { AppInfo, ThemePreference } from '@vozella/contracts';
-import { ForbiddenDataRootError, RotatingFileLogger, type RunMode } from '@vozella/platform';
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, session } from 'electron';
-import { bootstrapDataRoots, type BootstrappedPaths } from './bootstrap/data-roots';
+import {
+  libraryChanged,
+  type AppInfo,
+  type EventChannel,
+  type PayloadInputOf,
+  type ThemePreference,
+} from '@vozella/contracts';
+import { MeetingBusyRegistry, Workspace } from '@vozella/core';
+import {
+  ForbiddenDataRootError,
+  LibraryRuntime,
+  RotatingFileLogger,
+  SystemClock,
+  type RunMode,
+} from '@vozella/platform';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+  net,
+  protocol,
+  session,
+  shell,
+} from 'electron';
+import {
+  bootstrapDataRoots,
+  resolveGuardInput,
+  type BootstrappedPaths,
+} from './bootstrap/data-roots';
 import { isFakeNative, resolveRunMode } from './bootstrap/run-mode';
 import { installGlobalErrorHandling } from './errors/global-errors';
 import { registerHandlers } from './ipc/handlers';
+import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
+import { sendEvent } from './ipc/ipc-server';
 import { buildCsp } from './security/csp';
 import { mimeTypeFor, resolveAppAssetPath } from './security/app-protocol';
 import { hardenSession, hardenWebContents } from './security/harden';
@@ -172,6 +202,41 @@ function main(): void {
     },
   });
 
+  // Library storage: the busy registry is where the recording and re-transcription modules
+  // report meetings they hold; the workspace is the app-lifetime hub.
+  const busy = new MeetingBusyRegistry();
+  const workspace = new Workspace();
+  const library = new LibraryRuntime({
+    mode,
+    roots: paths,
+    guard: resolveGuardInput(app, process.env),
+    logger: logger.child('library'),
+    clock: new SystemClock(),
+    newId: () => randomUUID(),
+    busy,
+    openPath: (target) => shell.openPath(target),
+    pickFolder: async (defaultPath) => {
+      const options = {
+        defaultPath,
+        properties: ['openDirectory' as const, 'createDirectory' as const],
+      };
+      const result = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options);
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    version: app.getVersion() || '1.0.0.0',
+    onChanged: (reason) => {
+      broadcast(libraryChanged, { reason });
+    },
+  });
+
+  function broadcast<C extends EventChannel>(channel: C, payload: PayloadInputOf<C>): void {
+    for (const window of BrowserWindow.getAllWindows()) {
+      sendEvent(window.webContents, channel, payload);
+    }
+  }
+
   const resolvedTheme = (): ResolvedTheme => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
 
   /** Applies the user's choice to nativeTheme (so prefers-color-scheme follows) and the chrome. */
@@ -187,9 +252,18 @@ function main(): void {
     }
   });
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     serveRendererFromAppScheme();
     hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
+
+    try {
+      await library.start();
+    } catch (error) {
+      logger.error('library failed to start', { error });
+      const message = error instanceof Error ? error.message : String(error);
+      if (mode !== 'test') dialog.showErrorBox('Vozella cannot open its library', message);
+    }
+    bridgeWorkspace(workspace, broadcast);
 
     registerHandlers({
       logger,
@@ -201,6 +275,16 @@ function main(): void {
         logger,
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
+    });
+    registerLibraryHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      runtime: library,
+      workspace,
+      broadcast,
     });
 
     mainWindow = createMainWindow({
