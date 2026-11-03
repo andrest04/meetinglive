@@ -5,6 +5,7 @@ export * from './channels';
 export * from './library';
 export * from './meeting-prompt';
 export * from './result';
+export * from './session';
 export * from './settings';
 export * from './summaries';
 export * from './wire';

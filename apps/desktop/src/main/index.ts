@@ -81,6 +81,7 @@ import { registerMeetingPromptHandlers } from './ipc/meeting-prompt-handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
+import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { SummariesController } from './summaries/summaries-controller';
 import {
@@ -725,6 +726,30 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: transcriptionController,
+    });
+    registerSessionHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      meetings: library.meetings,
+      workspace,
+      runnerState: () => transcriptionController.retranscription,
+      // A zero-byte or unreadable recording counts as no audio (B20).
+      fileExists: (file) => {
+        try {
+          return fs.statSync(file).size > 0;
+        } catch {
+          return false;
+        }
+      },
+      // Explorer selects the file; Finder reveals it.
+      reveal: {
+        reveal: (file) => {
+          shell.showItemInFolder(file);
+        },
+      },
     });
     app.on('before-quit', () => {
       transcriptionController.dispose();

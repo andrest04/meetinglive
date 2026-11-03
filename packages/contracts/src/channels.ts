@@ -3,6 +3,7 @@ import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as library from './library';
 import * as meetingPrompt from './meeting-prompt';
+import * as session from './session';
 import * as settings from './settings';
 import * as summaries from './summaries';
 import * as transcription from './transcription';
@@ -154,6 +155,9 @@ export const requestChannels = {
   [summaries.summariesChooseLocalModel.name]: summaries.summariesChooseLocalModel,
   [summaries.summariesCancelLocalModel.name]: summaries.summariesCancelLocalModel,
   [summaries.summariesChooseCli.name]: summaries.summariesChooseCli,
+  [session.sessionGetView.name]: session.sessionGetView,
+  [session.sessionRename.name]: session.sessionRename,
+  [session.sessionRevealFile.name]: session.sessionRevealFile,
 } as const;
 
 export const eventChannels = {

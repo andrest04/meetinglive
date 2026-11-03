@@ -29,12 +29,24 @@ Spec: `docs/port/specs/session-views.md`. Section 8 has 160 items; every one is 
 - B16: `busyReason` lets the UI explain a greyed Re-transcribe button (the message is drawn in sv-6).
 - B19: dead code (`TranscriptPageViewModel.Title`, `NoTranscriptsYet`, unused resources, null id branch) is not ported.
 - B12 (suggest-title state handling): dropped with the feature.
+- B20 (sv-2): `session.getView` counts a missing, unreadable or zero-byte audio file as no audio (adapter `fileExists` checks size > 0), so Re-transcribe is not offered for an empty recording.
+- B4/B11 (sv-2): `session.rename` passes the transcription controller's runner state, so a rename during a run for that meeting returns `blocked`, and a rename raises `workspace.meetingChanged` through the IPC path (handler tests).
+- B13 (sv-2): a missing meeting, path or file never throws on reveal; the channel answers `revealed: false`.
 
 ## Left for other modules
 
 - Recording: call `initialTabAfterTake(hasSummary)` when a take finishes (item 23); provide the post-recording pipeline that `RetranscriptionPipeline` stands for (summary regeneration, B2, B3).
 - Chat and Library: listen to `meetingChanged`, now raised by rename.
-- sv-2 provides the Electron `RevealPort` adapter and the clipboard write.
+- Recording: set workspace `isCaptureActive` (`setCaptureActive`) while capturing and register a `MeetingBusyRegistry` probe for the live meeting. sv-2 registers no busy probe.
+- sv-4/sv-5: call `session.getView`, `session.rename`, `session.revealFile`; copy uses the existing `summaries.writeClipboard`; react to `workspace.meetingDeleted` and `workspace.meetingChanged` (both already broadcast).
+
+## sv-2 notes
+
+- Channels: `session.getView {id}` returns `{record|null, hasTranscript, hasAudio}`; `session.rename {id,title}` returns `{status}` (renamed, unchanged, blocked, missing); `session.revealFile {id}` returns `{revealed}`. Handlers in `apps/desktop/src/main/ipc/session-handlers.ts`, wired in `main/index.ts`. An unparsable meeting file reads as no meeting, like `library.getMeeting`.
+- Sibling `.wav` fallback (items 7, 157) happens in the markdown parser, so `record.audioFilePath` is already resolved when `session.getView` checks the disk.
+- Meeting deleted while open: `workspace.meetingDeleted` is broadcast on delete; covered by the existing `library-handlers.test.ts` (asserts `workspace.meetingDeleted` is sent). The page reaction comes in sv-4.
+- Markdown persistence (153 to 157): audited against `library/meeting-markdown.test.ts` and `platform/library/markdown-meeting-repository.test.ts`. Frontmatter order, first-colon split, required id and recordedAt, CR/LF flatten (B3), headerEscaping byte for byte, sibling wav fallback, and Jev, Brief and event keys kept on rewrite are all covered. No test added.
+- RED-first: the handler test was written before `session-handlers.ts` and failed on the missing module.
 
 ## Parity items
 
@@ -100,9 +112,9 @@ Spec: `docs/port/specs/session-views.md`. Section 8 has 160 items; every one is 
 | 58  | done     | A success bar "Copied / Copied to the clipboard." appears after a copy. -> `createCopyFeedback.show` (bar drawn in sv-4)                                                                                                                           |
 | 59  | done     | The bar closes automatically after 2.5 s; a new copy restarts the timer. -> `createCopyFeedback`, 2500 ms, restart on each copy (fake-timer tests)                                                                                                 |
 | 60  | done     | The user can dismiss the bar manually. -> `createCopyFeedback.dismiss`                                                                                                                                                                             |
-| 61  | pending  | Open-file-location reveals the meeting's markdown file in the system file manager with the file selected. -> later package                                                                                                                         |
-| 62  | done     | Does nothing when the meeting, path or file is missing. -> `resolveRevealTarget`                                                                                                                                                                   |
-| 63  | done     | Windows uses `explorer.exe /select`; macOS must use Finder reveal (behind an interface). -> `RevealPort`; the Electron adapter (`showItemInFolder`) comes in sv-2                                                                                  |
+| 61  | done     | Open-file-location reveals the meeting's markdown file in the system file manager with the file selected. -> `session.revealFile` calls the Electron `RevealPort` (`shell.showItemInFolder`: Explorer select, Finder reveal). Real shell call not exercised; the handler is tested with a fake port |
+| 62  | done     | Does nothing when the meeting, path or file is missing. -> `resolveRevealTarget`; `session.revealFile` returns `revealed: false` and the page picks the message (B13), handler test |
+| 63  | done     | Windows uses `explorer.exe /select`; macOS must use Finder reveal (behind an interface). -> `RevealPort` adapter is `shell.showItemInFolder` in `main/index.ts`, which covers both OSes |
 | 64  | pending  | Receives a meeting id; loads the record by id. -> later package                                                                                                                                                                                    |
 | 65  | dropped  | Null id loads the most recent meeting by recorded date (unreachable from session page; optional). -> dead code, not ported (null id branch unreachable from the session page)                                                                      |
 | 66  | pending  | Loading selects the loaded meeting in the workspace. -> later package                                                                                                                                                                              |
