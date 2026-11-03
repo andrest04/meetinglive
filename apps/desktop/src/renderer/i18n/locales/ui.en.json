@@ -79,5 +79,12 @@
   "Ui_SummaryCancelled": "Summary cancelled.",
   "Ui_SummaryNothingToCopy": "There is nothing to copy.",
   "Ui_SummaryCopyFailed": "Could not copy to the clipboard: {0}",
-  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it."
+  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it.",
+  "Ui_SessionPageOpenLocationFailedText": "Could not open the file location.",
+  "Ui_SessionPageLoadFailedText": "This meeting could not be opened.",
+  "Ui_SessionPageRetryContent": "Try again",
+  "Ui_SessionPageTabsLabel": "Meeting views",
+  "Ui_SessionRenameBlankHint": "Enter a name to rename the meeting.",
+  "Ui_SessionRenameBlockedText": "Wait for the re-transcription to finish, then rename the meeting.",
+  "Ui_SessionRenameFailedText": "The title was not changed: {0}"
 }

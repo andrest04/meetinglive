@@ -79,5 +79,12 @@
   "Ui_SummaryCancelled": "Resumen cancelado.",
   "Ui_SummaryNothingToCopy": "No hay nada que copiar.",
   "Ui_SummaryCopyFailed": "No se pudo copiar al portapapeles: {0}",
-  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella."
+  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella.",
+  "Ui_SessionPageOpenLocationFailedText": "No se pudo abrir la ubicación del archivo.",
+  "Ui_SessionPageLoadFailedText": "No se pudo abrir esta reunión.",
+  "Ui_SessionPageRetryContent": "Reintentar",
+  "Ui_SessionPageTabsLabel": "Vistas de la reunión",
+  "Ui_SessionRenameBlankHint": "Escribe un nombre para renombrar la reunión.",
+  "Ui_SessionRenameBlockedText": "Espera a que termine la retranscripción y luego renombra la reunión.",
+  "Ui_SessionRenameFailedText": "No se cambió el título: {0}"
 }
