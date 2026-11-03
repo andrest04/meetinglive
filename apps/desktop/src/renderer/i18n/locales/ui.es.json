@@ -70,5 +70,10 @@
   "Ui_SpeakerModel": "Modelo de hablantes",
   "Ui_RestartRefused": "Vozella no puede reiniciarse mientras hay una grabación en curso. Termínala y vuelve a intentarlo.",
   "Ui_XaiSignedOutApiKeyOnly": "Pega una clave de API abajo.",
-  "Ui_XaiAccountApiKeyOnly": "Pega una clave de API de console.x.ai. Guardar una nueva reemplaza la anterior."
+  "Ui_XaiAccountApiKeyOnly": "Pega una clave de API de console.x.ai. Guardar una nueva reemplaza la anterior.",
+  "Ui_SummaryLocalModelMissing": "El modelo local de resumen seleccionado todavía no se ha descargado. Descárgalo primero desde Configuración.",
+  "Ui_SummaryLocalEmpty": "El modelo local no devolvió ningún contenido.",
+  "Ui_SummaryNotesTooLong": "Las notas, la agenda o la plantilla de la reunión son demasiado largas para el modelo local de resumen. Acórtalas o usa otro motor de resumen.",
+  "Ui_SummaryTranscriptTooLong": "La transcripción es demasiado larga para el modelo local de resumen ({0} partes, límite {1}). Usa otro motor de resumen.",
+  "Ui_SummaryCannotCondense": "El modelo local de resumen no pudo condensar esta reunión lo suficiente para resumirla. Usa otro motor de resumen."
 }

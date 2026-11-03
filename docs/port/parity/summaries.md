@@ -12,6 +12,11 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | Response splitter (S02) | `packages/core/src/summaries/summary-splitter.ts` |
 | Action item parser and renderer (S02) | `packages/core/src/summaries/action-items.ts` |
 | Title normalization and placeholder check (S02) | `packages/core/src/summaries/suggested-title.ts` |
+| Provider port, result, default stream, cancellation (S03) | `packages/core/src/summaries/provider.ts` |
+| Provider contract test helper, reused by S04 and S11 (S03) | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
+| CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03) | `packages/core/src/summaries/cli-failure.ts` |
+| Failure codes, key maps, `formatFailure` (S03) | `packages/core/src/summaries/cli-failure-messages.ts` |
+| Catalog key parity test (S03) | `apps/desktop/src/main/summary-failure-catalog.test.ts` |
 
 ## Decisions
 
@@ -23,6 +28,11 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **Persistence parser kept separate (S02).** `library/meeting-markdown.ts` keeps its own strict `- [ ]` regex. Pointing it at the shared parser would not be a pure move: B26 widens the shared one to `*`/`+` bullets and loose spacing, which would change how saved meetings are read. Reading stays byte-compatible with WinUI; only model replies get the tolerant parser.
 - **Placeholder patterns are data (S02).** `looksLikePlaceholder` and `resolveTitle` take RegExp patterns built by `placeholderPatternsFromFormats` from the `MeetingTitleFormat` catalog values (`Meeting {0}`, `Reunión {0}`). Core stays pure; the S13 caller must pass both locales' formats. The default is English only.
 - **Splitter header tolerance (S02).** Title, Summary and Action Items headers match case-insensitively; `**Action Items**` also starts the action section and ends a title block. A fence is stripped only when the first non-blank line is a bare, `markdown` or `md` fence and the last is a closing fence.
+- **Stdout is not evidence (S03, B12).** `classifyFailure` classifies stderr only, in the spec 2.5 order. Stdout is consulted last, for a short list of phrases a CLI prints about itself (`not logged in`, `please run ... login`, `session expired`, `token expired`, `payment required`, `plan expired`); bare words like billing or quota in stdout are ignored. Before the not-installed check, `model ... not found` and `404 ... not found` are removed from stderr.
+- **Errors are data (S03, B28).** `CliToolError` and `SummaryError` carry a kind or code plus args. `message` is for logs. `formatFailure(error, translate)` picks the catalog key; the UI keys `Error_Cli*` are used (they carry the Unknown detail suffix); the `CliFailure*` Core keys are exported as `CLI_FAILURE_CORE_KEYS` for callers that want the Core wording. Any other error shows its own message.
+- **New keys (S03).** `Ui_SummaryLocalModelMissing`, `Ui_SummaryLocalEmpty`, `Ui_SummaryNotesTooLong`, `Ui_SummaryTranscriptTooLong` (`{0}` parts, `{1}` limit), `Ui_SummaryCannotCondense` in `ui.en.json` and `ui.es.json`; the main catalogs are pinned to the C# resources. The `Cancelled` code reuses `Status_ProcessingCancelled`.
+- **Spawn errors (S03).** `ENOENT`, `ENOTDIR`, `EACCES` and `EPERM` all mean the program cannot be run and map to NotInstalled. WinUI mapped only Win32 error 2 and 3; EACCES on a CLI path is the same user action (reinstall or fix the install).
+- **Cancellation (S03).** `CancelledError` (name `AbortError`) is thrown for a cancelled signal; `runRequiredStdout` also throws it when the signal fired during the run, whatever the process returned, and `wrapCliError` never wraps it.
 - **Part and merge prompts (S01)** take the English language name (`toEnglishLanguageName`), as `BuildPartPrompt` and `BuildMergePrompt` do, and are used by S10.
 
 ## Parity items
@@ -62,8 +72,28 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 29 | `resolveTitle` replaces only placeholders, blank counts | done | |
 | 30 | Every localized auto title recognized | improved | B10, patterns passed as data. |
 
+### Provider port and failures (S03)
+
+| # | Item | Status | Notes |
+| --- | --- | --- | --- |
+| 1 | `SummaryProvider` port with summarize, suggestTitle, completePrompt, streamPrompt | done | Cancel is a `CancelSignal`. |
+| 2 | `SummaryResult` shape | done | |
+| 3 | Suggested title from the same response, no second inference | done | Contract test counts model calls. |
+| 4 | `streamPrompt` default yields one chunk; chunks concatenate to the answer | done | `withDefaultStream` and the contract test. |
+| 5 | `ProviderId` is local, claude-code, codex | improved | xAI dropped (S07). |
+| 6 | Every provider uses the shared builders and splitter | done | `describeSummaryProviderContract`; S04 and S11 must call it. |
+| 72 | Classification order and keyword lists | improved | B12. |
+| 73 | Kind to message key with display name | done | `CLI_FAILURE_UI_KEYS`, `CLI_FAILURE_CORE_KEYS`. |
+| 74 | Unknown appends a sanitized snippet, never the exit code | done | |
+| 75 | Redaction pattern and 120 character cap | done | |
+| 76 | UI mapping to `Error_Cli*`; other errors show their message | done | |
+| 77 | Error text localized in the UI layer | improved | B28, new `Ui_Summary*` keys. |
+| 188 | Six `CliFailure*` and the `ModelSpeed/Quality/UseCase` keys in both catalogs | done | Parity test. |
+
 ## Bugs fixed
 
+- **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
+- **B28** (S03): errors carry a code and args; `formatFailure` localizes them with the catalog of the active locale.
 - **B25** (S02): wrapping code fence, any header case and `**Action Items**` are accepted by the splitter.
 - **B26** (S02): action items accept `-`, `*`, `+` bullets and flexible spacing, still need text after the box, and ignore numbered lists.
 - **B10** (S02): Spanish auto titles (`Reunión {0}`) are placeholders when the catalog formats are supplied, so they are renamed on summarize.
@@ -72,6 +102,9 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 ## Left for other modules
 
 - S13 must pass the `MeetingTitleFormat` values of every catalog to `placeholderPatternsFromFormats` and use `splitSummaryResponse`, `resolveTitle` and `titleFromModelResponse`; S14 copy uses `renderActionItems`.
+- S04 and S11 must run `describeSummaryProviderContract` against their providers; S04 builds on `runRequiredStdout` and implements S05's runner against `CliProcessRunner`. S05 must throw `CliTimeoutError` on timeout and a `CancelledError` on cancel, and let spawn errors keep their `code`.
+- S10 and S11 throw `SummaryError` (`LocalModelMissing`, `LocalEmpty`, `NotesTooLong`, `TranscriptTooLong` with `[parts, 64]`, `CannotCondense`) instead of English messages. S13 and S14 show failures with `formatFailure`.
+- Pending-real-validation: none for S03; the classification keyword lists were not checked against real CLI output.
 - Token budgeting that uses the part and merge prompts: S10.
 
 ## Dropped by the owner

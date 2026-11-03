@@ -70,5 +70,10 @@
   "Ui_SpeakerModel": "Speaker model",
   "Ui_RestartRefused": "Vozella cannot restart while a recording is in progress. Finish it, then try again.",
   "Ui_XaiSignedOutApiKeyOnly": "Paste an API key below.",
-  "Ui_XaiAccountApiKeyOnly": "Paste an API key from console.x.ai. Saving a new one replaces the old one."
+  "Ui_XaiAccountApiKeyOnly": "Paste an API key from console.x.ai. Saving a new one replaces the old one.",
+  "Ui_SummaryLocalModelMissing": "The selected local summary model has not been downloaded yet. Download it from Settings first.",
+  "Ui_SummaryLocalEmpty": "The local model did not return any content.",
+  "Ui_SummaryNotesTooLong": "The meeting notes, agenda, or template are too long for the local summary model. Shorten them or use another summary provider.",
+  "Ui_SummaryTranscriptTooLong": "The transcript is too long for the local summary model ({0} parts, limit {1}). Use another summary provider.",
+  "Ui_SummaryCannotCondense": "The local summary model could not condense this meeting enough to summarize it. Use another summary provider."
 }
