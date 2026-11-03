@@ -22,6 +22,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | Node CLI process runner, `.cmd` wrapper, tree kill (S05)                                                            | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts`                     |
 | llama-server sidecar: start, health wait, streaming chat, tokenize, idle stop, restart (S09)                       | `packages/platform/src/llama/llama-sidecar.ts`                                                                      |
 | Process guard: Job Object guard, watchdog fallback (S09)                                                            | `packages/platform/src/llama/process-guard.ts`; Rust `native/vozella-native/src/job.rs`; fake `fakes/fake-process-job.ts` |
+| Local map-reduce, `splitToBudget`, `splitLongLine`, `groupToBudget`, `TokenCounter` (S10) | `packages/core/src/summaries/local-map-reduce.ts` (tests beside it) |
 | PATH lookup with `resolve()` (S05, shared with Settings)                                                            | `packages/platform/src/settings/path-cli-probe.ts`                                                                  |
 | Provider availability: `isProviderAvailable`, `UNAVAILABLE_SUMMARY_PROVIDERS`, `AvailableSummaryProviderKind` (S07) | `packages/core/src/library/settings.ts`                                                                             |
 | Settings page `providerNotice` and the removed-provider notice (S07)                                                | `packages/core/src/settings/page-service.ts`; `apps/desktop/src/renderer/features/settings/ProviderSection.tsx`     |
@@ -53,6 +54,10 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **cmd.exe wrapper (S05, B11).** A resolved `.cmd`/`.bat` is launched as `cmd.exe /d /s /c "<quoted list>"` with verbatim arguments. An argument containing `"`, `%`, CR, LF or NUL is refused instead of escaped, because cmd.exe cannot escape them safely. The prompt is on stdin only.
 - **Fake CLI (S05).** Tests use a Node script launched through a generated `.cmd` shim and through a copy of `node.exe` as the plain `.exe`, written under `VOZELLA_DATA_ROOT`. No real claude or codex is run.
 - **Part and merge prompts (S01)** take the English language name (`toEnglishLanguageName`), as `BuildPartPrompt` and `BuildMergePrompt` do, and are used by S10.
+
+- **Map-reduce is a function over two ports (S10).** `summarizeMapReduce(request, counter, infer, cancel)` takes a `TokenCounter` (`count(text)`, BOS included) and an `InferFunction(prompt, maxTokens, temperature, cancel)`. It returns the raw model text; S11 runs `splitSummaryResponse` on it. Errors are `SummaryError` codes (`NotesTooLong`, `TranscriptTooLong` with `[parts, 64]`, `CannotCondense`); English text stays in the catalog (B28).
+- **Whitespace-only long-line pieces dropped (S10).** The spec drops whitespace-only chunks at flush; the pieces of a long line are pushed directly in the C# source. I drop whitespace-only pieces too, so no useless inference runs; no word is lost.
+- **Merge exhaustion is almost unreachable (S10).** With the real prompt sizes (final prompt 427 words, merge prompt 69 words, merge room about 3259, final room about 2517) a note that does not fit the final prompt cannot be grouped with another, so the no-progress stop fires first. The pass-8 exit is kept as written and has no test of its own.
 
 ## Parity items
 
@@ -228,6 +233,24 @@ Decisions:
 - Real runs used the spike folder (`VOZELLA_LLAMA_BIN_DIR=C:/Code/vozella-spikes/llm/work`, `VOZELLA_LLM_MODEL` set to the 1B Q4_K_M file). cuda12 offloaded 17/17 layers on the RTX 3070 (checked from `-lv 4` output). The tests skip with a console message when the variables are absent.
 - Not observed: Electron main (not plain Node) as the owner; the packaged app; a machine where Electron is already inside a restrictive job.
 
+### Local map-reduce (S10)
+
+| #   | Item                                                                                           | Status | Notes |
+| --- | ---------------------------------------------------------------------------------------------- | ------ | ----- |
+| 33  | Constants: context 4096, final 1024, notes 640, margin 128, 64 parts, 8 merge passes, temp 0.3 | done   | Exported from `local-map-reduce.ts`. |
+| 40  | Direct path when the full prompt fits at cap 1024                                              | done   | One call, raw text returned. |
+| 41  | `NotesTooLong` before any inference when the empty-transcript prompt leaves less than 640     | done   | Test counts zero inference calls. |
+| 42  | Part budget from the empty part prompt at cap 640                                              | done   | `BuildPartPrompt("", 64, 64, language)`. |
+| 43  | More than 64 parts raises `TranscriptTooLong` with the count                                   | done   | Args `[n, 64]`, no inference. |
+| 44  | Parts in order with cancel checks, 1-based numbering                                           | done   | |
+| 45  | Merge passes, group budget from the empty merge prompt at cap 640, +2 per note, single pass-through | done | |
+| 46  | No-progress stop and `CannotCondense`                                                          | done   | See the exhaustion decision. |
+| 47  | Final prompt at 1024 after a cancel check                                                      | done   | |
+| 48  | `splitToBudget` rules                                                                          | done   | |
+| 49  | `splitLongLine`: binary search, whitespace in the second half, no split surrogate pair, progress | done | |
+| 50  | Every prompt fits with the safety margin                                                       | done   | Property test, 40 seeded transcripts. |
+| 51  | No transcript line or word lost                                                                | done   | Property test, words and characters with emoji. |
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -245,6 +268,7 @@ Decisions:
 - **B1, B14, B22, B23, B29** (S07): dropped with the xAI provider, reason: owner decision 2026-11-03, may return later. B22 for `settings.json` was already done by the settings module's atomic write; the xAI credentials file and the custom template file are no longer written by this app.
 - **S08**: no numbered bug. The spike's marker inside the folder, its missing resume and its unchecked cancel are replaced by the sibling marker, `downloadToFile` and cancel cleanup.
 - **S09**: no numbered bug. The spike's `stop()` and `taskkill` fallback are kept; the missing orphan guarantee, the unbounded output buffer and the key in the argument list of error text are replaced as above.
+- **S10**: no numbered bug. The map-reduce ported as specified; the English error strings became codes (B28) and the cancel signal reaches every inference call.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -268,6 +292,7 @@ Decisions:
 - Real GitHub download of the pinned archives is pending-real-validation.
 
 - S09: S11 owns one `LlamaSidecar` per app, with `createProcessGuard(nativePorts.processJob)`; it calls `start()` lazily and uses `tokenize` for budgets. S15 wires `app.on('before-quit')` to `sidecar.stop()`. Production code must not pass `argsPrefix`.
+- S11: build one `TokenCounter` from `sidecar.tokenize` (BOS added, special tokens parsed) and an `InferFunction` over `chatStream` that concatenates, trims and throws `LocalEmpty` on empty output; pass the cancel signal through. Call `splitSummaryResponse` on the returned text. Item 53 (budgeting title and prompt calls, B8) is S11's.
 
 ## Dropped by the owner
 
