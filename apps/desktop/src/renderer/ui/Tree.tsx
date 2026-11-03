@@ -151,7 +151,19 @@ export function Tree({
         );
         const menu = nodeMenu?.(item.node.id);
         return menu && menu.length > 0 ? (
-          <ContextMenu key={item.node.id} entries={menu} render={<li {...rowProps} />}>
+          <ContextMenu
+            key={item.node.id}
+            entries={menu}
+            render={
+              <li
+                {...rowProps}
+                // A row with a menu is selected first, so the menu acts on what is selected.
+                onContextMenu={() => {
+                  if (!selected) onSelect(item.node.id);
+                }}
+              />
+            }
+          >
             {content}
           </ContextMenu>
         ) : (

@@ -50,7 +50,7 @@ async function setup() {
   const broadcast = (channel: EventChannel, payload: unknown) => {
     events.push({ name: channel.name, payload });
   };
-  registerLibraryHandlers({
+  const writes = registerLibraryHandlers({
     server: { ipc, isTrusted: () => true, logger: logger() },
     runtime,
     workspace,
@@ -63,7 +63,7 @@ async function setup() {
       value?: Record<string, unknown>;
       error?: { code: string };
     };
-  return { call, events, workspace, busy, runtime };
+  return { call, events, workspace, busy, runtime, writes };
 }
 
 describe('library handlers', () => {
@@ -74,6 +74,19 @@ describe('library handlers', () => {
     const loaded = await t.call('library.load');
     expect(loaded.value).toMatchObject({ ok: true, folders: [{ name: 'Trabajo' }], meetings: [] });
     expect(t.events.map((e) => e.name)).toContain('library.changed');
+  });
+
+  it('lets a quit wait for a folder note that is still being written (B16)', async () => {
+    const t = await setup();
+    const created = await t.call('library.createFolder', { name: 'Trabajo', parentId: null });
+    const id = (created.value as { folder: { id: string } }).folder.id;
+    // Not awaited: the window is closing while the write is in flight.
+    const inFlight = t.call('library.setFolderNote', { id, note: 'Keep this' });
+    await t.writes.settled();
+    const loaded = await t.call('library.load');
+    expect(loaded.value).toMatchObject({ folders: [{ id, note: 'Keep this' }] });
+    await inFlight;
+    await expect(t.writes.settled()).resolves.toBeUndefined();
   });
 
   it('reports a duplicate name as a value', async () => {

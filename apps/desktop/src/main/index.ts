@@ -29,6 +29,7 @@ import {
   session,
   shell,
 } from 'electron';
+import { resolveAppVersion } from './bootstrap/app-version';
 import {
   bootstrapDataRoots,
   resolveGuardInput,
@@ -106,6 +107,7 @@ function main(): void {
     return;
   }
 
+  const appVersion = resolveAppVersion(__dirname, '1.0.0.0');
   const fakeNative = isFakeNative(process.env);
   const devServerUrl = app.isPackaged ? undefined : process.env.ELECTRON_RENDERER_URL;
   const trusted: TrustedOrigins = {
@@ -169,13 +171,18 @@ function main(): void {
     app.quit();
   });
 
+  // Set once the handlers exist; a quit waits for the writes they hold (B16).
+  let libraryWrites: { settled: () => Promise<void> } | undefined;
   let quitting = false;
   app.on('before-quit', (event) => {
     if (quitting) return;
     quitting = true;
     event.preventDefault();
-    void audio
-      .dispose()
+    void Promise.race([
+      libraryWrites?.settled() ?? Promise.resolve(),
+      new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+    ])
+      .then(() => audio.dispose())
       .catch((error: unknown) => {
         logger.error('audio worker dispose failed', { error });
       })
@@ -187,7 +194,7 @@ function main(): void {
 
   const info = (): AppInfo => ({
     name: app.getName(),
-    version: app.getVersion(),
+    version: appVersion,
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
@@ -225,7 +232,7 @@ function main(): void {
         : await dialog.showOpenDialog(options);
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
-    version: app.getVersion() || '1.0.0.0',
+    version: appVersion,
     onChanged: (reason) => {
       broadcast(libraryChanged, { reason });
     },
@@ -276,7 +283,7 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
     });
-    registerLibraryHandlers({
+    libraryWrites = registerLibraryHandlers({
       server: {
         ipc: ipcMain,
         logger,

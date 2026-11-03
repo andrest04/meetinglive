@@ -15,7 +15,7 @@
   "Ui_LibrarySearchEmpty": "No meetings match your search.",
   "Ui_LibraryFoldersDamaged": "The folder list could not be read. Your meetings are safe. {0}",
   "Ui_LibraryMigrationFailed": "Meetings from an earlier version could not be moved yet. {0}",
-  "Ui_LibrarySkippedFiles": "Some files in the library are not meetings and were skipped.",
+  "Ui_LibrarySkippedFiles": "These files could not be read as meetings and were skipped: {0}",
   "Ui_LibraryChooseFolder": "Choose folder",
   "Ui_LibraryResetFolder": "Use the default folder",
   "Ui_LibraryFolderRefused": "That folder cannot be used. {0}",

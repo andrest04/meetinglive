@@ -112,9 +112,24 @@ export function applyWorkspaceAction(
   return {};
 }
 
+export interface LibraryWrites {
+  /** Resolves once every library write received so far has finished, failed or not. */
+  readonly settled: () => Promise<void>;
+}
+
 /** Wires the library, settings and workspace channels. One line per channel. */
-export function registerLibraryHandlers(deps: LibraryHandlerDeps): void {
+export function registerLibraryHandlers(deps: LibraryHandlerDeps): LibraryWrites {
   const { server, runtime, workspace, broadcast } = deps;
+  const writes = new Set<Promise<unknown>>();
+  /** Remembers a library write until it ends, so a quit can wait for it (B16). */
+  const track = <T>(write: Promise<T>): Promise<T> => {
+    writes.add(write);
+    const done = (): void => {
+      writes.delete(write);
+    };
+    write.then(done, done);
+    return write;
+  };
 
   registerRequest(server, libraryLoad, () => runtime.service.load());
 
@@ -128,31 +143,31 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): void {
   });
 
   registerRequest(server, libraryCreateFolder, async (input) => {
-    const result = await runtime.service.createFolder(input);
+    const result = await track(runtime.service.createFolder(input));
     if (result.ok) broadcast(libraryChanged, { reason: 'folder' });
     return result;
   });
 
   registerRequest(server, libraryRenameFolder, async (input) => {
-    const result = await runtime.service.renameFolder(input);
+    const result = await track(runtime.service.renameFolder(input));
     if (result.ok) broadcast(libraryChanged, { reason: 'folder' });
     return result;
   });
 
   registerRequest(server, libraryUpdateFolderPersonality, async (input) => {
-    const result = await runtime.service.updatePersonality(input);
+    const result = await track(runtime.service.updatePersonality(input));
     if (result.ok) broadcast(libraryChanged, { reason: 'folder' });
     return result;
   });
 
   registerRequest(server, librarySetFolderNote, async (input) => {
-    const result = await runtime.service.setFolderNote(input);
+    const result = await track(runtime.service.setFolderNote(input));
     if (result.ok) broadcast(libraryChanged, { reason: 'folder' });
     return result;
   });
 
   registerRequest(server, libraryDeleteFolder, async ({ id }) => {
-    const result = await runtime.service.deleteFolder(id);
+    const result = await track(runtime.service.deleteFolder(id));
     if (result.ok) {
       workspace.publishSelectedFolder(null);
       broadcast(libraryChanged, { reason: 'folder' });
@@ -161,7 +176,7 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): void {
   });
 
   registerRequest(server, libraryMoveMeeting, async (input) => {
-    const result = await runtime.service.moveMeeting(input);
+    const result = await track(runtime.service.moveMeeting(input));
     if (result.ok) {
       workspace.notifyMeetingChanged(input.meetingId);
       broadcast(libraryChanged, { reason: 'meeting' });
@@ -170,7 +185,7 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): void {
   });
 
   registerRequest(server, libraryDeleteMeeting, async ({ meetingId }) => {
-    const result = await runtime.service.deleteMeeting(meetingId);
+    const result = await track(runtime.service.deleteMeeting(meetingId));
     if (result.ok) {
       workspace.notifyDeleted(meetingId);
       broadcast(libraryChanged, { reason: 'meeting' });
@@ -195,4 +210,10 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): void {
     const result = applyWorkspaceAction(workspace, action);
     return { state: workspace.state, ...result };
   });
+
+  return {
+    settled: async () => {
+      while (writes.size > 0) await Promise.allSettled([...writes]);
+    },
+  };
 }

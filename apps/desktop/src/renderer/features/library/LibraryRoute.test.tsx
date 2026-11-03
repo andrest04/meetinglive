@@ -230,6 +230,24 @@ describe('folders', () => {
     );
   });
 
+  it('selects the folder under a right click even when the menu is dismissed', async () => {
+    const { user } = await mount(seed);
+    expect(screen.getByRole('treeitem', { name: /Universidad/ })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: /Universidad/ }),
+    });
+    await screen.findByRole('menuitem', { name: 'Rename' });
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('treeitem', { name: /Universidad/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
   it('has no folder menu on Inbox', async () => {
     const { user } = await mount(seed);
     await user.pointer({

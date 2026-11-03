@@ -21,6 +21,11 @@ export interface StatusMessage {
   readonly args: readonly string[];
 }
 
+export interface SkippedFile {
+  readonly path: string;
+  readonly reason: string;
+}
+
 export interface LoadProblem {
   readonly reason: FailureReasonDto;
   readonly message: string | undefined;
@@ -36,7 +41,8 @@ export type FolderResult = { readonly ok: true; readonly folder: FolderDto } | F
 export interface LibraryModel {
   readonly isLoading: boolean;
   readonly problem: LoadProblem | null;
-  readonly skippedCount: number;
+  /** Files the last load could not read as meetings, with the reason. */
+  readonly skipped: readonly SkippedFile[];
   readonly folders: readonly FolderDto[];
   readonly tree: readonly FolderNode[];
   readonly selectedFolder: FolderDto | null;
@@ -84,7 +90,7 @@ function noteOf(folder: FolderDto | undefined): string {
 export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   const [isLoading, setIsLoading] = useState(true);
   const [problem, setProblem] = useState<LoadProblem | null>(null);
-  const [skippedCount, setSkippedCount] = useState(0);
+  const [skipped, setSkipped] = useState<readonly SkippedFile[]>([]);
   const [folders, setFolders] = useState<readonly FolderDto[]>([]);
   const [allMeetings, setAllMeetings] = useState<readonly MeetingListItemDto[]>([]);
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
@@ -146,7 +152,7 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
         foldersRef.current = result.folders;
         setFolders(result.folders);
         setAllMeetings(result.meetings);
-        setSkippedCount(result.skipped.length);
+        setSkipped(result.skipped);
         const wanted = restore === undefined ? selectedRef.current : restore;
         const folder = wanted === null ? undefined : result.folders.find((f) => f.id === wanted);
         const next = folder ? folder.id : null;
@@ -260,7 +266,7 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   return {
     isLoading,
     problem,
-    skippedCount,
+    skipped,
     folders,
     tree,
     selectedFolder,
