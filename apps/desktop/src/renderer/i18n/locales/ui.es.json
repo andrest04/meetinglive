@@ -34,5 +34,8 @@
   "Ui_ModelCancelDownload": "Cancelar descarga",
   "Ui_RestartFailed": "Vozella no pudo reiniciarse. {0}",
   "Ui_CliCheckAgain": "Comprobar de nuevo",
-  "Ui_XaiRetry": "Intentar de nuevo"
+  "Ui_XaiRetry": "Intentar de nuevo",
+  "Ui_MicLevelName": "Nivel del micrófono",
+  "Ui_EngineDownloadProgressName": "Progreso de la descarga del motor de transcripción",
+  "Ui_SpeakerDownloadProgressName": "Progreso de la descarga del modelo de hablantes"
 }

@@ -195,7 +195,41 @@ describe('keys the settings domain points at (item 116, 118)', () => {
   });
 });
 
-describe('references in the code (item 118)', () => {
+describe('B9: catalogs hold keys, so a language change relabels them', () => {
+  it('every language name differs between the locales for the same key', () => {
+    const t = (locale: 'en' | 'es') => createLookup(catalogs, locale);
+    const differing = [...TRANSCRIPTION_LANGUAGES, ...SUMMARY_LANGUAGES].filter(
+      (entry) => entry.code !== 'en' || entry.labelKey !== 'LanguageEnglish',
+    );
+    for (const entry of differing) {
+      expect(t('es')(entry.labelKey), entry.code).not.toBe(t('en')(entry.labelKey));
+    }
+    const fast = SUMMARY_MODELS.map((m) => [t('en')(m.speedKey), t('es')(m.speedKey)]);
+    expect(fast.every(([a, b]) => a !== b)).toBe(true);
+  });
+
+  it('the model catalog carries no localized text of its own', () => {
+    const json = JSON.stringify(SUMMARY_MODELS);
+    expect(json).not.toContain('Very fast');
+    expect(json).not.toContain('Muy rápido');
+  });
+});
+
+describe('B16: accessible names are localized', () => {
+  it('the three progress names exist in English and Spanish and differ', () => {
+    for (const key of [
+      SETTINGS_MESSAGE_KEYS.micLevelName,
+      SETTINGS_MESSAGE_KEYS.engineDownloadProgressName,
+      SETTINGS_MESSAGE_KEYS.speakerDownloadProgressName,
+    ]) {
+      expect(catalogs.en[key], key).toBeTruthy();
+      expect(catalogs.es[key], key).toBeTruthy();
+      expect(catalogs.es[key]).not.toBe(catalogs.en[key]);
+    }
+  });
+});
+
+describe('references in the code (item 118, B21)', () => {
   function sourceFiles(dir: string): string[] {
     return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(dir, entry.name);

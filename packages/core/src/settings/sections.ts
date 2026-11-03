@@ -84,4 +84,8 @@ export const SETTINGS_MESSAGE_KEYS = {
   restartFailed: 'Ui_RestartFailed',
   cliCheckAgain: 'Ui_CliCheckAgain',
   xaiRetry: 'Ui_XaiRetry',
+  /** Accessible names the WinUI page wrote in English only (B16). The owning modules use them. */
+  micLevelName: 'Ui_MicLevelName',
+  engineDownloadProgressName: 'Ui_EngineDownloadProgressName',
+  speakerDownloadProgressName: 'Ui_SpeakerDownloadProgressName',
 } as const;

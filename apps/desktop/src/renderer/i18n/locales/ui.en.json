@@ -34,5 +34,8 @@
   "Ui_ModelCancelDownload": "Cancel download",
   "Ui_RestartFailed": "Vozella could not restart. {0}",
   "Ui_CliCheckAgain": "Check again",
-  "Ui_XaiRetry": "Try again"
+  "Ui_XaiRetry": "Try again",
+  "Ui_MicLevelName": "Microphone level",
+  "Ui_EngineDownloadProgressName": "Transcription engine download progress",
+  "Ui_SpeakerDownloadProgressName": "Speaker model download progress"
 }

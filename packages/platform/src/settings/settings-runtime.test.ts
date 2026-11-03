@@ -125,6 +125,17 @@ describe('SettingsRuntime over the real settings file', () => {
     expect(withXai.xai).toMatchObject({ available: true, signedIn: false });
   });
 
+  it('item 102: no secret reaches settings.json', async () => {
+    const xai = new FakeXaiAccount();
+    const { runtime: r, settingsFile } = runtime({ xai });
+    await r.commands.setSummaryProvider('Xai');
+    await r.xai.saveApiKey('xai-super-secret-key');
+    await r.xai.refresh();
+    const text = fs.readFileSync(settingsFile, 'utf8');
+    expect(text).not.toContain('xai-super-secret-key');
+    expect(text).not.toMatch(/apikey|api_key|token/i);
+  });
+
   it('selecting xAI and refreshing persists the resolved model', async () => {
     const xai = new FakeXaiAccount();
     xai.kind = 'ApiKey';
