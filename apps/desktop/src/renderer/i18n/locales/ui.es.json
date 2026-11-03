@@ -79,5 +79,6 @@
   "Ui_SummaryCancelled": "Resumen cancelado.",
   "Ui_SummaryNothingToCopy": "No hay nada que copiar.",
   "Ui_SummaryCopyFailed": "No se pudo copiar al portapapeles: {0}",
-  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella."
+  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella.",
+  "Ui_ChatStop": "Detener"
 }

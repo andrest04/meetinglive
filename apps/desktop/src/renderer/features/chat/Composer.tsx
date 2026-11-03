@@ -1,0 +1,94 @@
+import { ArrowUp, Square } from 'lucide-react';
+import { useLayoutEffect, useRef } from 'react';
+import { useT } from '../../i18n/I18nProvider';
+import { Button, IconButton, Tooltip, cn } from '../../ui';
+import { keyIntent } from './chat-view-model';
+
+const MIN_HEIGHT = 32;
+const MAX_HEIGHT = 96;
+
+export interface ComposerProps {
+  readonly draft: string;
+  readonly onDraftChange: (value: string) => void;
+  readonly onSend: () => void;
+  readonly onStop: () => void;
+  readonly isSending: boolean;
+}
+
+/** The message box: Enter sends, Shift+Enter adds a line, and the box grows to three lines. */
+export function Composer({ draft, onDraftChange, onSend, onStop, isSending }: ComposerProps) {
+  const t = useT();
+  const field = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${String(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, el.scrollHeight)))}px`;
+  }, [draft]);
+
+  const canSend = !isSending && draft.trim() !== '';
+
+  return (
+    <div className="flex min-w-[180px] items-end gap-2 rounded-control border border-border-control bg-paper px-2.5 py-1 focus-within:border-ink">
+      <textarea
+        ref={field}
+        id="TxtMeetingChat"
+        data-testid="TxtMeetingChat"
+        rows={1}
+        value={draft}
+        placeholder={t('Chat_Composer.PlaceholderText')}
+        aria-label={t('Chat_Composer.AutomationProperties.Name')}
+        onChange={(event) => {
+          onDraftChange(event.target.value);
+        }}
+        onKeyDown={(event) => {
+          const intent = keyIntent({
+            key: event.key,
+            shiftKey: event.shiftKey,
+            ctrlKey: event.ctrlKey,
+            isComposing: event.nativeEvent.isComposing,
+            draft,
+            sending: isSending,
+          });
+          if (intent === 'send') {
+            event.preventDefault();
+            onSend();
+          } else if (intent === 'swallow') {
+            event.preventDefault();
+          }
+        }}
+        style={{ minHeight: MIN_HEIGHT, maxHeight: MAX_HEIGHT }}
+        className={cn(
+          'min-w-0 flex-1 resize-none bg-transparent py-1.5 text-ui-lg leading-5 text-ink outline-none',
+          'placeholder:text-ink-faint',
+        )}
+      />
+      {isSending ? (
+        <IconButton
+          label={t('Ui_ChatStop')}
+          icon={Square}
+          size="sm"
+          variant="secondary"
+          data-testid="BtnMeetingChatStop"
+          onClick={onStop}
+          className="mb-0.5"
+        />
+      ) : (
+        <Tooltip content={t('Chat_Send.ToolTipService.ToolTip')}>
+          <Button
+            id="BtnMeetingChatSend"
+            data-testid="BtnMeetingChatSend"
+            variant="primary"
+            size="sm"
+            icon={ArrowUp}
+            disabled={!canSend}
+            aria-label={t('Chat_Send.AutomationProperties.Name')}
+            onClick={onSend}
+            className="mb-0.5 px-1.5"
+          />
+        </Tooltip>
+      )}
+    </div>
+  );
+}

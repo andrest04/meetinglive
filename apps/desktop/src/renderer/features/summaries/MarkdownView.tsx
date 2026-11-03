@@ -1,6 +1,31 @@
-import type { ReactNode } from 'react';
+import { createContext, useContext, type MouseEvent, type ReactNode } from 'react';
 import { cn } from '../../ui';
 import { parseBlocks, type Block, type Inline } from './markdown';
+
+/** Lets a host take over link clicks (chat citations, external links). Absent: default navigation. */
+export type LinkHandler = (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
+const LinkContext = createContext<LinkHandler | undefined>(undefined);
+
+function Link({ href, children }: { readonly href: string; readonly children: ReactNode }) {
+  const onLink = useContext(LinkContext);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      onClick={
+        onLink
+          ? (event) => {
+              onLink(href, event);
+            }
+          : undefined
+      }
+      className="underline underline-offset-2 decoration-border-control hover:decoration-ink"
+    >
+      {children}
+    </a>
+  );
+}
 
 function renderInline(nodes: readonly Inline[]): ReactNode {
   return nodes.map((node, index) => {
@@ -26,15 +51,9 @@ function renderInline(nodes: readonly Inline[]): ReactNode {
         return <em key={index}>{renderInline(node.children)}</em>;
       case 'link':
         return (
-          <a
-            key={index}
-            href={node.href}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="underline underline-offset-2 decoration-border-control hover:decoration-ink"
-          >
+          <Link key={index} href={node.href}>
             {renderInline(node.children)}
-          </a>
+          </Link>
         );
     }
   });
@@ -113,14 +132,18 @@ export function MarkdownView({
   source,
   className,
   testId,
+  onLink,
 }: {
   readonly source: string;
+  readonly onLink?: LinkHandler;
   readonly className?: string;
   readonly testId?: string;
 }) {
   return (
-    <div data-testid={testId} className={cn('text-read text-ink', className)}>
-      {parseBlocks(source).map(renderBlock)}
-    </div>
+    <LinkContext.Provider value={onLink}>
+      <div data-testid={testId} className={cn('text-read text-ink', className)}>
+        {parseBlocks(source).map(renderBlock)}
+      </div>
+    </LinkContext.Provider>
   );
 }

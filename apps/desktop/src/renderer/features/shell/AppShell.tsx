@@ -6,6 +6,7 @@ import { readStored, writeStored } from '../../app/preference-storage';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { ChatBar } from '../chat/ChatBar';
+import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
 import { Icon, Mark, Splitter, cn } from '../../ui';
 
@@ -118,7 +119,7 @@ export function AppShell() {
                 <Outlet />
               </div>
             </main>
-            <ChatBar />
+            <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
           </>
         }
       />

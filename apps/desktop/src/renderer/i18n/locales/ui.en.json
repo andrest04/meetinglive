@@ -79,5 +79,6 @@
   "Ui_SummaryCancelled": "Summary cancelled.",
   "Ui_SummaryNothingToCopy": "There is nothing to copy.",
   "Ui_SummaryCopyFailed": "Could not copy to the clipboard: {0}",
-  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it."
+  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it.",
+  "Ui_ChatStop": "Stop"
 }

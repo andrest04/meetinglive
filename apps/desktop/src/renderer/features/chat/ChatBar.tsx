@@ -1,5 +1,6 @@
 import { ChevronUp, MessageSquarePlus } from 'lucide-react';
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useState, type ReactNode } from 'react';
+import type { ChatScopeDecision } from '@vozella/core';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, cn } from '../../ui';
 import { SCOPE_ICON, scopeLabel } from './chat-scope-label';
@@ -7,7 +8,7 @@ import { useChatScope } from './use-chat-scope';
 
 export interface ChatBarProps {
   /** The expanded body (messages, composer). Rendered only while the bar is open. */
-  readonly children?: ReactNode;
+  readonly children?: ReactNode | ((scope: ChatScopeDecision) => ReactNode);
 }
 
 /**
@@ -18,6 +19,8 @@ export function ChatBar({ children }: ChatBarProps) {
   const t = useT();
   const { decision, name, canStartNewChat } = useChatScope();
   const [expanded, setExpanded] = useState(false);
+  // A new chat remounts the body, which drops its draft and error with the old messages.
+  const [epoch, setEpoch] = useState(0);
   const bodyId = useId();
   const labelId = useId();
 
@@ -33,7 +36,10 @@ export function ChatBar({ children }: ChatBarProps) {
     void window.vozella
       .invoke('chat.newChat', {})
       .then((result) => {
-        if (result.started) setExpanded(true);
+        if (result.started) {
+          setEpoch((value) => value + 1);
+          setExpanded(true);
+        }
       })
       .catch(() => undefined);
   };
@@ -95,9 +101,11 @@ export function ChatBar({ children }: ChatBarProps) {
       {expanded ? (
         <div
           id={bodyId}
-          className="mx-auto h-[min(360px,45vh)] w-full max-w-[720px] animate-fade-in px-10 pb-4"
+          className="mx-auto flex max-h-[min(560px,60vh)] w-full max-w-[720px] animate-fade-in flex-col px-10 pb-4"
         >
-          {children}
+          <Fragment key={epoch}>
+            {typeof children === 'function' ? children(decision) : children}
+          </Fragment>
         </div>
       ) : null}
     </section>
