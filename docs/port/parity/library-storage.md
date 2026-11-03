@@ -1,8 +1,8 @@
-# Parity ledger: library-storage (domain and integration half)
+# Parity ledger: library-storage (domain, integration and screens)
 
 Spec: `docs/port/specs/library-storage.md`. Section 8 has 157 items; every one is below.
 
-Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped`, `pending-real-validation`, and `open-ui`. `open-ui` is not a final status. It means the rule, the IPC and the strings exist and are tested here, and the visible screen belongs to the UI half. The UI half turns each `open-ui` into one of the four final words when its screen lands.
+Status words: `done`, `improved` (a section 7 fix or a recorded decision changed the behavior), `dropped`, `pending-real-validation`, and `open-ui`. No `open-ui` items remain: the screens landed and each item has a final word.
 
 ## Where things are
 
@@ -12,7 +12,10 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | Atomic write, per-file lock, markdown and folder repositories, settings store, EnsureDirectories, migrations, library runtime (location choice) | `packages/platform/src/fs/`, `packages/platform/src/library/` |
 | zod schemas and channels | `packages/contracts/src/library.ts` |
 | Handlers, composition | `apps/desktop/src/main/ipc/library-handlers.ts`, `apps/desktop/src/main/index.ts` |
-| Real-window check | `apps/desktop/e2e/library.spec.ts` |
+| Real-window checks | `apps/desktop/e2e/library.spec.ts` (IPC), `library-ui.spec.ts` (screens, files on disk, axe), `library-screens.spec.ts` (screenshots, opt in) |
+| Library screen | `apps/desktop/src/renderer/features/library/` (container `LibraryRoute.tsx`, state `use-library.ts`, presentational `MeetingList`, `Breadcrumbs`, `ChoiceGrid`, `dialogs`) |
+| Settings data and about | `apps/desktop/src/renderer/features/settings/DataSection.tsx` |
+| Screenshots | `docs/port/screens/library-storage/` |
 
 ## Decisions
 
@@ -27,6 +30,18 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **Dates**: kept as the file's own text (seven fraction digits and an offset) because JavaScript dates lose both. Stored `recordedAt` is normalized to the round-trip form on read, so a `Z` becomes `+00:00`.
 - **Jev JSON** is written with the .NET default encoder rules (`+`, `<`, `>`, `&`, `'`, backtick and non-ASCII as `\uXXXX`). The spec example shows a raw `+`; readers accept both and the golden test checks both.
 - **TDD note.** The first work unit's tests were run RED (module missing) before the code existed. In later units the tests were written first but I did not run them separately to observe RED before writing the code; they were green on first run. The regression tests below were written against the fixed behavior, not against the old behavior.
+
+### Screens (UI half)
+
+- **Layout.** The Library gets a 960 px column (the documents keep 720) with a 200 px folder pane beside the list. Rows are hairline-separated lines, not cards: title and date on one line, a one-line snippet below. No cards inside cards; shadows only on the narrow overlay and menus.
+- **Accents** are folder content, kept muted: a small dot and the icon in the accent color, nothing else is tinted. `signal` red is never used here.
+- **Session placeholder.** The Session module is not built, so `/session` shows the opened meeting title and tab and a back link. It exists so the hand-off through the workspace is real and testable; the Session module replaces it.
+- **Shell.** `AppShell` now listens to `workspace.navigationRequested` and reports its tag. It also widens the content column on `/library`.
+- **UI kit changes.** `Tree` takes optional accent dots, controlled expansion and per-row context menus; `Dialog` takes an initial focus target; new `Notice`; `ContextMenu` can render its trigger as another element. All are backward compatible and covered in `components.test.tsx`.
+- **New strings** (en and es): `Ui_LibraryFolders`, `Ui_LibraryFolderActions`, `Ui_LibraryOpenFailed`. Everything else reuses existing keys. The meeting list is named with `HistoryPage_Title`, the breadcrumb with `Chat_ScopeFolder`.
+- **Move after a busy refusal** shows `HistoryDelete_Busy` (same meaning as for delete) instead of a new string.
+- **TDD note.** The screen tests and the e2e specs were written after the screen code and were green on first run. RED was not observed.
+- **Checks.** `LibraryRoute.test.tsx` drives the real page against the real `LibraryService` over in-memory repositories and the real `Workspace`. `library-ui.spec.ts` drives the built app with `VOZELLA_FAKE_NATIVE=1`, writes meeting files the way the app does and checks the files on disk. The folder dialog and `shell.openPath` are stubbed in the main process, so no real dialog or file manager opens. axe (serious and critical) is clean on the library, the new folder dialog and the data card in both themes.
 
 ## Parity items
 
@@ -135,8 +150,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 74 | improved | B1: FNV-1a over the id; pinned values in the test |
 | 75 | done | |
 | 76 | done | |
-| 77 | open-ui | The 18 keys exist in core; the icon set is the UI half's |
-| 78 | open-ui | Tokens for the 7 colors in both themes are the UI half's; stack.md asks for muted user-chosen accents |
+| 77 | done | 18 distinct line icons in `folder-visuals.ts`, drawn with the kit icon set; unset uses `folder`. `folder-visuals.test.ts` |
+| 78 | done | Seven accents plus a neutral in `tokens.css`, light and dark, muted against the spec colors; forced colors map them to the system text color. The neutral token is defined as a fallback; Inbox shows no dot |
 
 ### Folder path list
 
@@ -150,13 +165,13 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 82 | open-ui | The virtual Inbox node is a UI concern; `buildFolderTree` returns real folders only |
+| 82 | done | Inbox is a virtual first node with an empty accent slot so names align. `LibraryRoute.test.tsx` |
 | 83 | done | `buildFolderTree` |
-| 84 | open-ui | `expandedAncestors` is in core. B14 asks to keep the user's own expansion; that is UI state |
-| 85 | open-ui | |
-| 86 | open-ui | The save itself is `library.setFolderNote`; the UI calls it before it switches |
+| 84 | improved | Reload only adds ancestors of the target to what the user already opened (B14). A selected folder with children is not auto-expanded, as in the spec |
+| 85 | done | `selectFolder` ignores the current id |
+| 86 | done | `use-library.ts` saves the note of the folder being left before it switches; `LibraryRoute.test.tsx` (folder note) and `library-ui.spec.ts` |
 | 87 | done | `workspace.dispatch publishSelectedFolder` |
-| 88 | open-ui | `buildBreadcrumbs` is in core |
+| 88 | done | `Breadcrumbs.tsx`; Inbox first, the last item is `aria-current` |
 | 89 | done | `selectMeetings` |
 | 90 | done | |
 | 91 | done | Sorted by instant, not by text |
@@ -164,44 +179,44 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 93 | done | `emptyFlags` truth table |
 | 94 | improved | B15: `emptyFlags.showNoMatches`; string `Ui_LibrarySearchEmpty` |
 | 95 | done | |
-| 96 | open-ui | |
-| 97 | open-ui | |
-| 98 | open-ui | |
+| 96 | improved | Skeleton rows of the real list instead of a progress ring, and only on the first load; later reloads are silent so the page does not flash. Loading is cleared in `finally` |
+| 97 | improved | Loads on mount, saves the note on unmount and on `pagehide`. It also reloads when the main process reports `library.changed`, which the WinUI page did not (it had no live refresh) |
+| 98 | improved | The switch is the width of the page area, 600 px, not the window (the sidebar is resizable, so 820 px of window can leave 500 px for the page). Wide: 200 px inline pane. Narrow: closed overlay under the header with a toggle named `Folder` that reports `aria-expanded`; choosing a folder closes it. `LibraryRoute.test.tsx` (narrow layout), screenshot `library-narrow-pane-light.png` |
 
 ### Folder actions
 
 | # | Status | Notes |
 | --- | --- | --- |
 | 99 | done | `LibraryService.createFolder` |
-| 100 | open-ui | The UI selects the new folder and uses `expandedAncestors` |
-| 101 | open-ui | Strings exist |
-| 102 | open-ui | The trim and the empty check are in the service (`empty-name`); the dialog button state is the UI's |
-| 103 | open-ui | Rename and directory move are done and tested; the dialog is the UI's |
+| 100 | done | The new folder is selected and its ancestors open. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
+| 101 | done | `LibraryNewFolder_Title` and `LibraryNewFolder_TitleIn` |
+| 102 | done | The primary button stays disabled for a blank name; Enter submits only a non-blank name; the service trims |
+| 103 | done | Pre-filled; the directory moves on disk (`library-ui.spec.ts`) |
 | 104 | improved | B7: `name-taken` |
-| 105 | open-ui | The service stores resolved keys; the dialog is the UI's |
+| 105 | done | Seven swatches and 18 tiles as one radio group each (arrows move and select), live preview, resolved current values preselected. Swatch and tile accessible names are the English keys, as the spec says; they are not translated |
 | 106 | done | `not-empty` plus the existing `LibraryDeleteFolder_NotEmpty` string |
-| 107 | open-ui | Publishing null is done in the handler; the Cancel default is the UI's |
+| 107 | done | Cancel has the focus; confirm goes back to Inbox and the handler publishes null. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
 | 108 | improved | B26: the check uses fresh data |
-| 109 | open-ui | |
-| 110 | open-ui | Trim, blank-to-null and no-op on unchanged are done. Flushing on window close (B16) needs the UI to call `library.setFolderNote` on `pagehide` |
+| 109 | done | Right click on a real folder selects it and opens Rename, Personality, Delete folder; Inbox has no menu. The same three items are in a `Folder actions` button next to the breadcrumb, so the menu does not depend on a right click |
+| 110 | done | Saved on folder change, create, rename, personality, unmount and `pagehide` (B16). The save on a real window close was not observed |
 
 ### Meeting actions
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 111 | open-ui | The list item already carries title, date and snippet |
+| 111 | done | `MeetingList.tsx`: title, date and time in the user locale in the mono face, one-line snippet or `History_NoContent`, more button (shown on hover and focus, always visible in forced colors) |
 | 112 | done | `snippet.test.ts` |
-| 113 | open-ui | `workspace.dispatch selectMeeting`, `openSession` |
-| 114 | open-ui | |
-| 115 | open-ui | `flattenFolderPaths` is in core |
+| 113 | done | Click selects and opens Session on Transcript; Open summary on Summary. The shell navigates. Session is a placeholder (see decisions) |
+| 114 | done | Open summary, Move, Delete from the more button and from right click |
+| 115 | done | The dialog lists the flattened paths; the current folder is preselected, Inbox when dangling |
 | 116 | done | |
 | 117 | improved | B13: busy refusal and `io-failed` with the message, as values |
 | 118 | done | `isMeetingBusy` before the dialog and again inside `deleteMeeting`. Nothing reports busy until the recording and re-transcription modules register a probe |
-| 119 | open-ui | |
-| 120 | open-ui | `io-failed` plus the message; `HistoryDelete_Failed` exists |
+| 119 | done | Names the title; Cancel has the focus |
+| 120 | done | `HistoryDelete_Failed` with the message; the meeting stays listed. Tested with a locked file in `LibraryRoute.test.tsx` |
 | 121 | done | `library.deleteMeeting` calls `notifyDeleted` |
-| 122 | open-ui | |
-| 123 | open-ui | |
+| 122 | done | Dispatches `navigateTo Recording`; the shell follows (`library-ui.spec.ts`) |
+| 123 | done | `Notice`, closable, one at a time. Load problems, skipped files and the startup error get their own notices above it |
 
 ### Workspace
 
@@ -212,15 +227,15 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 126 | done | And rejected at the wire by zod |
 | 127 | done | |
 | 128 | done | |
-| 129 | open-ui | The shell must be the only listener of `workspace.navigationRequested` |
+| 129 | done | `AppShell` is the only listener of `workspace.navigationRequested` and reports its tag with `setCurrentShellTag`. The Library only dispatches |
 
 ### Settings page data section
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 130 | open-ui | `library.getLocation`, `library.openFolder`, `library.chooseLocation`, `library.setLocation` |
-| 131 | open-ui | |
-| 132 | open-ui | `library.getLocation.version`: `app.getVersion()`, else `1.0.0.0`. The dev build reports `0.0.0` |
+| 130 | done | Meetings row with the path, Open folder, Choose folder and, for a picked folder, Use the default folder. `DataSection.test.tsx`, `library-ui.spec.ts` (dialog and shell stubbed) |
+| 131 | done | App data row, path only |
+| 132 | done | The version comes from `library.getLocation`. An unpackaged run shows the Electron version (45.2.1) because the app version is not read from the package file there; a packaged build shows the package version, which is `0.0.0` until a release version is set. The packaged value was not observed |
 | 133 | done | `Settings_Data.Text`, `Settings_MeetingsLocation.Header`, `Settings_AppDataLocation.Header`, `Settings_OpenFolder.Content`, `Settings_About.Header` exist in both languages |
 
 ### Settings storage
@@ -239,7 +254,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 141 | done | The first error is returned as `startupError` in `library.getLocation`; showing it is the shell's |
+| 141 | improved | The first error is returned as `startupError`; the Library page shows it as a notice. The shell module may show it more prominently |
 | 142 | done | `migrations.test.ts` |
 | 143 | done | |
 | 144 | done | |
@@ -298,24 +313,18 @@ Not changed, on purpose: B4 (kept, now reported), B23 (same order as the WinUI a
 
 ## Left for other modules
 
-**UI half of this module**
-- The Library screen: tree with the virtual Inbox node, breadcrumbs, search, list, empty states, status bar, the four dialogs, context menus, narrow layout (items 77, 78, 82, 84 to 86, 88, 96 to 98, 100 to 103, 105, 107, 109 to 115, 119 to 123, 129).
-- Settings Data and About cards (130 to 132), including the folder picker and the warning when `sharesMeetingLive` is true (`Ui_LibraryFolderShared`).
-- Flush the folder note on `pagehide` (B16) and keep the tree expansion the user chose (B14).
-- Show `startupError`, `skipped` and `corrupt` results with the strings added in `ui.{en,es}.json` (`Ui_Library*`).
-- Replace the Library and Settings placeholders in `features/library` and `features/settings`.
-
 **Recording and re-transcription modules**
-- Register a probe on the `MeetingBusyRegistry` created in `main/index.ts` so delete and move refuse meetings in use (118, 117). Until then nothing is ever busy.
+- Register a probe on the `MeetingBusyRegistry` created in `main/index.ts` so delete and move refuse meetings in use (117, 118). The Library already asks `library.isMeetingBusy` before the delete dialog and the service checks again, so no UI change is needed. Until then nothing is ever busy.
 - The recorder should create the WAV at the dated stem, then call the repository `save` with `audioFilePath` set; B2 is fixed for that flow.
 - After a save that changes a meeting, call `workspace.dispatch notifyMeetingChanged`.
 
 **Session module**
-- `library.getMeeting` returns the full record. `library.moveMeeting`, `library.deleteMeeting` are the only mutations the Library offers; the session screens save through the repository when they land.
+- Replace `features/session/SessionRoute.tsx` (placeholder). It reads `workspace.getState` for the meeting and tab and `library.getMeeting` for the record.
+- `library.moveMeeting` and `library.deleteMeeting` are the only mutations the Library offers; the session screens save through the repository when they land.
 
 **Shell module**
-- Listen to `workspace.navigationRequested` and navigate; set the tag with `setCurrentShellTag`.
-- `app.getVersion()` is `0.0.0` until a release version is set in `apps/desktop/package.json`.
+- `app.getVersion()` is `0.0.0` in the package until a release version is set in `apps/desktop/package.json`.
+- The startup migration error is shown by the Library page; the shell may want a window-level notice.
 
 **Not verified**
-- A library written by the real WinUI app, and the reverse (155, 156). A real packaged build with a picked folder. Behavior on OneDrive-redirected Documents. Case-only folder rename on a case-sensitive volume. A WAV held open by a real recorder (only simulated with an injected `EBUSY`).
+- A library written by the real WinUI app, and the reverse (155, 156). A real packaged build with a picked folder and a real folder dialog. The real file manager opening (stubbed in tests). Behavior on OneDrive-redirected Documents. Case-only folder rename on a case-sensitive volume. A WAV held open by a real recorder (only simulated with an injected `EBUSY`). The note save on a real window close. Spanish layout (screenshots are English; the Spanish strings are the existing translations). Screen reader behavior beyond axe.
