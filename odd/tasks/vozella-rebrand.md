@@ -52,7 +52,7 @@ Keep these unchanged, because changing them can orphan user data or Windows cons
 
 ## Progress
 
-T1 to T3 committed on `feat/vozella-rebrand`. Nothing pushed.
+T1 to T4 committed on `feat/vozella-rebrand`. Nothing pushed.
 
 ## Next step
 
