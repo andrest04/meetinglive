@@ -381,6 +381,27 @@ Decisions (S15):
 - **Clipboard.** `copyActions` returns the text; the write belongs to the renderer (S16/S17).
 - **No RED run (S15).** Code and tests were written together and the first run was green. The e2e spec `apps/desktop/e2e/summaries-ipc.spec.ts` drives the real contract in the fake build: gate, wizard options, model choice, generate, tab, toggle, copy, notes, template, CLI failure, busy, cancel and Xai.
 
+### Summary tab view (S16)
+
+| #   | Item                                                                  | Status   | Notes                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | --------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 82  | Layout, visibility rules and automation ids of 2.2                    | improved | Order kept: mode bar, related strip, message, content. Ids kept as `data-testid`: `TxtSummaryContent`, `ListActionItems`, `TxtMeetingNotes`. One 720 px document column from the shell instead of 880 px. The right side of the toolbar is a `toolbarEnd` slot for S17 (status, generate, template, more). A meeting with a transcript and no summary shows nothing under the mode bar until S17 adds Generate.    |
+| 83  | Mode bar "My notes" / "Enhanced", default Enhanced, only with meeting | done     | A radio group with arrow-key selection (`ModeSwitch`). Hidden when there is no meeting. Reset to Enhanced on every load. Keys `NotesMode_*`.                                                                                                                                                                                                                                                                       |
+| 84  | Empty state and the "Record a meeting" call to action                 | done     | `SummaryPage_Empty.Text` and `SummaryPage_EmptyCta.Content`; the button sends `workspace.dispatch navigateTo Recording`. Shown when `flags.isEmpty`.                                                                                                                                                                                                                                                               |
+| 85  | Summary as sanitized Markdown, action items below under their heading | done     | In-house reader (`markdown.ts`) and `MarkdownView`: headings (shifted one level under the page title), paragraphs, nested bullet and numbered lists, quotes, fenced and inline code, bold, italic, links. React elements only, no `dangerouslySetInnerHTML`; raw HTML is shown as text; links limited to http and https (others keep only the label). Tested with script, img, `javascript:` and `data:` payloads. |
+| 101 | Raw notes editor: mirror in state, save on blur, on switch, on unload | done     | `useSummaryTab`: the box is local state; `summaries.saveNotes` runs on blur, on the switch to Enhanced, on unmount (meeting change or leaving the page) and on `pagehide`/`beforeunload`. A save of the text already saved is skipped, and a failed save is retried at the next trigger.                                                                                                                           |
+| 98  | Action item toggle (renderer half, started in S14)                    | improved | Optimistic tick; the saved list from main replaces the local one only when no later click is pending. A failed or thrown save puts that box back and shows the message (`Error_SaveActionItem`) in a dismissible notice.                                                                                                                                                                                           |
+| 103 | Related meetings click (renderer half)                                | done     | Caption `SummaryPage_RelatedMeetings.Text`, items with title and a short local date; click dispatches `selectMeeting` then `openSession Summary`. `SessionRoute` now reloads on `workspace.changed`, so the page follows.                                                                                                                                                                                          |
+
+Decisions (S16):
+
+- **Message area.** The failed-toggle text shows in a dismissible `Notice` under the toolbar, not in the toolbar status text (that text belongs to generation, S17). S17 can route both to one place.
+- **Loading.** A skeleton of the real layout (mode bar, heading, paragraphs) with `role="status"` and the `Ui_Loading` name; no spinner.
+- **Links.** `<a href>` with `rel="noreferrer noopener"`. The main process denies new windows, so a click does nothing yet (see Left for other modules).
+- **Mode bar is not the session tab bar.** It is a radio group, not tabs, so the session module can add real Transcript/Summary tabs above it without two tab lists.
+- **RED.** `markdown.test.ts` was run against a missing module first. The component tests and the e2e spec were written after the code.
+- **Screenshots.** `docs/port/screens/summaries/` holds summary, notes and empty in light and dark, and the summary in Spanish.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -412,6 +433,7 @@ Decisions (S15):
 - **B35** (S12): unknown, numeric or blank provider names resolve to Local; `Xai` stays `unavailable`.
 - **B5** (S14): action item toggles (and notes saves) go through a per-meeting queue; 20 rapid toggles on slow saves end in order with the last value persisted, and one failing save does not block the next (tested).
 - **S15**: no numbered bug. A re-transcription no longer ends as `TranscriptOnly` only (the summary stage is plugged in); generate for a meeting that is already running no longer replaces the first run's cancel source (the second request answers `busy`).
+- **S16**: no numbered bug. Renderer half of B5: ticks are applied optimistically, a stale list from an older save never overwrites a newer click, and a failed save restores only its own box. Notes are saved on blur, switch, unmount and page unload, so leaving the page right after typing no longer loses the text.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -449,6 +471,10 @@ Decisions (S15):
 - S15 to S18 and S19: `summaries.hardware` gives the wizard rows and the default; `chooseLocalModel` and `cancelLocalModel` drive the download step; `checkCli` and `chooseCli` drive the CLI check and the Check again button with the hint key.
 - S15 to the recording module: call `summaries.summarizeForPipeline(request, cancel)` (agenda and note template come from the request) as the summary stage of `RecordingPipelineRequest`, and the same `templateInstructions` and `formatFailure`.
 - S15 to the final review: the real-build composition (second addon load for the kill-on-close job, real llama-server under Electron main) was not run.
+
+- S16 to S17: `SummaryTabView` has a `toolbarEnd` slot for the status text, spinner, Generate, Regenerate, template picker and More menu. `useSummaryTab` exposes `state.flags` from the load; S17 recomputes `canGenerate`/`canRegenerate` while a run is going and reloads after `summaries.progress` ends. The copy command for the session header can read `notes` or `summary` from the same state. S17 owns the clipboard write and the draft message with its own title (B16).
+- S16 to the session module: `SessionRoute` still has no tab bar; it mounts `<SummaryTab key={meeting.id} meetingId>` when the workspace tab is Summary and shows a text line for Transcript. A real tab bar and header replace that in place; the Summary tab keeps working unchanged.
+- S16 to the shell or main: opening links from a summary needs a `setWindowOpenHandler` that passes http and https URLs to `shell.openExternal`; today they are denied. Pending-real-validation: forced-colors rendering and a screen reader pass were not run.
 
 ## Dropped by the owner
 
