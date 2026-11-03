@@ -27,6 +27,11 @@ vi.mock('../summaries/SummaryTab', () => ({
     return <div data-testid="summary-stub">{meetingId}</div>;
   },
 }));
+vi.mock('./TranscriptTab', () => ({
+  TranscriptTab: ({ meetingId }: { meetingId: string }) => (
+    <div data-testid="transcript-stub">{meetingId}</div>
+  ),
+}));
 vi.mock('../summaries/use-provider-gate', () => ({
   useProviderGate: () => ({ runSetup: vi.fn() }),
 }));

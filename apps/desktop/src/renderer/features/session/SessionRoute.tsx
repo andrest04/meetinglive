@@ -10,7 +10,7 @@ import { RetranscribeControl } from '../transcription/RetranscribeControl';
 import { CopyNotice } from './CopyNotice';
 import { RenameDialog } from './RenameDialog';
 import { BackLink, SessionHeader } from './SessionHeader';
-import { TranscriptSlot, type CopySource } from './TranscriptSlot';
+import { TranscriptTab, type CopySource } from './TranscriptTab';
 import { useSession } from './use-session';
 
 const navigateTo = (tag: 'History' | 'Recording'): void => {
@@ -181,7 +181,7 @@ export function SessionRoute() {
         icon: <Icon icon={FileText} size={14} />,
         content: wrap(
           'transcript',
-          <TranscriptSlot meetingId={meetingId} copySourceRef={copySourceRef} />,
+          <TranscriptTab meetingId={meetingId} copySourceRef={copySourceRef} />,
         ),
       },
       {
