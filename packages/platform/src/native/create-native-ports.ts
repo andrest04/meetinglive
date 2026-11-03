@@ -18,6 +18,7 @@ import {
 } from '../fakes/fake-audio-devices';
 import { FakeCalendarProbe } from '../fakes/fake-calendar-probe';
 import { FakeLegacySecret } from '../fakes/fake-legacy-secret';
+import type { ProcessJobPort } from '../llama/process-guard';
 import { loadNativeAddon } from './addon';
 import {
   NativeAudioCapture,
@@ -26,6 +27,7 @@ import {
   NativeLegacySecret,
   NativeMicrophoneDevices,
   NativeOsBuild,
+  NativeProcessJob,
   NativeProcessInfo,
   openNativeDecoder,
 } from './native-adapters';
@@ -42,6 +44,8 @@ export interface NativePorts {
   readonly openDecoder: (path: string) => AudioFileDecoder;
   readonly calendar: CalendarProbePort;
   readonly legacySecret: LegacySecretPort;
+  /** Kill-on-close job for child processes. Undefined when the build has no real one. */
+  readonly processJob: ProcessJobPort | undefined;
 }
 
 export type NativePortsOptions =
@@ -67,6 +71,7 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
       openDecoder: openWavFileDecoder,
       calendar: new FakeCalendarProbe(),
       legacySecret: new FakeLegacySecret(),
+      processJob: undefined,
     };
   }
   const addon = loadNativeAddon(options.addonPath, options.load);
@@ -81,5 +86,6 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
     openDecoder: (path) => openNativeDecoder(addon, path),
     calendar: new NativeCalendarProbe(addon),
     legacySecret: new NativeLegacySecret(addon),
+    processJob: addon.platformSupported() ? new NativeProcessJob(addon) : undefined,
   };
 }

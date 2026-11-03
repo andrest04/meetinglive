@@ -42,6 +42,7 @@ function stubAddon(overrides: Partial<NativeAddon> = {}): NativeAddon {
         upcomingEventCount: 0,
       }),
     dpapiUnprotect: (data) => data,
+    assignToKillOnCloseJob: () => undefined,
     ...overrides,
   };
 }

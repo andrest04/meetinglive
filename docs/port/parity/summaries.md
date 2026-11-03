@@ -20,6 +20,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | CLI provider base, Claude Code and Codex providers, web-search factories (S04)                                      | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts`                                                   |
 | `FakeCliProcessRunner` test double (S04)                                                                            | `packages/core/src/summaries/test-kit.ts` (not exported from the index)                                             |
 | Node CLI process runner, `.cmd` wrapper, tree kill (S05)                                                            | `packages/platform/src/summaries/cli-process-runner.ts`; fake CLI fixture `fake-cli-fixture.ts`                     |
+| llama-server sidecar: start, health wait, streaming chat, tokenize, idle stop, restart (S09)                       | `packages/platform/src/llama/llama-sidecar.ts`                                                                      |
+| Process guard: Job Object guard, watchdog fallback (S09)                                                            | `packages/platform/src/llama/process-guard.ts`; Rust `native/vozella-native/src/job.rs`; fake `fakes/fake-process-job.ts` |
 | PATH lookup with `resolve()` (S05, shared with Settings)                                                            | `packages/platform/src/settings/path-cli-probe.ts`                                                                  |
 | Provider availability: `isProviderAvailable`, `UNAVAILABLE_SUMMARY_PROVIDERS`, `AvailableSummaryProviderKind` (S07) | `packages/core/src/library/settings.ts`                                                                             |
 | Settings page `providerNotice` and the removed-provider notice (S07)                                                | `packages/core/src/settings/page-service.ts`; `apps/desktop/src/renderer/features/settings/ProviderSection.tsx`     |
@@ -206,6 +208,26 @@ Decisions:
 - The spike's extracted folders under `C:/Code/vozella-spikes/llm/work/{cpu,cuda12,cuda13}` are for S09 and S11 integration tests only, selected by `VOZELLA_LLAMA_BIN_DIR` and skipped when absent. No test here downloads a real archive.
 - Not observed: a real 287 MB download from GitHub, and the self-test on a real CUDA or Vulkan machine (the real `--version` run is only checked against `node --version`).
 
+### llama-server sidecar and no-orphan kill (S09)
+
+| #      | Item                                                                                          | Status | Notes |
+| ------ | --------------------------------------------------------------------------------------------- | ------ | ----- |
+| S09-1  | stack.md requirement "guaranteed no-orphan kill": Job Object with kill-on-close                | new    | `assignToKillOnCloseJob(pid)` in Rust (`job.rs`) puts the child in one process-wide job with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The handle is never closed by us, so Windows kills the server when the main process dies, even on a hard kill. Observed: a Node owner killed with `taskkill /F` took the fake server and the real 1B server down (cuda12 and cpu) in under 5 s. |
+| S09-2  | No-native fallback: watchdog                                                                   | new    | Fake-native builds, non-Windows, or a job that refuses the pid use a detached Node helper (`ELECTRON_RUN_AS_NODE`) that polls the parent every 500 ms and runs `taskkill /T /F` on the child. Observed with the fake server and with a parent pid that was killed. |
+| S09-3  | Start: free loopback port, random 24-byte key per launch, args, cwd = exe folder, windowsHide  | new    | `-m --host 127.0.0.1 --port --api-key -c --no-webui -ngl`. `gpuLayers: 'auto'` sends `-ngl 999`; a number sends that count. GPU offload is new: the old app was CPU only. The key is scrubbed from diagnostics and error text. |
+| S09-4  | Health wait and early exit                                                                     | new    | Polls `/health` (503 loading, 200 ready). Early exit throws `exited-early` with the output tail; a missing exe throws `spawn`; a slow load throws `health-timeout` and kills the process. Output ring buffer is 64k characters. |
+| S09-5  | `chatStream`, `tokenize`, abort                                                                | new    | SSE `data:` lines become `{content, finishReason, usage}`. A cancel closes the request and throws `CancelledError`; the fake server saw the connection close. |
+| S09-6  | `stop()`                                                                                      | new    | kill, wait up to 3 s, then `taskkill /T /F`; a synchronous kill also runs from `process.on('exit')`. |
+| S09-7  | Idle timeout and one restart                                                                  | new    | Default 10 minutes, injectable. After an idle stop the next request starts the server again. A crash (found at the next request, or on a refused connection) restarts once; the second crash throws `crashed`. |
+
+Decisions:
+
+- The guard is tried in order: Job Object, then watchdog. `NativePorts.processJob` is undefined on the fake build, which selects the watchdog.
+- The graceful `stop()` does not wait for the OS to reap the job; it waits for the process exit event.
+- The before-quit hook is S15's: it must call `stop()` on the one sidecar S12 builds.
+- Real runs used the spike folder (`VOZELLA_LLAMA_BIN_DIR=C:/Code/vozella-spikes/llm/work`, `VOZELLA_LLM_MODEL` set to the 1B Q4_K_M file). cuda12 offloaded 17/17 layers on the RTX 3070 (checked from `-lv 4` output). The tests skip with a console message when the variables are absent.
+- Not observed: Electron main (not plain Node) as the owner; the packaged app; a machine where Electron is already inside a restrictive job.
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -222,6 +244,7 @@ Decisions:
 - **B20** (S06): catalog labels are keys, asserted by a test.
 - **B1, B14, B22, B23, B29** (S07): dropped with the xAI provider, reason: owner decision 2026-11-03, may return later. B22 for `settings.json` was already done by the settings module's atomic write; the xAI credentials file and the custom template file are no longer written by this app.
 - **S08**: no numbered bug. The spike's marker inside the folder, its missing resume and its unchecked cancel are replaced by the sibling marker, `downloadToFile` and cancel cleanup.
+- **S09**: no numbered bug. The spike's `stop()` and `taskkill` fallback are kept; the missing orphan guarantee, the unbounded output buffer and the key in the argument list of error text are replaced as above.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -243,6 +266,8 @@ Decisions:
 - S09 and S11: take `exe` and `binDirectory` from `LlamaRuntimeManager` / `selectWorkingBackend`, spawn with cwd = bin directory, and pass `usesGpuOffload(backend)` to S06's `rateFor`. Integration tests read `VOZELLA_LLAMA_BIN_DIR` and skip when absent.
 - S12 and S18: construct `new LlamaRuntimeManager({ root: <app data>/LlamaRuntime })`, call `selectWorkingBackend` with the hardware profile, and decide where the install progress shows. A `CudaDriverProbe` is optional.
 - Real GitHub download of the pinned archives is pending-real-validation.
+
+- S09: S11 owns one `LlamaSidecar` per app, with `createProcessGuard(nativePorts.processJob)`; it calls `start()` lazily and uses `tokenize` for budgets. S15 wires `app.on('before-quit')` to `sidecar.stop()`. Production code must not pass `argsPrefix`.
 
 ## Dropped by the owner
 

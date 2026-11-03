@@ -72,6 +72,8 @@ export interface NativeAddon {
   openAudioDecoder(path: string): NativeAudioDecoder;
   probeCalendarsAsync(): Promise<NativeCalendarProbeResult>;
   dpapiUnprotect(data: Uint8Array): Uint8Array;
+  /** Puts the process in a Job Object that kills it when this process dies. Throws on failure. */
+  assignToKillOnCloseJob(pid: number): void;
 }
 
 /**
@@ -91,7 +93,8 @@ export function loadNativeAddon(addonPath: string, load: (path: string) => unkno
     typeof addon.windowsBuild !== 'function' ||
     typeof addon.openAudioDecoder !== 'function' ||
     typeof addon.probeCalendarsAsync !== 'function' ||
-    typeof addon.dpapiUnprotect !== 'function'
+    typeof addon.dpapiUnprotect !== 'function' ||
+    typeof addon.assignToKillOnCloseJob !== 'function'
   ) {
     throw new Error(`native addon at ${addonPath} does not expose the expected API`);
   }

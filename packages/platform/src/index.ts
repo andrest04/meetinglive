@@ -40,3 +40,6 @@ export * from './summaries/cli-process-runner';
 export * from './llama/llama-runtime-catalog';
 export * from './llama/llama-runtime-manager';
 export * from './llama/backend-choice';
+export * from './llama/process-guard';
+export * from './llama/llama-sidecar';
+export * from './fakes/fake-process-job';

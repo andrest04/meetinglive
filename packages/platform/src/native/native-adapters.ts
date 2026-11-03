@@ -17,6 +17,7 @@ import type {
   ProcessDetails,
   ProcessInfoProvider,
 } from '@vozella/core';
+import type { ProcessJobPort } from '../llama/process-guard';
 import type { NativeAddon, NativeSessionMonitor } from './addon';
 
 /** Adapter: audio capture through the Rust addon. */
@@ -96,6 +97,15 @@ export class NativeLegacySecret implements LegacySecretPort {
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
+  }
+}
+
+/** Adapter: kill-on-close Job Object through the Rust addon. */
+export class NativeProcessJob implements ProcessJobPort {
+  constructor(private readonly addon: NativeAddon) {}
+
+  assign(pid: number): void {
+    this.addon.assignToKillOnCloseJob(pid);
   }
 }
 

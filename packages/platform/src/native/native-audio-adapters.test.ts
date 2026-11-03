@@ -34,6 +34,7 @@ function addon(overrides: Partial<NativeAddon> = {}): NativeAddon {
     openAudioDecoder: () => ({ read: () => null, close: () => undefined }),
     probeCalendarsAsync: () => Promise.resolve({ hasIdentity: false, status: 'ok' }),
     dpapiUnprotect: (d) => d,
+    assignToKillOnCloseJob: () => undefined,
     ...overrides,
   };
 }
