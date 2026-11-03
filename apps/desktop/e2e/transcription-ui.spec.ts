@@ -42,6 +42,25 @@ async function start(env: Record<string, string>, seed?: (root: string) => void)
   return { launched, page };
 }
 
+const MODEL = 'Llama-3.2-1B-Instruct-Q4_K_M.gguf';
+
+/** The summary is ready, so only the engine is missing: the record gate is the engine step. */
+const summaryReady = { VOZELLA_FAKE_MODEL_PRESENT: MODEL };
+const seedLocal = (root: string): void => {
+  fs.mkdirSync(path.join(root, 'app'), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, 'app', 'settings.json'),
+    JSON.stringify({ selectedSummaryProvider: 'Local', selectedSummaryModelId: MODEL }),
+  );
+};
+
+/** Set up to record, then Set up in the checklist: the engine dialog opens (spec 2.4). */
+async function openEngineSetup(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Set up to record' }).click();
+  const checklist = page.getByRole('dialog', { name: 'Set up recording' });
+  await checklist.getByRole('button', { name: 'Set up', exact: true }).click();
+}
+
 async function go(page: Page, name: string): Promise<void> {
   await page.getByRole('navigation').getByRole('link', { name }).click();
 }
@@ -51,7 +70,10 @@ test.describe('the engine gate on Record', () => {
   let page: Page;
 
   test.beforeAll(async () => {
-    ({ launched, page } = await start({ VOZELLA_FAKE_ENGINE_STEP_MS: '600' }));
+    ({ launched, page } = await start(
+      { VOZELLA_FAKE_ENGINE_STEP_MS: '600', ...summaryReady },
+      seedLocal,
+    ));
     await go(page, 'Record');
     await expect(page.getByRole('heading', { level: 2, name: 'Sources' })).toBeVisible();
   });
@@ -60,14 +82,17 @@ test.describe('the engine gate on Record', () => {
   });
   test.describe.configure({ mode: 'serial' });
 
-  test('Record opens the download dialog with progress, and Cancel leaves no recording', async () => {
-    await page.getByRole('button', { name: 'Record', exact: true }).click();
+  test('Set up opens the download dialog with progress, and Cancel leaves no recording', async () => {
+    await openEngineSetup(page);
     const dialog = page.getByRole('dialog', { name: 'Download transcription engine' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId('engine-setup-status')).toContainText(/Downloading the/);
     await expect(dialog.getByRole('progressbar')).toBeVisible();
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(dialog).toBeHidden();
+    // A cancelled step ends the pass and the checklist asks again; Cancel there ends the loop.
+    const checklist = page.getByRole('dialog', { name: 'Set up recording' });
+    await checklist.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByText('Setup cancelled.')).toBeVisible();
     await expect(page.getByTestId('recording-status')).toBeHidden();
     const status = await page.evaluate(() => window.vozella.invoke('transcription.getStatus', {}));
@@ -76,8 +101,9 @@ test.describe('the engine gate on Record', () => {
 
   test('after the download the take starts and the live transcript fills in', async () => {
     test.setTimeout(90_000);
-    await page.getByRole('button', { name: 'Record', exact: true }).click();
+    await openEngineSetup(page);
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Record', exact: true }).click();
     await expect(page.getByTestId('recording-status')).toContainText('Recording...');
     const pane = page.getByRole('region', { name: 'Live transcript' });
     await expect(pane).toBeVisible();
@@ -90,18 +116,23 @@ test.describe('the engine gate on Record', () => {
 });
 
 test('a failed download shows the raw message and Try again, and cancel records nothing', async () => {
-  const { launched, page } = await start({
-    VOZELLA_FAKE_ENGINE_FAIL: 'getaddrinfo ENOTFOUND github.com',
-  });
+  const { launched, page } = await start(
+    { VOZELLA_FAKE_ENGINE_FAIL: 'getaddrinfo ENOTFOUND github.com', ...summaryReady },
+    seedLocal,
+  );
   try {
     await go(page, 'Record');
-    await page.getByRole('button', { name: 'Record', exact: true }).click();
+    await openEngineSetup(page);
     const dialog = page.getByRole('dialog', { name: 'Download transcription engine' });
     await expect(dialog.getByText('Download failed', { exact: true })).toBeVisible();
     await expect(dialog.getByText('getaddrinfo ENOTFOUND github.com')).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Try again' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
+    await page
+      .getByRole('dialog', { name: 'Set up recording' })
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click();
     await expect(page.getByTestId('recording-status')).toBeHidden();
   } finally {
     await launched.close();
@@ -256,18 +287,22 @@ async function seriousViolations(page: Page): Promise<{ id: string; impact: stri
 for (const theme of ['light', 'dark'] as const) {
   test(`the engine dialog and the live pane have no serious violations in ${theme}`, async () => {
     test.setTimeout(90_000);
-    const { launched, page } = await start({ VOZELLA_FAKE_ENGINE_STEP_MS: '600' });
+    const { launched, page } = await start(
+      { VOZELLA_FAKE_ENGINE_STEP_MS: '600', ...summaryReady },
+      seedLocal,
+    );
     try {
       await page.evaluate((value) => {
         window.localStorage.setItem('vozella.theme', value);
       }, theme);
       await page.reload();
       await go(page, 'Record');
-      await page.getByRole('button', { name: 'Record', exact: true }).click();
+      await openEngineSetup(page);
       const dialog = page.getByRole('dialog', { name: 'Download transcription engine' });
       await expect(dialog.getByRole('progressbar')).toBeVisible();
       expect(await seriousViolations(page)).toEqual([]);
-
+      await expect(dialog).toBeHidden({ timeout: 60_000 });
+      await page.getByRole('button', { name: 'Record', exact: true }).click();
       await expect(page.getByTestId('recording-status')).toContainText('Recording...', {
         timeout: 60_000,
       });
@@ -284,14 +319,17 @@ for (const theme of ['light', 'dark'] as const) {
   });
 
   test(`the failed dialog has no serious violations in ${theme}`, async () => {
-    const { launched, page } = await start({ VOZELLA_FAKE_ENGINE_FAIL: 'offline' });
+    const { launched, page } = await start(
+      { VOZELLA_FAKE_ENGINE_FAIL: 'offline', ...summaryReady },
+      seedLocal,
+    );
     try {
       await page.evaluate((value) => {
         window.localStorage.setItem('vozella.theme', value);
       }, theme);
       await page.reload();
       await go(page, 'Record');
-      await page.getByRole('button', { name: 'Record', exact: true }).click();
+      await openEngineSetup(page);
       await expect(page.getByRole('dialog').getByText('offline')).toBeVisible();
       expect(await seriousViolations(page)).toEqual([]);
     } finally {

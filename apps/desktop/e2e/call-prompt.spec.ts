@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, type LaunchedApp } from './launch';
+import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
 
 // The in-app call bar, the Take notes path into a fake recording on Record, and the popup toggle
 // in Settings, on the fake native build. No real call window exists: VOZELLA_FAKE_CALL_FLAG makes
@@ -45,9 +45,10 @@ test.describe('call bar and take notes', () => {
   let page: Page;
 
   test.beforeAll(async () => {
-    launched = await launchApp({ VOZELLA_FAKE_CALL_FLAG: flag });
+    launched = await launchApp({ VOZELLA_FAKE_CALL_FLAG: flag, ...readyEnv }, seedReadySettings);
     page = await launched.app.firstWindow();
     await expect(page.getByRole('navigation')).toBeVisible();
+    await installEngine(page);
     await page.getByRole('link', { name: 'Library' }).click();
   });
 
@@ -97,7 +98,7 @@ test.describe('call bar and take notes', () => {
     expect(again.takeNotes?.pending).toBe(false);
 
     await page.getByRole('button', { name: 'Stop' }).click();
-    await expect(page.getByText(/in the Inbox\.$/)).toBeVisible();
+    await expect(page.getByTestId('result-card')).toBeVisible({ timeout: 60_000 });
   });
 
   const shots = process.env.VOZELLA_SCREENSHOTS === '1';

@@ -75,7 +75,7 @@ export function AppShell() {
   useWorkspaceNavigation();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   // The library has a folder pane beside its list, so it gets a wider column than the documents.
-  const wide = pathname === '/library';
+  const wide = pathname === '/library' || pathname === '/record';
   return (
     <div className="h-screen bg-paper text-ink">
       <button

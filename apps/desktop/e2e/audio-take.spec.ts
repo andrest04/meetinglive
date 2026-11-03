@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { FAKE_APPS } from './fake-audio-apps';
-import { launchApp, type LaunchedApp } from './launch';
+import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
 
 // The Record page's take in the real window on the fake native build: the fake microphone plays a
 // tone, so a recording writes a real WAV into the Inbox of a throwaway data root. The file picker
@@ -35,9 +35,13 @@ function dataChunk(bytes: Buffer): { declared: number; length: number } {
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  launched = await launchApp({ VOZELLA_FAKE_AUDIO_APPS: FAKE_APPS });
+  launched = await launchApp(
+    { VOZELLA_FAKE_AUDIO_APPS: FAKE_APPS, ...readyEnv },
+    seedReadySettings,
+  );
   page = await launched.app.firstWindow();
   await expect(page.getByRole('navigation')).toBeVisible();
+  await installEngine(page);
   await page.getByRole('link', { name: 'Record' }).click();
   await expect(page.getByRole('heading', { level: 2, name: 'Sources' })).toBeVisible();
 });
@@ -80,7 +84,7 @@ test('record, pause, resume and stop leave a readable WAV in the Inbox', async (
   await page.waitForTimeout(600);
 
   await page.getByRole('button', { name: 'Stop' }).click();
-  await expect(page.getByText(/^Saved as .*E2E take\.wav in the Inbox\.$/)).toBeVisible();
+  await expect(page.getByTestId('result-card')).toContainText('E2E take', { timeout: 60_000 });
   await expect(page.getByRole('button', { name: 'Record' })).toBeEnabled();
 
   const files = wavFiles(launched.dataRoot).filter((file) => file.includes('E2E take'));
@@ -104,7 +108,7 @@ test('import audio converts a picked file into the Inbox', async () => {
 
   await page.getByRole('textbox', { name: 'Title' }).fill('E2E import');
   await page.getByRole('button', { name: 'Import audio' }).click();
-  await expect(page.getByText(/^Saved as .*E2E import\.wav in the Inbox\.$/)).toBeVisible();
+  await expect(page.getByTestId('result-card')).toContainText('E2E import', { timeout: 60_000 });
 
   const imported = wavFiles(launched.dataRoot).filter((file) => file.includes('E2E import'));
   expect(imported).toHaveLength(1);
