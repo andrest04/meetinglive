@@ -5,7 +5,10 @@ import { createAudioWorker } from './audio-worker-core';
 
 const parentPort = process.parentPort;
 
+const mainPid = Number(process.env.VOZELLA_MAIN_PID);
+
 const handle = createAudioWorker({
+  mainProcessId: Number.isInteger(mainPid) ? mainPid : 0,
   post: (event) => {
     parentPort.postMessage(event);
   },

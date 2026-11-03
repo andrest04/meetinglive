@@ -48,6 +48,8 @@ import { installGlobalErrorHandling } from './errors/global-errors';
 import { LocaleState, resolveStartupLanguage } from './i18n/locale-state';
 import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
+import { AudioController } from './audio/audio-controller';
+import { registerAudioHandlers } from './ipc/audio-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -159,6 +161,7 @@ function main(): void {
         env: {
           VOZELLA_FAKE_NATIVE: fakeNative ? '1' : '0',
           VOZELLA_NATIVE_ADDON: nativeAddonPath,
+          VOZELLA_MAIN_PID: String(process.pid),
         },
         logger: logger.child('audio'),
       }),
@@ -373,6 +376,44 @@ function main(): void {
       runtime: library,
       workspace,
       broadcast,
+    });
+
+    // Audio capture: the recording module takes `audioController` to start and stop recordings.
+    const audioController = new AudioController({
+      host: audio,
+      settings: library.settings,
+      broadcast,
+      logger: logger.child('audio'),
+      scheduler: {
+        every: (ms, task) => {
+          const timer = setInterval(task, ms);
+          return () => {
+            clearInterval(timer);
+          };
+        },
+      },
+    });
+    registerAudioHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: audioController,
+      pickAudioFile: async (extensions) => {
+        const options = {
+          defaultPath: app.getPath('downloads'),
+          properties: ['openFile' as const],
+          filters: [{ name: 'Audio', extensions: extensions.map((e) => e.replace('.', '')) }],
+        };
+        const result = mainWindow
+          ? await dialog.showOpenDialog(mainWindow, options)
+          : await dialog.showOpenDialog(options);
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      },
+    });
+    app.on('before-quit', () => {
+      audioController.dispose();
     });
 
     mainWindow = createMainWindow({

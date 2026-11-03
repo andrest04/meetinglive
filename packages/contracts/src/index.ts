@@ -1,4 +1,5 @@
 export * from './api';
+export * from './audio';
 export * from './channel';
 export * from './channels';
 export * from './library';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
+import * as audio from './audio';
 import * as library from './library';
 import * as settings from './settings';
 
@@ -103,6 +104,16 @@ export const requestChannels = {
   [settings.settingsXaiSignIn.name]: settings.settingsXaiSignIn,
   [settings.i18nGetLocale.name]: settings.i18nGetLocale,
   [settings.appRestart.name]: settings.appRestart,
+  [audio.audioMicrophonesLoad.name]: audio.audioMicrophonesLoad,
+  [audio.audioMicrophonesRemember.name]: audio.audioMicrophonesRemember,
+  [audio.audioSourcesStart.name]: audio.audioSourcesStart,
+  [audio.audioSourcesStop.name]: audio.audioSourcesStop,
+  [audio.audioSourcesSelect.name]: audio.audioSourcesSelect,
+  [audio.audioSourcesDismissSuggestion.name]: audio.audioSourcesDismissSuggestion,
+  [audio.audioSourcesCloseFallback.name]: audio.audioSourcesCloseFallback,
+  [audio.audioPreviewStart.name]: audio.audioPreviewStart,
+  [audio.audioPreviewStop.name]: audio.audioPreviewStop,
+  [audio.audioImportPickFile.name]: audio.audioImportPickFile,
 } as const;
 
 export const eventChannels = {
@@ -115,6 +126,10 @@ export const eventChannels = {
   [library.workspaceTakeNotesRequested.name]: library.workspaceTakeNotesRequested,
   [settings.settingsModelEvent.name]: settings.settingsModelEvent,
   [settings.i18nLocaleChanged.name]: settings.i18nLocaleChanged,
+  [audio.audioSourcesChanged.name]: audio.audioSourcesChanged,
+  [audio.audioPreviewLevel.name]: audio.audioPreviewLevel,
+  [audio.audioRecordingLevel.name]: audio.audioRecordingLevel,
+  [audio.audioRecordingNotice.name]: audio.audioRecordingNotice,
 } as const;
 
 export type RequestChannels = typeof requestChannels;
