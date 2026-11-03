@@ -7,3 +7,4 @@
 *.yaml text eol=lf
 *.node binary
 pnpm-lock.yaml -diff
+apps/desktop/**/*.html text eol=lf
