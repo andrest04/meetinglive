@@ -137,6 +137,23 @@ describe('ChatContextPackerTests', () => {
     expect(out).not.toContain('N'.repeat(401));
   });
 
+  it('Pack_MeetingScope_KeepsLongSummaryAndNotesUncapped', () => {
+    const out = pack('Meeting', null, guid(1), null, [
+      meeting(1, { summary: 'S'.repeat(900), notes: 'N'.repeat(500), transcript: 'T' }),
+    ]);
+    expect(out).toContain(`Summary: ${'S'.repeat(900)}
+`);
+    expect(out).toContain(`Notes: ${'N'.repeat(500)}`);
+  });
+
+  it('Pack_AllMeetings_IgnoresTheFolderId', () => {
+    const f = folder(1);
+    const meetings = [meeting(1, { folderId: f.id }), meeting(2, { folderId: null })];
+    const withFolder = pack('AllMeetings', f.id, null, null, meetings, [f]);
+    expect(withFolder).toBe(pack('AllMeetings', null, null, null, meetings, [f]));
+    expect(withFolder).toContain(`Id: ${hex(guid(2))}`);
+  });
+
   it('Pack_MeetingScope_IncludesTranscriptTailNotHead', () => {
     const transcript = 'HEAD' + 'a'.repeat(7000) + 'TAIL';
     const out = pack('Meeting', null, guid(1), null, [meeting(1, { transcript })]);

@@ -1,3 +1,4 @@
+import type { WorkspaceStateDto } from '@vozella/contracts';
 import { resolveScopeFromWorkspace, type ChatScopeDecision } from '@vozella/core';
 import { useEffect, useRef, useState } from 'react';
 
@@ -49,15 +50,17 @@ export function useChatScope(): ChatScopeView {
   const [name, setName] = useState<string | null>(null);
   const [canStartNewChat, setCanStartNewChat] = useState(false);
   const generation = useRef(0);
+  /** The decision the page last showed, and the one last delivered to main. */
   const last = useRef<ChatScopeDecision | null>(null);
+  const delivered = useRef<ChatScopeDecision | null>(null);
 
   useEffect(() => {
     let disposed = false;
-    const refresh = async (): Promise<void> => {
+    const refresh = async (known?: WorkspaceStateDto): Promise<void> => {
       generation.current += 1;
       const mine = generation.current;
       const stale = (): boolean => disposed || mine !== generation.current;
-      const state = await window.vozella.invoke('workspace.getState', {});
+      const state = known ?? (await window.vozella.invoke('workspace.getState', {}));
       if (stale()) return;
       const next = resolveScopeFromWorkspace(state);
       const changed = !same(last.current, next);
@@ -66,23 +69,37 @@ export function useChatScope(): ChatScopeView {
         setName(null);
         setDecision(next);
       }
+      // Main must hear the final scope even when a later refresh makes this one stale, so the
+      // delivery is tracked on its own and is not gated by the generation.
+      if (!same(delivered.current, next)) {
+        delivered.current = next;
+        void window.vozella
+          .invoke('chat.setScope', { scope: next })
+          .then((chat) => {
+            if (!disposed && same(delivered.current, next))
+              setCanStartNewChat(chat.canStartNewChat);
+          })
+          .catch(() => {
+            if (same(delivered.current, next)) delivered.current = null;
+          });
+      }
       // A rename arrives as the same decision, so the name is looked up on every refresh.
       const resolved = await lookupName(next).catch(() => null);
       if (stale()) return;
       setName(resolved);
-      if (changed) {
-        const chat = await window.vozella
-          .invoke('chat.setScope', { scope: next })
-          .catch(() => null);
-        if (!stale() && chat !== null) setCanStartNewChat(chat.canStartNewChat);
-      }
     };
-    const run = (): void => {
-      void refresh().catch(() => undefined);
+    const run = (state?: WorkspaceStateDto): void => {
+      void refresh(state).catch(() => undefined);
     };
     run();
-    const offWorkspace = window.vozella.on('workspace.changed', run);
-    const offLibrary = window.vozella.on('library.changed', run);
+    // Live transcript text changes arrive here too; they never change the scope, so skip them.
+    const offWorkspace = window.vozella.on('workspace.changed', ({ state }) => {
+      if (same(last.current, resolveScopeFromWorkspace(state))) return;
+      run(state);
+    });
+    const offLibrary = window.vozella.on('library.changed', () => {
+      run();
+    });
     const offChat = window.vozella.on('chat.stateChanged', ({ state }) => {
       setCanStartNewChat(state.canStartNewChat);
     });

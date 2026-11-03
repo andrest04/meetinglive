@@ -14,6 +14,7 @@ import type {
   ProviderSource,
   SummaryProviderResolver,
 } from '@vozella/core';
+import { sendFailedFailure, type TranslateFn } from '@vozella/core';
 import type { Broadcast } from '../summaries/summaries-controller';
 
 /** The slice of `ChatService` the controller drives. */
@@ -32,6 +33,8 @@ export interface ChatControllerDeps {
   readonly openExternal: (url: string) => Promise<void>;
   readonly broadcast: Broadcast;
   readonly logger: Logger;
+  /** Maps an unexpected error to a sentence; without it the failure text is generic, never raw. */
+  readonly translate?: TranslateFn;
 }
 
 /** S2: only http and https leave the app. Anything else, or a string that is not a URL, is refused. */
@@ -107,7 +110,9 @@ export class ChatController {
       return {
         status: 'failed',
         kind: 'send-failed',
-        message: messageOf(error),
+        message: this.deps.translate
+          ? sendFailedFailure(error, this.deps.translate).message
+          : 'Could not answer.',
         originalDraft: input.draft,
       };
     } finally {

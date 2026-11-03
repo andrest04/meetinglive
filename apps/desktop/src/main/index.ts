@@ -710,6 +710,7 @@ function main(): void {
         return Promise.resolve();
       },
       broadcast,
+      translate: (key, ...args) => locale.t(key, ...args),
       logger: logger.child('chat'),
     });
     registerChatHandlers({

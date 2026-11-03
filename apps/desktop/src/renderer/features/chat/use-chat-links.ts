@@ -1,5 +1,6 @@
-import { tryParseMeetingLink } from '@vozella/core';
+import { sendFailedFailure, tryParseMeetingLink } from '@vozella/core';
 import { useCallback, useRef, type MouseEvent } from 'react';
+import { toCoreT } from './chat-core-t';
 import { useT } from '../../i18n/I18nProvider';
 
 export type ChatLinkTarget =
@@ -65,11 +66,12 @@ export function useChatLinks(report: (message: string) => void) {
         }
         const opened = await window.vozella.invoke('chat.openExternal', { url: target.url });
         if (opened.status === 'failed') {
-          latest.current.report(latest.current.t('Chat_SendFailed', opened.detail));
+          latest.current.report(
+            sendFailedFailure(new Error(opened.detail), toCoreT(latest.current.t)).message,
+          );
         }
       } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        latest.current.report(latest.current.t('Chat_SendFailed', detail));
+        latest.current.report(sendFailedFailure(error, toCoreT(latest.current.t)).message);
       }
     })();
   }, []);

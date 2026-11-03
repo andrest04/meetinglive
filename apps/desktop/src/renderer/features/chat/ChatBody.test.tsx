@@ -13,7 +13,7 @@ vi.mock('../summaries/ProviderGateDialogs', () => ({
     gate: { open: { surface: string } | null; finish: (ok: boolean) => void };
   }) =>
     gate.open ? (
-      <div data-testid="GateStub">
+      <div data-testid="GateStub" data-open={JSON.stringify(gate.open)}>
         <button
           type="button"
           onClick={() => {
@@ -64,6 +64,7 @@ interface Api {
 function install(options: {
   state?: ChatStateDto;
   send?: (n: number, input: { requestId: string; draft: string }) => Promise<ChatSendOutcomeDto>;
+  beforeSend?: () => Promise<void>;
   copy?: () => { status: 'written' } | { status: 'failed'; detail: string };
 }): Api {
   const listeners = new Map<string, Set<Listener>>();
@@ -82,6 +83,7 @@ function install(options: {
       case 'chat.state':
         return options.state ?? stateOf();
       case 'workspace.getState':
+        await options.beforeSend?.();
         return { liveTranscript: 'live words' };
       case 'chat.send': {
         const typed = input as { requestId: string; draft: string; liveTranscript: string | null };
@@ -479,5 +481,81 @@ describe('language (B8)', () => {
     expect(
       within(screen.getByTestId('ListMeetingChatStarters')).getAllByRole('button')[0]?.textContent,
     ).not.toBe("What's been discussed");
+  });
+});
+
+describe('audit fixes', () => {
+  it('Send has the tooltip text Send (Enter) (item 30)', async () => {
+    install({});
+    mount();
+    await userEvent.type(box(), 'x');
+    await userEvent.hover(sendButton());
+    expect(await screen.findByText('Send (Enter)')).toBeTruthy();
+  });
+
+  it('a rejected chat.send rolls back, shows a mapped sentence and unlocks sending (items 39, 43)', async () => {
+    let n = 0;
+    const api = install({
+      send: () => {
+        n += 1;
+        return n === 1
+          ? Promise.reject(new Error('boom at a secret path'))
+          : Promise.resolve<ChatSendOutcomeDto>({
+              status: 'answered',
+              user: msg('u', 'user', 'again'),
+              assistant: msg('a', 'assistant', 'second answer'),
+            });
+      },
+    });
+    mount();
+    await userEvent.type(box(), 'first{Enter}');
+    const notice = await screen.findByTestId('InfoMeetingChatError');
+    expect(box().value).toBe('first');
+    expect(notice.textContent.startsWith('Could not answer')).toBe(true);
+    // The title is not repeated by the body.
+    expect(notice.textContent.match(/Could not answer/g)).toHaveLength(1);
+    await userEvent.clear(box());
+    await userEvent.type(box(), 'again{Enter}');
+    await waitFor(() => {
+      expect(screen.getByText('second answer')).toBeTruthy();
+    });
+    expect(api.sends).toHaveLength(2);
+  });
+
+  it('opens the CLI setup dialog for Claude Code and Codex (item 37)', async () => {
+    for (const kind of ['ClaudeCode', 'Codex'] as const) {
+      install({
+        send: () => Promise.resolve({ status: 'setup-required', kind, originalDraft: 'q' }),
+      });
+      const view = mount();
+      await userEvent.type(box(), 'q{Enter}');
+      const gate = await screen.findByTestId('GateStub');
+      expect(JSON.parse(gate.getAttribute('data-open') ?? '{}')).toEqual({
+        surface: 'cli',
+        kind,
+      });
+      view.unmount();
+      cleanup();
+    }
+  });
+
+  it('Stop before chat.send reaches main drops the answer (B19)', async () => {
+    let release!: () => void;
+    const gap = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const api = install({ beforeSend: () => gap });
+    mount();
+    await userEvent.type(box(), 'q{Enter}');
+    await userEvent.click(await screen.findByTestId('BtnMeetingChatStop'));
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('BtnMeetingChatStop')).toBeNull();
+    });
+    expect(api.sends).toHaveLength(0);
+    expect(box().value).toBe('q');
   });
 });

@@ -1,5 +1,7 @@
 import type { ChatScopeDto, ChatSendOutcomeDto, ChatStateDto } from '@vozella/contracts';
+import { sendFailedFailure } from '@vozella/core';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { toCoreT } from './chat-core-t';
 import { useT } from '../../i18n/I18nProvider';
 import type { ProviderGate } from '../summaries/use-provider-gate';
 import { INITIAL_VIEW, chatViewReducer, restoreDraft, type ChatViewState } from './chat-view-model';
@@ -33,6 +35,8 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
   const draftRef = useRef('');
   const mismatchRef = useRef(false);
   const sendingRef = useRef(false);
+  /** Stop pressed before `chat.send` reached main: main has nothing to cancel yet. */
+  const stopEarly = useRef(false);
   const latest = useRef({ t, gate, scope });
   latest.current = { t, gate, scope };
   const alive = useRef(true);
@@ -73,6 +77,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
       const text = raw.trim();
       if (text === '' || sendingRef.current || !latest.current.scope.isVisible) return;
       sendingRef.current = true;
+      stopEarly.current = false;
       let requestId = newRequestId();
       dispatch({ type: 'sendStarted', requestId, text, replace: mismatchRef.current });
       setDraft('');
@@ -84,6 +89,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
       const request = async (): Promise<ChatSendOutcomeDto> => {
         // B5: the live transcript is read once, when the user presses send.
         const workspace = await window.vozella.invoke('workspace.getState', {});
+        if (stopEarly.current) return { status: 'cancelled', originalDraft: raw };
         return window.vozella.invoke('chat.send', {
           requestId,
           draft: raw,
@@ -136,10 +142,12 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
         }
       } catch (error) {
         rollBack();
-        const detail = error instanceof Error ? error.message : String(error);
         dispatch({
           type: 'failed',
-          error: { message: latest.current.t('Chat_SendFailed', detail), titled: true },
+          error: {
+            message: sendFailedFailure(error, toCoreT(latest.current.t)).message,
+            titled: true,
+          },
         });
       } finally {
         sendingRef.current = false;
@@ -149,6 +157,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
   );
 
   const stop = useCallback((): void => {
+    stopEarly.current = true;
     void window.vozella.invoke('chat.cancel', {}).catch(() => undefined);
   }, []);
 

@@ -184,6 +184,53 @@ describe('ChatBar scope chip (items 6 to 11)', () => {
   });
 });
 
+describe('scope delivery (items 18 to 20)', () => {
+  const setScopes = (api: ReturnType<typeof install>) =>
+    api.calls.filter((c) => c.name === 'chat.setScope').map((c) => c.input);
+
+  it('delivers the final scope to main even when a refresh is superseded mid lookup', async () => {
+    let release: () => void = () => undefined;
+    const api = install({ currentShellTag: 'Session', selectedMeetingId: MEETING });
+    api.titles[MEETING] = {
+      title: 'Slow',
+      delay: new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    };
+    mount();
+    await waitFor(() => {
+      expect(api.calls.some((c) => c.name === 'library.getMeeting')).toBe(true);
+    });
+    await api.change({
+      currentShellTag: 'Session',
+      selectedMeetingId: null,
+      selectedFolderId: FOLDER,
+    });
+    await api.change({ currentShellTag: 'Recording', selectedFolderId: null });
+    await act(async () => {
+      release();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(chip().textContent).toBe('All meetings');
+    });
+    const sent = setScopes(api) as { scope: { kind: string } }[];
+    expect(sent.at(-1)?.scope.kind).toBe('AllMeetings');
+  });
+
+  it('does not refresh when only the live transcript changes (item 20)', async () => {
+    const api = install({ isCaptureActive: true });
+    mount();
+    await waitFor(() => {
+      expect(setScopes(api).length).toBeGreaterThan(0);
+    });
+    const before = api.calls.length;
+    await api.change({ liveTranscript: 'hello there' });
+    await api.change({ liveTranscript: 'hello there again' });
+    expect(api.calls.length).toBe(before);
+  });
+});
+
 describe('ChatBar visibility and expansion (items 1 to 5)', () => {
   it('is hidden entirely on Settings', async () => {
     const api = install({ currentShellTag: 'Settings' });

@@ -110,6 +110,11 @@ describe('meetingSnippet', () => {
     expect(meetingSnippet('   ', transcript)).toBe('Hello team Second line');
   });
 
+  it('S6: a spoken line starting with "# " is still read as a heading and dropped, on purpose', () => {
+    const transcript = ['[00:00.00-00:03.00] # one', '[00:03.00-00:05.00] kept words'].join('\n');
+    expect(meetingSnippet(null, transcript)).toBe('kept words');
+  });
+
   it('is empty when the transcript has only headers', () => {
     expect(meetingSnippet(null, 'Recorded 2026-09-01 12:00\nEnded 2026-09-01 12:30')).toBe('');
   });

@@ -251,6 +251,19 @@ describe('SummaryTab related meetings', () => {
     });
   });
 
+  it('each related row shows the title and the local short date and time (item 133)', async () => {
+    installSummariesApi({ ...loaded(withSummary(SUMMARY, { related })) });
+    mount();
+    const nav = await screen.findByRole('navigation', { name: 'Related meetings' });
+    const first = within(nav).getAllByRole('button')[0];
+    const expected = new Intl.DateTimeFormat('en', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date('2026-09-01T09:00:00Z'));
+    expect(first?.textContent).toContain('Weekly sync');
+    expect(first?.textContent).toContain(expected);
+  });
+
   it('B21: a related meeting that no longer exists shows the missing-meeting message and does not navigate', async () => {
     const api = installSummariesApi({
       ...loaded(withSummary(SUMMARY, { related })),

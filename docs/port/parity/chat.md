@@ -241,9 +241,9 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 85 | Directory created on first write. | dropped | dropped | owner decision 2026-11-03, may return later |
 | 86 | Writes should be atomic (B2) and files remain readable by the old format. | dropped | dropped | owner decision 2026-11-03, may return later |
 | 87 | Thread created on first successful send only. | chat-4 | improved | In-memory: the conversation is created on the first successful send only; failure keeps nothing. |
-| 88 | Thread title is the first message trimmed, line breaks to single space, max 60, trailing space trimmed. | chat-4 | improved | thread-title.test.ts; B10 surrogate-safe; wiring in chat-3 |
+| 88 | Thread title is the first message trimmed, line breaks to single space, max 60. | chat-4 | dropped | Thread history is cut (owner decision 2026-11-03, may return later); the unused title helper was deleted. |
 | 89 | `CreatedAt`/`UpdatedAt` use local time with offset; user and assistant messages of a turn share one timestamp (decide whether to fix B7). | chat-4 | improved | B7 fixed: the user message is stamped at send start and the assistant message when the answer is done, from the injected Clock. |
-| 90 | `UpdatedAt` is bumped each turn; titles never change. | chat-4 | improved | In-memory equivalent: messages are only appended on success; there is no UpdatedAt and no title because thread persistence is dropped. |
+| 90 | `UpdatedAt` is bumped each turn; titles never change. | chat-4 | dropped | No thread record exists in the in-memory conversation (owner decision 2026-11-03, may return later). |
 | 91 | Save failure restores the in-memory message list and shows the error. | dropped | dropped | No persistence, so a save failure cannot happen. The in-memory list is only written after success. |
 | 92 | After a successful turn the transcript is re-rendered from the persisted thread and the thread list is refreshed. | chat-4 | improved | In-memory equivalent: `state.messages` is the whole conversation after a successful turn. |
 | 93 | History flyout reloads threads when opened. | dropped | dropped |  |
@@ -253,7 +253,7 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 97 | Opening a missing thread resets to a new chat when it was open, and refreshes the list. | dropped | dropped |  |
 | 98 | Delete button per row opens the confirm dialog with title `Chat_DeleteThreadTitle`, content with title, default button Close. | dropped | dropped |  |
 | 99 | Confirming deletes the thread; clears the view if it was open; refreshes the list. | dropped | dropped |  |
-| 100 | New chat clears messages, draft, error, mismatch, and open thread. | dropped | dropped |  |
+| 100 | New chat clears messages, draft, error, mismatch, and open thread. | chat-3 / chat-7 | done | Not dropped: the New chat button is live. `chat-service.test.ts` (messages), `e2e/chat-layout.spec.ts` "New chat clears the error and the restored draft", `ChatBar` epoch key remounts the body. |
 | 101 | Threads list shows all threads regardless of scope. | dropped | dropped |  |
 | 102 | Built-in recipes: eight entries with the exact ids, names, availability, and prompts from 3.7. | chat-2 / chat-8 | done | recipes.test.ts BuiltIns_ListsSingleAndMultipleRecipes |
 | 103 | Built-ins are never written to disk. | chat-2 / chat-8 | done | catalog is code only; no repository exists |
@@ -439,3 +439,32 @@ Every item 1 to 155 above has one row. Bugs, suggestions and section 6 test clas
 | MeetingSnippetTests, RelatedMeetingsTests | done | chat-5 test map above; the event-id case is dropped |
 
 Real CLI and local-model answers remain unverified for every row that depends on them (pending-real-validation); the fake provider was used throughout.
+
+## Audit round fixes
+
+| Item | Status | Evidence or decision |
+|---|---|---|
+| 18, 19, 20 scope delivery | fixed | `use-chat-scope.ts` tracks delivery to main separately from the generation guard, so a superseded refresh still hands main the final scope. `ChatBar.test.tsx` "delivers the final scope". |
+| 20 live transcript refresh | fixed | `workspace.changed` that resolves to the same scope is skipped. `ChatBar.test.tsx` "does not refresh when only the live transcript changes". |
+| 30 Send tooltip | proven | `ChatBody.test.tsx` asserts "Send (Enter)". |
+| 31, 117, 121, 36 layout and scroll | proven | `e2e/chat-layout.spec.ts`: composer 32 to 96 and min width 180, bubble right aligned at most 75 percent and selectable, transcript at most 420 with internal scroll and scrolled to the end. |
+| 37 gate reasons | proven | `ChatBody.test.tsx` opens the CLI surface for ClaudeCode and Codex. |
+| 39, 43 rejected chat.send | proven | `ChatBody.test.tsx` rolls back, restores the draft, shows a mapped sentence and allows another send. |
+| 45 error cleared on New chat | proven | `e2e/chat-layout.spec.ts`. |
+| B14, 125 raw error text | fixed | Controller catch, renderer catch and link errors go through `sendFailedFailure` (`formatFailure`); the controller gets `translate`. |
+| Duplicate "Could not answer" | fixed | `ChatErrorNotice` drops the repeated lead when the title is shown. |
+| B19 stop before send reaches main | fixed | `use-chat.ts` `stopEarly`; `ChatBody.test.tsx` "Stop before chat.send reaches main". |
+| 51, 59 packer | proven | `context-packer.test.ts` Meeting scope uncapped, AllMeetings ignores the folder id. |
+| 133 related date | proven | `SummaryTab.test.tsx` row shows title and short date-time. |
+| S6 | proven | `snippet.test.ts` pins the retained heading behavior. |
+| Section 7 decisions | decided | Live scope with an empty transcript stays sendable (the packer adds `ChatLiveTranscriptEmpty`). A meeting deleted while the chat is open answers with `ChatMeetingNotFound`. Search, rename, export, regenerate, message delete and token usage: dropped with thread history (owner decision 2026-11-03, may return later). |
+| Recipe descriptions in Spanish | rejected | The line under a recipe name is the prompt sent to the model; WinUI keeps built-in prompts in English, so they are not localized. |
+| Raw `[ ]` in answers | rejected | It is the fake provider's Markdown; the real model output is rendered as sent. |
+| Skipped dark screenshot test | rejected | It is gated by VOZELLA_SCREENSHOTS by design; not a failure. |
+| S8 output language | kept | pending-real-validation, unchanged: WinUI passes no language to chat prompts. |
+| B12 line endings | kept | Prompt neutralization normalizes line terminators to LF; harmless for the model, recorded here as a deviation from item 72. |
+| Chip pick replaces a typed draft | kept | Matches WinUI (a chip sends at once); on rollback the chip text returns. Low severity, no change. |
+| app-paths chat thread and recipe paths | kept | Unused leftovers from an earlier module, harmless. |
+| Unused dropped-feature locale keys | kept | Left for when the features return. |
+| B22 Library reuse of `Chat_ScopeFolder` | kept | Coupling is intentional and documented. |
+| Design notes (flyout over chips, panel height on Record, empty expanded shot) | deferred | Visual polish, not a behavior defect; left for the final review. |
