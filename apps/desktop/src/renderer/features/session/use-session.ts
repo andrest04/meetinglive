@@ -45,6 +45,8 @@ export function useSession(): SessionModel {
   const bootRef = useRef<(() => void) | null>(null);
   const bootFailed = useRef(false);
   const sequence = useRef(0);
+  /** The id whose view was read successfully; a quiet failure before that is a full failure (B9). */
+  const loadedId = useRef<string | null>(null);
   const tracker = useRef<ReturnType<typeof createSlideTracker> | null>(null);
 
   const load = useCallback(async (id: string | null, quiet: boolean): Promise<void> => {
@@ -62,6 +64,7 @@ export function useSession(): SessionModel {
     try {
       const view = await window.vozella.invoke('session.getView', { id });
       if (mine !== sequence.current) return;
+      loadedId.current = id;
       setFailed(false);
       setMeeting(
         view.record === null
@@ -74,8 +77,9 @@ export function useSession(): SessionModel {
             },
       );
     } catch {
-      // A quiet refresh keeps what is on screen; a full load shows the error line.
-      if (mine === sequence.current && !quiet) {
+      // A quiet refresh keeps what is on screen; a full load, or a quiet read that replaced a
+      // full load still in flight, shows the error line and Retry.
+      if (mine === sequence.current && (!quiet || loadedId.current !== id)) {
         setMeeting(null);
         setFailed(true);
       }

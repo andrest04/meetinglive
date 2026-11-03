@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CancelSignal } from '../cancel';
 import { CancelSource } from '../cancel';
-import { buildSummaryPrompt, buildTitlePrompt } from './prompt-builders';
+import { buildSummaryPrompt } from './prompt-builders';
 import { describeSummaryProviderContract } from './provider-contract';
 import {
   CancelledError,
@@ -12,7 +12,6 @@ import {
   withDefaultStream,
   type SummarizeRequest,
   type SummaryProvider,
-  type SuggestTitleRequest,
 } from './provider';
 
 /** A reference provider: builds with the shared builders, answers from a scripted model. */
@@ -27,11 +26,6 @@ function referenceProvider(reply: string): { provider: SummaryProvider; prompts:
     id: 'codex',
     summarize: async (request: SummarizeRequest, cancel) =>
       summaryResultFromResponse('codex', await completePrompt(buildSummaryPrompt(request), cancel)),
-    suggestTitle: (request: SuggestTitleRequest, cancel) =>
-      completePrompt(
-        buildTitlePrompt(request.transcript, request.recordedAt, request.outputLanguage),
-        cancel,
-      ),
     completePrompt,
     streamPrompt: withDefaultStream(completePrompt),
   };

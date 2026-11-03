@@ -217,6 +217,26 @@ describe('TranscriptTab', () => {
     });
   });
 
+  it('B9: a quiet refresh that fails while the first load is in flight shows the error and Retry', async () => {
+    const gate = gateOf();
+    const fake = install(STORED, gate.promise);
+    mount();
+    await waitFor(() => {
+      expect(fake.calls.length).toBe(1);
+    });
+    fake.fail = true;
+    act(() => {
+      fake.emit('workspace.meetingChanged', { id: ID });
+    });
+    gate.release();
+    await screen.findByText('This meeting could not be opened.');
+    fake.fail = false;
+    await userEvent.click(screen.getByTestId('BtnTranscriptRetry'));
+    await waitFor(() => {
+      expect(screen.getByTestId('TxtTranscriptContent')).toBeTruthy();
+    });
+  });
+
   it('keeps the text on screen when a quiet refresh fails', async () => {
     const fake = install('stays');
     mount();

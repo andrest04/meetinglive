@@ -183,6 +183,62 @@ describe('MeetingRetranscriptionRunner', () => {
     expect(results[0]).toMatchObject({ outcome: 'Cancelled', message: null });
   });
 
+  it('126: a cancel before the pipeline starts never runs the pipeline and ends as Cancelled', async () => {
+    const results: RetranscriptionResult[] = [];
+    const pipelineRun = vi.fn(() => Promise.resolve());
+    const runner: MeetingRetranscriptionRunner = new MeetingRetranscriptionRunner({
+      pipeline: { run: pipelineRun },
+      templateInstructions: () => {
+        runner.cancel();
+        return Promise.resolve(null);
+      },
+      formatFailure: String,
+      defer: (t) => {
+        t();
+      },
+      onMeetingChanged: () => undefined,
+    });
+    runner.onFinished((r) => results.push(r));
+    await runner.start(record());
+    expect(pipelineRun).not.toHaveBeenCalled();
+    expect(results[0]).toMatchObject({ outcome: 'Cancelled', message: null });
+  });
+
+  it('129: the terminal step is queued behind progress callbacks that were already queued', async () => {
+    const order: string[] = [];
+    const runner = new MeetingRetranscriptionRunner({
+      pipeline: {
+        run: (_request, cb) => {
+          // Progress that arrives late, queued on the same task queue.
+          void Promise.resolve().then(() => {
+            cb.onStatus('late 99%');
+            order.push('progress');
+          });
+          return Promise.resolve();
+        },
+      },
+      templateInstructions: () => Promise.resolve(null),
+      formatFailure: String,
+      defer: (t) => {
+        void Promise.resolve()
+          .then(() => undefined)
+          .then(t);
+      },
+      onMeetingChanged: () => undefined,
+    });
+    const finished = new Promise<void>((resolve) => {
+      runner.onFinished(() => {
+        order.push('finished');
+        resolve();
+      });
+    });
+    await runner.start(record());
+    expect(runner.current.isRunning).toBe(true);
+    await finished;
+    expect(order).toEqual(['progress', 'finished']);
+    expect(runner.current.isRunning).toBe(false);
+  });
+
   it('an exception becomes a Failed outcome with the formatted message', async () => {
     const out = await run(() => {
       throw new Error('disk full');

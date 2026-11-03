@@ -62,8 +62,11 @@ export interface TranscriptionControllerDeps {
   ) => Promise<
     | { readonly status: 'completed' }
     | { readonly status: 'cancelled' }
+    | { readonly status: 'skipped' }
     | { readonly status: 'failed'; readonly message: string }
   >;
+  /** Serializes record writes per meeting with the summary and tab writes (bug 4). */
+  readonly queue?: { run<T>(key: string, task: () => Promise<T>): Promise<T> };
   readonly defer?: (task: () => void) => void;
   /**
    * Port: true while a take is being recorded. The recording module supplies it (it sets
@@ -454,7 +457,15 @@ export class TranscriptionController {
   private pipeline(): RetranscriptionPipeline {
     return {
       run: async (request, callbacks, cancel) => {
-        const saved = await this.replaceTranscript(request, callbacks, cancel);
+        let saved: boolean;
+        try {
+          saved = await this.replaceTranscript(request, callbacks, cancel);
+        } catch (error) {
+          if (error instanceof TranscriptionCancelledError || cancel.cancelled) throw error;
+          // Any other failure before the new transcript is saved (121).
+          callbacks.onFinished(this.deps.t('Error_ProcessRecording', messageOf(error)));
+          return;
+        }
         if (!saved || cancel.cancelled || this.deps.summarize === undefined) return;
         // No summary provider chosen: the run ends with the transcript only (spec 113).
         const provider = (await this.deps.settings.load()).selectedSummaryProvider;
@@ -512,16 +523,24 @@ export class TranscriptionController {
       callbacks.onFinished(t('Error_NoTranscript'));
       return false;
     }
-    const current = await this.deps.meetings.get(request.meetingId);
-    if (current === null) {
-      callbacks.onFinished(t('Error_NoTranscript'));
-      return false;
-    }
     const transcript = applyHighlights(
       ensureEndedHeader(text, recordedAt, endedAt),
       request.highlightsMs,
     );
-    await this.deps.meetings.save({ ...current, transcript });
+    // Read and write inside the per-meeting queue so a notes save cannot slip in between (bug 4).
+    const write = async (): Promise<boolean> => {
+      const current = await this.deps.meetings.get(request.meetingId);
+      if (current === null) return false;
+      await this.deps.meetings.save({ ...current, transcript });
+      return true;
+    };
+    const saved = this.deps.queue
+      ? await this.deps.queue.run(request.meetingId, write)
+      : await write();
+    if (!saved) {
+      callbacks.onFinished(t('Error_NoTranscript'));
+      return false;
+    }
     callbacks.onMeetingSaved(request.meetingId);
     return true;
   }

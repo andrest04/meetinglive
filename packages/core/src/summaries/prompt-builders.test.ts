@@ -6,7 +6,6 @@ import {
   buildMergePrompt,
   buildPartPrompt,
   buildSummaryPrompt,
-  buildTitlePrompt,
   createEnhancementContext,
   toEnglishLanguageName,
 } from './prompt-builders';
@@ -252,36 +251,6 @@ call Ana
       ),
     ).toBe(true);
     expect(tail).not.toMatch(/ {12}/);
-  });
-});
-
-describe('buildTitlePrompt', () => {
-  it('matches spec 3.2', () => {
-    expect(buildTitlePrompt('hola', recordedAt, 'en')).toBe(`# Identity
-
-You name a recording from an automatic-speech-recognition transcript.
-The transcript may contain ASR errors, false starts, and filler.
-
-# Instructions
-
-Return ONLY a short title, about 3–8 words. Nothing else:
-no preamble, no code fences, no ## headings, no quotes, no trailing period.
-
-Write the title in English.
-Ground it in the transcript. Do not invent.
-If the recording is an informal ASR test, say so plainly (e.g. Microphone test).
-This is an explicit regenerate: do not copy a current title; name the recording from the transcript.
-
-# Context
-
-<recorded_at>2026-11-02T14:00:00.0000000-05:00</recorded_at>
-<transcript>
-hola
-</transcript>`);
-  });
-
-  it('uses Spanish for blank language', () => {
-    expect(buildTitlePrompt('x', recordedAt, '')).toContain('Write the title in Spanish.');
   });
 });
 

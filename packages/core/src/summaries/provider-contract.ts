@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CancelSource } from '../cancel';
 import { parseOffsetDate } from '../library/offset-date';
-import { buildSummaryPrompt, buildTitlePrompt } from './prompt-builders';
+import { buildSummaryPrompt } from './prompt-builders';
 import { PROVIDER_IDS, isCancellation, type SummaryProvider } from './provider';
 import { splitSummaryResponse } from './summary-splitter';
 
@@ -85,16 +85,6 @@ export function describeSummaryProviderContract(
       const result = await provider.summarize(request, new CancelSource().signal);
       expect(result.suggestedTitle).toBe('Budget review');
       expect(sentPrompts()).toHaveLength(1);
-    });
-
-    it('suggestTitle sends the shared title prompt and returns the raw reply', async () => {
-      const { provider, sentPrompts } = create('Budget review');
-      const raw = await provider.suggestTitle(
-        { transcript: request.transcript, recordedAt, outputLanguage: 'en' },
-        new CancelSource().signal,
-      );
-      expect(raw).toBe('Budget review');
-      expect(sentPrompts()).toEqual([buildTitlePrompt(request.transcript, recordedAt, 'en')]);
     });
 
     it('completePrompt sends the prompt as given', async () => {

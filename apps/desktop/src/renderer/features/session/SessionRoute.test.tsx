@@ -326,6 +326,33 @@ describe('SessionRoute', () => {
       await slow;
     });
     expect(screen.getByRole('heading', { level: 1, name: 'Other talk' })).toBeTruthy();
+    // B6: the tab receives the same id as the header.
+    expect(screen.getByTestId('transcript-stub').textContent).toBe(B);
+  });
+
+  it('B9: a quiet refresh that fails while the first load is in flight ends in Retry, not empty', async () => {
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fake = install({ delay: { [A]: slow } });
+    mount();
+    await waitFor(() => {
+      expect(fake.calls.some((c) => c.name === 'session.getView')).toBe(true);
+    });
+    fake.failLoad = true;
+    act(() => {
+      fake.emit('workspace.meetingChanged', { id: A });
+    });
+    await act(async () => {
+      release();
+      await slow;
+    });
+    expect(await screen.findByText(/could not be opened/i)).toBeTruthy();
+    expect(screen.queryByText(/Open a meeting from Library/i)).toBeNull();
+    fake.failLoad = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Weekly sync' })).toBeTruthy();
   });
 
   it('unsubscribes on unmount (12)', async () => {

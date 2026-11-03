@@ -1,4 +1,5 @@
 // Composition root of the main process. Everything is wired here and nowhere else.
+import { hasAudioBytes } from './audio-file';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -717,7 +718,9 @@ function main(): void {
         audio.onPush((event) => {
           if (event.type === 'recording-frame') listener(event.pcm);
         }),
-      fileExists: (file) => fs.existsSync(file),
+      // Same rule as the session view: a zero-byte or unreadable recording is no audio (B20).
+      fileExists: (file) => hasAudioBytes(file),
+      queue: summaryPatchQueue,
       isCaptureActive: () => workspace.state.isCaptureActive,
       onMeetingChanged: (id) => {
         workspace.notifyMeetingChanged(id);
@@ -746,13 +749,7 @@ function main(): void {
       workspace,
       runnerState: () => transcriptionController.retranscription,
       // A zero-byte or unreadable recording counts as no audio (B20).
-      fileExists: (file) => {
-        try {
-          return fs.statSync(file).size > 0;
-        } catch {
-          return false;
-        }
-      },
+      fileExists: (file) => hasAudioBytes(file),
       // Explorer selects the file; Finder reveals it.
       reveal: {
         reveal: (file) => {

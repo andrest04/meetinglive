@@ -155,12 +155,6 @@ describe.skipIf(!ready)('LocalLlmSummaryProvider on the real llama-server', () =
         report.push(`long summary ${Date.now() - longStarted} ms`);
         expect(long.summaryMarkdown.trim().length).toBeGreaterThan(0);
 
-        const title = await provider.suggestTitle(
-          { transcript, recordedAt, outputLanguage: 'es' },
-          NEVER,
-        );
-        expect(title.trim().length).toBeGreaterThan(0);
-
         const pid = (server as LlamaSidecar).pid!;
         expect(pidAlive(pid)).toBe(true);
         await provider.dispose();

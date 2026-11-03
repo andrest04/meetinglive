@@ -19,6 +19,7 @@ export function useTranscript(meetingId: string): TranscriptModel {
   const [text, setText] = useState('');
   const sequence = useRef(0);
   const shown = useRef('');
+  const loaded = useRef(false);
 
   const load = useCallback(
     async (quiet: boolean): Promise<void> => {
@@ -29,12 +30,13 @@ export function useTranscript(meetingId: string): TranscriptModel {
         if (mine !== sequence.current) return;
         const next = view.record?.transcript ?? '';
         shown.current = next;
+        loaded.current = true;
         setText(next);
         setPhase('ready');
       } catch {
         if (mine !== sequence.current) return;
-        // A failed quiet refresh keeps what is on screen.
-        if (!quiet) setPhase('error');
+        // A failed quiet refresh keeps what is on screen, unless it replaced the first load (B9).
+        if (!quiet || !loaded.current) setPhase('error');
       }
     },
     [meetingId],
@@ -42,6 +44,7 @@ export function useTranscript(meetingId: string): TranscriptModel {
 
   useEffect(() => {
     shown.current = '';
+    loaded.current = false;
     setText('');
     void load(false);
     const off = window.vozella.on('workspace.meetingChanged', ({ id }) => {

@@ -65,6 +65,8 @@ function setup(
     summarize?: SummarizeHook;
     provider?: string | null;
     captureActive?: () => boolean;
+    queue?: { run<T>(key: string, task: () => Promise<T>): Promise<T> };
+    defer?: (task: () => void) => void;
   } = {},
 ) {
   const engine = new FakeAsrEngine();
@@ -109,9 +111,12 @@ function setup(
     },
     fileExists: () => true,
     onMeetingChanged: (id) => changed.push(id),
-    defer: (task) => {
-      task();
-    },
+    defer:
+      options.defer ??
+      ((task) => {
+        task();
+      }),
+    ...(options.queue ? { queue: options.queue } : {}),
     ...(options.summarize ? { summarize: options.summarize } : {}),
     ...(options.captureActive ? { isCaptureActive: options.captureActive } : {}),
   });
@@ -414,6 +419,19 @@ describe('offline pass', () => {
     expect(engine.recognizers[0]?.streams[0]?.options.language).toBe('pt-BR');
     expect(progress.at(-1)).toBe(100);
   });
+
+  it('107: the offline pass asks for the speaker model only when the setting is on', async () => {
+    const run = async (enabled: boolean) => {
+      const { controller, engine, settings, models } = setup();
+      models.diarization = true;
+      await settings.update({ speakerDiarizationEnabled: enabled });
+      engine.script = { afterPush: [[final('hola', 0.2)]] };
+      await controller.transcribeFile({ audioPath: 'a.wav', recordedAtMs: null });
+      return engine.recognizers[0]?.settings.diarizationModelPath ?? null;
+    };
+    expect(await run(true)).toBe('C:/models/diar.gguf');
+    expect(await run(false)).toBeNull();
+  });
 });
 
 describe('re-transcription', () => {
@@ -601,6 +619,115 @@ describe('re-transcription', () => {
     };
     expect(payload.outcome).toBe('Failed');
     expect(payload.message).toContain('Transcription failed: boom');
+  });
+
+  it('108: a re-transcription run shows whole-number percent status text', async () => {
+    const { controller, engine, meetings, events } = setup();
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(events.some((e) => e.channel === 'retranscription.finished')).toBe(true);
+    });
+    const statuses = events
+      .filter((e) => e.channel === 'retranscription.stateChanged')
+      .map((e) => (e.payload as { status: string }).status)
+      .filter((status) => status.includes('%'));
+    expect(statuses.length).toBeGreaterThan(0);
+    for (const status of statuses) expect(status).toMatch(/^\D*\d+%\D*$/);
+    expect(statuses.at(-1)).toBe(t('Status_TranscribingPercent', 100));
+  });
+
+  it('113: an unsatisfied provider gate (skipped) ends as TranscriptOnly', async () => {
+    const summarize = vi.fn<SummarizeHook>(() => Promise.resolve({ status: 'skipped' as const }));
+    const { controller, engine, meetings, events } = setup({ summarize });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(finishedWith(events)).toEqual({
+      meetingId: 'm1',
+      outcome: 'TranscriptOnly',
+      message: null,
+    });
+    expect((await meetings.get('m1'))?.transcript).toContain('nuevo texto');
+  });
+
+  it('120: cancelling during the summary stage keeps the new transcript and writes no summary', async () => {
+    let controllerRef: { cancelRetranscription(): void } | null = null;
+    const summarize = vi.fn<SummarizeHook>(() => {
+      controllerRef?.cancelRetranscription();
+      return Promise.resolve({ status: 'cancelled' as const });
+    });
+    const { controller, engine, meetings, events } = setup({ summarize });
+    controllerRef = controller;
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(finishedWith(events)).toEqual({ meetingId: 'm1', outcome: 'Cancelled', message: null });
+    const saved = await meetings.get('m1');
+    expect(saved?.transcript).toContain('nuevo texto');
+    expect(saved?.summary).toBe('kept summary');
+  });
+
+  it('121: an error before the transcript is saved is wrapped as Error_ProcessRecording', async () => {
+    const { controller, engine, meetings, events } = setup();
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    meetings.save = () => Promise.reject(new Error('disk full'));
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(finishedWith(events)).toEqual({
+      meetingId: 'm1',
+      outcome: 'Failed',
+      message: t('Error_ProcessRecording', 'disk full'),
+    });
+  });
+
+  it('bug 4: the transcript is written inside the per-meeting queue', async () => {
+    const keys: string[] = [];
+    const queue = {
+      run: <T>(key: string, task: () => Promise<T>): Promise<T> => {
+        keys.push(key);
+        return task();
+      },
+    };
+    const { controller, engine, meetings, events } = setup({ queue });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(finishedWith(events)).toBeDefined();
+    });
+    expect(keys).toEqual(['m1']);
+  });
+
+  it('129: progress queued before the end still arrives before the idle state and Finished', async () => {
+    const queued: (() => void)[] = [];
+    const { controller, engine, meetings, events } = setup({
+      defer: (task) => {
+        queued.push(task);
+      },
+    });
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(queued.length).toBe(1);
+    });
+    expect(finishedWith(events)).toBeUndefined();
+    expect(controller.retranscription.isRunning).toBe(true);
+    queued[0]?.();
+    const channels = events.map((e) => e.channel);
+    expect(channels.at(-1)).toBe('retranscription.finished');
+    expect(controller.retranscription.isRunning).toBe(false);
   });
 
   it('cancel ends as Cancelled and touches nothing', async () => {

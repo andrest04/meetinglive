@@ -1,11 +1,10 @@
 import type { CancelSignal } from '../cancel';
 import { runRequiredStdout, type CliProcessRunner } from './cli-failure';
-import { buildSummaryPrompt, buildTitlePrompt } from './prompt-builders';
+import { buildSummaryPrompt } from './prompt-builders';
 import {
   summaryResultFromResponse,
   withDefaultStream,
   type ProviderId,
-  type SuggestTitleRequest,
   type SummarizeRequest,
   type SummaryProvider,
   type SummaryResult,
@@ -35,13 +34,6 @@ export abstract class CliToolProvider implements SummaryProvider {
   async summarize(request: SummarizeRequest, cancel: CancelSignal): Promise<SummaryResult> {
     const raw = await this.run(buildSummaryPrompt(request), cancel);
     return summaryResultFromResponse(this.id, raw);
-  }
-
-  suggestTitle(request: SuggestTitleRequest, cancel: CancelSignal): Promise<string> {
-    return this.run(
-      buildTitlePrompt(request.transcript, request.recordedAt, request.outputLanguage),
-      cancel,
-    );
   }
 
   completePrompt(prompt: string, cancel: CancelSignal): Promise<string> {

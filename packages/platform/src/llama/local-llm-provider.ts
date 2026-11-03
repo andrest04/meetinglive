@@ -1,19 +1,14 @@
 import fs from 'node:fs/promises';
 import {
-  buildTitlePrompt,
   CancelledError,
-  fitTitlePrompt,
   LOCAL_SAMPLING,
   PROMPT_TEMPERATURE,
   promptOutputCap,
   summarizeMapReduce,
   summaryResultFromResponse,
   SummaryError,
-  TITLE_MAX_OUTPUT,
-  TITLE_TEMPERATURE,
   type CancelSignal,
   type PromptCallOptions,
-  type SuggestTitleRequest,
   type SummarizeRequest,
   type SummaryProvider,
   type SummaryResult,
@@ -66,18 +61,6 @@ export class LocalLlmSummaryProvider implements SummaryProvider {
       ),
     );
     return summaryResultFromResponse(this.id, raw);
-  }
-
-  async suggestTitle(request: SuggestTitleRequest, cancel: CancelSignal): Promise<string> {
-    const server = await this.ready(cancel);
-    return this.guarded(server, async () => {
-      const prompt = await fitTitlePrompt(
-        this.counter(server, cancel),
-        (transcript) => buildTitlePrompt(transcript, request.recordedAt, request.outputLanguage),
-        request.transcript,
-      );
-      return (await this.infer(server, prompt, TITLE_MAX_OUTPUT, TITLE_TEMPERATURE, cancel)).text;
-    });
   }
 
   async completePrompt(

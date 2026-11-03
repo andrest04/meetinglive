@@ -38,19 +38,6 @@ export function normalizeTitle(raw: string | null | undefined): string | null {
   return value === '' ? null : value;
 }
 
-export function titleFromModelResponse(raw: string | null | undefined): string | null {
-  if (raw === null || raw === undefined || raw.trim() === '') return null;
-  const lines = raw.replace(/\r\n/g, '\n').split('\n');
-  const index = lines.findIndex((l) => l.trim() === '## Title');
-  if (index < 0) return normalizeTitle(raw);
-  const parts: string[] = [];
-  for (const line of lines.slice(index + 1)) {
-    if (line.trim().startsWith('## ')) break;
-    if (line.trim() !== '') parts.push(line.trim());
-  }
-  return parts.length === 0 ? null : normalizeTitle(parts.join(' '));
-}
-
 /** Blank titles and auto titles ("Meeting 3", "Reunión 3 nov") are placeholders. */
 export function looksLikePlaceholder(
   title: string | null | undefined,

@@ -4,7 +4,6 @@ import {
   normalizeTitle,
   placeholderPatternsFromFormats,
   resolveTitle,
-  titleFromModelResponse,
 } from './suggested-title';
 
 describe('normalizeTitle', () => {
@@ -36,28 +35,6 @@ describe('normalizeTitle', () => {
     expect(normalizeTitle('##')).toBeNull();
     expect(normalizeTitle('""')).toBeNull();
     expect(normalizeTitle('...')).toBeNull();
-  });
-});
-
-describe('titleFromModelResponse', () => {
-  it('normalizes a plain reply', () => {
-    expect(titleFromModelResponse('Weekly sync')).toBe('Weekly sync');
-  });
-  it('handles a reply wrapped in a heading', () => {
-    expect(titleFromModelResponse('# Weekly sync')).toBe('Weekly sync');
-  });
-  it('reads the title block before the summary', () => {
-    expect(titleFromModelResponse('## Title\nWeekly sync\n\n## Summary\nBody')).toBe('Weekly sync');
-  });
-  it('strips quotes', () => {
-    expect(titleFromModelResponse('"Weekly sync"')).toBe('Weekly sync');
-    expect(titleFromModelResponse('## Title\n"Weekly sync"')).toBe('Weekly sync');
-  });
-  it('gives null for empty and heading-only replies', () => {
-    expect(titleFromModelResponse('')).toBeNull();
-    expect(titleFromModelResponse(null)).toBeNull();
-    expect(titleFromModelResponse('## Title')).toBeNull();
-    expect(titleFromModelResponse('## Title\n\n## Summary\nBody')).toBeNull();
   });
 });
 

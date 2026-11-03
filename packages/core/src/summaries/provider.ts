@@ -18,12 +18,6 @@ export interface SummarizeRequest {
   readonly enhancement?: SummaryEnhancementContext | null;
 }
 
-export interface SuggestTitleRequest {
-  readonly transcript: string;
-  readonly recordedAt: OffsetDate;
-  readonly outputLanguage: string | null | undefined;
-}
-
 /** What a prompt call tells its caller besides the text (B9). */
 export interface PromptOutcome {
   /** The answer stopped because the output cap was reached, not because the model finished. */
@@ -51,8 +45,6 @@ export interface SummaryResult {
 export interface SummaryProvider {
   readonly id: ProviderId;
   summarize(request: SummarizeRequest, cancel: CancelSignal): Promise<SummaryResult>;
-  /** Raw model text. The caller runs `titleFromModelResponse`. */
-  suggestTitle(request: SuggestTitleRequest, cancel: CancelSignal): Promise<string>;
   /** Raw model text for an already built prompt. */
   completePrompt(
     prompt: string,

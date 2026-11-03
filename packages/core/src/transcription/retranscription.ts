@@ -175,27 +175,29 @@ export class MeetingRetranscriptionRunner {
     try {
       const instructions = await this.deps.templateInstructions(record);
       const request = createRetranscriptionRequest(record, instructions);
-      await this.deps.pipeline.run(
-        request,
-        {
-          onStatus: (status) => {
-            this.setState({ ...this.state, status });
+      // A cancel before the pipeline starts writes nothing (126).
+      if (!cancel.cancelled)
+        await this.deps.pipeline.run(
+          request,
+          {
+            onStatus: (status) => {
+              this.setState({ ...this.state, status });
+            },
+            onMeetingSaved: (id) => {
+              this.deps.onMeetingChanged(id);
+            },
+            onMeetingCompleted: () => {
+              completed = true;
+            },
+            onSummaryFailedAfterTranscriptSaved: (message) => {
+              summaryFailure = message;
+            },
+            onFinished: (status) => {
+              if (!cancel.cancelled) failure = status;
+            },
           },
-          onMeetingSaved: (id) => {
-            this.deps.onMeetingChanged(id);
-          },
-          onMeetingCompleted: () => {
-            completed = true;
-          },
-          onSummaryFailedAfterTranscriptSaved: (message) => {
-            summaryFailure = message;
-          },
-          onFinished: (status) => {
-            if (!cancel.cancelled) failure = status;
-          },
-        },
-        cancel.signal,
-      );
+          cancel.signal,
+        );
     } catch (error) {
       // A cancel before the pipeline took over is not a failure.
       if (!cancel.cancelled) failure = this.deps.formatFailure(error);
