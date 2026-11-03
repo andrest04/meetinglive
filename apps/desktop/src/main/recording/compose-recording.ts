@@ -23,7 +23,7 @@ import type { Broadcast } from '../ipc/library-handlers';
 import type { AudioController } from '../audio/audio-controller';
 import type { RecordingTakes } from '../audio/recording-take';
 import type { TranscriptionController } from '../transcription/transcription-controller';
-import { RecordingService } from './recording-service';
+import { RecordingService, type LiveAskHooks } from './recording-service';
 
 export interface ComposeRecordingDeps {
   readonly library: LibraryRuntime;
@@ -46,6 +46,7 @@ export interface ComposeRecordingDeps {
   };
   readonly formatFailure: (error: unknown) => string;
   readonly wavDurationSeconds: (file: string) => number;
+  readonly liveAsk?: LiveAskHooks;
 }
 
 /** Renames the audio a new take replaces to `<stem> (previous).wav` beside it (B-3). */
@@ -100,6 +101,7 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
     summary,
   });
   return new RecordingService({
+    liveAsk: deps.liveAsk,
     takes: deps.takes,
     controller: deps.controller,
     library: {

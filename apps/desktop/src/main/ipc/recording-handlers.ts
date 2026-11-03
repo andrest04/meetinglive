@@ -13,6 +13,7 @@ import {
   recordingStop,
 } from '@vozella/contracts';
 import type { RendererCloseDialogs } from '../recording/close-guard';
+import { registerLiveAskHandlers, type LiveAsk } from '../recording/live-ask-handlers';
 import type { RecordingService } from '../recording/recording-service';
 import { registerRequest, type IpcServerDeps } from './ipc-server';
 
@@ -20,6 +21,7 @@ export interface RecordingHandlerDeps {
   readonly server: IpcServerDeps;
   readonly service: RecordingService;
   readonly closeDialogs: Pick<RendererCloseDialogs, 'answer'>;
+  readonly liveAsk: LiveAsk;
 }
 
 /** Wires the recording channels. One line per channel; the rules live in the service. */
@@ -27,7 +29,9 @@ export function registerRecordingHandlers({
   server,
   service,
   closeDialogs,
+  liveAsk,
 }: RecordingHandlerDeps): void {
+  registerLiveAskHandlers(server, liveAsk);
   registerRequest(server, recordingGetState, () => service.getState());
   registerRequest(server, recordingStart, async (input) => {
     const result = await service.start(input);

@@ -1,6 +1,7 @@
 import { requestChannels, type RequestName } from '@vozella/contracts';
 import type { Logger } from '@vozella/core';
 import { describe, expect, it, vi } from 'vitest';
+import type { LiveAsk } from '../recording/live-ask-handlers';
 import type { RecordingService } from '../recording/recording-service';
 import type { IpcEventLike } from '../security/trusted-origin';
 import type { IpcMainLike } from './ipc-server';
@@ -54,6 +55,7 @@ function setup() {
     server: { ipc, logger: logger(), isTrusted: () => true },
     service: service as unknown as RecordingService,
     closeDialogs: { answer: (id: string) => id === 'r1' },
+    liveAsk: { ask: vi.fn(() => true), cancel: vi.fn(() => false) } as unknown as LiveAsk,
   });
   const call = async (name: RequestName, input: unknown): Promise<unknown> => {
     const handler = handlers.get(name);

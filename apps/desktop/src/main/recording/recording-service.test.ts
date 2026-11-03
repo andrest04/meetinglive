@@ -120,7 +120,8 @@ function build(options: Options = {}) {
     logger,
     scheduler: { every: () => () => undefined },
   });
-  const liveListeners = new Set<(text: string) => void>();
+  const liveListeners = new Set<(text: string, committed: string) => void>();
+  const liveAskCalls: string[] = [];
   const live = {
     start: vi.fn((_at: number) => {
       if (options.liveStartFails) return Promise.reject(new Error('model missing'));
@@ -157,6 +158,11 @@ function build(options: Options = {}) {
   const workspace = new Workspace();
   const repaired: string[] = [];
   const service = new RecordingService({
+    liveAsk: {
+      reset: () => liveAskCalls.push('reset'),
+      cancel: () => liveAskCalls.push('cancel'),
+      committed: (text) => liveAskCalls.push(`committed:${text}`),
+    },
     takes,
     controller,
     library: {
@@ -208,6 +214,7 @@ function build(options: Options = {}) {
     takes,
     live,
     liveListeners,
+    liveAskCalls,
     store,
     transcriber,
     service,
@@ -431,7 +438,7 @@ describe('RecordingService pause and highlights', () => {
   it('B-22, 110: the canvas stars the live text; the chat gets the plain transcript', async () => {
     const t = build();
     await t.service.start(sources);
-    for (const listener of t.liveListeners) listener(TRANSCRIPT);
+    for (const listener of t.liveListeners) listener(TRANSCRIPT, TRANSCRIPT);
     now += 5000;
     t.service.highlight();
     const pushes = t.events.filter((e) => e.name === 'recording.liveText');
@@ -439,6 +446,25 @@ describe('RecordingService pause and highlights', () => {
       '* [00:04.00-00:06.00] hello',
     );
     expect(t.workspace.state.liveTranscript).toBe(TRANSCRIPT);
+  });
+});
+
+describe('RecordingService live ask hooks (127)', () => {
+  it('resets at Start, forwards committed text, and cancels on Stop and on Discard', async () => {
+    const t = build();
+    await t.service.start(sources);
+    expect(t.liveAskCalls).toEqual(['reset']);
+    expect(t.service.liveAskContext).toEqual({ recording: true, title: 'Standup' });
+    for (const listener of t.liveListeners) listener('shown', 'committed text');
+    expect(t.liveAskCalls).toContain('committed:committed text');
+    await t.service.stop();
+    expect(t.liveAskCalls.at(-1)).toBe('cancel');
+    expect(t.service.liveAskContext.recording).toBe(false);
+
+    const d = build();
+    await d.service.start(sources);
+    await d.service.discard();
+    expect(d.liveAskCalls).toEqual(['reset', 'cancel']);
   });
 });
 
@@ -523,7 +549,7 @@ describe('RecordingService stop', () => {
     const t = build({ liveDraft: null });
     t.transcriber.script.ready = false;
     await t.service.start(sources);
-    for (const listener of t.liveListeners) listener('[00:00.00-00:01.00] on screen');
+    for (const listener of t.liveListeners) listener('[00:00.00-00:01.00] on screen', '');
     await t.service.stop();
     await t.service.completion;
     expect(t.store.saves[0]?.transcript).toContain('on screen');

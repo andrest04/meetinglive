@@ -100,6 +100,7 @@ import {
   startTakeNotesRequests,
 } from './recording/entry-points';
 import { registerRecordingHandlers } from './ipc/recording-handlers';
+import { LiveAsk } from './recording/live-ask-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -753,7 +754,16 @@ function main(): void {
     });
 
     // Recording: the service owns a take from Record to the saved summary.
+    const liveAsk = new LiveAsk({
+      settings: library.settings,
+      resolver: summaryRuntime.resolver,
+      recording: () => recording.liveAskContext,
+      broadcast,
+      formatFailure: (error) => summaries.formatError(error),
+      nowMs: () => Date.now(),
+    });
     const recording = composeRecording({
+      liveAsk: liveAsk.hooks,
       library,
       controller: audioController,
       takes: recordingTakes,
@@ -807,6 +817,7 @@ function main(): void {
       },
       service: recording,
       closeDialogs,
+      liveAsk,
     });
 
     mainWindow = createMainWindow({

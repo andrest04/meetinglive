@@ -167,6 +167,8 @@ export const requestChannels = {
   [recording.recordingRetryProcessing.name]: recording.recordingRetryProcessing,
   [recording.recordingImport.name]: recording.recordingImport,
   [recording.recordingCloseAnswer.name]: recording.recordingCloseAnswer,
+  [recording.recordingAsk.name]: recording.recordingAsk,
+  [recording.recordingCancelAsk.name]: recording.recordingCancelAsk,
 } as const;
 
 export const eventChannels = {
@@ -196,6 +198,7 @@ export const eventChannels = {
   [recording.recordingStateChanged.name]: recording.recordingStateChanged,
   [recording.recordingCloseRequest.name]: recording.recordingCloseRequest,
   [recording.recordingLiveText.name]: recording.recordingLiveText,
+  [recording.recordingAnswer.name]: recording.recordingAnswer,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

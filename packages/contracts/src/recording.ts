@@ -176,3 +176,29 @@ export const recordingStateChanged = defineEvent('recording.state', {
 export const recordingLiveText = defineEvent('recording.liveText', {
   payload: z.object({ text: z.string() }),
 });
+
+/**
+ * Live ask (spec 2.8): a typed question during a take, answered from the recent transcript.
+ * `webSearch` is the toggle; main keeps it between takes. `preset` marks a chip prompt.
+ */
+export const recordingAsk = defineRequest('recording.ask', {
+  input: z.object({ question: z.string(), webSearch: z.boolean(), preset: z.boolean().optional() }),
+  /** False when nothing was asked: blank question or not recording. */
+  output: z.object({ accepted: z.boolean() }),
+});
+export const recordingCancelAsk = defineRequest('recording.cancelAsk', {
+  input: empty,
+  output: z.object({ cancelled: z.boolean() }),
+});
+
+/** The answer card state, sent on every change (streaming included). */
+export const recordingAnswerSchema = z.object({
+  isAnswering: z.boolean(),
+  text: z.string(),
+  /** A catalog key, or ready text when `key` is null. */
+  error: z.object({ key: z.string().nullable(), text: z.string() }).nullable(),
+  usedWeb: z.boolean(),
+  canUseWebSearch: z.boolean(),
+});
+export type RecordingAnswerDto = z.infer<typeof recordingAnswerSchema>;
+export const recordingAnswer = defineEvent('recording.answer', { payload: recordingAnswerSchema });

@@ -97,7 +97,7 @@ export class TranscriptionController {
   private unsubscribeFrames: (() => void) | null = null;
   private unsubscribeUpdates: (() => void) | null = null;
   private lastDisplayText = '';
-  private readonly liveListeners = new Set<(displayText: string) => void>();
+  private readonly liveListeners = new Set<(displayText: string, committedText: string) => void>();
   private readonly runner: MeetingRetranscriptionRunner;
   private readonly disposers: (() => void)[] = [];
 
@@ -324,7 +324,7 @@ export class TranscriptionController {
   // -------------------------------------------------------------- live and offline
 
   /** The live transcript text as it changes, for the recording module. Returns the unsubscribe. */
-  onLiveUpdate(listener: (displayText: string) => void): () => void {
+  onLiveUpdate(listener: (displayText: string, committedText: string) => void): () => void {
     this.liveListeners.add(listener);
     return () => {
       this.liveListeners.delete(listener);
@@ -344,7 +344,8 @@ export class TranscriptionController {
     this.unsubscribeUpdates = live.onTranscriptUpdated((update) => {
       this.lastDisplayText = update.displayText;
       this.deps.broadcast(transcriptionLiveUpdate, update);
-      for (const listener of [...this.liveListeners]) listener(update.displayText);
+      for (const listener of [...this.liveListeners])
+        listener(update.displayText, update.committedText);
     });
     try {
       await live.start({

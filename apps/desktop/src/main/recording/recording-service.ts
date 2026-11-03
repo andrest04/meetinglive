@@ -79,10 +79,20 @@ export interface FilesPort {
 
 export interface LiveTextPort {
   /** The live transcript while recording. Returns the unsubscribe. */
-  onUpdate(listener: (displayText: string) => void): () => void;
+  onUpdate(listener: (displayText: string, committedText: string) => void): () => void;
+}
+
+/** What the live ask (R7) needs from the take: when it starts, ends, and what was committed. */
+export interface LiveAskHooks {
+  /** A new take: any answer goes, the web toggle stays. */
+  reset(): void;
+  /** Stop or Discard: any running answer ends silently. */
+  cancel(): void;
+  committed(text: string): void;
 }
 
 export interface RecordingServiceDeps {
+  readonly liveAsk?: LiveAskHooks;
   readonly takes: CapturePort;
   readonly controller: ControllerPort;
   readonly library: LibraryPort;
@@ -222,8 +232,8 @@ export class RecordingService {
       this.gate.onChange(() => {
         this.publish();
       }),
-      deps.live.onUpdate((displayText) => {
-        this.onLiveUpdate(displayText);
+      deps.live.onUpdate((displayText, committedText) => {
+        this.onLiveUpdate(displayText, committedText);
       }),
       deps.controller.onRecordingLevel((level) => {
         // B-15: no frames arrive while paused, so the bar must not freeze on the last value.
@@ -325,9 +335,10 @@ export class RecordingService {
     this.deps.broadcast(recordingLiveText, { text });
   }
 
-  private onLiveUpdate(displayText: string): void {
+  private onLiveUpdate(displayText: string, committedText: string): void {
     const phase = this.gate.phase;
     if (phase !== 'Preparing' && phase !== 'Recording' && phase !== 'Stopping') return;
+    this.deps.liveAsk?.committed(committedText);
     this.runs.setLiveTranscript(displayText);
   }
 
@@ -356,6 +367,7 @@ export class RecordingService {
       const settings = await deps.settings.load();
       const meetingId = options.meetingId ?? deps.newId();
       this.runs.beginTake({ meetingId: options.meetingId ?? null });
+      deps.liveAsk?.reset();
       this.notes = '';
       this.retry = null;
       this.fallbackNotice = null;
@@ -522,6 +534,7 @@ export class RecordingService {
   private async runStop(): Promise<boolean> {
     const { deps } = this;
     const take = this.take;
+    deps.liveAsk?.cancel();
     this.offNotices?.();
     this.offNotices = null;
     if (take === null) {
@@ -599,6 +612,7 @@ export class RecordingService {
   async discard(): Promise<boolean> {
     const { deps } = this;
     if (!this.gate.tryBeginStopping()) return false;
+    deps.liveAsk?.cancel();
     this.offNotices?.();
     this.offNotices = null;
     const file = this.take?.audioPath ?? deps.takes.currentFile;
@@ -633,6 +647,11 @@ export class RecordingService {
   }
 
   // -- capture events ----------------------------------------------------------------------------
+
+  /** The title and phase the live ask reads. Asking is allowed only while recording. */
+  get liveAskContext(): { recording: boolean; title: string } {
+    return { recording: this.gate.phase === 'Recording', title: this.title };
+  }
 
   private onCaptureEvent(event: RecordingNoticeDto): void {
     const result = this.runs.noteCaptureEvent(event);
