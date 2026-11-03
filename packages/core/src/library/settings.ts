@@ -1,3 +1,4 @@
+import { resolveMeetingLanguageCode, resolveSummaryLanguageCode } from '../settings/languages';
 import { escapeLikeDotNet, stripBom } from './dotnet-json';
 import { LibraryFileCorruptError } from './errors';
 
@@ -164,10 +165,12 @@ export type SummaryProviderKind = (typeof SUMMARY_PROVIDERS)[number];
 export const PILL_EDGES = ['Left', 'Right', 'Top', 'Bottom'] as const;
 export type PillEdge = (typeof PILL_EDGES)[number];
 
+/** Case and spaces are ignored; a code the catalog does not know is `auto` (B6). */
 export const resolveTranscriptionLanguage = (s: AppSettings): string =>
-  blank(s.transcriptionLanguage) ? 'es' : (s.transcriptionLanguage ?? 'es');
+  resolveMeetingLanguageCode(s.transcriptionLanguage);
+/** Case and spaces are ignored; a code the catalog does not know is `es` (B6). */
 export const resolveSummaryLanguage = (s: AppSettings): string =>
-  blank(s.summaryLanguage) ? 'es' : (s.summaryLanguage ?? 'es');
+  resolveSummaryLanguageCode(s.summaryLanguage);
 export const resolveClaudeModelId = (s: AppSettings): string =>
   blank(s.selectedClaudeModelId) ? 'sonnet' : (s.selectedClaudeModelId ?? 'sonnet');
 export const resolveClaudeEffort = (s: AppSettings): string =>

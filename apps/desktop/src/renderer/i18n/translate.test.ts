@@ -76,3 +76,14 @@ describe('detectLocale', () => {
     expect(detectLocale([])).toBe('en');
   });
 });
+
+describe('missing strings', () => {
+  it('B8: are reported with the fallback used, and never come back empty', () => {
+    const misses: string[] = [];
+    const t = createTranslator('es', (key, locale, fallback) => {
+      misses.push(`${key}|${locale}|${fallback}`);
+    });
+    expect(t('nope' as never)).toBe('nope');
+    expect(misses).toEqual(['nope|es|key']);
+  });
+});

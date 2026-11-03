@@ -1,9 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { reportRendererError } from '../app/error-reporting';
 import { readStored, writeStored } from '../app/preference-storage';
 import { createTranslator, detectLocale, isLocale, type Locale, type Translate } from './translate';
 
 const STORAGE_KEY = 'vozella.locale';
+
+/** Tells the main log about a missing string once per key and locale. */
+function reportMissingOnce(): (key: string, locale: Locale, fallback: 'en' | 'key') => void {
+  const seen = new Set<string>();
+  return (key, locale, fallback) => {
+    const id = locale + ':' + key;
+    if (seen.has(id)) return;
+    seen.add(id);
+    if (typeof window === 'undefined' || !('vozella' in window)) return;
+    reportRendererError(
+      window.vozella,
+      'error',
+      new Error('missing string ' + key + ' for ' + locale + ', using ' + fallback),
+    );
+  };
+}
 
 interface I18nValue {
   readonly locale: Locale;
@@ -36,7 +53,7 @@ export function I18nProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ locale, t: createTranslator(locale), setLocale }),
+    () => ({ locale, t: createTranslator(locale, reportMissingOnce()), setLocale }),
     [locale, setLocale],
   );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

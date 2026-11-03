@@ -1,3 +1,4 @@
+import { createLookup, formatTemplate, type MissingKeyReport } from '@vozella/core';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import uiEn from './locales/ui.en.json';
@@ -27,40 +28,18 @@ export function detectLocale(languages: readonly string[]): Locale {
   return 'en';
 }
 
-function formatArg(arg: Arg, spec: string | undefined, locale: Locale): string {
-  if (arg instanceof Date) {
-    if (spec === 't') return new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(arg);
-    if (spec === 'ddd, MMM d') {
-      return new Intl.DateTimeFormat(locale, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      }).format(arg);
-    }
-    return new Intl.DateTimeFormat(locale).format(arg);
-  }
-  if (typeof arg === 'number' && spec !== undefined) {
-    // The source strings only use the .NET patterns "0" and "0.#".
-    const digits = spec === '0.#' ? 1 : 0;
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(arg);
-  }
-  return String(arg);
-}
-
 /** Fills .NET style positional placeholders: {0}, {1:t}, {2:0.#}. Missing arguments stay visible. */
 export function format(template: string, args: readonly Arg[], locale: Locale = 'en'): string {
-  return template.replace(/\{(\d+)(?::([^}]*))?\}/g, (match, index: string, spec?: string) => {
-    const arg = args[Number(index)];
-    return arg === undefined ? match : formatArg(arg, spec, locale);
-  });
+  return formatTemplate(template, args, locale);
 }
 
 export type Translate = (key: StringKey, ...args: Arg[]) => string;
 
-/** Looks the key up in the locale, falls back to English, then to the key itself. */
-export function createTranslator(locale: Locale): Translate {
-  return (key, ...args) => {
-    const template = catalogs[locale][key] ?? catalogs.en[key] ?? key;
-    return args.length === 0 ? template : format(template, args, locale);
-  };
+/**
+ * Looks the key up in the locale, falls back to English, then to the key itself. Each miss goes to
+ * `onMissing`, so a missing translation is visible somewhere (the provider logs it once).
+ */
+export function createTranslator(locale: Locale, onMissing?: MissingKeyReport): Translate {
+  const lookup = createLookup(catalogs, locale, onMissing);
+  return (key, ...args) => lookup(key, ...args);
 }
