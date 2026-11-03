@@ -319,6 +319,14 @@ describe('RecordSourcePicker', () => {
     expect(other.state.suggestion).toBeNull();
   });
 
+  it('cd-1 A5: no suggestion is offered for an app the restore just selected', () => {
+    const picker = new RecordSourcePicker();
+    picker.beginPolling();
+    picker.applyRefresh([zoom], () => zoom);
+    expect(picker.state.selectedProcessId).toBe(1);
+    expect(picker.state.suggestion).toBeNull();
+  });
+
   it('keeps a selected app that stops playing as an unavailable card at level 0', () => {
     const picker = new RecordSourcePicker();
     picker.applyRefresh([zoom, chrome]);

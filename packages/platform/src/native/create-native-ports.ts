@@ -7,6 +7,7 @@ import type {
   MicrophoneDeviceSource,
   OsBuildProbe,
   ProcessInfoProvider,
+  WindowScanPort,
 } from '@vozella/core';
 import { openWavFileDecoder } from '../audio/wav-file-decoder';
 import { FakeAudioCapture } from '../fakes/fake-audio-capture';
@@ -19,6 +20,7 @@ import {
 import { FakeCalendarProbe } from '../fakes/fake-calendar-probe';
 import { FakeLegacySecret } from '../fakes/fake-legacy-secret';
 import type { ProcessJobPort } from '../llama/process-guard';
+import { FakeWindowLister } from '../fakes/fake-window-scanner';
 import { loadNativeAddon } from './addon';
 import {
   NativeAudioCapture,
@@ -29,8 +31,10 @@ import {
   NativeOsBuild,
   NativeProcessJob,
   NativeProcessInfo,
+  NativeWindowLister,
   openNativeDecoder,
 } from './native-adapters';
+import { WindowScanner } from './window-scanner';
 
 export interface NativePorts {
   readonly backend: 'native' | 'fake';
@@ -46,6 +50,8 @@ export interface NativePorts {
   readonly legacySecret: LegacySecretPort;
   /** Kill-on-close job for child processes. Undefined when the build has no real one. */
   readonly processJob: ProcessJobPort | undefined;
+  /** Is any open window a meeting call. A failed scan answers false. */
+  readonly windowScan: WindowScanPort;
 }
 
 export type NativePortsOptions =
@@ -72,6 +78,7 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
       calendar: new FakeCalendarProbe(),
       legacySecret: new FakeLegacySecret(),
       processJob: undefined,
+      windowScan: new WindowScanner(new FakeWindowLister()),
     };
   }
   const addon = loadNativeAddon(options.addonPath, options.load);
@@ -87,5 +94,6 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
     calendar: new NativeCalendarProbe(addon),
     legacySecret: new NativeLegacySecret(addon),
     processJob: addon.platformSupported() ? new NativeProcessJob(addon) : undefined,
+    windowScan: new WindowScanner(new NativeWindowLister(addon), options.onError),
   };
 }

@@ -89,6 +89,12 @@ describe('library handlers', () => {
     await expect(t.writes.settled()).resolves.toBeUndefined();
   });
 
+  it('broadcasts a call prompt offer to every window', async () => {
+    const t = await setup();
+    t.workspace.offerCallPrompt();
+    expect(t.events.map((e) => e.name)).toContain('workspace.callPromptOffered');
+  });
+
   it('reports a duplicate name as a value', async () => {
     const t = await setup();
     await t.call('library.createFolder', { name: 'A', parentId: null });

@@ -41,6 +41,7 @@ function stubAddon(overrides: Partial<NativeAddon> = {}): NativeAddon {
         calendarCount: 2,
         upcomingEventCount: 0,
       }),
+    listTopLevelWindows: () => Promise.resolve([]),
     dpapiUnprotect: (data) => data,
     assignToKillOnCloseJob: () => undefined,
     ...overrides,

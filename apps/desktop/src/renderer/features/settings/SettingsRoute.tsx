@@ -4,6 +4,7 @@ import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
 import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
 import { MicrophoneSection } from '../audio/MicrophoneSection';
+import { CallDetectionSection } from './CallDetectionSection';
 import { DataSection } from './DataSection';
 import { LanguageSection } from './LanguageSection';
 import { MeetingLanguageSection } from './MeetingLanguageSection';
@@ -69,6 +70,8 @@ export function SettingsRoute() {
         );
       case 'transcription':
         return <TranscriptionSection />;
+      case 'calendar':
+        return <CallDetectionSection />;
       case 'data':
       case 'about':
         // The Data block draws the About rows too.

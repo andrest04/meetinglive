@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as library from './library';
+import * as meetingPrompt from './meeting-prompt';
 import * as settings from './settings';
 import * as summaries from './summaries';
 import * as transcription from './transcription';
@@ -119,6 +120,11 @@ export const requestChannels = {
   [audio.audioRecordingStop.name]: audio.audioRecordingStop,
   [audio.audioImportRun.name]: audio.audioImportRun,
   [audio.audioAppIcon.name]: audio.audioAppIcon,
+  [meetingPrompt.meetingPromptStart.name]: meetingPrompt.meetingPromptStart,
+  [meetingPrompt.meetingPromptDismiss.name]: meetingPrompt.meetingPromptDismiss,
+  [meetingPrompt.meetingPromptNeverAgain.name]: meetingPrompt.meetingPromptNeverAgain,
+  [meetingPrompt.meetingPromptHover.name]: meetingPrompt.meetingPromptHover,
+  [meetingPrompt.meetingPromptReady.name]: meetingPrompt.meetingPromptReady,
   [transcription.transcriptionGetStatus.name]: transcription.transcriptionGetStatus,
   [transcription.transcriptionEnsureEngine.name]: transcription.transcriptionEnsureEngine,
   [transcription.transcriptionCancelInstall.name]: transcription.transcriptionCancelInstall,
@@ -158,6 +164,10 @@ export const eventChannels = {
   [library.workspaceMeetingDeleted.name]: library.workspaceMeetingDeleted,
   [library.workspaceMeetingChanged.name]: library.workspaceMeetingChanged,
   [library.workspaceTakeNotesRequested.name]: library.workspaceTakeNotesRequested,
+  [meetingPrompt.workspaceCallPromptOffered.name]: meetingPrompt.workspaceCallPromptOffered,
+  [meetingPrompt.meetingPromptShow.name]: meetingPrompt.meetingPromptShow,
+  [meetingPrompt.meetingPromptHide.name]: meetingPrompt.meetingPromptHide,
+  [meetingPrompt.settingsMeetingPopupChanged.name]: meetingPrompt.settingsMeetingPopupChanged,
   [settings.settingsModelEvent.name]: settings.settingsModelEvent,
   [settings.i18nLocaleChanged.name]: settings.i18nLocaleChanged,
   [audio.audioSourcesChanged.name]: audio.audioSourcesChanged,

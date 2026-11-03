@@ -327,7 +327,7 @@ describe('SourcesPanel meeting audio', () => {
   });
 
   it('shows no meter readings and no offers while a take runs', async () => {
-    installApi({
+    const api = installApi({
       state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
     });
     const view = (active: boolean, locked: boolean) => (
@@ -342,6 +342,7 @@ describe('SourcesPanel meeting audio', () => {
     const meters = screen.getAllByRole('meter', { hidden: true });
     expect(meters.length).toBeGreaterThan(0);
     for (const meter of meters) expect(meter).toHaveAttribute('aria-valuenow', '0');
+    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
   });
 
   it('shows the empty hint when no app plays', async () => {
@@ -408,6 +409,7 @@ describe('SourcesPanel meeting audio', () => {
     expect(api.calls.find((c) => c.name === 'audio.sources.select')?.input).toEqual({
       processId: 10,
     });
+    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
   });
 
   it('dismisses the suggestion with its close button', async () => {

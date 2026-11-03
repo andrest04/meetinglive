@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   libraryChanged,
+  settingsMeetingPopupChanged,
   type AppInfo,
   type EventChannel,
   type PayloadInputOf,
@@ -73,6 +74,10 @@ import { installGlobalErrorHandling } from './errors/global-errors';
 import { LocaleState, resolveStartupLanguage } from './i18n/locale-state';
 import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
+import { createFlagFileScanner, fakeCallFlagPath } from './detection/fake-call-scanner';
+import { MeetingDetectionController } from './detection/meeting-detection-controller';
+import { createPopupHandle } from './detection/popup-handle';
+import { registerMeetingPromptHandlers } from './ipc/meeting-prompt-handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
@@ -99,6 +104,7 @@ import {
   type TrustedOrigins,
 } from './security/trusted-origin';
 import { createMainWindow } from './windows/main-window';
+import { createMeetingPromptWindow } from './windows/meeting-prompt-window';
 import {
   titleBarOverlayFor,
   windowBackground,
@@ -387,6 +393,65 @@ function main(): void {
     }
   }
 
+  let detection: MeetingDetectionController | undefined;
+  function startMeetingDetection(): MeetingDetectionController | undefined {
+    try {
+      const ports = fakeNative
+        ? createNativePorts({ fake: true })
+        : createNativePorts({
+            fake: false,
+            addonPath: nativeAddonPath,
+            // A real require, so rolldown leaves the .node load to runtime.
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            load: (addon) => require(addon) as unknown,
+            onError: (error) => {
+              logger.warn('window scan failed', { error: error.message });
+            },
+          });
+      const callFlag = fakeCallFlagPath(process.env, mode === 'test');
+      const controller = new MeetingDetectionController({
+        scanner: callFlag ? createFlagFileScanner(callFlag) : ports.windowScan,
+        workspace,
+        settings: library.settings,
+        popup: createPopupHandle(
+          createMeetingPromptWindow(
+            () => mainWindow ?? null,
+            devServerUrl ? new URL('/meeting-prompt.html', devServerUrl).toString() : undefined,
+          ),
+          (webContentsId) => windowIds.add(webContentsId),
+        ),
+        getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+        scheduler: {
+          setInterval: (callback, ms) => {
+            const timer = setInterval(callback, ms);
+            return () => {
+              clearInterval(timer);
+            };
+          },
+        },
+        setTimeout: (callback, ms) => {
+          const timer = setTimeout(callback, ms);
+          return () => {
+            clearTimeout(timer);
+          };
+        },
+        broadcastPopupSetting: (enabled) => {
+          broadcast(settingsMeetingPopupChanged, { enabled });
+        },
+        logger: logger.child('detection'),
+      });
+      controller.start();
+      app.on('before-quit', () => {
+        controller.dispose();
+      });
+      return controller;
+    } catch (error) {
+      // Detection is a convenience: a missing addon must not stop the app.
+      logger.error('meeting detection could not start', { error: String(error) });
+      return undefined;
+    }
+  }
+
   const resolvedTheme = (): ResolvedTheme => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
 
   /** Applies the user's choice to nativeTheme (so prefers-color-scheme follows) and the chrome. */
@@ -396,9 +461,10 @@ function main(): void {
   };
   nativeTheme.on('updated', () => {
     const theme = resolvedTheme();
-    for (const window of BrowserWindow.getAllWindows()) {
-      window.setTitleBarOverlay(titleBarOverlayFor(theme));
-      window.setBackgroundColor(windowBackground(theme));
+    // Only the main window: the frameless call popup has no title bar overlay and is always dark.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitleBarOverlay(titleBarOverlayFor(theme));
+      mainWindow.setBackgroundColor(windowBackground(theme));
     }
   });
 
@@ -507,6 +573,10 @@ function main(): void {
         nowMs: () => Date.now(),
         wavDurationSeconds: readWavDurationSeconds,
         logger: logger.child('recording'),
+        // The call popup stays away while a take runs (spec 2.6, item 106).
+        onCaptureActive: (active) => {
+          workspace.setCaptureActive(active);
+        },
         // The transcription controller is built below; the take only calls it later.
         live: {
           start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
@@ -674,6 +744,26 @@ function main(): void {
     mainWindow.webContents.once('did-finish-load', () => {
       logger.info('window ready');
     });
+
+    // Meeting call detection: polls the open windows and shows the floating popup. Started
+    // once the main window exists, stopped on quit.
+    registerMeetingPromptHandlers(
+      {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      {
+        startTakingNotes: () => detection?.startTakingNotes(),
+        dismiss: () => detection?.dismiss(),
+        neverAgain: async () => {
+          await detection?.neverAgain();
+        },
+        hover: (inside) => detection?.hover(inside),
+        isShown: () => detection?.isShown ?? false,
+      },
+    );
+    detection = startMeetingDetection();
   });
 }
 

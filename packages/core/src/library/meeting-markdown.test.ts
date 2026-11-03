@@ -245,6 +245,36 @@ describe('render', () => {
   });
 });
 
+describe('calendar frontmatter and brief (cd-1, D3)', () => {
+  it('keeps event keys, the attendee separator and the Brief section through load and rewrite', () => {
+    const text = renderMeetingMarkdown(
+      meeting({
+        calendarEventId: 'AAMkAGI2',
+        calendarId: 'cal-1',
+        seriesId: 'series-9',
+        joinUrl: 'https://meet.google.com/abc-defg-hij',
+        attendees: ['Ana Perez', 'Luis Gomez'],
+        brief: 'Two open questions from last time.',
+        notes: 'Agenda',
+      }),
+    );
+    expect(text).toContain('\nattendees: Ana Perez | Luis Gomez\n');
+    expect(text).toContain('\n## Brief\n\nTwo open questions from last time.\n');
+    const back = parse(text, 'a.md');
+    expect(back.calendarEventId).toBe('AAMkAGI2');
+    expect(back.attendees).toEqual(['Ana Perez', 'Luis Gomez']);
+    expect(back.brief).toBe('Two open questions from last time.');
+    expect(renderMeetingMarkdown(back)).toBe(text);
+  });
+
+  it('writes the event keys only when set', () => {
+    const text = renderMeetingMarkdown(meeting());
+    for (const key of ['calendarEventId', 'calendarId', 'seriesId', 'joinUrl', 'attendees']) {
+      expect(text).not.toContain(`${key}:`);
+    }
+  });
+});
+
 describe('header escaping', () => {
   it.each([
     '## Brief',
