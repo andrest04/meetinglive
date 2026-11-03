@@ -178,29 +178,29 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 22 | Match test for open thread uses kind, folder id, and meeting id with null equality. | chat-1 | done | `matchesOpenThread`. |
 | 23 | Mismatch banner text `Chat_ScopeMismatch` shows when an open thread does not match the current scope; not recomputed while sending (decide whether to keep B24). | chat-3 / chat-6 | improved | `state.showScopeMismatch` is derived on every read, so it is recomputed also while sending (B24 decision: keep the fix, the banner follows the live scope). Banner UI is chat-6. |
 | 24 | A mismatched open thread is not edited; the next send creates a new thread. | chat-1 | done | Pure rule only; the next send creating a new thread is package 3. |
-| 25 | Draft binds on every keystroke. | chat-7 | pending |  |
-| 26 | Enter sends; Shift+Enter newline; Ctrl+Enter sends. | chat-7 | pending |  |
-| 27 | Enter with an empty draft or while sending does nothing and does not insert a newline. | chat-7 | pending |  |
-| 28 | Enter during IME composition must not send (new, S1). | chat-7 | pending |  |
-| 29 | Send enabled iff not sending, visible, and draft non-blank. | chat-7 | done | Service half: `send` returns `ignored` unless not sending, visible and trimmed draft non-empty. Button enablement is chat-7. |
-| 30 | Placeholder `Chat_Composer.PlaceholderText`; Send tooltip `Chat_Send` "Send (Enter)". | chat-7 | pending |  |
-| 31 | Composer min height 32, max 96, min width 180, wraps, scrolls. | chat-7 | pending |  |
+| 25 | Draft binds on every keystroke. | chat-7 | done | `useChat` keeps the draft in state on every change (`Composer` is controlled). |
+| 26 | Enter sends; Shift+Enter newline; Ctrl+Enter sends. | chat-7 | done | `keyIntent` in `chat-view-model.ts`; component tests for Enter, Shift+Enter, Ctrl+Enter. |
+| 27 | Enter with an empty draft or while sending does nothing and does not insert a newline. | chat-7 | done | `keyIntent` returns `swallow`: Enter is prevented on an empty draft or while sending. |
+| 28 | Enter during IME composition must not send (new, S1). | chat-7 | done | S1: Enter with `isComposing` is ignored (component test). |
+| 29 | Send enabled iff not sending, visible, and draft non-blank. | chat-7 | done | Service half: `send` returns `ignored` unless not sending, visible and the trimmed draft is non-empty. UI half: `BtnMeetingChatSend` is disabled unless not sending and the trimmed draft is non-empty (component test). |
+| 30 | Placeholder `Chat_Composer.PlaceholderText`; Send tooltip `Chat_Send` "Send (Enter)". | chat-7 | done | Placeholder and Send tooltip come from the existing keys; the Send button has the accessible name `Chat_Send`. |
+| 31 | Composer min height 32, max 96, min width 180, wraps, scrolls. | chat-7 | done | `Composer` textarea grows from 32 to 96 px, min width 180, scrolls past that. |
 | 32 | Message text is `Draft.Trim()`. | chat-7 | done | `send` trims the draft; `originalDraft` returns it untrimmed. |
-| 33 | Optimistic user row plus pending assistant row appear immediately; draft clears immediately. | chat-7 | done | Service half: `state.pending` holds the user text and streamed assistant text from the start of a send. Rendering is chat-7. |
-| 34 | Pending row shows spinner plus `Chat_Thinking` until first visible text. | chat-7 | pending |  |
-| 35 | Streaming shows Markdown live; first push on first non-whitespace chunk; further pushes at most every 80 ms; final flush at end; leading whitespace trimmed in pushes. | chat-7 | done | Service half: `StreamCoalescer` (stream-coalescer.test.ts, fake clock), fed by `ChatService`. Markdown rendering is chat-7/9. |
-| 36 | Transcript auto-scrolls to the end on new rows and on every streamed text change. | chat-7 | pending |  |
+| 33 | Optimistic user row plus pending assistant row appear immediately; draft clears immediately. | chat-7 | done | UI half: `sendStarted` adds the user row and the pending row and the draft clears at once (reducer and component tests). |
+| 34 | Pending row shows spinner plus `Chat_Thinking` until first visible text. | chat-7 | done | Pending row: spinner plus `Chat_Thinking.Text` until the first text arrives. |
+| 35 | Streaming shows Markdown live; first push on first non-whitespace chunk; further pushes at most every 80 ms; final flush at end; leading whitespace trimmed in pushes. | chat-7 | done | UI half: `chunk` replaces the pending row text and the answer renders through `MarkdownView` while it streams (component test; e2e saw the Thinking row give way to the answer). |
+| 36 | Transcript auto-scrolls to the end on new rows and on every streamed text change. | chat-7 | done | `MessageList` sets scrollTop to the end on every rows change (every streamed push too). Not observed in a test: jsdom has no layout, and the e2e does not assert the scroll offset. |
 | 37 | Provider is resolved per send from settings; gating dialogs (local model download, CLI check, xAI sign-in) run via the shared resolver. | chat-3 / chat-7 | done | Service half: `ProviderSource.resolve()` per send; `needs-setup` returns `setup-required`, or runs an optional `setupGate`. The gate dialogs reuse features/summaries/use-provider-gate in chat-7. xAI selection returns `provider-removed` with Ui_SummaryProviderXaiRemoved. chat-4 (main half): `chatProviderSource` maps the summaries resolver (`resolveSummaryProvider`) to `ProviderSource`; the fake native build uses the same `FakeSummaryProvider` override as summaries. `chat.send` answers `setup-required{kind}` with the draft; the page runs the gate and sends again (no `setupGate` in main). |
-| 38 | Cancelled/unsatisfied gate shows `Status_SetupCancelled` and keeps the user's turn out of history. | chat-3 / chat-7 | done | Gate returning null gives `Status_SetupCancelled` with no prefix; nothing kept. chat-service.test.ts |
-| 39 | Provider exception shows `Chat_SendFailed` with the message. | chat-3 / chat-7 | improved | B14: `Chat_SendFailed` with the shared `formatFailure` message, never the raw error text. Local budget `PromptTooLong` maps to Ui_SummaryPromptTooLong. |
-| 40 | Blank answer shows `Chat_EmptyAnswer` and persists nothing. | chat-3 / chat-7 | done | `Chat_EmptyAnswer`, nothing kept. |
+| 38 | Cancelled/unsatisfied gate shows `Status_SetupCancelled` and keeps the user's turn out of history. | chat-3 / chat-7 | done | UI half: `useChat` runs `useProviderGate` on `setup-required`, sends once more on completion; a cancelled gate rolls back, restores the draft and shows `Status_SetupCancelled` (component tests). |
+| 39 | Provider exception shows `Chat_SendFailed` with the message. | chat-3 / chat-7 | done | The failed outcome message (already `Chat_SendFailed`) shows in the error notice; e2e uses a failing fake provider. |
+| 40 | Blank answer shows `Chat_EmptyAnswer` and persists nothing. | chat-3 / chat-7 | done | `Chat_EmptyAnswer` arrives as a failed outcome and shows in the error notice. |
 | 41 | Answer text is trimmed before persisting. | chat-3 / chat-7 | done | Answer trimmed before it is kept. |
-| 42 | On failure both optimistic rows are removed and the draft is restored only if the composer is still empty. | chat-3 / chat-7 | done | Service returns `originalDraft` on every failure and cancel; restoring only into an empty composer is chat-7. |
+| 42 | On failure both optimistic rows are removed and the draft is restored only if the composer is still empty. | chat-3 / chat-7 | done | UI half: `rolledBack` removes both rows and `restoreDraft` puts the draft back only into an empty composer (reducer, component and e2e tests). |
 | 43 | `IsSending` is always cleared in a finally path. | chat-3 / chat-7 | done | `sending` and `pending` cleared in `finally`. |
 | 44 | Failed UI marshalling reports `Chat_UiMarshalFailed`. | dropped | dropped | Not applicable: no dispatcher marshalling in the port, so `Chat_UiMarshalFailed` cannot happen. |
-| 45 | Error bar is closable, titled `Chat_Error`, severity error; cleared at the start of each send and on New chat. | chat-3 / chat-7 | pending |  |
-| 46 | Starter chips hidden while sending or when any message exists. | chat-3 / chat-7 | pending |  |
-| 47 | Optional improvements agreed for the port: block New chat/open/delete during send (B1); stop button (B19). | chat-3 / chat-7 | improved | B1: `newChat()` returns false while sending and `state.canStartNewChat` is false. B19: `cancel()` stops the answer. Open/delete thread are dropped with thread history. Buttons are chat-6/7. |
+| 45 | Error bar is closable, titled `Chat_Error`, severity error; cleared at the start of each send and on New chat. | chat-3 / chat-7 | done | `ChatErrorNotice` reuses `ui/Notice`: closable, titled `Chat_Error.Title`, `InfoMeetingChatError`; cleared by `sendStarted` and by New chat (the bar remounts the body). |
+| 46 | Starter chips hidden while sending or when any message exists. | chat-3 / chat-7 | done | `StarterChips` render only when there are no rows and nothing is sending; a chip sends its prompt at once, tooltip is the prompt. |
+| 47 | Optional improvements agreed for the port: block New chat/open/delete during send (B1); stop button (B19). | chat-3 / chat-7 | done | B1 UI half: New chat is disabled while sending (chat-6 reads `canStartNewChat`); stop button `BtnMeetingChatStop` with new string `Ui_ChatStop` (en, es). |
 | 48 | Live scope returns `"Live transcript:" + NL + last 2500 chars`, or `ChatLiveTranscriptEmpty` for null/blank. | chat-1 | done | `packContext` Live; tail is code-point safe (B10). |
 | 49 | Live scope never reads saved meetings. | chat-1 | done | `packContext` Live ignores meetings. |
 | 50 | Meeting scope finds by id; missing or null id returns `ChatMeetingNotFound`. | chat-1 | done | `packContext` Meeting; ids compared as GUIDs (case, hyphens, braces ignored). |
@@ -270,16 +270,16 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 114 | Saved recipe: new Guid, trimmed name and prompt, availability from the radio, `CreatedAt` now. | dropped | dropped |  |
 | 115 | Delete recipe dialog `Chat_DeleteRecipe*` strings, default Close. | dropped | dropped |  |
 | 116 | Recipe errors surface through the chat error bar. | dropped | dropped |  |
-| 117 | User messages are plain text bubbles, right-aligned, max about 75% width, selectable. | chat-9 | pending |  |
+| 117 | User messages are plain text bubbles, right-aligned, max about 75% width, selectable. | chat-9 | done | `MessageRow`: right-aligned bubble, max 75% width, selectable plain text. |
 | 118 | Assistant messages render Markdown (headings, lists, emphasis, code, tables, links); no raw HTML. | chat-9 | pending |  |
-| 119 | Role labels `Chat_RoleUser` and `Chat_RoleAssistant` exist; assistant label shown above the answer. | chat-9 | pending |  |
+| 119 | Role labels `Chat_RoleUser` and `Chat_RoleAssistant` exist; assistant label shown above the answer. | chat-9 | done | Assistant label `Chat_RoleAssistant` above the answer; user rows carry `Chat_RoleUser` in their accessible text. |
 | 120 | Copy button on completed assistant messages copies the raw Markdown; failure shows `Chat_CopyFailed`. | chat-9 | pending |  chat-4 (main half): `chat.copyText` writes the clipboard in main and answers `written` or `failed{detail}`; the button and `Chat_CopyFailed` are chat-9. |
-| 121 | Transcript list max height 420 with internal scrolling. | chat-9 | pending |  |
+| 121 | Transcript list max height 420 with internal scrolling. | chat-9 | done | `MessageList` max-h 420 with internal scrolling. |
 | 122 | Meeting citation links open the meeting on the Summary tab (select meeting, navigate to Session). | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` takes the hex or hyphenated id and answers the stored id, so the page can select it; chat-9 does the navigation. |
 | 123 | Missing cited meeting shows `Chat_MeetingLinkMissing`. | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` answers `exists:false`; chat-9 shows `Chat_MeetingLinkMissing`. |
 | 124 | http(s) links open in the system browser; other schemes are ignored. | chat-9 | pending |  chat-4 (main half): `chat.openExternal` allows http and https only (S2) and answers `rejected` for any other scheme; the fake native build opens nothing. |
 | 125 | Link handler errors surface in the error bar. | chat-9 | pending |  |
-| 126 | Accessible text of each row is `Role: text` (or just the role while thinking). | chat-9 | pending |  |
+| 126 | Accessible text of each row is `Role: text` (or just the role while thinking). | chat-9 | done | Each row is a list item named `Role: text`; a thinking row is named just the role (component and e2e tests). |
 | 127 | Button visible only in Meeting scope when TypeSafe is enabled and an API key exists. | dropped | dropped |  |
 | 128 | Click opens the Personal tasks dialog for the current meeting id; ignores clicks while opening. | dropped | dropped |  |
 | 129 | Availability is re-read on scope refresh and when the bar expands. | dropped | dropped |  |
@@ -306,7 +306,7 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 150 | Brief shown only while the coming-up note is open and not processing; passed to the pipeline and to live answers. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 151 | Brief renders as Markdown in the port (B13). | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-1 (context strings only) | done (context strings) |  |
-| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). |
+| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). Chat-7 added `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend` as `data-testid` (the composer and send button also `id`). Still open: `BtnMeetingChatPersonalTasks` (cut), `BtnMeetingChatRecipes` and `ListMeetingChatRecipes` (chat-8). |
 | 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
 | 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |
 
@@ -325,3 +325,32 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 ### Left for other modules (chat-6)
 
 - Chat-7: pass the conversation as `children` of `<ChatBar>` in `AppShell.tsx`; the body area is 360 px high (45 vh at most) with 40 px side padding.
+
+## Chat-7 (conversation UI)
+
+Files in `apps/desktop/src/renderer/features/chat/`: `ChatBody` (container), `use-chat` (IPC, stream, gate, rollback), `chat-view-model` (reducer, `keyIntent`, `restoreDraft`), `MessageList`, `MessageRow`, `Composer`, `StarterChips`, `ChatErrorNotice`. `ChatBar` now takes its body as a function of the scope and remounts it on New chat, which drops the draft and the error with the old messages. Tests: `chat-view-model.test.ts`, `ChatBody.test.tsx`, `e2e/chat-conversation.spec.ts`; screenshots in `docs/port/screens/chat/chat-conversation-*.png`.
+
+### Decisions (chat-7)
+
+- Main owns the conversation. The page mirrors `chat.state` and `chat.stateChanged` only while no send runs, so optimistic rows are never overwritten.
+- After a gate completes, the same two rows stay and the send goes out again under a new request id, so stale chunks of the first request are ignored.
+- A scope mismatch send starts the list afresh (`replace`), matching what main keeps.
+- The copied check mark shows only when the clipboard write succeeded; a failed copy shows `Chat_CopyFailed` as a plain notice without the "could not answer" title.
+- Spinner for Thinking is a rotating glyph that stops under reduced motion.
+- Answer headings are shown at body size so a reply does not look like a page.
+- `Setup cancelled.` shows as a plain notice with no title.
+- Collapsing the bar unmounts the body, so an unsent draft is lost on collapse; messages are kept in main.
+
+### Bugs fixed (chat-7)
+
+- B1 (UI half): New chat is disabled while sending.
+- B19: the stop button cancels the running answer; the draft returns and no notice shows.
+- B20: a stopped or failed answer shows an error only for failures; the partial text never becomes a row.
+- B24: the mismatch text follows the live scope also while sending.
+- S1: Enter during IME composition no longer sends.
+
+### Left for other modules (chat-7)
+
+- Links in answers still use the default `MarkdownView` navigation; `MarkdownView` accepts an `onLink` handler for chat-9 (citation links and the http/https check).
+- Recipes flyout and slash filter (chat-8).
+- The failed-answer notice repeats "Could not answer" in its title and in `Chat_SendFailed`; the key text is shared with the earlier packages and was left alone.

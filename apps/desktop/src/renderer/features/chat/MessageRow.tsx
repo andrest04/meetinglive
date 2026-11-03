@@ -54,7 +54,14 @@ export function MessageRow({ row, onCopy }: MessageRowProps) {
           {t('Chat_Thinking.Text')}
         </p>
       ) : (
-        <MarkdownView source={row.text} className="mt-1 text-ui-lg select-text" />
+        <MarkdownView
+          source={row.text}
+          className={cn(
+            'mt-1 text-ui-lg select-text',
+            // Headings in an answer stay the size of the text around them, only heavier.
+            '[&_h2]:mt-3 [&_h2]:text-ui-lg [&_h3]:mt-3 [&_h3]:text-ui-lg [&_h4]:mt-3 [&_h4]:text-ui-lg',
+          )}
+        />
       )}
       {!row.pending ? (
         <div className="mt-1 h-7">
