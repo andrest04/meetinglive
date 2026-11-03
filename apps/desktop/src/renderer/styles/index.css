@@ -1,0 +1,142 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* The default palette and shadows are removed on purpose: only the tokens exist. */
+@theme {
+  --color-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
+}
+
+@theme inline {
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-border-control: var(--border-control);
+  --color-hairline: var(--hairline);
+  --color-signal: var(--signal);
+  --color-hover: var(--hover);
+  --color-pressed: var(--pressed);
+  --color-scrim: var(--scrim);
+
+  --font-sans: 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, monospace;
+
+  --radius-control: 4px;
+  --radius-overlay: 6px;
+  --radius-full: 9999px;
+
+  /* Small, tight scale: 13/14 UI, 15/16 reading, one large title for the document. */
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-ui: 13px;
+  --text-ui--line-height: 20px;
+  --text-ui-lg: 14px;
+  --text-ui-lg--line-height: 20px;
+  --text-read: 15px;
+  --text-read--line-height: 24px;
+  --text-read-lg: 16px;
+  --text-read-lg--line-height: 26px;
+  --text-heading: 20px;
+  --text-heading--line-height: 28px;
+  --text-title: 30px;
+  --text-title--line-height: 36px;
+
+  /* Real overlays only: menus, popovers, dialogs, toasts. */
+  --shadow-overlay: 0 6px 24px -6px color-mix(in srgb, var(--ink) 22%, transparent);
+
+  --ease-out-quick: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@theme {
+  --animate-indeterminate: indeterminate 1.4s var(--ease-out-quick) infinite;
+  --animate-quiet-pulse: quiet-pulse 1.6s ease-in-out infinite;
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+  @keyframes quiet-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-control) transparent;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  ::selection {
+    background: var(--ink);
+    color: var(--on-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+  /* Timestamps, durations, data. */
+  time,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Title bar: the window is dragged by empty chrome, never by controls. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

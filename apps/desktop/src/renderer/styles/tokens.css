@@ -1,0 +1,71 @@
+/*
+ * Design tokens. Single source: docs/port/specs/shell-platform.md section 4.9, taken
+ * from website/index.html. Light is the default; dark follows the system through
+ * prefers-color-scheme (Electron keeps that in step with nativeTheme.themeSource), and
+ * data-theme="light|dark" on <html> is the user override.
+ */
+:root {
+  color-scheme: light;
+  --paper: #ffffff;
+  --paper-raised: #f5f5f5;
+  --ink: #0a0a0a;
+  --on-ink: #ffffff;
+  --ink-muted: #525252;
+  --ink-faint: #6e6e6e;
+  --border-control: #8a8a8a;
+  --hairline: #e5e5e5;
+  --signal: #d92d20;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #0a0a0a;
+    --paper-raised: #171717;
+    --ink: #ffffff;
+    --on-ink: #0a0a0a;
+    --ink-muted: #a3a3a3;
+    --ink-faint: #8a8a8a;
+    --border-control: #6b6b6b;
+    --hairline: #262626;
+    --signal: #ff5a4f;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #0a0a0a;
+  --paper-raised: #171717;
+  --ink: #ffffff;
+  --on-ink: #0a0a0a;
+  --ink-muted: #a3a3a3;
+  --ink-faint: #8a8a8a;
+  --border-control: #6b6b6b;
+  --hairline: #262626;
+  --signal: #ff5a4f;
+}
+
+/* Hover and pressed fills are ink at low strength, so no extra colors exist. */
+:root {
+  --hover: color-mix(in srgb, var(--ink) 6%, transparent);
+  --pressed: color-mix(in srgb, var(--ink) 12%, transparent);
+  --scrim: color-mix(in srgb, #0a0a0a 45%, transparent);
+}
+
+/* Forced colors (Windows contrast themes): the tokens become system colors. */
+@media (forced-colors: active) {
+  :root {
+    --paper: Canvas;
+    --paper-raised: Canvas;
+    --ink: CanvasText;
+    --on-ink: Canvas;
+    --ink-muted: CanvasText;
+    --ink-faint: GrayText;
+    --border-control: ButtonBorder;
+    --hairline: GrayText;
+    --signal: Highlight;
+    --hover: transparent;
+    --pressed: transparent;
+    --scrim: transparent;
+  }
+}
