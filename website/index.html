@@ -7,7 +7,13 @@
   (function () {
     function known(value) { return value === "en" || value === "es" ? value : null; }
     var lang = null;
-    try { lang = known(new URLSearchParams(location.search).get("lang")); } catch (e) {}
+    // Honor a ?lang= link once, remember it, and keep the address clean.
+    try {
+      var url = new URL(location.href);
+      lang = known(url.searchParams.get("lang"));
+      if (lang) localStorage.setItem("vozella-lang", lang);
+      if (url.searchParams.has("lang")) { url.searchParams.delete("lang"); history.replaceState(null, "", url); }
+    } catch (e) {}
     if (!lang) { try { lang = known(localStorage.getItem("vozella-lang")); } catch (e) {} }
     if (!lang) {
       var prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
@@ -669,11 +675,6 @@ the monthly change until after the launch.
         var lang = b.dataset.lang;
         apply(lang);
         try { localStorage.setItem("vozella-lang", lang); } catch (e) {}
-        // A ?lang= in the URL outranks the saved choice, so keep it in step or a reload would undo the click.
-        try {
-          var url = new URL(location.href);
-          if (url.searchParams.has("lang")) { url.searchParams.set("lang", lang); history.replaceState(null, "", url); }
-        } catch (e) {}
       });
     });
 
