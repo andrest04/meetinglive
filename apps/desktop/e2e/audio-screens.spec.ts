@@ -66,6 +66,23 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('radio', { name: /All system audio/ }).click();
   });
 
+  test(`record in progress in ${theme}`, async () => {
+    await open('#/record', theme, recordReady);
+    await page.getByRole('textbox', { name: 'Title' }).fill('Weekly planning');
+    await page.getByRole('button', { name: 'Record' }).click();
+    await expect(page.getByTestId('recording-status')).toContainText('Recording...');
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByRole('meter', { name: 'Microphone level' }).getAttribute('aria-valuenow'),
+        ),
+      )
+      .toBeGreaterThan(0);
+    await shot(`record-recording-${theme}`);
+    await page.getByRole('button', { name: 'Stop' }).click();
+    await expect(page.getByRole('button', { name: 'Record' })).toBeEnabled();
+  });
+
   test(`settings microphone in ${theme}`, async () => {
     await open('#/settings', theme, async () => {
       await expect(page.getByRole('heading', { level: 2, name: 'Microphone' })).toBeVisible();

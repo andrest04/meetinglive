@@ -278,7 +278,7 @@ describe('SourcesPanel meeting audio', () => {
         <SourcesPanel active={false} locked />
       </Providers>,
     );
-    await screen.findByRole('combobox', { name: 'Microphone' }, { hidden: true });
+    await screen.findByRole('combobox', { name: 'Microphone', hidden: true });
     expect(container.querySelector('[inert]')).not.toBeNull();
   });
 

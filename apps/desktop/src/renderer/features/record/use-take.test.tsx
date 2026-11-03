@@ -9,6 +9,7 @@ type Handler = (input: Record<string, unknown>) => unknown;
 
 function install(handlers: Record<string, Handler>) {
   const calls: { name: string; input: Record<string, unknown> }[] = [];
+  const listeners = new Set<(payload: unknown) => void>();
   const invoke = vi.fn((name: string, input: Record<string, unknown>) => {
     calls.push({ name, input });
     const handler = handlers[name];
@@ -20,11 +21,24 @@ function install(handlers: Record<string, Handler>) {
     }
   });
   Object.defineProperty(window, 'vozella', {
-    value: { invoke, on: () => () => undefined },
+    value: {
+      invoke,
+      on: (name: string, listener: (payload: unknown) => void) => {
+        if (name === 'audio.recording.notice') listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    },
     configurable: true,
     writable: true,
   });
-  return calls;
+  const emit = (payload: unknown): void => {
+    act(() => {
+      for (const listener of listeners) listener(payload);
+    });
+  };
+  return Object.assign(calls, { emit });
 }
 
 afterEach(() => {
@@ -206,5 +220,64 @@ describe('useTake', () => {
       await first;
     });
     expect(calls.filter((c) => c.name === 'audio.recording.start')).toHaveLength(1);
+  });
+
+  describe('a capture failure while recording (items 49, 57)', () => {
+    const stopped = {
+      path: String.raw`C:\Lib\Inbox\a.wav`,
+      recordedAtMs: 1,
+      pausedSeconds: 0,
+      error: null,
+    };
+
+    it('stops on the first output failure and keeps its message', async () => {
+      const calls = install({
+        'audio.recording.start': () => ({ started: true, recordedAtMs: 1 }),
+        'audio.recording.stop': () => stopped,
+      });
+      const { result } = renderHook(() => useTake());
+      await act(() => result.current.start('a', mic));
+      calls.emit({ kind: 'output-failed', message: 'the app exited' });
+      await vi.waitFor(() => {
+        expect(result.current.phase).toBe('idle');
+      });
+      expect(calls.filter((c) => c.name === 'audio.recording.stop')).toHaveLength(1);
+      expect(result.current.notice).toEqual({
+        tone: 'warning',
+        message: { key: 'Error_OutputCaptureFailed', args: ['the app exited'] },
+      });
+    });
+
+    it('does not replace the failure with Error_StopRecording', async () => {
+      const calls = install({
+        'audio.recording.start': () => ({ started: true, recordedAtMs: 1 }),
+        'audio.recording.stop': () => ({ ...stopped, error: 'disk full' }),
+      });
+      const { result } = renderHook(() => useTake());
+      await act(() => result.current.start('a', mic));
+      calls.emit({ kind: 'faulted', message: 'writer broke' });
+      await vi.waitFor(() => {
+        expect(result.current.phase).toBe('idle');
+      });
+      expect(result.current.notice?.message.key).toBe('Error_CaptureFaulted');
+    });
+
+    it('handles only the first failure and leaves a lost source to the status line', async () => {
+      const calls = install({
+        'audio.recording.start': () => ({ started: true, recordedAtMs: 1 }),
+        'audio.recording.stop': () => stopped,
+      });
+      const { result } = renderHook(() => useTake());
+      await act(() => result.current.start('a', mic));
+      calls.emit({ kind: 'source-lost', source: 'Microphone', remaining: 1 });
+      expect(result.current.phase).toBe('recording');
+      calls.emit({ kind: 'faulted', message: 'one' });
+      calls.emit({ kind: 'faulted', message: 'two' });
+      await vi.waitFor(() => {
+        expect(result.current.phase).toBe('idle');
+      });
+      expect(calls.filter((c) => c.name === 'audio.recording.stop')).toHaveLength(1);
+      expect(result.current.notice?.message.args).toEqual(['one']);
+    });
   });
 });

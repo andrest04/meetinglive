@@ -44,7 +44,7 @@ function setup(overrides: Partial<TakeController> = {}, duration = 12.5) {
     ...overrides,
   };
   const takes = new RecordingTakes({
-    controller: controller as TakeController,
+    controller,
     inboxDirectory: () => inbox,
     nowMs: () => clock,
     wavDurationSeconds: () => duration,

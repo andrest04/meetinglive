@@ -21,7 +21,7 @@ export function RecordRoute() {
   const idle = take.phase === 'idle';
   const recording = take.phase === 'recording' || take.phase === 'paused';
   const busy = take.phase === 'starting' || take.phase === 'stopping' || take.phase === 'importing';
-  const micOn = selection.microphone === null || selection.microphone.kind !== 'None';
+  const micOn = selection.microphone?.kind !== 'None';
 
   return (
     <section className="flex flex-col gap-8">

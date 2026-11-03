@@ -1,6 +1,6 @@
 import type { MicrophoneChoiceDto } from '@vozella/contracts';
-import { useCallback, useRef, useState } from 'react';
-import { startFailureMessage, type Message } from '../audio/recording-status';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { noticeMessage, startFailureMessage, type Message } from '../audio/recording-status';
 
 export type TakePhase = 'idle' | 'starting' | 'recording' | 'paused' | 'stopping' | 'importing';
 
@@ -92,19 +92,40 @@ export function useTake(): Take {
     }
   }, [move]);
 
-  const stop = useCallback(async () => {
-    if (current.current !== 'recording' && current.current !== 'paused') return;
-    move('stopping');
-    try {
-      const result = await window.vozella.invoke('audio.recording.stop', {});
-      if (result.error !== null) setNotice(warning('Error_StopRecording', result.error));
-      else if (result.path !== null) setNotice(saved(result.path));
-      else setNotice(null);
-    } catch (error) {
-      setNotice(warning('Error_StopRecording', errorText(error)));
-    }
-    move('idle');
-  }, [move]);
+  /**
+   * Ends the take. `failure` is a capture failure already on screen: it stays instead of the saved
+   * notice, and a stop error does not replace it (spec items 49 and 57).
+   */
+  const stopWith = useCallback(
+    async (failure: Message | null) => {
+      if (current.current !== 'recording' && current.current !== 'paused') return;
+      move('stopping');
+      let next: TakeNotice | null = null;
+      try {
+        const result = await window.vozella.invoke('audio.recording.stop', {});
+        if (result.error !== null) next = warning('Error_StopRecording', result.error);
+        else if (result.path !== null) next = saved(result.path);
+      } catch (error) {
+        next = warning('Error_StopRecording', errorText(error));
+      }
+      setNotice(failure ? { tone: 'warning', message: failure } : next);
+      move('idle');
+    },
+    [move],
+  );
+  const stop = useCallback(() => stopWith(null), [stopWith]);
+
+  // The page handles only the first output or writer failure: it shows the message and stops.
+  const running = phase === 'recording' || phase === 'paused';
+  useEffect(() => {
+    if (!running) return;
+    let handled = false;
+    return window.vozella.on('audio.recording.notice', (payload) => {
+      if (handled || payload.kind === 'source-lost') return;
+      handled = true;
+      void stopWith(noticeMessage(payload));
+    });
+  }, [running, stopWith]);
 
   const importAudio = useCallback(
     async (title: string) => {

@@ -243,9 +243,10 @@ function cardOption(card: SourceCardDto, tr: Translate): RadioOption {
  * The executable's own icon (spec 131). Main reads and caches it; the generic glyph shows while it
  * loads and when the app has none.
  */
-function AppGlyph({ exePath }: { readonly exePath: string }) {
+function AppGlyph({ exePath }: { readonly exePath: string | null }) {
   const [icon, setIcon] = useState<string | null>(null);
   useEffect(() => {
+    if (exePath === null) return;
     let alive = true;
     window.vozella.invoke('audio.apps.icon', { exePath }).then(
       (answer) => {

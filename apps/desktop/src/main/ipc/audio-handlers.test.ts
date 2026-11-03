@@ -169,7 +169,7 @@ describe('audio handlers', () => {
     await call('audio.import.pickFile', {});
     expect(takes.rememberPick).toHaveBeenCalledWith({
       path: file,
-      recordedAtMs: expect.any(Number),
+      recordedAtMs: expect.any(Number) as number,
     });
     const run = await call('audio.import.run', { title: 'Call' });
     expect(run).toMatchObject({ ok: true, value: { imported: true } });
