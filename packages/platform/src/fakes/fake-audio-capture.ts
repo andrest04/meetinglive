@@ -4,6 +4,7 @@ import type {
   AudioSource,
   CaptureSession,
   CaptureStats,
+  CaptureStopped,
 } from '@vozella/core';
 
 const SAMPLES_PER_FRAME = 320; // 20 ms at 16 kHz
@@ -22,7 +23,11 @@ export class FakeAudioCapture implements AudioCapturePort {
 
   constructor(private readonly options: FakeAudioCaptureOptions = {}) {}
 
-  start(source: AudioSource, onFrame: (frame: AudioFrame) => void): Promise<CaptureSession> {
+  start(
+    source: AudioSource,
+    onFrame: (frame: AudioFrame) => void,
+    _onStopped?: CaptureStopped,
+  ): Promise<CaptureSession> {
     if (this.options.failWith) {
       return Promise.reject(new Error(this.options.failWith));
     }

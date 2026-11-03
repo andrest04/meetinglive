@@ -10,6 +10,16 @@ import { NativeAudioCapture } from './native-adapters';
 function stubAddon(overrides: Partial<NativeAddon> = {}): NativeAddon {
   return {
     platformSupported: () => true,
+    listMicrophones: () => [{ id: 'mic-1', name: 'Mic one' }],
+    SessionMonitor: class {
+      enumerate = () => [];
+      readPeaks = () => [];
+      dispose = () => undefined;
+    },
+    getProcessDetails: () => null,
+    getVersionDetails: () => null,
+    windowsBuild: () => 26_300,
+    openAudioDecoder: () => ({ read: () => null, close: () => undefined }),
     startCapture: (_options, onFrame) => {
       const frame: NativeFrame = { pcm: new Uint8Array(640), tsMs: 0, synthesized: false };
       queueMicrotask(() => onFrame(null, frame));

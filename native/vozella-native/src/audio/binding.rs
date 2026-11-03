@@ -12,6 +12,8 @@ use std::thread::JoinHandle;
 pub struct StartOptions {
     /// "mic" | "system" | "process"
     pub kind: String,
+    /// Mic mode: capture endpoint id. Missing or unusable means the default input.
+    pub device_id: Option<String>,
     pub pid: Option<u32>,
     /// Process mode: include child processes (default true).
     pub include_tree: Option<bool>,
@@ -23,6 +25,12 @@ pub struct AudioFrame {
     pub pcm: Buffer,
     pub ts_ms: f64,
     pub synthesized: bool,
+}
+
+#[napi(object)]
+pub struct StopInfo {
+    /// Why the capture ended by itself. Missing for a requested stop.
+    pub error: Option<String>,
 }
 
 #[napi(object)]
@@ -66,14 +74,17 @@ impl CaptureHandle {
 }
 
 /// Starts capture. Blocks until the device is initialised (or fails), then streams
-/// frames to `on_frame` from a Rust thread.
+/// frames to `on_frame` from a Rust thread. `on_stopped` fires once when the capture ends.
 #[napi]
 pub fn start_capture(
     opts: StartOptions,
     on_frame: ThreadsafeFunction<AudioFrame, ()>,
+    on_stopped: ThreadsafeFunction<StopInfo, ()>,
 ) -> Result<CaptureHandle> {
     let source = match opts.kind.as_str() {
-        "mic" => Source::Mic,
+        "mic" => Source::Mic {
+            device_id: opts.device_id.clone(),
+        },
         "system" => Source::System,
         "process" => Source::Process {
             pid: opts.pid.ok_or_else(|| Error::from_reason("pid required"))?,
@@ -104,6 +115,12 @@ pub fn start_capture(
                             ts_ms: f.ts_ms,
                             synthesized: f.synthesized,
                         }),
+                        ThreadsafeFunctionCallMode::NonBlocking,
+                    );
+                },
+                move |error| {
+                    on_stopped.call(
+                        Ok(StopInfo { error }),
                         ThreadsafeFunctionCallMode::NonBlocking,
                     );
                 },

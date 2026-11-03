@@ -1,14 +1,45 @@
-import type { AudioCapturePort, CalendarProbePort, LegacySecretPort } from '@vozella/core';
+import type {
+  AudioCapturePort,
+  AudioFileDecoder,
+  AudioSessionSource,
+  CalendarProbePort,
+  LegacySecretPort,
+  MicrophoneDeviceSource,
+  OsBuildProbe,
+  ProcessInfoProvider,
+} from '@vozella/core';
+import { openWavFileDecoder } from '../audio/wav-file-decoder';
 import { FakeAudioCapture } from '../fakes/fake-audio-capture';
+import {
+  FakeAudioSessionSource,
+  FakeMicrophoneDevices,
+  FakeOsBuild,
+  FakeProcessInfo,
+} from '../fakes/fake-audio-devices';
 import { FakeCalendarProbe } from '../fakes/fake-calendar-probe';
 import { FakeLegacySecret } from '../fakes/fake-legacy-secret';
 import { loadNativeAddon } from './addon';
-import { NativeAudioCapture, NativeCalendarProbe, NativeLegacySecret } from './native-adapters';
+import {
+  NativeAudioCapture,
+  NativeAudioSessionSource,
+  NativeCalendarProbe,
+  NativeLegacySecret,
+  NativeMicrophoneDevices,
+  NativeOsBuild,
+  NativeProcessInfo,
+  openNativeDecoder,
+} from './native-adapters';
 
 export interface NativePorts {
   readonly backend: 'native' | 'fake';
   readonly platformSupported: boolean;
   readonly audio: AudioCapturePort;
+  readonly microphones: MicrophoneDeviceSource;
+  readonly sessions: AudioSessionSource;
+  readonly processes: ProcessInfoProvider;
+  readonly osBuild: OsBuildProbe;
+  /** Opens an audio file as 16 kHz mono PCM16. Throws when it cannot be decoded. */
+  readonly openDecoder: (path: string) => AudioFileDecoder;
   readonly calendar: CalendarProbePort;
   readonly legacySecret: LegacySecretPort;
 }
@@ -29,6 +60,11 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
       backend: 'fake',
       platformSupported: true,
       audio: new FakeAudioCapture(),
+      microphones: new FakeMicrophoneDevices(),
+      sessions: new FakeAudioSessionSource(),
+      processes: new FakeProcessInfo(),
+      osBuild: new FakeOsBuild(),
+      openDecoder: openWavFileDecoder,
       calendar: new FakeCalendarProbe(),
       legacySecret: new FakeLegacySecret(),
     };
@@ -38,6 +74,11 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
     backend: 'native',
     platformSupported: addon.platformSupported(),
     audio: new NativeAudioCapture(addon, options.onError),
+    microphones: new NativeMicrophoneDevices(addon),
+    sessions: new NativeAudioSessionSource(addon),
+    processes: new NativeProcessInfo(addon),
+    osBuild: new NativeOsBuild(addon),
+    openDecoder: (path) => openNativeDecoder(addon, path),
     calendar: new NativeCalendarProbe(addon),
     legacySecret: new NativeLegacySecret(addon),
   };

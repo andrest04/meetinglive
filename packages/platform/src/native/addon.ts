@@ -27,12 +27,49 @@ export interface NativeCalendarProbeResult {
   upcomingEventCount?: number | null;
 }
 
+export interface NativeProcessDetails {
+  processId: number;
+  parentProcessId: number;
+  exePath?: string | null;
+  processName: string;
+  startTimeUtcMs?: number | null;
+}
+
+export interface NativeSessionSnapshot {
+  processId: number;
+  isSystemSounds: boolean;
+  isStateActive: boolean;
+  peak: number;
+}
+
+export interface NativeSessionMonitor {
+  enumerate(): NativeSessionSnapshot[];
+  readPeaks(): NativeSessionSnapshot[];
+  dispose(): void;
+}
+
+export interface NativeAudioDecoder {
+  /** 16 kHz mono PCM16 little-endian, or null at the end of the file. */
+  read(): Uint8Array | null;
+  close(): void;
+}
+
 export interface NativeAddon {
   platformSupported(): boolean;
   startCapture(
-    options: { kind: string; pid?: number; includeTree?: boolean },
+    options: { kind: string; deviceId?: string | null; pid?: number; includeTree?: boolean },
     onFrame: (error: Error | null, frame: NativeFrame) => void,
+    onStopped: (error: Error | null, info: { error?: string | null }) => void,
   ): { stop(): NativeCaptureStats };
+  listMicrophones(): { id: string; name: string }[];
+  SessionMonitor: new () => NativeSessionMonitor;
+  getProcessDetails(pid: number): NativeProcessDetails | null;
+  getVersionDetails(path: string): {
+    fileDescription?: string | null;
+    productName?: string | null;
+  } | null;
+  windowsBuild(): number;
+  openAudioDecoder(path: string): NativeAudioDecoder;
   probeCalendarsAsync(): Promise<NativeCalendarProbeResult>;
   dpapiUnprotect(data: Uint8Array): Uint8Array;
 }
@@ -47,6 +84,12 @@ export function loadNativeAddon(addonPath: string, load: (path: string) => unkno
     !addon ||
     typeof addon.platformSupported !== 'function' ||
     typeof addon.startCapture !== 'function' ||
+    typeof addon.listMicrophones !== 'function' ||
+    typeof addon.SessionMonitor !== 'function' ||
+    typeof addon.getProcessDetails !== 'function' ||
+    typeof addon.getVersionDetails !== 'function' ||
+    typeof addon.windowsBuild !== 'function' ||
+    typeof addon.openAudioDecoder !== 'function' ||
     typeof addon.probeCalendarsAsync !== 'function' ||
     typeof addon.dpapiUnprotect !== 'function'
   ) {

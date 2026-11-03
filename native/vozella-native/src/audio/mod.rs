@@ -10,3 +10,12 @@ pub mod capture;
 
 #[cfg(windows)]
 pub mod binding;
+
+#[cfg(windows)]
+pub mod process;
+
+#[cfg(windows)]
+pub mod devices;
+
+#[cfg(windows)]
+pub mod decode;

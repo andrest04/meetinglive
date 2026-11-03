@@ -22,9 +22,15 @@ const CHANNELS: usize = 2;
 
 #[derive(Clone, Debug)]
 pub enum Source {
-    Mic,
+    /// `device_id` is a capture endpoint id; None or an unusable id means the default.
+    Mic {
+        device_id: Option<String>,
+    },
     System,
-    Process { pid: u32, include_tree: bool },
+    Process {
+        pid: u32,
+        include_tree: bool,
+    },
 }
 
 pub struct Frame {
@@ -47,13 +53,18 @@ pub struct Stats {
 
 type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
+/// How often a process capture checks that its target is still alive.
+const PROCESS_POLL: std::time::Duration = std::time::Duration::from_millis(250);
+
 /// Runs the capture loop on the calling thread until `stop` is set.
-/// `ready` is called exactly once with the init result.
+/// `ready` is called exactly once with the init result. `stopped` is called once at the
+/// end with the error that ended the capture, or None for a requested stop.
 pub fn run(
     source: Source,
     stop: Arc<AtomicBool>,
     ready: impl FnOnce(Result<(), String>),
     mut emit: impl FnMut(Frame),
+    stopped: impl FnOnce(Option<String>),
 ) -> Stats {
     let _ = initialize_mta(); // per-thread COM; MTA works for all three sources
     let (client, h_event, capture) = match open(&source) {
@@ -74,14 +85,38 @@ pub fn run(
     let mut total_out: u64 = 0;
     let mut frame_idx: u64 = 0;
     let start = Instant::now();
-    if client.start_stream().is_err() {
+    if let Err(e) = client.start_stream() {
+        stopped(Some(format!("could not start the stream: {e}")));
         return stats;
     }
+    let target_pid = match &source {
+        Source::Process { pid, .. } => Some(*pid),
+        _ => None,
+    };
+    let mut last_poll = Instant::now();
+    let mut fault: Option<String> = None;
 
-    while !stop.load(Ordering::Relaxed) {
+    'outer: while !stop.load(Ordering::Relaxed) {
+        if let Some(pid) = target_pid {
+            if last_poll.elapsed() >= PROCESS_POLL {
+                last_poll = Instant::now();
+                if !super::process::is_alive(pid) {
+                    fault = Some("the captured application exited".to_string());
+                    break;
+                }
+            }
+        }
         let _ = h_event.wait_for_event(20); // a timeout is normal during silence
         let mut got_data = false;
-        while let Ok(Some(n)) = capture.get_next_packet_size() {
+        loop {
+            let n = match capture.get_next_packet_size() {
+                Ok(Some(n)) => n,
+                Ok(None) => 0,
+                Err(e) => {
+                    fault = Some(format!("the audio device failed: {e}"));
+                    break 'outer;
+                }
+            };
             if n == 0 {
                 break;
             }
@@ -92,7 +127,10 @@ pub fn run(
                     stats.silent_flag_packets += info.flags.silent as u64;
                     stats.discontinuities += info.flags.data_discontinuity as u64;
                 }
-                Err(_) => break,
+                Err(e) => {
+                    fault = Some(format!("the audio device failed: {e}"));
+                    break 'outer;
+                }
             }
             let floats: Vec<f32> = raw
                 .make_contiguous()
@@ -133,6 +171,7 @@ pub fn run(
         }
     }
     let _ = client.stop_stream();
+    stopped(fault);
     stats
 }
 
@@ -141,9 +180,9 @@ fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
     // the engine converts (AUTOCONVERTPCM) so one path serves all three sources.
     let format = WaveFormat::new(32, 32, &SampleType::Float, 48_000, CHANNELS, None);
     let mut client = match source {
-        Source::Mic => DeviceEnumerator::new()?
-            .get_default_device(&Direction::Capture)?
-            .get_iaudioclient()?,
+        Source::Mic { device_id } => {
+            resolve_microphone(device_id.as_deref())?.get_iaudioclient()?
+        }
         Source::System => DeviceEnumerator::new()?
             .get_default_device(&Direction::Render)?
             .get_iaudioclient()?,
@@ -160,4 +199,18 @@ fn open(source: &Source) -> Res<(AudioClient, Handle, AudioCaptureClient)> {
     let h_event = client.set_get_eventhandle()?;
     let capture = client.get_audiocaptureclient()?;
     Ok((client, h_event, capture))
+}
+
+/// Spec 3.1.4: a non-empty id that resolves to an active capture endpoint wins; anything
+/// else (empty, unplugged, stale) falls back to the default capture device.
+pub fn resolve_microphone(device_id: Option<&str>) -> Res<wasapi::Device> {
+    let enumerator = DeviceEnumerator::new()?;
+    if let Some(id) = device_id.filter(|id| !id.is_empty()) {
+        if let Ok(device) = enumerator.get_device(id) {
+            if matches!(device.get_state(), Ok(wasapi::DeviceState::Active)) {
+                return Ok(device);
+            }
+        }
+    }
+    Ok(enumerator.get_default_device(&Direction::Capture)?)
 }
