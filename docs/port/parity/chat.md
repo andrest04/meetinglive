@@ -29,6 +29,9 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 
 ## Decisions
 
+- **Chat service (chat-3).** `ChatService` keeps one in-memory conversation (scope plus messages) for the app session. `send(draft, decision, liveSnapshot, {setupGate?})` returns `ignored`, `sent`, `cancelled`, `setup-required` or `failed`, each failure with `originalDraft`. Text comes from an injected `TranslateFn`. Ports: `ChatMeetingReader`, `ProviderSource`, `Clock`, `CancelSignal`. Test kit: `chat-test-kit.ts`.
+- **Cancel (chat-3).** A cancel after the provider returned text still drops the answer (B20).
+
 - **Recipe API (chat-2).** `builtInRecipes(t)` and `recipesForScope(kind, t)` take a `RecipeNameLookup` (`(key) => string`) and return fresh objects every call. `availabilityFor` throws RangeError on an unknown scope. `filterRecipes(list, draft)` is the slash filter; the flyout is chat-8.
 - **Link parsing (chat-2).** `tryParseMeetingLink` returns the 32-hex lowercase id or null. Braced and parenthesized forms need the hyphenated shape and matching delimiters, as .NET Guid.TryParse does.
 - **Prompt messages (chat-2).** `buildPrompt` takes `{role, text}` prior messages; a null text counts as empty and a null element throws a TypeError on access.
@@ -40,7 +43,19 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 - **Unparseable `recordedAt` (chat-1).** Sorted last; printed as stored.
 - **Live transcript snapshot (chat-1, B5).** `packContext` takes the live transcript as an argument. Package 3 must read `workspace.state.liveTranscript` and the scope decision once when the send starts and pass those values.
 
-## Bugs fixed
+## Bugs fixed (chat-3 first)
+
+- B1 (chat-3): `newChat()` is refused while sending; `state.canStartNewChat` drives the control.
+- B5 (chat-3, service part): scope and live transcript are copied when `send` starts.
+- B7 (chat-3): user and assistant messages have separate timestamps.
+- B14 (chat-3): failures go through `formatFailure`, never raw `ex.Message`.
+- B19 (chat-3): `cancel()` stops a send; a cancelled send is silent and keeps nothing.
+- B20 (decision, chat-3): a failed or cancelled partial answer is discarded.
+- B24 (decision, chat-3): the mismatch flag is recomputed also while sending.
+- B4 (chat-3): a local budget failure (`PromptTooLong`) is surfaced as a plain too-long sentence; the 512/4096 limits are summaries' job.
+- B6 (chat-3): moot, there is no persistence.
+
+## Bugs fixed (earlier packages)
 
 - B8 (chat-2): recipe names resolve at call time through an injected lookup; a test switches language between two calls.
 - B10 (chat-2): prior-turn cuts and the thread title use the surrogate-safe cut.
@@ -50,6 +65,13 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 - B10 (chat-1): `cutPrefix` and `cutTail` count UTF-16 units but never split a surrogate pair. Package 2 reuses them for prior turns and the thread title.
 - B12 (chat-1, context part): line breaks stripped from single-line fields and forged `Id:` or `# ` lines neutralized. The prompt part (delimiters in the prompt, brief) belongs to package 2; the brief is cut.
 - B5 (chat-1, context part): live transcript is an argument.
+
+## Left for other modules (chat-3)
+
+- Chat-4: implement `ChatMeetingReader` (by id, by folder, all, folders) and `ProviderSource` over `SummaryProviderResolver` (map `unavailable` to `{status:'unavailable'}`), plus the IPC contract.
+- Chat-7: wire `ChatService` state to the UI; run the provider gate (`use-provider-gate`) when `send` returns `setup-required` or pass it as `setupGate`; restore `originalDraft` only into an empty composer; show `failure.message`; stop button calls `cancel()`; disable New chat on `!canStartNewChat`.
+- Chat-6: call `beginScopeRefresh()` before each scope read and `applyScope(token, decision)` with the result.
+- Dropped in chat-3 (owner decision 2026-11-03, may return later): chat thread history (items 75 to 86, 93 to 101, ChatThread repository, chat-threads.json, History button and flyout, delete thread dialog, thread title persistence, B2, B3, B18, B6), personal tasks items 127 to 129, JsonChatThreadRepositoryTests (7) and JsonChatRecipeRepositoryTests (5). Item 44 is not applicable.
 
 ## Left for other modules
 
@@ -84,36 +106,36 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 15 | Session surface with a selected meeting: Meeting scope with that id. | chat-1 | done | `resolveScope`. |
 | 16 | History surface with a selected (non-Inbox) folder: Folder scope with that id. | chat-1 | done | `resolveScope`. |
 | 17 | Everything else: AllMeetings (History Inbox, Recording idle, Session without meeting, Unknown). | chat-1 | done | `resolveScope`. |
-| 18 | Scope refresh is generation-guarded: a stale refresh is discarded. | chat-3 / chat-6 | pending |  |
-| 19 | Scope refresh re-reads the TypeSafe availability and rebuilds recipe lists. | chat-3 / chat-6 | pending |  |
+| 18 | Scope refresh is generation-guarded: a stale refresh is discarded. | chat-3 / chat-6 | done | `ScopeRefreshGuard`, `ChatService.beginScopeRefresh/applyScope`; stale result returns false. chat-service.test.ts |
+| 19 | Scope refresh re-reads the TypeSafe availability and rebuilds recipe lists. | chat-3 / chat-6 | done | Service half only: scope refresh rebuilds nothing stored; recipe lists are derived by `recipesForScope` (chat-2). TypeSafe half cut. |
 | 20 | Scope changes are raised for: shell tag change, folder publish (always), meeting id change, capture flag change; not for live transcript text changes. | chat-1 | done | Already provided by `Workspace` (`library/workspace.ts`); proven by a test in `scope-resolver.test.ts`. |
 | 21 | Live transcript is read from the workspace at send time, not subscribed. | chat-1 | done | `Workspace.state.liveTranscript` is read by the caller; `packContext` takes it as an argument (B5). |
 | 22 | Match test for open thread uses kind, folder id, and meeting id with null equality. | chat-1 | done | `matchesOpenThread`. |
-| 23 | Mismatch banner text `Chat_ScopeMismatch` shows when an open thread does not match the current scope; not recomputed while sending (decide whether to keep B24). | chat-3 / chat-6 | pending |  |
+| 23 | Mismatch banner text `Chat_ScopeMismatch` shows when an open thread does not match the current scope; not recomputed while sending (decide whether to keep B24). | chat-3 / chat-6 | improved | `state.showScopeMismatch` is derived on every read, so it is recomputed also while sending (B24 decision: keep the fix, the banner follows the live scope). Banner UI is chat-6. |
 | 24 | A mismatched open thread is not edited; the next send creates a new thread. | chat-1 | done | Pure rule only; the next send creating a new thread is package 3. |
 | 25 | Draft binds on every keystroke. | chat-7 | pending |  |
 | 26 | Enter sends; Shift+Enter newline; Ctrl+Enter sends. | chat-7 | pending |  |
 | 27 | Enter with an empty draft or while sending does nothing and does not insert a newline. | chat-7 | pending |  |
 | 28 | Enter during IME composition must not send (new, S1). | chat-7 | pending |  |
-| 29 | Send enabled iff not sending, visible, and draft non-blank. | chat-7 | pending |  |
+| 29 | Send enabled iff not sending, visible, and draft non-blank. | chat-7 | done | Service half: `send` returns `ignored` unless not sending, visible and trimmed draft non-empty. Button enablement is chat-7. |
 | 30 | Placeholder `Chat_Composer.PlaceholderText`; Send tooltip `Chat_Send` "Send (Enter)". | chat-7 | pending |  |
 | 31 | Composer min height 32, max 96, min width 180, wraps, scrolls. | chat-7 | pending |  |
-| 32 | Message text is `Draft.Trim()`. | chat-7 | pending |  |
-| 33 | Optimistic user row plus pending assistant row appear immediately; draft clears immediately. | chat-7 | pending |  |
+| 32 | Message text is `Draft.Trim()`. | chat-7 | done | `send` trims the draft; `originalDraft` returns it untrimmed. |
+| 33 | Optimistic user row plus pending assistant row appear immediately; draft clears immediately. | chat-7 | done | Service half: `state.pending` holds the user text and streamed assistant text from the start of a send. Rendering is chat-7. |
 | 34 | Pending row shows spinner plus `Chat_Thinking` until first visible text. | chat-7 | pending |  |
-| 35 | Streaming shows Markdown live; first push on first non-whitespace chunk; further pushes at most every 80 ms; final flush at end; leading whitespace trimmed in pushes. | chat-7 | pending |  |
+| 35 | Streaming shows Markdown live; first push on first non-whitespace chunk; further pushes at most every 80 ms; final flush at end; leading whitespace trimmed in pushes. | chat-7 | done | Service half: `StreamCoalescer` (stream-coalescer.test.ts, fake clock), fed by `ChatService`. Markdown rendering is chat-7/9. |
 | 36 | Transcript auto-scrolls to the end on new rows and on every streamed text change. | chat-7 | pending |  |
-| 37 | Provider is resolved per send from settings; gating dialogs (local model download, CLI check, xAI sign-in) run via the shared resolver. | chat-3 / chat-7 | pending |  |
-| 38 | Cancelled/unsatisfied gate shows `Status_SetupCancelled` and keeps the user's turn out of history. | chat-3 / chat-7 | pending |  |
-| 39 | Provider exception shows `Chat_SendFailed` with the message. | chat-3 / chat-7 | pending |  |
-| 40 | Blank answer shows `Chat_EmptyAnswer` and persists nothing. | chat-3 / chat-7 | pending |  |
-| 41 | Answer text is trimmed before persisting. | chat-3 / chat-7 | pending |  |
-| 42 | On failure both optimistic rows are removed and the draft is restored only if the composer is still empty. | chat-3 / chat-7 | pending |  |
-| 43 | `IsSending` is always cleared in a finally path. | chat-3 / chat-7 | pending |  |
-| 44 | Failed UI marshalling reports `Chat_UiMarshalFailed`. | chat-3 / chat-7 | pending |  |
+| 37 | Provider is resolved per send from settings; gating dialogs (local model download, CLI check, xAI sign-in) run via the shared resolver. | chat-3 / chat-7 | done | Service half: `ProviderSource.resolve()` per send; `needs-setup` returns `setup-required`, or runs an optional `setupGate`. The gate dialogs reuse features/summaries/use-provider-gate in chat-7. xAI selection returns `provider-removed` with Ui_SummaryProviderXaiRemoved. |
+| 38 | Cancelled/unsatisfied gate shows `Status_SetupCancelled` and keeps the user's turn out of history. | chat-3 / chat-7 | done | Gate returning null gives `Status_SetupCancelled` with no prefix; nothing kept. chat-service.test.ts |
+| 39 | Provider exception shows `Chat_SendFailed` with the message. | chat-3 / chat-7 | improved | B14: `Chat_SendFailed` with the shared `formatFailure` message, never the raw error text. Local budget `PromptTooLong` maps to Ui_SummaryPromptTooLong. |
+| 40 | Blank answer shows `Chat_EmptyAnswer` and persists nothing. | chat-3 / chat-7 | done | `Chat_EmptyAnswer`, nothing kept. |
+| 41 | Answer text is trimmed before persisting. | chat-3 / chat-7 | done | Answer trimmed before it is kept. |
+| 42 | On failure both optimistic rows are removed and the draft is restored only if the composer is still empty. | chat-3 / chat-7 | done | Service returns `originalDraft` on every failure and cancel; restoring only into an empty composer is chat-7. |
+| 43 | `IsSending` is always cleared in a finally path. | chat-3 / chat-7 | done | `sending` and `pending` cleared in `finally`. |
+| 44 | Failed UI marshalling reports `Chat_UiMarshalFailed`. | dropped | dropped | Not applicable: no dispatcher marshalling in the port, so `Chat_UiMarshalFailed` cannot happen. |
 | 45 | Error bar is closable, titled `Chat_Error`, severity error; cleared at the start of each send and on New chat. | chat-3 / chat-7 | pending |  |
 | 46 | Starter chips hidden while sending or when any message exists. | chat-3 / chat-7 | pending |  |
-| 47 | Optional improvements agreed for the port: block New chat/open/delete during send (B1); stop button (B19). | chat-3 / chat-7 | pending |  |
+| 47 | Optional improvements agreed for the port: block New chat/open/delete during send (B1); stop button (B19). | chat-3 / chat-7 | improved | B1: `newChat()` returns false while sending and `state.canStartNewChat` is false. B19: `cancel()` stops the answer. Open/delete thread are dropped with thread history. Buttons are chat-6/7. |
 | 48 | Live scope returns `"Live transcript:" + NL + last 2500 chars`, or `ChatLiveTranscriptEmpty` for null/blank. | chat-1 | done | `packContext` Live; tail is code-point safe (B10). |
 | 49 | Live scope never reads saved meetings. | chat-1 | done | `packContext` Live ignores meetings. |
 | 50 | Meeting scope finds by id; missing or null id returns `ChatMeetingNotFound`. | chat-1 | done | `packContext` Meeting; ids compared as GUIDs (case, hyphens, braces ignored). |
@@ -141,24 +163,24 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 72 | User message appended without a trailing newline. | chat-2 | done | prompt-builder.test.ts layout (no trailing newline) |
 | 73 | Citation prefix `https://meetinglive.local/meeting/` plus 32-hex Id. | chat-2 | done | prompt-builder.test.ts MeetingLink_RoundTrips |
 | 74 | `TryParseMeetingLink` rules: null false; prefix match ignoring case; trailing slashes trimmed; Guid parse. | chat-2 | done | prompt-builder.test.ts TryParseMeetingLink_* |
-| 75 | Threads file `chat-threads.json` in the app data directory; recipes `chat-recipes.json`. | chat-4 | pending |  |
-| 76 | camelCase property names; nulls written; Guid `D` format; ISO-8601 offset timestamps. | chat-4 | pending |  |
-| 77 | `scopeKind` stored as PascalCase enum name; reading accepts case-insensitive names. | chat-4 | pending |  |
-| 78 | Required members enforced on read (decide the tolerant behavior from B3 in the port, but keep file compatibility). | chat-4 | pending |  |
-| 79 | Missing messages array becomes empty. | chat-4 | pending |  |
-| 80 | Save is upsert by id, preserving file position when replacing, appending when new. | chat-4 | pending |  |
-| 81 | Delete of a missing id does nothing and does not create the file. | chat-4 | pending |  |
-| 82 | Thread list order: `updatedAt` desc, `createdAt` desc, `id` desc. | chat-4 | pending |  |
-| 83 | Recipe list order: file order. | chat-4 | pending |  |
-| 84 | All repository operations are serialized in-process. | chat-4 | pending |  |
-| 85 | Directory created on first write. | chat-4 | pending |  |
-| 86 | Writes should be atomic (B2) and files remain readable by the old format. | chat-4 | pending |  |
-| 87 | Thread created on first successful send only. | chat-4 | pending |  |
+| 75 | Threads file `chat-threads.json` in the app data directory; recipes `chat-recipes.json`. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 76 | camelCase property names; nulls written; Guid `D` format; ISO-8601 offset timestamps. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 77 | `scopeKind` stored as PascalCase enum name; reading accepts case-insensitive names. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 78 | Required members enforced on read (decide the tolerant behavior from B3 in the port, but keep file compatibility). | dropped | dropped | owner decision 2026-11-03, may return later |
+| 79 | Missing messages array becomes empty. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 80 | Save is upsert by id, preserving file position when replacing, appending when new. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 81 | Delete of a missing id does nothing and does not create the file. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 82 | Thread list order: `updatedAt` desc, `createdAt` desc, `id` desc. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 83 | Recipe list order: file order. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 84 | All repository operations are serialized in-process. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 85 | Directory created on first write. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 86 | Writes should be atomic (B2) and files remain readable by the old format. | dropped | dropped | owner decision 2026-11-03, may return later |
+| 87 | Thread created on first successful send only. | chat-4 | improved | In-memory: the conversation is created on the first successful send only; failure keeps nothing. |
 | 88 | Thread title is the first message trimmed, line breaks to single space, max 60, trailing space trimmed. | chat-4 | improved | thread-title.test.ts; B10 surrogate-safe; wiring in chat-3 |
-| 89 | `CreatedAt`/`UpdatedAt` use local time with offset; user and assistant messages of a turn share one timestamp (decide whether to fix B7). | chat-4 | pending |  |
-| 90 | `UpdatedAt` is bumped each turn; titles never change. | chat-4 | pending |  |
-| 91 | Save failure restores the in-memory message list and shows the error. | chat-4 | pending |  |
-| 92 | After a successful turn the transcript is re-rendered from the persisted thread and the thread list is refreshed. | chat-4 | pending |  |
+| 89 | `CreatedAt`/`UpdatedAt` use local time with offset; user and assistant messages of a turn share one timestamp (decide whether to fix B7). | chat-4 | improved | B7 fixed: the user message is stamped at send start and the assistant message when the answer is done, from the injected Clock. |
+| 90 | `UpdatedAt` is bumped each turn; titles never change. | chat-4 | improved | In-memory equivalent: messages are only appended on success; there is no UpdatedAt and no title because thread persistence is dropped. |
+| 91 | Save failure restores the in-memory message list and shows the error. | dropped | dropped | No persistence, so a save failure cannot happen. The in-memory list is only written after success. |
+| 92 | After a successful turn the transcript is re-rendered from the persisted thread and the thread list is refreshed. | chat-4 | improved | In-memory equivalent: `state.messages` is the whole conversation after a successful turn. |
 | 93 | History flyout reloads threads when opened. | dropped | dropped |  |
 | 94 | Empty state `Chat_HistoryEmpty`. | dropped | dropped |  |
 | 95 | Rows show title (blank gives `Chat_Untitled`) and `Chat_ThreadUpdated` with a local short date-time. | dropped | dropped |  |
