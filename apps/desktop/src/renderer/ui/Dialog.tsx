@@ -1,6 +1,6 @@
 import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { IconButton } from './Button';
 import { cn } from './cn';
 import { popupColors, popupSurface } from './styles';
@@ -14,6 +14,8 @@ export interface DialogProps {
   readonly children?: ReactNode;
   /** Buttons, right aligned. The primary action goes last. */
   readonly actions?: ReactNode;
+  /** What takes focus on open. Defaults to the first control; destructive confirmations pass Cancel. */
+  readonly initialFocus?: RefObject<HTMLElement | null>;
 }
 
 /** Modal: focus is trapped, Escape closes, focus returns to what opened it. */
@@ -25,6 +27,7 @@ export function Dialog({
   closeLabel,
   children,
   actions,
+  initialFocus,
 }: DialogProps) {
   return (
     <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
@@ -36,6 +39,7 @@ export function Dialog({
           )}
         />
         <BaseDialog.Popup
+          initialFocus={initialFocus}
           className={cn(
             popupSurface,
             popupColors,

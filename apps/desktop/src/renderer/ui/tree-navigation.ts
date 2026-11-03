@@ -4,6 +4,8 @@ export interface TreeNode {
   readonly id: string;
   readonly label: string;
   readonly icon?: LucideIcon;
+  /** A small colored dot before the icon. A color; `null` keeps the space empty so names align. */
+  readonly accent?: string | null;
   readonly children?: readonly TreeNode[];
 }
 

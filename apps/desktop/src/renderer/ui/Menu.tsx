@@ -79,12 +79,16 @@ export interface ContextMenuProps {
   /** The area that answers to right click and the Menu key. */
   readonly children: ReactNode;
   readonly className?: string;
+  /** Render the trigger as this element instead of a div, for example an `li` inside a list. */
+  readonly render?: ReactElement;
 }
 
-export function ContextMenu({ entries, children, className }: ContextMenuProps) {
+export function ContextMenu({ entries, children, className, render }: ContextMenuProps) {
   return (
     <BaseContextMenu.Root>
-      <BaseContextMenu.Trigger className={className}>{children}</BaseContextMenu.Trigger>
+      <BaseContextMenu.Trigger className={className} render={render}>
+        {children}
+      </BaseContextMenu.Trigger>
       <BaseContextMenu.Portal>
         <BaseContextMenu.Positioner className="z-50 outline-none">
           <BaseContextMenu.Popup className={popupClass}>

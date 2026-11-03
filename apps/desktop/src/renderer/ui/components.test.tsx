@@ -10,6 +10,7 @@ import {
   Dialog,
   IconButton,
   Menu,
+  Notice,
   RadioGroup,
   Splitter,
   Switch,
@@ -225,5 +226,86 @@ describe('Splitter', () => {
     await userEvent.dblClick(handle);
     expect(handle).toHaveAttribute('aria-valuenow', '200');
     expect(onSizeChange).toHaveBeenLastCalledWith(200);
+  });
+});
+
+describe('Tree controlled expansion and row menus', () => {
+  const nodes: TreeNode[] = [
+    { id: 'inbox', label: 'Inbox', accent: null },
+    { id: 'clients', label: 'Clients', accent: 'red', children: [{ id: 'acme', label: 'Acme' }] },
+  ];
+
+  it('reports expansion changes and shows only what the owner expanded', async () => {
+    const onExpandedChange = vi.fn();
+    const { rerender } = render(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={() => undefined}
+        expandedIds={new Set()}
+        onExpandedChange={onExpandedChange}
+      />,
+    );
+    expect(screen.queryByRole('treeitem', { name: 'Acme' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('treeitem', { name: 'Clients' }));
+    screen.getByRole('treeitem', { name: 'Clients' }).focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(onExpandedChange).toHaveBeenLastCalledWith(new Set(['clients']));
+    // The owner has not changed its set, so the tree stays closed.
+    expect(screen.queryByRole('treeitem', { name: 'Acme' })).not.toBeInTheDocument();
+    rerender(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={() => undefined}
+        expandedIds={new Set(['clients'])}
+      />,
+    );
+    expect(screen.getByRole('treeitem', { name: 'Acme' })).toBeInTheDocument();
+  });
+
+  it('opens a menu on right click only for rows that have one', async () => {
+    const onSelect = vi.fn();
+    render(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={onSelect}
+        nodeMenu={(id) =>
+          id === 'clients'
+            ? [{ id: 'rename', label: 'Rename', onSelect: () => undefined }]
+            : undefined
+        }
+      />,
+    );
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: 'Inbox' }),
+    });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: 'Clients' }),
+    });
+    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeInTheDocument();
+  });
+});
+
+describe('Notice', () => {
+  it('speaks politely, and closes only when it was given a way to', async () => {
+    const onDismiss = vi.fn();
+    const { rerender } = render(<Notice>Saved elsewhere</Notice>);
+    expect(screen.getByRole('status')).toHaveTextContent('Saved elsewhere');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    rerender(
+      <Notice onDismiss={onDismiss} dismissLabel="Close">
+        Saved elsewhere
+      </Notice>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

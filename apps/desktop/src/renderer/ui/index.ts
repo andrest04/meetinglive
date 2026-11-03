@@ -10,6 +10,7 @@ export { Input, Textarea } from './Input';
 export { Kbd } from './Kbd';
 export { Mark } from './Mark';
 export { ContextMenu, Menu, type MenuEntry } from './Menu';
+export { Notice, type NoticeProps } from './Notice';
 export { Progress, type ProgressProps } from './Progress';
 export { RadioGroup, type RadioOption } from './RadioGroup';
 export { Select, type Option, type SelectProps } from './Select';

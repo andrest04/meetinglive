@@ -15,6 +15,14 @@
   --border-control: #8a8a8a;
   --hairline: #e5e5e5;
   --signal: #d92d20;
+  --accent-blue: #3b6bd0;
+  --accent-teal: #2f7f78;
+  --accent-green: #3f7d4f;
+  --accent-amber: #a9742a;
+  --accent-orange: #b9632f;
+  --accent-red: #b04545;
+  --accent-purple: #7c5aa8;
+  --accent-neutral: #7a7a7a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,6 +37,14 @@
     --border-control: #6b6b6b;
     --hairline: #262626;
     --signal: #ff5a4f;
+    --accent-blue: #7a9fe8;
+    --accent-teal: #5fb3aa;
+    --accent-green: #73b585;
+    --accent-amber: #d1a35c;
+    --accent-orange: #d9895a;
+    --accent-red: #d97c7c;
+    --accent-purple: #a98dd0;
+    --accent-neutral: #9a9a9a;
   }
 }
 
@@ -43,6 +59,14 @@
   --border-control: #6b6b6b;
   --hairline: #262626;
   --signal: #ff5a4f;
+  --accent-blue: #7a9fe8;
+  --accent-teal: #5fb3aa;
+  --accent-green: #73b585;
+  --accent-amber: #d1a35c;
+  --accent-orange: #d9895a;
+  --accent-red: #d97c7c;
+  --accent-purple: #a98dd0;
+  --accent-neutral: #9a9a9a;
 }
 
 /* Hover and pressed fills are ink at low strength, so no extra colors exist. */
@@ -64,6 +88,14 @@
     --border-control: ButtonBorder;
     --hairline: GrayText;
     --signal: Highlight;
+    --accent-blue: CanvasText;
+    --accent-teal: CanvasText;
+    --accent-green: CanvasText;
+    --accent-amber: CanvasText;
+    --accent-orange: CanvasText;
+    --accent-red: CanvasText;
+    --accent-purple: CanvasText;
+    --accent-neutral: CanvasText;
     --hover: transparent;
     --pressed: transparent;
     --scrim: transparent;
