@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ArrowLeft, Copy, FolderOpen, Pencil } from 'lucide-react';
 import { useT } from '../../i18n/I18nProvider';
 import { Button, IconButton, Icon, cn } from '../../ui';
@@ -21,17 +22,23 @@ export function BackLink({ onBack }: { readonly onBack: () => void }) {
   );
 }
 
-/** Title, rename, copy and open location. Presentational: the container owns every action. */
+/** Title, rename, copy, open location and the actions the page adds. Presentational: the container owns every action. */
 export function SessionHeader({
   title,
   onRename,
   onCopy,
   onOpenLocation,
+  renameDisabled = false,
+  extraActions,
 }: {
   readonly title: string;
   readonly onRename: () => void;
   readonly onCopy: () => void;
   readonly onOpenLocation: () => void;
+  /** B4: a run for this meeting is going, so the title cannot change now. */
+  readonly renameDisabled?: boolean;
+  /** More buttons for the action row, such as Re-transcribe. */
+  readonly extraActions?: ReactNode;
 }) {
   const t = useT();
   return (
@@ -48,6 +55,7 @@ export function SessionHeader({
           label={t('SessionPage_Rename.ToolTipService.ToolTip')}
           icon={Pencil}
           size="sm"
+          disabled={renameDisabled}
           onClick={onRename}
         />
       </div>
@@ -64,6 +72,7 @@ export function SessionHeader({
         >
           {t('SessionPage_OpenLocation.AutomationProperties.Name')}
         </Button>
+        {extraActions}
       </div>
     </header>
   );

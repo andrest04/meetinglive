@@ -12,6 +12,8 @@ export interface NoticeProps {
   readonly onDismiss?: () => void;
   readonly dismissLabel?: string;
   readonly className?: string;
+  /** Stable automation id. */
+  readonly testId?: string;
 }
 
 /** An inline message inside a page. Plain words and a glyph; no color carries the meaning. */
@@ -21,10 +23,12 @@ export function Notice({
   onDismiss,
   dismissLabel,
   className,
+  testId,
 }: NoticeProps) {
   return (
     <div
       role="status"
+      data-testid={testId}
       className={cn(
         'flex items-start gap-2.5 rounded-control border border-hairline bg-paper-raised py-2 ps-3 pe-2 text-ui-lg text-ink',
         'forced-colors:border-[CanvasText]',

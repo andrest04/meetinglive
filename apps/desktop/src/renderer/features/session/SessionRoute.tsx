@@ -1,4 +1,4 @@
-import { copyCommand, createCopyFeedback, type SessionTab } from '@vozella/core';
+import { canRename, copyCommand, createCopyFeedback, type SessionTab } from '@vozella/core';
 import { FileText, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useT } from '../../i18n/I18nProvider';
@@ -6,7 +6,8 @@ import { Button, Icon, Notice, Skeleton, SkeletonText, Tabs, cn } from '../../ui
 import { ProviderGateDialogs, ProviderUnavailableNotice } from '../summaries/ProviderGateDialogs';
 import { SummaryTab } from '../summaries/SummaryTab';
 import { useProviderGate } from '../summaries/use-provider-gate';
-import { RetranscribeControl } from '../transcription/RetranscribeControl';
+import { RetranscribeButton, RetranscribeStatus } from '../transcription/RetranscribeControl';
+import { useRetranscription } from '../transcription/use-retranscription';
 import { CopyNotice } from './CopyNotice';
 import { RenameDialog } from './RenameDialog';
 import { BackLink, SessionHeader } from './SessionHeader';
@@ -86,6 +87,16 @@ export function SessionRoute() {
   const { meeting } = session;
   const { show: showCopied, dismiss: dismissCopy } = copy;
   const meetingId = meeting?.id ?? null;
+  const { refresh, reloadContent } = session;
+  // The run belongs to the page, not to a button: the header, the status rows and the rename guard
+  // all read this one model. After any outcome the shell re-reads the record and both tabs (143).
+  const retranscription = useRetranscription(meetingId ?? '', {
+    onFinished: () => {
+      refresh();
+      reloadContent();
+    },
+    onAudioChanged: refresh,
+  });
 
   // Notices belong to one meeting; opening another one starts clean.
   useEffect(() => {
@@ -243,7 +254,21 @@ export function SessionRoute() {
             }}
             onCopy={onCopy}
             onOpenLocation={onOpenLocation}
+            renameDisabled={
+              !canRename({ hasMeeting: true }, meeting.id, {
+                isRunning: retranscription.running,
+                meetingId: retranscription.running ? meeting.id : null,
+              })
+            }
+            extraActions={
+              <RetranscribeButton
+                model={retranscription}
+                meetingTitle={meeting.title}
+                hasAudio={meeting.hasAudio}
+              />
+            }
           />
+          <RetranscribeStatus model={retranscription} />
           {copy.visible ? <CopyNotice onDismiss={dismissCopy} /> : null}
           {copyProblem !== null ? (
             <Notice
@@ -275,14 +300,6 @@ export function SessionRoute() {
             }}
             label={t('Ui_SessionPageTabsLabel')}
             listTestId="SelectorSessionTabs"
-          />
-          <RetranscribeControl
-            meetingId={meeting.id}
-            meetingTitle={meeting.title}
-            onFinished={() => {
-              session.refresh();
-              session.reloadContent();
-            }}
           />
           <RenameDialog
             open={renameOpen}

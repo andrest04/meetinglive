@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, type RefObject } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -39,7 +39,6 @@ vi.mock('../summaries/ProviderGateDialogs', () => ({
   ProviderGateDialogs: () => null,
   ProviderUnavailableNotice: () => null,
 }));
-vi.mock('../transcription/RetranscribeControl', () => ({ RetranscribeControl: () => null }));
 
 const A = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -56,6 +55,10 @@ interface Fake {
   renameStatus: string;
   clipboard: string[];
   failLoad: boolean;
+  hasAudio: boolean;
+  availability: 'Available' | 'NoAudio' | 'Busy';
+  run: { isRunning: boolean; meetingId: string | null; status: string };
+  lastResults: { meetingId: string; outcome: string; message: string | null }[];
   delay: Record<string, Promise<void> | undefined>;
 }
 
@@ -73,6 +76,10 @@ function install(init: Partial<Fake> = {}): Fake {
     renameStatus: 'renamed',
     clipboard: [],
     failLoad: false,
+    hasAudio: true,
+    availability: 'Available',
+    run: { isRunning: false, meetingId: null, status: '' },
+    lastResults: [],
     delay: {},
     ...init,
   };
@@ -94,7 +101,7 @@ function install(init: Partial<Fake> = {}): Fake {
         return {
           record: title === undefined || title === null ? null : { id, title },
           hasTranscript: true,
-          hasAudio: true,
+          hasAudio: fake.hasAudio,
         };
       }
       case 'session.rename': {
@@ -103,6 +110,12 @@ function install(init: Partial<Fake> = {}): Fake {
         }
         return { status: fake.renameStatus };
       }
+      case 'retranscription.availability':
+        return { availability: fake.availability };
+      case 'retranscription.getState':
+        return { ...fake.run, lastResults: fake.lastResults };
+      case 'retranscription.dismiss':
+        return { dismissed: true };
       case 'session.revealFile':
         return { revealed: fake.revealed };
       case 'summaries.writeClipboard':
@@ -368,6 +381,74 @@ describe('SessionRoute', () => {
       await screen.findByRole('heading', { level: 1 });
       await userEvent.click(screen.getByTestId('BtnSessionOpenLocation'));
       expect(await screen.findByText(/could not open/i)).toBeTruthy();
+    });
+  });
+
+  describe('re-transcribe in the header', () => {
+    it('puts the button in the header actions only when the meeting has audio (89)', async () => {
+      install({ hasAudio: false });
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      expect(screen.queryByTestId('BtnSessionRetranscribe')).toBeNull();
+      cleanup();
+      install();
+      mount();
+      const heading = await screen.findByRole('heading', { level: 1 });
+      const header = heading.closest('header');
+      if (header === null) throw new Error('the title is not inside the header');
+      expect(await within(header).findByTestId('BtnSessionRetranscribe')).toBeEnabled();
+    });
+
+    it('disables rename while this meeting is being re-transcribed, not for another one (B4)', async () => {
+      const fake = install({
+        run: { isRunning: true, meetingId: A, status: 'Transcribing audio... 3%' },
+        availability: 'Busy',
+      });
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      await waitFor(() => {
+        expect(screen.getByTestId('BtnSessionRename')).toBeDisabled();
+      });
+      expect(await screen.findByTestId('TextSessionRetranscribeStatus')).toHaveTextContent('3%');
+      cleanup();
+      fake.run = { isRunning: true, meetingId: B, status: 'x' };
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      await waitFor(() => {
+        expect(screen.getByTestId('BtnSessionRename')).toBeEnabled();
+      });
+      expect(screen.queryByTestId('TextSessionRetranscribeStatus')).toBeNull();
+    });
+
+    it('shows the kept result when the page opens after the run ended elsewhere (B7)', async () => {
+      install({ lastResults: [{ meetingId: A, outcome: 'Completed', message: null }] });
+      mount();
+      expect(await screen.findByTestId('InfoSessionRetranscribeNotice')).toHaveTextContent(
+        'Re-transcribed.',
+      );
+    });
+
+    it('re-reads the record and both tabs after a run ends (143, 22)', async () => {
+      const fake = install();
+      mount();
+      await screen.findByRole('heading', { level: 1 });
+      const before = fake.calls.filter((c) => c.name === 'session.getView').length;
+      const stub = screen.getByTestId('transcript-stub');
+      act(() => {
+        fake.emit('retranscription.finished', {
+          meetingId: A,
+          outcome: 'Completed',
+          message: null,
+        });
+      });
+      await waitFor(() => {
+        expect(fake.calls.filter((c) => c.name === 'session.getView').length).toBeGreaterThan(
+          before,
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('transcript-stub')).not.toBe(stub);
+      });
     });
   });
 });
