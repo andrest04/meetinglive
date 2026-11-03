@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "computedHash": "88c64dead9bb55925c7b983f5fd95cfecf30bd8c076fd384cdb17019d1becd87"
+    },
     "analyzing-dotnet-performance": {
       "source": "dotnet/skills",
       "sourceType": "github",
@@ -43,17 +49,35 @@
       "skillPath": "plugins/dotnet-diag/skills/dump-collect/SKILL.md",
       "computedHash": "8ebf8877ca6f36f6580109334b2c9f166be5b12db95fdf367c551986156f87c7"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
+    },
     "msbuild-antipatterns": {
       "source": "dotnet/skills",
       "sourceType": "github",
       "skillPath": "plugins/dotnet-msbuild/skills/msbuild-antipatterns/SKILL.md",
       "computedHash": "5b7d4fb842b91370877740700d0a020d8e053a96c78a9078714b165bac5d2b20"
     },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "sourceType": "github",
+      "skillPath": "playwright-best-practices/SKILL.md",
+      "computedHash": "88623575c97314e115f0e361a7d942e31d3b7a4e8925832257e1ad33f52096e4"
+    },
     "run-tests": {
       "source": "dotnet/skills",
       "sourceType": "github",
       "skillPath": "plugins/dotnet-test/skills/run-tests/SKILL.md",
       "computedHash": "c2bc0e61c3c18d93d416283c91e70e8a05f8f73aca02bb8e3c4cd6f204a2cfdf"
+    },
+    "rust-best-practices": {
+      "source": "apollographql/skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust-best-practices/SKILL.md",
+      "computedHash": "5f050929b5b62c8c847b75955d7d773be9dc649d03778e6e94cd8db1101fb674"
     },
     "test-anti-patterns": {
       "source": "dotnet/skills",
@@ -66,6 +90,12 @@
       "sourceType": "github",
       "skillPath": "plugins/dotnet-test/skills/test-gap-analysis/SKILL.md",
       "computedHash": "51bd4f434d68e8a2fb5081f49df73963e3d37463fc4f0a03c37d76e73e632cf7"
+    },
+    "vitest": {
+      "source": "antfu/skills",
+      "sourceType": "github",
+      "skillPath": "skills/vitest/SKILL.md",
+      "computedHash": "b26b7f8d10e860e944e0334c003207771707c4906514cb96c971faae13fba875"
     },
     "winui-code-review": {
       "source": "microsoft/win-dev-skills",

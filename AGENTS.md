@@ -6,6 +6,10 @@ This file provides guidance to AI coding agents (Claude Code, GitHub Copilot, Op
 
 The product is named **Vozella**. Internal names (namespaces, projects, package identity, data folders) intentionally remain `MeetingLive`; do not rename them, because that can orphan user data or Windows consent.
 
+## Electron port
+
+`apps/desktop`, `packages/*`, and `native/*` are the Electron port of this app. For those paths, follow `docs/port/stack.md`; the WinUI skill routing and the "Playwright does not apply" rule below cover only `MeetingLive.*`. Load these from `.atl/skill-registry.md` as they apply: `frontend-design`, `accessibility`, `vitest`, `playwright-best-practices`, `rust-best-practices`, `design-patterns`, `work-unit-commits`.
+
 ## Hard gate: every change MUST go through skills
 
 This is not optional. **Do not write, edit, test, review, package, or ship MeetingLive code without first loading the matching `SKILL.md` files.** Ad-hoc implementation is a quality failure.

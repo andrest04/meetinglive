@@ -38,3 +38,6 @@ Thumbs.db
 
 ## CodeGraph local index (per-machine SQLite; not source)
 .codegraph/
+
+## Agent skill symlinks
+.claude/skills/
