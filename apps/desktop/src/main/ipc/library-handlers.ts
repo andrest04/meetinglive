@@ -16,6 +16,7 @@ import {
   libraryUpdateFolderPersonality,
   settingsGet,
   settingsUpdate,
+  workspaceCallPromptOffered,
   workspaceChanged,
   workspaceDispatch,
   workspaceGetState,
@@ -57,6 +58,9 @@ export function bridgeWorkspace(workspace: Workspace, broadcast: Broadcast): () 
     }),
     workspace.on('takeNotesRequested', () => {
       broadcast(workspaceTakeNotesRequested, {});
+    }),
+    workspace.on('callPromptOffered', () => {
+      broadcast(workspaceCallPromptOffered, {});
     }),
   ];
   return () => {
