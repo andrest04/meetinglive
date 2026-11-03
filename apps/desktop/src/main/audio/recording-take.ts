@@ -17,6 +17,17 @@ export interface RecordingTakesDeps {
   readonly nowMs: () => number;
   readonly wavDurationSeconds: (file: string) => number;
   readonly logger: Logger;
+  /**
+   * The live transcript pass (transcription module). It starts after the capture is running and
+   * stops with the take; its draft is kept for the recording module's pipeline.
+   */
+  readonly live?: LivePass;
+}
+
+export interface LivePass {
+  start(recordedAtMs: number): Promise<unknown>;
+  /** The draft transcript, or null when there is none. */
+  stop(): Promise<string | null>;
 }
 
 export type StartOutcome =
@@ -61,11 +72,18 @@ export class RecordingTakes {
   private pausedMs = 0;
   private pausedAt: number | null = null;
   private picked: PickedFile | null = null;
+  /** The live transcript of the take that just ended, for the recording module's pipeline. */
+  private liveDraft: string | null = null;
 
   constructor(private readonly deps: RecordingTakesDeps) {}
 
   get busy(): boolean {
     return this.phase !== 'idle';
+  }
+
+  /** The draft the live pass left at the last Stop; null when there was none. */
+  get lastLiveDraft(): string | null {
+    return this.liveDraft;
   }
 
   async start(title: string, microphone: MicrophoneChoiceDto): Promise<StartOutcome> {
@@ -80,7 +98,9 @@ export class RecordingTakes {
       this.recordedAtMs = recordedAtMs;
       this.pausedMs = 0;
       this.pausedAt = null;
+      this.liveDraft = null;
       await this.deps.controller.startRecording(file, microphone);
+      await this.startLive(recordedAtMs);
       this.phase = 'recording';
       return { started: true, recordedAtMs };
     } catch (error) {
@@ -120,8 +140,42 @@ export class RecordingTakes {
       error = messageOf(caught);
       this.deps.logger.warn('stopping the recording failed', { error });
     }
+    await this.stopLive();
     this.reset();
     return { ...outcome, pausedSeconds, error };
+  }
+
+  /**
+   * Spec 2.3: if the live pass cannot start, the capture is stopped and the take fails with the
+   * message, so the page can say so and the microphone preview can come back.
+   */
+  private async startLive(recordedAtMs: number): Promise<void> {
+    const live = this.deps.live;
+    if (!live) return;
+    try {
+      await live.start(recordedAtMs);
+    } catch (error) {
+      try {
+        await this.deps.controller.stop();
+      } catch (stopError) {
+        this.deps.logger.warn('stopping the capture after a live failure failed', {
+          error: messageOf(stopError),
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async stopLive(): Promise<void> {
+    if (!this.deps.live) return;
+    try {
+      this.liveDraft = await this.deps.live.stop();
+    } catch (error) {
+      this.deps.logger.warn('the live transcript did not stop cleanly', {
+        error: messageOf(error),
+      });
+      this.liveDraft = null;
+    }
   }
 
   /** Remembers the file the user picked; `importPicked` takes it once. */

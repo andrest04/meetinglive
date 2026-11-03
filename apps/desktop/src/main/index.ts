@@ -10,14 +10,11 @@ import {
   type PayloadInputOf,
   type ThemePreference,
 } from '@vozella/contracts';
+import { MeetingBusyRegistry, Workspace, type HardwareProbe } from '@vozella/core';
 import {
-  FakeModelStore,
-  FakeRuntimeStore,
-  MeetingBusyRegistry,
-  Workspace,
-  type HardwareProbe,
-} from '@vozella/core';
-import {
+  fakeEngineOptionsFromEnv,
+  SteppedModelStore,
+  SteppedRuntimeStore,
   FakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
@@ -454,6 +451,11 @@ function main(): void {
         nowMs: () => Date.now(),
         wavDurationSeconds: readWavDurationSeconds,
         logger: logger.child('recording'),
+        // The transcription controller is built below; the take only calls it later.
+        live: {
+          start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
+          stop: () => transcriptionController.stopLive(),
+        },
       }),
       appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
       pickAudioFile: async (extensions) => {
@@ -481,7 +483,15 @@ function main(): void {
       hardware: () => hardware.detect(),
       logger: logger.child('transcription'),
       ...(fakeNative
-        ? { stores: { models: new FakeModelStore(), runtimes: new FakeRuntimeStore() } }
+        ? {
+            stores: (() => {
+              const options = fakeEngineOptionsFromEnv(process.env);
+              return {
+                models: new SteppedModelStore(options),
+                runtimes: new SteppedRuntimeStore(options),
+              };
+            })(),
+          }
         : {}),
     });
     const transcriptionController = new TranscriptionController({

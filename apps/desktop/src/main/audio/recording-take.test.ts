@@ -28,7 +28,14 @@ afterEach(() => {
   fs.rmSync(path.dirname(inbox), { recursive: true, force: true });
 });
 
-function setup(overrides: Partial<TakeController> = {}, duration = 12.5) {
+function setup(
+  overrides: Partial<TakeController> = {},
+  duration = 12.5,
+  live?: {
+    start: (recordedAtMs: number) => Promise<void>;
+    stop: () => Promise<string | null>;
+  },
+) {
   const controller = {
     startRecording: vi.fn((file: string, _mic: MicrophoneChoiceDto) => {
       fs.writeFileSync(file, 'wav');
@@ -49,6 +56,7 @@ function setup(overrides: Partial<TakeController> = {}, duration = 12.5) {
     nowMs: () => clock,
     wavDurationSeconds: () => duration,
     logger,
+    ...(live ? { live } : {}),
   });
   return { takes, controller };
 }
@@ -180,6 +188,62 @@ describe('RecordingTakes', () => {
       takes.rememberPick({ path: 'x.mp3', recordedAtMs: clock });
       expect(await takes.importPicked('b')).toMatchObject({ imported: true });
       expect(await takes.importPicked('b')).toMatchObject({ imported: false });
+    });
+  });
+
+  describe('live transcription', () => {
+    it('starts the live pass after the capture and stops it with the take', async () => {
+      const order: string[] = [];
+      const live = {
+        start: vi.fn(() => {
+          order.push('live-start');
+          return Promise.resolve();
+        }),
+        stop: vi.fn(() => {
+          order.push('live-stop');
+          return Promise.resolve('draft');
+        }),
+      };
+      const { takes, controller } = setup(
+        {
+          startRecording: vi.fn((file: string) => {
+            order.push('capture');
+            fs.writeFileSync(file, 'wav');
+            return Promise.resolve({} as never);
+          }),
+        },
+        12.5,
+        live,
+      );
+      await takes.start('T', mic);
+      await takes.stop();
+      expect(order).toEqual(['capture', 'live-start', 'live-stop']);
+      expect(live.start).toHaveBeenCalledWith(clock);
+      expect(controller.stop).toHaveBeenCalled();
+    });
+
+    it('stops the capture and reports the failure when the live pass cannot start', async () => {
+      const live = {
+        start: vi.fn(() => Promise.reject(new Error('model failed to load'))),
+        stop: vi.fn(() => Promise.resolve(null)),
+      };
+      const { takes, controller } = setup({}, 12.5, live);
+      const result = await takes.start('T', mic);
+      expect(result).toEqual({ started: false, code: null, message: 'model failed to load' });
+      expect(controller.stop).toHaveBeenCalledTimes(1);
+      expect(takes.busy).toBe(false);
+    });
+
+    it('still ends the take when the live pass fails to stop', async () => {
+      const live = {
+        start: vi.fn(() => Promise.resolve()),
+        stop: vi.fn(() => Promise.reject(new Error('boom'))),
+      };
+      const { takes } = setup({}, 12.5, live);
+      await takes.start('T', mic);
+      const result = await takes.stop();
+      expect(result.error).toBeNull();
+      expect(takes.busy).toBe(false);
     });
   });
 });
