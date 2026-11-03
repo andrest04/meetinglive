@@ -96,12 +96,12 @@ export function renderMeetingMarkdown(record: MeetingRecord): string {
   );
 
   let out = '---\n';
-  out += `id: ${record.id}\n`;
+  out += `id: ${parseGuid(record.id) ?? record.id}\n`;
   out += `title: ${oneLine(record.title)}\n`;
-  out += `recordedAt: ${record.recordedAt}\n`;
-  if (record.endedAt) out += `endedAt: ${record.endedAt}\n`;
+  out += `recordedAt: ${normalizeOffsetDate(record.recordedAt) ?? record.recordedAt}\n`;
+  if (record.endedAt) out += `endedAt: ${normalizeOffsetDate(record.endedAt) ?? record.endedAt}\n`;
   out += `audioFilePath: ${oneLine(record.audioFilePath)}\n`;
-  if (record.folderId) out += `folderId: ${record.folderId}\n`;
+  if (record.folderId) out += `folderId: ${parseGuid(record.folderId) ?? record.folderId}\n`;
   if (record.summaryProvider) out += `summaryProvider: ${oneLine(record.summaryProvider)}\n`;
   const optional: readonly (readonly [string, string | null])[] = [
     ['calendarEventId', record.calendarEventId],

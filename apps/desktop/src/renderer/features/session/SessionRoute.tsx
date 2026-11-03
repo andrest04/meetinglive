@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router';
 import type { MeetingRecordDto } from '@vozella/contracts';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -33,8 +32,14 @@ export function SessionRoute() {
 
   return (
     <section className="flex flex-col gap-5">
-      <Link
-        to="/library"
+      <button
+        type="button"
+        onClick={() => {
+          // Pages ask the workspace to navigate; the shell is the only listener that does.
+          void window.vozella.invoke('workspace.dispatch', {
+            action: { type: 'navigateTo', tag: 'History' },
+          });
+        }}
         className={cn(
           'inline-flex h-7 w-fit items-center gap-1.5 rounded-control pe-2 ps-1.5 text-ui-lg text-ink-muted',
           'transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink',
@@ -42,7 +47,7 @@ export function SessionRoute() {
       >
         <Icon icon={ArrowLeft} size={14} />
         {t('SessionPage_Back.AutomationProperties.Name')}
-      </Link>
+      </button>
       {meeting === undefined ? null : meeting === null ? (
         <p className="text-read text-ink-muted">{t('SessionPage_Empty.Text')}</p>
       ) : (

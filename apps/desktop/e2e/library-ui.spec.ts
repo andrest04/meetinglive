@@ -78,7 +78,7 @@ test('browse, search, open a meeting and its summary', async () => {
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Standup' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
   const row = page.getByRole('listitem').filter({ hasText: 'Planning' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Open summary' }).click();

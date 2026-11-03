@@ -65,6 +65,17 @@ describe('basics', () => {
     expect(await fx.folders.getAll()).toEqual([]);
   });
 
+  it('71: delete does not look at child folders or filed meetings', async () => {
+    const child = '0b8e6f31-5c2a-4d77-9e10-aa11bb22cc33';
+    await fx.folders.save(folder(FOLDER_1, 'Universidad'));
+    await fx.folders.save(folder(child, 'Calculo', FOLDER_1));
+    await fx.folders.delete(FOLDER_1);
+    const left = await fx.folders.getAll();
+    expect(left.map((f) => f.id)).toEqual([child]);
+    // The child directory is on disk, so the parent directory stays too.
+    expect(fs.existsSync(path.join(fx.root, 'Universidad', 'Calculo'))).toBe(true);
+  });
+
   it('delete of a folder that is gone does nothing, not even a write', async () => {
     await fx.folders.delete(FOLDER_1);
     expect(fs.existsSync(fx.paths.foldersFilePath)).toBe(false);

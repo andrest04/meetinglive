@@ -309,6 +309,33 @@ describe('runStartupMigrations', () => {
     expect(fs.existsSync(fx.paths.meetingsFilePath)).toBe(true);
   });
 
+  it('141: a failure in the layout step skips the legacy meetings.json step', async () => {
+    put(path.join(fx.paths.meetingsDirectory, `${ID_A}.md`), renderMeetingMarkdown(meeting()));
+    put(
+      fx.paths.meetingsFilePath,
+      JSON.stringify([
+        { id: ID_B, title: 'Json', recordedAt: '2026-08-30T10:00:00Z', audioFilePath: '' },
+      ]),
+    );
+    const broken = Object.create(fx.meetings) as typeof fx.meetings;
+    broken.save = () => Promise.reject(new Error('disk full'));
+    const result = await runStartupMigrations({ ...deps(), meetings: broken });
+    expect(result.error).toBe('disk full');
+    // Step 3 never ran: the json file is still there and was not imported.
+    expect(fs.existsSync(fx.paths.meetingsFilePath)).toBe(true);
+    expect((await fx.meetings.list()).items.map((i) => i.id)).not.toContain(ID_B);
+  });
+
+  it('149: a user folder named Meetings lives in "Meetings folder" and its meetings are not legacy', async () => {
+    await fx.folders.save(folder(FOLDER_1, 'Meetings'));
+    await fx.meetings.save(meeting({ folderId: FOLDER_1 }));
+    const before = tree(fx.root);
+    expect(before).toContain('Meetings folder/2026-09-01 Standup.md');
+    await migrateLibraryLayout(deps());
+    expect(tree(fx.root)).toEqual(before);
+    expect((await fx.meetings.locate(ID_A)).map((c) => c.legacy)).toEqual([false]);
+  });
+
   it('is idempotent', async () => {
     put(
       path.join(fx.paths.legacyMeetingsDirectory, `${ID_A}.md`),

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import fsp from 'node:fs/promises';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderMeetingMarkdown } from '@vozella/core';
 import {
   FOLDER_1,
@@ -19,6 +20,7 @@ beforeEach(() => {
   fx = createLibraryFixture();
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   fx.cleanup();
 });
 
@@ -161,6 +163,39 @@ describe('moving and renaming', () => {
   });
 });
 
+describe('blank audioFilePath and replacing a destination', () => {
+  it('item 53: a blank audioFilePath takes the sibling wav of the existing markdown along', async () => {
+    const first = await fx.meetings.save(meeting());
+    const wav = (first.sourcePath ?? '').replace(/\.md$/, '.wav');
+    fs.writeFileSync(wav, 'RIFF');
+    await fx.meetings.save({ ...first, audioFilePath: '', title: 'Retro' });
+    expect(tree(fx.root)).toEqual(['Inbox/2026-09-01 Retro.md', 'Inbox/2026-09-01 Retro.wav']);
+    await fx.folders.save(folder(FOLDER_1, 'Universidad'));
+    const again = (await fx.meetings.get(ID_A))!;
+    await fx.meetings.save({ ...again, audioFilePath: '', folderId: FOLDER_1 });
+    expect(tree(fx.root)).toContain('Universidad/2026-09-01 Retro.wav');
+    expect(tree(fx.root)).not.toContain('Inbox/2026-09-01 Retro.wav');
+  });
+
+  it('item 54: a file already at the destination is replaced by the moved recording', async () => {
+    const source = path.join(fx.dir, 'elsewhere.wav');
+    fs.writeFileSync(source, 'NEW');
+    const destination = path.join(fx.root, 'Inbox', '2026-09-01 Standup.wav');
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, 'OLD-OF-ANOTHER');
+    // The destination wav belongs to nobody, so the stem is taken and the save allocates " 2".
+    const saved = await fx.meetings.save(meeting({ audioFilePath: source }));
+    expect(fs.readFileSync(destination, 'utf8')).toBe('OLD-OF-ANOTHER');
+    expect(fs.readFileSync(saved.audioFilePath, 'utf8')).toBe('NEW');
+    // Re-saving to a stem whose wav is the meeting's own, with a different source, replaces it.
+    const other = path.join(fx.dir, 'newer.wav');
+    fs.writeFileSync(other, 'NEWER');
+    const again = await fx.meetings.save({ ...saved, audioFilePath: other });
+    expect(fs.existsSync(other)).toBe(false);
+    expect(fs.readFileSync(again.audioFilePath, 'utf8')).toBe('NEWER');
+  });
+});
+
 describe('delete', () => {
   it('removes the markdown and the wav', async () => {
     const first = await fx.meetings.save(meeting());
@@ -255,6 +290,44 @@ describe('list', () => {
     const { items, skipped } = await fx.meetings.list();
     expect(items.map((i) => i.id)).toEqual([ID_A]);
     expect(skipped.map((s) => path.basename(s.path)).sort()).toEqual(['bad-jev.md', 'broken.md']);
+  });
+
+  it('item 47: a file that cannot be read right now is skipped with its code, the rest still list', async () => {
+    await fx.meetings.save(meeting());
+    write(
+      'Inbox/locked.md',
+      '---\nid: ' + ID_B + '\ntitle: L\nrecordedAt: 2026-09-01T12:00:00Z\n---\n',
+    );
+    const real = fsp.readFile.bind(fsp);
+    for (const code of ['EBUSY', 'EACCES', 'EPERM', 'ENOENT']) {
+      vi.spyOn(fsp, 'readFile').mockImplementation(((file: string, ...rest: unknown[]) =>
+        file.endsWith('locked.md')
+          ? Promise.reject(Object.assign(new Error(code), { code }))
+          : (real as (...a: unknown[]) => Promise<unknown>)(file, ...rest)) as typeof fsp.readFile);
+      const { items, skipped } = await fx.meetings.list();
+      expect(items.map((i) => i.id)).toEqual([ID_A]);
+      expect(skipped.map((s) => path.basename(s.path))).toEqual(['locked.md']);
+      expect(skipped[0]?.reason).toBe(code);
+      vi.restoreAllMocks();
+    }
+    // Once readable again, it appears (an unreadable file is never cached).
+    expect((await fx.meetings.list()).items.map((i) => i.id).sort()).toEqual([ID_A, ID_B]);
+  });
+
+  it('B19 and B28: a second list re-reads no unchanged file and no transcript', async () => {
+    await fx.meetings.save(meeting({ transcript: 'T'.repeat(500) }));
+    await fx.meetings.save(meeting({ id: ID_B, title: 'Second', summary: 'S' }));
+    await fx.meetings.list();
+    const target = (await fx.meetings.get(ID_B))?.sourcePath ?? '';
+    const spy = vi.spyOn(fsp, 'readFile');
+    const second = await fx.meetings.list();
+    expect(second.items).toHaveLength(2);
+    expect(spy).not.toHaveBeenCalled();
+    // A changed file is the only one re-read.
+    await new Promise((r) => setTimeout(r, 15));
+    fs.writeFileSync(target, fs.readFileSync(target, 'utf8') + '\n');
+    await fx.meetings.list();
+    expect(spy.mock.calls.map((c) => c[0] as string)).toEqual([target]);
   });
 
   it('picks up files changed outside the app', async () => {

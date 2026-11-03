@@ -146,6 +146,9 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
       if (firstLoad) setIsLoading(true);
       try {
         await persistNote();
+        // What the user had typed when the load began: a character typed while the load is in
+        // flight must survive the reply (B16).
+        const typedAtStart = noteRef.current;
         const result = await window.vozella.invoke('library.load', {});
         if (seq !== loadSeq.current) return;
         if (!result.ok) {
@@ -168,7 +171,9 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
         }
         // The save above made the stored note match the text box, so only a different folder or
         // an outside edit changes it; never rewrite what the user is typing.
-        if (noteRef.current.trim() !== noteOf(folder).trim()) setNoteText(noteOf(folder));
+        if (noteRef.current === typedAtStart && noteRef.current.trim() !== noteOf(folder).trim()) {
+          setNoteText(noteOf(folder));
+        }
         // Only widen: the expansion the user chose stays (B14).
         const ancestors = expandedAncestors(result.folders, next);
         setExpandedIds((current) => new Set([...current, ...ancestors]));
@@ -194,10 +199,16 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   useEffect(() => {
     const live = { current: true };
     void (async () => {
-      const state = await window.vozella.invoke('workspace.getState', {});
+      let restored: string | null = null;
+      try {
+        const state = await window.vozella.invoke('workspace.getState', {});
+        restored = state.selectedFolderId;
+      } catch {
+        // No saved selection: open on the Inbox rather than leaving the skeleton up.
+      }
       if (!live.current) return;
-      selectedRef.current = state.selectedFolderId;
-      await refresh(state.selectedFolderId, true);
+      selectedRef.current = restored;
+      await refresh(restored, true);
     })();
     const offChanged = window.vozella.on('library.changed', () => {
       void refresh();

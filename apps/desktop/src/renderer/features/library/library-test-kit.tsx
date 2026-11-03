@@ -66,7 +66,7 @@ export const folderRecord = (
  * A `window.vozella` backed by the real Library service over in-memory repositories and the
  * real workspace hub, so page tests exercise the same rules the main process applies.
  */
-export function installFakeApi() {
+export function installFakeApi(options: { startupError?: string | null } = {}) {
   const meetings = new InMemoryMeetingRepository();
   const folders = new InMemoryFolderRepository();
   const busy = new MeetingBusyRegistry();
@@ -93,7 +93,7 @@ export function installFakeApi() {
       case 'library.load':
         return service.load();
       case 'library.getLocation':
-        return { startupError: null };
+        return { startupError: options.startupError ?? null };
       case 'library.createFolder': {
         const result = await service.createFolder(input as never);
         if (result.ok) emit('library.changed', { reason: 'folder' });

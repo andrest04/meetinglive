@@ -76,7 +76,7 @@ export function MeetingList({
               >
                 <span className="flex items-baseline justify-between gap-4">
                   <span className="truncate text-read font-medium text-ink">{meeting.title}</span>
-                  <span className="shrink-0 font-mono text-caption text-ink-faint">
+                  <span className="shrink-0 text-caption tabular-nums text-ink-faint">
                     {formatMeetingDate(meeting.recordedAt, locale)}
                   </span>
                 </span>

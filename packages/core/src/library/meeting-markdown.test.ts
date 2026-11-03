@@ -171,6 +171,38 @@ describe('render', () => {
     expect(text.endsWith('"analyzedAt":"2026-09-01T13:00:00\\u002B00:00"}\n')).toBe(true);
   });
 
+  it('writes the id lowercase and the dates in round-trip form whatever the caller passed (item 14)', () => {
+    const text = renderMeetingMarkdown(
+      meeting({
+        id: 'ABCDEF12-1111-4111-8111-ABCDEFABCDEF',
+        recordedAt: '2026-09-01T12:00:00Z',
+        endedAt: '2026-09-01T13:00:00.5+00:00',
+        folderId: '7D1E0A52-33C4-4F6B-8A90-0C1D2E3F4A5B',
+      }),
+    );
+    expect(text).toContain('id: abcdef12-1111-4111-8111-abcdefabcdef\n');
+    expect(text).toContain('recordedAt: 2026-09-01T12:00:00.0000000+00:00\n');
+    expect(text).toContain('endedAt: 2026-09-01T13:00:00.5000000+00:00\n');
+    expect(text).toContain('folderId: 7d1e0a52-33c4-4f6b-8a90-0c1d2e3f4a5b\n');
+  });
+
+  it('skips whitespace-only brief, follow-up, plan, optional fields and an empty provider (items 16, 17, 22)', () => {
+    const text = renderMeetingMarkdown(
+      meeting({
+        brief: '  ',
+        followUp: '\n',
+        projectPlan: ' \t ',
+        calendarEventId: ' ',
+        calendarId: '\n',
+        seriesId: '  ',
+        joinUrl: ' ',
+        noteTemplateId: '\t',
+        summaryProvider: '',
+      }),
+    );
+    expect(text).toBe(renderMeetingMarkdown(meeting()));
+  });
+
   it('skips whitespace-only sections consistently (B21)', () => {
     const text = renderMeetingMarkdown(meeting({ transcript: '   \n', summary: '\n', notes: ' ' }));
     expect(text).not.toContain('## Transcript');

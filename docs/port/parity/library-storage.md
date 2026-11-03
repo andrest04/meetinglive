@@ -341,3 +341,25 @@ Not changed, on purpose: B4 (kept, now reported), B23 (same order as the WinUI a
 - Fixed: the folder notes box kept `resize-y` and `min-h-16` because `cn` does not merge Tailwind classes; it is now a borderless auto-sized single line without a grip.
 - Fixed: screenshots in `docs/port/screens/library-storage/` regenerated from the current build (20px page title, borderless note, version 1.0.0).
 - Not a Library defect: items 113, 117 and 118 depend on the Session module; 155 and 156 stay unverified.
+
+## Third audit round decisions
+
+Fixed, with tests:
+
+- B16 typing race: `refresh()` no longer overwrites the note box with the stored note when the user typed while `library.load` was in flight (`use-library.ts` compares the text at load start). Test: `LibraryRoute.audit.test.tsx` (a character typed during the reload after an autosave is kept).
+- #96: a rejecting `workspace.getState` no longer leaves the skeleton up; the page opens on Inbox. Tests added for the skeleton, the hidden body and the rejection.
+- #14: `renderMeetingMarkdown` now writes the id and folderId lowercase and the dates in round-trip form (seven fraction digits), whatever the caller passed; unparseable text is written unchanged. Test in `meeting-markdown.test.ts`.
+- Tests added only (behavior already correct): #16/#17/#22 (whitespace-only sections, optional fields, empty provider), #53 (blank audioFilePath takes the sibling WAV), #54 (a file at the destination is replaced), #47 (EBUSY, EACCES, EPERM, ENOENT skipped with their code, never cached), B19 and B28 (a second list reads no file; a changed file is the only one re-read), #78 (all eight accent tokens in the four token blocks), #77 (18 distinct icons, unset draws the folder), #71 (delete ignores children), #84/B14, #85, #87, #97, #117, #123, #141 (a layout-step failure skips the meetings.json step; the startup error notice is rendered).
+- Design: meeting dates use the proportional face with tabular numbers, not the mono face (reverses the earlier rejection). The Session placeholder Back control now dispatches `navigateTo('History')` through the workspace instead of a router link. Screenshots were not regenerated.
+
+Still pending-real-validation, not provable here:
+
+- #110: `e2e/library-close.spec.ts` gained a test that posts WM_CLOSE (what the title bar X sends) to the app's windows. In this agent session no top-level window was reachable (0 windows enumerated), so that test skipped itself and the real button close was not observed. The earlier `BrowserWindow.close()` test passes.
+- #155 and #156: still need the real WinUI app and a library it wrote. The data-safety rules forbid reading the user's folder and no C#-generated sample library exists in the repo.
+
+Rejected:
+
+- #149: a WinUI library cannot hold a user folder directory named Meetings or Recordings. The folder name rules (`names.ts`, ported from C#) store such a folder as "Meetings folder" or "Recordings folder", so the legacy-dump test by directory name is the same as the C# one (`MarkdownMeetingRepository.cs:155`). Added a test that such a folder stays out of the layout migration.
+- Jev leniency: a wrong-typed Jev property reads as its default and the file is kept, where System.Text.Json would drop the file. Deliberate: losing a whole meeting over one bad property is worse. Only invalid JSON or a non-object root is a format error.
+- meetings.json keys are read with exact case. Files written by the app always use the written case; not changed.
+- Remaining design notes (outline weight of buttons and the search field, dark Cancel weight, popover pointer) and the minor proof gaps for #80, #82 and #88 are left as they are: low severity, no user to ask.
