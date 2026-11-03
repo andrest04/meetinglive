@@ -6,6 +6,7 @@ use napi_derive::napi;
 pub mod audio;
 pub mod calendar;
 pub mod dpapi;
+pub mod windows_scan;
 
 /// True when this build can capture audio, read calendars and use DPAPI.
 #[napi]

@@ -14,6 +14,8 @@ export * from './logging/rotating-file-logger';
 export * from './native/addon';
 export * from './native/create-native-ports';
 export * from './native/native-adapters';
+export * from './native/window-scanner';
+export * from './fakes/fake-window-scanner';
 export * from './fs/atomic-write';
 export * from './fs/keyed-mutex';
 export * from './library/ensure-directories';

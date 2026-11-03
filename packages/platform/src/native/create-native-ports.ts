@@ -7,6 +7,7 @@ import type {
   MicrophoneDeviceSource,
   OsBuildProbe,
   ProcessInfoProvider,
+  WindowScanPort,
 } from '@vozella/core';
 import { openWavFileDecoder } from '../audio/wav-file-decoder';
 import { FakeAudioCapture } from '../fakes/fake-audio-capture';
@@ -18,6 +19,7 @@ import {
 } from '../fakes/fake-audio-devices';
 import { FakeCalendarProbe } from '../fakes/fake-calendar-probe';
 import { FakeLegacySecret } from '../fakes/fake-legacy-secret';
+import { FakeWindowLister } from '../fakes/fake-window-scanner';
 import { loadNativeAddon } from './addon';
 import {
   NativeAudioCapture,
@@ -27,8 +29,10 @@ import {
   NativeMicrophoneDevices,
   NativeOsBuild,
   NativeProcessInfo,
+  NativeWindowLister,
   openNativeDecoder,
 } from './native-adapters';
+import { WindowScanner } from './window-scanner';
 
 export interface NativePorts {
   readonly backend: 'native' | 'fake';
@@ -42,6 +46,8 @@ export interface NativePorts {
   readonly openDecoder: (path: string) => AudioFileDecoder;
   readonly calendar: CalendarProbePort;
   readonly legacySecret: LegacySecretPort;
+  /** Is any open window a meeting call. A failed scan answers false. */
+  readonly windowScan: WindowScanPort;
 }
 
 export type NativePortsOptions =
@@ -67,6 +73,7 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
       openDecoder: openWavFileDecoder,
       calendar: new FakeCalendarProbe(),
       legacySecret: new FakeLegacySecret(),
+      windowScan: new WindowScanner(new FakeWindowLister()),
     };
   }
   const addon = loadNativeAddon(options.addonPath, options.load);
@@ -81,5 +88,6 @@ export function createNativePorts(options: NativePortsOptions): NativePorts {
     openDecoder: (path) => openNativeDecoder(addon, path),
     calendar: new NativeCalendarProbe(addon),
     legacySecret: new NativeLegacySecret(addon),
+    windowScan: new WindowScanner(new NativeWindowLister(addon), options.onError),
   };
 }

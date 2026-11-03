@@ -71,6 +71,7 @@ export interface NativeAddon {
   windowsBuild(): number;
   openAudioDecoder(path: string): NativeAudioDecoder;
   probeCalendarsAsync(): Promise<NativeCalendarProbeResult>;
+  listTopLevelWindows(): Promise<{ processName: string; title: string }[]>;
   dpapiUnprotect(data: Uint8Array): Uint8Array;
 }
 
@@ -91,6 +92,7 @@ export function loadNativeAddon(addonPath: string, load: (path: string) => unkno
     typeof addon.windowsBuild !== 'function' ||
     typeof addon.openAudioDecoder !== 'function' ||
     typeof addon.probeCalendarsAsync !== 'function' ||
+    typeof addon.listTopLevelWindows !== 'function' ||
     typeof addon.dpapiUnprotect !== 'function'
   ) {
     throw new Error(`native addon at ${addonPath} does not expose the expected API`);

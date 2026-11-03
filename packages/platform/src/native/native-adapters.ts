@@ -18,6 +18,7 @@ import type {
   ProcessInfoProvider,
 } from '@vozella/core';
 import type { NativeAddon, NativeSessionMonitor } from './addon';
+import type { TopLevelWindowInfo, WindowLister } from './window-scanner';
 
 /** Adapter: audio capture through the Rust addon. */
 export class NativeAudioCapture implements AudioCapturePort {
@@ -83,6 +84,15 @@ export class NativeCalendarProbe implements CalendarProbePort {
       calendarCount: r.calendarCount ?? null,
       upcomingEventCount: r.upcomingEventCount ?? null,
     };
+  }
+}
+
+/** Adapter: top-level window listing through the Rust addon (runs off the JS loop). */
+export class NativeWindowLister implements WindowLister {
+  constructor(private readonly addon: NativeAddon) {}
+
+  listWindows(): Promise<readonly TopLevelWindowInfo[]> {
+    return this.addon.listTopLevelWindows();
   }
 }
 
