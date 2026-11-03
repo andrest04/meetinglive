@@ -44,7 +44,7 @@ export function XaiAccount({
   const detail = (() => {
     switch (view.detail.kind) {
       case 'signed-out':
-        return t('Xai_StatusSignedOutDetail');
+        return canSignIn ? t('Xai_StatusSignedOutDetail') : t('Ui_XaiSignedOutApiKeyOnly');
       case 'loading-models':
         return t('Xai_StatusLoadingModels');
       case 'ready':

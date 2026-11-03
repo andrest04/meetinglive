@@ -67,5 +67,8 @@
   "Ui_SpeakerModelFailed": "Las etiquetas de hablante siguen desactivadas.",
   "Ui_SpeakerDeleteFailed": "No se pudo eliminar el modelo de hablantes: {0}",
   "Ui_RetranscribeConfirm": "Al volver a transcribir \"{0}\", se reemplaza su transcripción por una nueva generada a partir del audio guardado. El resumen actual se conserva.",
-  "Ui_SpeakerModel": "Modelo de hablantes"
+  "Ui_SpeakerModel": "Modelo de hablantes",
+  "Ui_RestartRefused": "Vozella no puede reiniciarse mientras hay una grabación en curso. Termínala y vuelve a intentarlo.",
+  "Ui_XaiSignedOutApiKeyOnly": "Pega una clave de API abajo.",
+  "Ui_XaiAccountApiKeyOnly": "Pega una clave de API de console.x.ai. Guardar una nueva reemplaza la anterior."
 }

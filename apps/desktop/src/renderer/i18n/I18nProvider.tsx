@@ -4,7 +4,7 @@ import { reportRendererError } from '../app/error-reporting';
 import { createTranslator, detectLocale, isLocale, type Locale, type Translate } from './translate';
 
 /** Tells the main log about a missing string once per key and locale. */
-function reportMissingOnce(): (key: string, locale: Locale, fallback: 'en' | 'key') => void {
+export function reportMissingOnce(): (key: string, locale: Locale, fallback: 'en' | 'key') => void {
   const seen = new Set<string>();
   return (key, locale, fallback) => {
     const id = locale + ':' + key;

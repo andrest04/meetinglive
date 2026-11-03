@@ -146,13 +146,45 @@ describe('summary model catalog', () => {
     }
   });
 
-  it('carries the catalog keys for speed, quality and use case', () => {
-    const e2b = SUMMARY_MODELS[1];
-    expect(e2b).toMatchObject({
-      speedKey: 'ModelSpeedFast',
-      qualityKey: 'ModelQualityVeryGood',
-      useCaseKey: 'ModelUseCaseRecommendedDefault',
-    });
+  it('pins every URL, size and catalog key', () => {
+    expect(
+      SUMMARY_MODELS.map((m) => [
+        m.downloadUrl,
+        m.fileSizeGb,
+        m.speedKey,
+        m.qualityKey,
+        m.useCaseKey,
+      ]),
+    ).toEqual([
+      [
+        'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+        0.81,
+        'ModelSpeedVeryFast',
+        'ModelQualityGood',
+        'ModelUseCaseModestPcs',
+      ],
+      [
+        'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
+        3.11,
+        'ModelSpeedFast',
+        'ModelQualityVeryGood',
+        'ModelUseCaseRecommendedDefault',
+      ],
+      [
+        'https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf',
+        4.98,
+        'ModelSpeedMedium',
+        'ModelQualityExcellent',
+        'ModelUseCasePc16GbOrGpu',
+      ],
+      [
+        'https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-Q4_K_M.gguf',
+        7.12,
+        'ModelSpeedSlowWithoutGpu',
+        'ModelQualityExcellent',
+        'ModelUseCaseGpuOnly',
+      ],
+    ]);
   });
 
   it('formats the size with the 0.# pattern', () => {

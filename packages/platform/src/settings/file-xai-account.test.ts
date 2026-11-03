@@ -124,4 +124,15 @@ describe('isSummaryChatModel', () => {
       expect(isSummaryChatModel(id), id).toBe(false);
     }
   });
+
+  it('saving a key replaces an OAuth credential', async () => {
+    fs.writeFileSync(
+      file,
+      await cipher.encrypt(JSON.stringify({ kind: 'OAuth', accessToken: 'jwt' })),
+    );
+    const a = account();
+    await a.saveApiKey('xai-new');
+    expect(await a.credentialKind()).toBe('ApiKey');
+    expect(await a.getAccessToken()).toBe('xai-new');
+  });
 });

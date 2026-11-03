@@ -1,4 +1,5 @@
-import { SETTINGS_SECTIONS } from '@vozella/core';
+import { SETTINGS_SECTIONS, type SettingsSectionId } from '@vozella/core';
+import { Fragment, type ReactNode } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
 import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
@@ -47,6 +48,34 @@ export function SettingsRoute() {
     SETTINGS_SECTIONS.filter((section) => section.status === 'built').map((section) => section.id),
   );
 
+  const renderBlock = (id: SettingsSectionId): ReactNode => {
+    if (!page) return null;
+    switch (id) {
+      case 'language':
+        return <LanguageSection current={page.uiLanguage} onChange={model.setUiLanguage} />;
+      case 'summaryProvider':
+        return <ProviderSection page={page} model={model} />;
+      case 'microphone':
+        return <MicrophoneSection />;
+      case 'meetingLanguage':
+        return (
+          <MeetingLanguageSection
+            transcription={page.transcriptionLanguage}
+            summary={page.summaryLanguage}
+            onChange={model.setMeetingLanguage}
+          />
+        );
+      case 'transcription':
+        return <TranscriptionSection />;
+      case 'data':
+      case 'about':
+        // The Data block draws the About rows too.
+        return id === 'data' ? <DataSection /> : null;
+      default:
+        return null;
+    }
+  };
+
   return (
     <section className="flex flex-col gap-8" aria-busy={model.loading}>
       <SectionHeader level={1} quiet title={t('SettingsPage_Title.Text')} />
@@ -60,7 +89,7 @@ export function SettingsRoute() {
       {built.has('appearance') ? <AppearanceSection /> : null}
 
       {page === null && model.loading ? (
-        <SkeletonText lines={6} className="py-3" aria-label={t('Ui_SettingsLoading')} />
+        <SkeletonText lines={6} className="py-3" label={t('Ui_SettingsLoading')} />
       ) : null}
 
       {page === null && model.loadError !== null ? (
@@ -92,22 +121,13 @@ export function SettingsRoute() {
               {t('Ui_SettingsRecovered', notice.keptAs)}
             </Notice>
           ))}
-          {built.has('language') ? (
-            <LanguageSection current={page.uiLanguage} onChange={model.setUiLanguage} />
-          ) : null}
-          {built.has('summaryProvider') ? <ProviderSection page={page} model={model} /> : null}
-          {built.has('microphone') ? <MicrophoneSection /> : null}
-          {built.has('meetingLanguage') ? (
-            <MeetingLanguageSection
-              transcription={page.transcriptionLanguage}
-              summary={page.summaryLanguage}
-              onChange={model.setMeetingLanguage}
-            />
-          ) : null}
-          {built.has('transcription') ? <TranscriptionSection /> : null}
+          {SETTINGS_SECTIONS.map((section) =>
+            section.status === 'built' && section.id !== 'appearance' ? (
+              <Fragment key={section.id}>{renderBlock(section.id)}</Fragment>
+            ) : null,
+          )}
         </div>
       ) : null}
-      {built.has('data') ? <DataSection /> : null}
     </section>
   );
 }

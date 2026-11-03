@@ -33,11 +33,13 @@ const CODEX_KEYS: OptionKeys = {
 
 function CliOptions({
   keys,
+  mark,
   options,
   onModel,
   onEffort,
 }: {
   keys: OptionKeys;
+  mark: 'ClaudeCode' | 'Codex';
   options: SettingsPageDto['claude'];
   onModel: (value: string) => void;
   onEffort: (value: string) => void;
@@ -46,7 +48,12 @@ function CliOptions({
   const items = (list: readonly string[]) => list.map((value) => ({ value, label: value }));
   return (
     <div className="flex flex-col pt-5">
-      <SectionHeader level={3} title={t(keys.header)} description={t(keys.description)} />
+      <SectionHeader
+        level={3}
+        icon={<ProviderMark kind={mark} />}
+        title={t(keys.header)}
+        description={t(keys.description)}
+      />
       <div className="pt-1">
         <SettingRow title={t(keys.model)}>
           <Select
@@ -149,6 +156,7 @@ export function ProviderSection({
       {provider === 'ClaudeCode' ? (
         <CliOptions
           keys={CLAUDE_KEYS}
+          mark="ClaudeCode"
           options={page.claude}
           onModel={(value) => {
             model.setCliOption('claude', 'model', value);
@@ -162,6 +170,7 @@ export function ProviderSection({
       {provider === 'Codex' ? (
         <CliOptions
           keys={CODEX_KEYS}
+          mark="Codex"
           options={page.codex}
           onModel={(value) => {
             model.setCliOption('codex', 'model', value);
@@ -202,7 +211,11 @@ export function ProviderSection({
           <SectionHeader
             level={3}
             title={t('Settings_XaiAccount.Header')}
-            description={t('Settings_XaiAccount.Description')}
+            description={
+              capabilities.xaiSignIn
+                ? t('Settings_XaiAccount.Description')
+                : t('Ui_XaiAccountApiKeyOnly')
+            }
           />
           <div className="pt-1">
             <XaiAccount

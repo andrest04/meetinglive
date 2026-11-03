@@ -542,6 +542,32 @@ describe('XaiAccountService', () => {
     expect(port.tokenCalls).toBe(1);
   });
 
+  it('B12: a refresh that started before a key swap cannot publish its old models', async () => {
+    const { service, port } = xai();
+    port.kind = 'ApiKey';
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    port.listModels = async () => {
+      calls += 1;
+      if (calls === 1) {
+        await gate;
+        return ['old-model'];
+      }
+      return ['new-model'];
+    };
+    const stale = service.refresh();
+    const saving = service.saveApiKey('xai-new');
+    release();
+    await stale;
+    const result = await saving;
+    expect(calls).toBe(2);
+    expect(result).toMatchObject({ status: 'saved', view: { models: ['new-model'] } });
+    expect((await service.status()).models).toEqual(['new-model']);
+  });
+
   it('save key: blank is a no-op, otherwise stores, refreshes and says so', async () => {
     const { service, port } = xai();
     expect(await service.saveApiKey('   ')).toEqual({ status: 'ignored' });

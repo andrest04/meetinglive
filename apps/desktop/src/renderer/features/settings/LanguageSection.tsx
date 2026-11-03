@@ -31,8 +31,9 @@ export function LanguageSection({
     setRestarting(true);
     try {
       const result = await window.vozella.invoke('app.restart', {});
-      // A refused gate (the user kept a recording) leaves everything as it was.
-      if (result.status === 'failed') setProblem(t('Ui_RestartFailed', result.message));
+      // A refused gate (a recording is running) leaves everything as it was, and says so.
+      if (result.status === 'refused') setProblem(t('Ui_RestartRefused'));
+      else if (result.status === 'failed') setProblem(t('Ui_RestartFailed', result.message));
     } catch (error) {
       setProblem(t('Ui_RestartFailed', error instanceof Error ? error.message : String(error)));
     } finally {

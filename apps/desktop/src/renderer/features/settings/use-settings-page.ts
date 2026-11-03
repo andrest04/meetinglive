@@ -45,6 +45,17 @@ export interface SettingsPageModel {
   readonly signInXai: () => Promise<void>;
 }
 
+/**
+ * The last snapshot, kept so a revisit paints it at once and refreshes without the skeleton
+ * (spec 8.4). Only the first visit shows the loading state.
+ */
+let lastPage: SettingsPageDto | null = null;
+
+/** Forgets the kept snapshot (tests, and a data folder change). */
+export function resetSettingsPageCache(): void {
+  lastPage = null;
+}
+
 const without = (map: Readonly<Record<string, number>>, key: string): Record<string, number> =>
   Object.fromEntries(Object.entries(map).filter(([name]) => name !== key));
 
@@ -58,8 +69,8 @@ const messageOf = (error: unknown): string =>
  */
 export function useSettingsPage(): SettingsPageModel {
   const t = useT();
-  const [page, setPage] = useState<SettingsPageDto | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState<SettingsPageDto | null>(lastPage);
+  const [loading, setLoading] = useState(lastPage === null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -97,16 +108,21 @@ export function useSettingsPage(): SettingsPageModel {
     [],
   );
 
+  // Overlapping loads: only the newest request may apply its answer (spec 7.17).
+  const loadSeq = useRef(0);
   const load = useCallback(async (): Promise<void> => {
+    loadSeq.current += 1;
+    const mine = loadSeq.current;
     try {
       const next = await window.vozella.invoke('settings.getPage', {});
-      if (!alive.current) return;
+      if (!alive.current || mine !== loadSeq.current) return;
+      lastPage = next;
       setPage(next);
       setLoadError(null);
     } catch (error) {
-      if (alive.current) setLoadError(messageOf(error));
+      if (alive.current && mine === loadSeq.current) setLoadError(messageOf(error));
     } finally {
-      if (alive.current) setLoading(false);
+      if (alive.current && mine === loadSeq.current) setLoading(false);
     }
   }, []);
 

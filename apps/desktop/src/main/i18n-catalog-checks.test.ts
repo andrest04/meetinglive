@@ -308,3 +308,15 @@ describe('references in the code (item 118, B21)', () => {
     expect(stale).toEqual([]);
   });
 });
+
+describe('the hand written Ui_ strings', () => {
+  it('have the same keys in both locales, none empty, with the same placeholders', () => {
+    expect(Object.keys(uiEs).sort()).toEqual(Object.keys(uiEn).sort());
+    for (const [key, value] of Object.entries(uiEn)) {
+      const spanish = (uiEs as Record<string, string>)[key] ?? '';
+      expect(value.trim(), key).not.toBe('');
+      expect(spanish.trim(), key).not.toBe('');
+      expect(placeholderIndexes(spanish), key).toEqual(placeholderIndexes(value));
+    }
+  });
+});

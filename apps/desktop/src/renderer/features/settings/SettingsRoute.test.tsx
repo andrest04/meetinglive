@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '../../app/theme';
 import { Providers } from '../library/library-test-kit';
 import { SettingsRoute } from './SettingsRoute';
+import { resetSettingsPageCache } from './use-settings-page';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const model = (fileName: string, displayName: string, extra: Record<string, unknown> = {}) => ({
   fileName,
@@ -111,6 +114,7 @@ const mount = () =>
   );
 
 beforeEach(() => {
+  resetSettingsPageCache();
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -407,5 +411,234 @@ describe('Settings page', () => {
     await user.click(await screen.findByRole('option', { name: 'Español' }));
     await user.click(await screen.findByRole('button', { name: 'Restart now' }));
     expect(await screen.findByText('Vozella could not restart. blocked')).toBeInTheDocument();
+  });
+
+  it('shows the skeleton and no control while the first answer is pending (8.3)', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    install({
+      'settings.getPage': () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    });
+    mount();
+    expect(screen.getByLabelText('Loading settings')).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Local (on this device)' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'App language' })).toBeNull();
+    await act(async () => {
+      answer(pageDto());
+      await Promise.resolve();
+    });
+    expect(await screen.findByRole('radio', { name: 'Local (on this device)' })).toBeChecked();
+    expect(screen.queryByLabelText('Loading settings')).toBeNull();
+  });
+
+  it('draws the blocks in table order under the page title (8.1, 8.2)', async () => {
+    install({ 'settings.getPage': () => pageDto() });
+    mount();
+    await screen.findByRole('radio', { name: 'Local (on this device)' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    const wanted = [
+      'Language',
+      'Summary provider',
+      'Microphone',
+      'Meeting language',
+      'Transcription',
+      'Data',
+    ];
+    const seen = screen
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent)
+      .filter((text) => wanted.includes(text));
+    expect(seen).toEqual(wanted);
+  });
+
+  it('leaving before the first answer applies nothing and starts nothing (8.7)', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    const calls = install({
+      'settings.getPage': () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    });
+    const view = mount();
+    view.unmount();
+    await act(async () => {
+      answer(pageDto());
+      await Promise.resolve();
+    });
+    const names = calls
+      .map((call) => call.name)
+      .filter((name) => name !== 'library.getLocation' && name !== 'app.setThemePreference');
+    expect(names).toEqual(['settings.getPage']);
+  });
+
+  it('opening the page never writes (8.8, 8.11)', async () => {
+    const calls = install({ 'settings.getPage': () => pageDto() });
+    mount();
+    await screen.findByRole('radio', { name: 'Local (on this device)' });
+    const writes = calls.filter((call) =>
+      /^settings\.(set|models\.(select|delete))/.test(call.name),
+    );
+    expect(writes).toEqual([]);
+  });
+
+  it('a revisit paints the last answer at once and refreshes without the skeleton (8.4)', async () => {
+    let second: (value: unknown) => void = () => undefined;
+    let n = 0;
+    install({
+      'settings.getPage': () => {
+        n += 1;
+        if (n === 1) return pageDto();
+        return new Promise((resolve) => {
+          second = resolve;
+        });
+      },
+    });
+    const first = mount();
+    await screen.findByRole('radio', { name: 'Local (on this device)' });
+    first.unmount();
+    mount();
+    expect(screen.getByRole('radio', { name: 'Local (on this device)' })).toBeChecked();
+    expect(screen.queryByLabelText('Loading settings')).toBeNull();
+    await act(async () => {
+      second(pageDto({ provider: 'Codex' }));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('radio', { name: /Codex/ })).toBeChecked();
+    });
+  });
+
+  it('overlapping loads: the newest answer wins even when the older one lands last (7.17)', async () => {
+    const pending: ((value: unknown) => void)[] = [];
+    install({
+      'settings.getPage': () =>
+        new Promise((resolve) => {
+          pending.push(resolve);
+        }),
+      'settings.setSummaryProvider': () => ({ status: 'saved', settings: {}, feedback: null }),
+    });
+    mount();
+    await waitFor(() => {
+      expect(pending).toHaveLength(1);
+    });
+    await act(async () => {
+      pending[0]?.(pageDto());
+      await Promise.resolve();
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('radio', { name: /Codex/ }));
+    await user.click(screen.getByRole('radio', { name: /Claude Code/ }));
+    await waitFor(() => {
+      expect(pending.length).toBeGreaterThanOrEqual(3);
+    });
+    // The newest request answers first with the final value, the older one lands last.
+    await act(async () => {
+      pending.at(-1)?.(pageDto({ provider: 'ClaudeCode' }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      pending[1]?.(pageDto({ provider: 'Codex' }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('radio', { name: /Claude Code/ })).toBeChecked();
+  });
+
+  it('choosing Grok asks the account for its models (item 32)', async () => {
+    const signedIn = xai({ signedIn: true, credentialKind: 'ApiKey', title: 'api-key' });
+    const calls = install({
+      'settings.getPage': () => pageDto({ xai: signedIn }),
+      'settings.setSummaryProvider': () => ({ status: 'saved', settings: {}, feedback: null }),
+      'settings.xai.refresh': () => signedIn,
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('radio', { name: /Grok/ }));
+    await waitFor(() => {
+      expect(calls.some((call) => call.name === 'settings.xai.refresh')).toBe(true);
+    });
+  });
+
+  it('keeps a download in progress when the page is opened again (58)', async () => {
+    install({
+      'settings.getPage': () =>
+        pageDto({
+          models: {
+            rows: [model('a.gguf', 'Model A', { downloading: true, percent: 37 })],
+            missingActiveId: null,
+          },
+        }),
+    });
+    mount();
+    const group = await screen.findByRole('radiogroup', { name: 'Summary models' });
+    expect(within(group).getByRole('button', { name: 'Cancel download' })).toBeInTheDocument();
+    expect(within(group).getByRole('progressbar', { name: 'Downloading' })).toHaveAttribute(
+      'aria-valuenow',
+      '37',
+    );
+  });
+
+  it('the signed out Grok card does not point at a sign in that is not there', async () => {
+    install({ 'settings.getPage': () => pageDto({ provider: 'Xai' }) });
+    mount();
+    await screen.findByText('Not signed in');
+    expect(screen.queryByText(/Sign in with SuperGrok/)).toBeNull();
+    expect(screen.getByText('Paste an API key below.')).toBeInTheDocument();
+  });
+
+  it('gives the Claude Code and Codex option blocks their brand mark', async () => {
+    install({ 'settings.getPage': () => pageDto({ provider: 'Codex' }) });
+    mount();
+    const heading = await screen.findByRole('heading', { level: 3, name: /Codex/ });
+    expect(heading.querySelector('svg')).not.toBeNull();
+  });
+
+  it('keeps the reveal at 150 ms and turns motion off for reduced motion (8.5)', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/renderer/styles/index.css'), 'utf8');
+    expect(css).toMatch(/--animate-fade-in:\s*fade-in 150ms/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: 0\.01ms/);
+  });
+
+  it('says so when the restart is refused', async () => {
+    install({
+      'settings.getPage': () => pageDto(),
+      'settings.setUiLanguage': () => ({ status: 'saved', settings: {}, feedback: null }),
+      'app.restart': () => ({ status: 'refused' }),
+    });
+    mount();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'App language' }));
+    await user.click(await screen.findByRole('option', { name: 'Español' }));
+    await user.click(await screen.findByRole('button', { name: 'Restart now' }));
+    expect(
+      await screen.findByText(
+        'Vozella cannot restart while a recording is in progress. Finish it, then try again.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says so when the restart call throws', async () => {
+    install({
+      'settings.getPage': () => pageDto(),
+      'settings.setUiLanguage': () => ({ status: 'saved', settings: {}, feedback: null }),
+      'app.restart': () => {
+        throw new Error('ipc down');
+      },
+    });
+    mount();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('combobox', { name: 'App language' }));
+    await user.click(await screen.findByRole('option', { name: 'Español' }));
+    await user.click(await screen.findByRole('button', { name: 'Restart now' }));
+    expect(await screen.findByText('Vozella could not restart. ipc down')).toBeInTheDocument();
+  });
+
+  it('stops watching the engine when the page is left (8.12)', async () => {
+    install({ 'settings.getPage': () => pageDto() });
+    const view = mount();
+    await screen.findByRole('radio', { name: 'Local (on this device)' });
+    expect(listeners.has('transcription.statusChanged')).toBe(true);
+    view.unmount();
+    expect(listeners.has('transcription.statusChanged')).toBe(false);
   });
 });

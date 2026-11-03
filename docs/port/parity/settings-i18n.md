@@ -310,3 +310,27 @@ Audit, rejected: the Claude mark keeps `#D97757`. _gaps.md section 1 asks for it
 - An in-flight download in the real window: the fake store finishes at once, so the progress bar and Cancel are covered by a component test with a held request and an injected event, not by a screenshot.
 - Forced-colors rendering of the page, screen readers, and a high-DPI window. axe reports no serious or critical issue in both themes; the Claude mark colour and the radio rows in forced colors were not looked at.
 - A real relaunch from the prompt (22), a real Hugging Face download, a real xAI account and real CLIs on PATH, as before.
+
+## Audit round 3
+
+Fixed, each with a test:
+
+- Overlapping `settings.getPage` answers: a sequence guard lets only the newest apply (7.17). Revisits keep the last snapshot and refresh without the skeleton (8.4, row 4 is now `done`, no longer `improved`).
+- The skeleton label was dropped by `SkeletonText`; it now takes `label` (role status). Tests cover the first-visit skeleton (8.3), table order and title (8.1, 8.2), leaving before the first answer (8.7), no writes on open (8.8, 8.11), the 150 ms reveal and the reduced motion rule (8.5).
+- Data and About now render inside the revealed content, in `SETTINGS_SECTIONS` order.
+- Leaving the page stops the mic preview and the engine subscription, now asserted (8.12).
+- A refused restart now shows `Ui_RestartRefused`; the thrown path is tested. The relaunch closure moved to `relaunchApp` with a unit test. Still not observed: a real relaunched process taking the lock (row 22 stays `pending-real-validation`, it would end the Playwright process).
+- Claude Code and Codex option blocks carry their brand mark again (row 45).
+- `XaiAccountService`: a refresh that began before a key change or sign out cannot publish its models (generation counter), tested.
+- Tests added for choosing Grok refreshing the account (32), a remounted page with a download in flight (58), catalog URLs, sizes and keys (47), OAuth replaced by a saved key (73), duplicates and round trips for calendar ids and the pill dock, legacy provider keys, the nav clamp boundaries, `Ui_` key parity, and the missing string report once per key.
+
+Decisions:
+
+- SuperGrok sign in (75, OAuth half of 61, 62, 74): stays `pending-xai-module`. It needs the device code flow against a real account, which is out of scope here. The false copy is fixed: without the sign in the Grok card says `Paste an API key below.` and the section text names only the key (new keys `Ui_XaiSignedOutApiKeyOnly`, `Ui_XaiAccountApiKeyOnly`, en and es). The reused summary card text still mentions SuperGrok.
+- 117: the three dedicated progress bar keys are not used; the bars use equivalent localized keys (`Settings_MicLevel.Text`, `Status_*`). Rejected as a defect, the dedicated keys are kept for the owning modules.
+- 59: no progress ring in the Local models block; page loading is the skeleton. Decision: quiet document tool.
+- 118, 106, 112: the cross-check stays a vitest test; `Ui_` parity is now asserted. Counting keys beyond the sources is rejected: the merged 647 file is intended.
+- Bug 1 narrow read then write windows in `refresh` self heal and `LocalModelsService.select/delete`: recorded, not changed. The store has no mutator form; a fix needs a store API change.
+- Spec 7.1 B1 core test uses an unlocked store; the locking proof is `settings-runtime.test.ts`. Unchanged.
+- Bug 19 replacement key, item 101 notice placement, 87 to 90 and 126 callers, 125 gates: owned by later modules, as already recorded.
+- MeetingLanguageSection renderer test, item 83 language change between starts: covered indirectly, not added.

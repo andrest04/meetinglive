@@ -5,6 +5,7 @@ export function SectionHeader({
   title,
   description,
   action,
+  icon,
   level = 2,
   quiet = false,
   compact = false,
@@ -13,6 +14,8 @@ export function SectionHeader({
   title: string;
   description?: string;
   action?: ReactNode;
+  /** A decorative mark before the title. */
+  icon?: ReactNode;
   level?: 1 | 2 | 3;
   /** A page of lists and settings: the heading keeps its level but not the document's large title. */
   quiet?: boolean;
@@ -36,7 +39,14 @@ export function SectionHeader({
                   : 'text-heading',
           )}
         >
-          {title}
+          {icon ? (
+            <span className="inline-flex items-center gap-2">
+              {icon}
+              {title}
+            </span>
+          ) : (
+            title
+          )}
         </Heading>
         {description ? <p className="text-ui-lg text-ink-muted">{description}</p> : null}
       </div>

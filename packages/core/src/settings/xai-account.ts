@@ -66,6 +66,9 @@ export class XaiAccountService {
   private modelsLoaded = false;
   private error: string | null = null;
   private inflight: Promise<XaiAccountView> | null = null;
+  /** Bumped whenever the credentials change, so a run that started before cannot publish. */
+  private generation = 0;
+  private inflightGeneration = -1;
 
   constructor(private readonly deps: XaiAccountDeps) {}
 
@@ -85,10 +88,14 @@ export class XaiAccountService {
 
   /** Fetches the models for the current credentials. Concurrent calls share one run. */
   refresh(): Promise<XaiAccountView> {
-    this.inflight ??= this.runRefresh().finally(() => {
-      this.inflight = null;
+    if (this.inflight && this.inflightGeneration === this.generation) return this.inflight;
+    const generation = this.generation;
+    const run: Promise<XaiAccountView> = this.runRefresh(generation).finally(() => {
+      if (this.inflight === run) this.inflight = null;
     });
-    return this.inflight;
+    this.inflight = run;
+    this.inflightGeneration = generation;
+    return run;
   }
 
   async saveApiKey(key: string): Promise<XaiActionOutcome> {
@@ -119,12 +126,13 @@ export class XaiAccountService {
   }
 
   private forget(): void {
+    this.generation += 1;
     this.models = [];
     this.modelsLoaded = false;
     this.error = null;
   }
 
-  private async runRefresh(): Promise<XaiAccountView> {
+  private async runRefresh(generation: number): Promise<XaiAccountView> {
     const port = this.deps.port;
     if (!port) return UNAVAILABLE;
     try {
@@ -138,18 +146,23 @@ export class XaiAccountService {
       const listed = await port.listModels(token);
       const settings = await this.deps.store.load();
       const resolved = resolveXaiModelId(settings.selectedXaiModelId, listed);
-      this.models = mergeModelList(this.models, listed, resolved);
+      const current = generation === this.generation;
+      if (current) this.models = mergeModelList(this.models, listed, resolved);
       let saved = settings;
       // Self healing: a model that vanished, or was never chosen, is replaced and kept.
       if (settings.selectedXaiModelId !== resolved) {
         saved = await this.deps.store.update({ selectedXaiModelId: resolved });
       }
-      this.modelsLoaded = true;
-      this.error = null;
+      if (current) {
+        this.modelsLoaded = true;
+        this.error = null;
+      }
       return this.view(kind, saved.selectedXaiModelId, resolveXaiEffort(saved));
     } catch (error) {
-      this.modelsLoaded = false;
-      this.error = messageOf(error);
+      if (generation === this.generation) {
+        this.modelsLoaded = false;
+        this.error = messageOf(error);
+      }
       const kind = await port.credentialKind().catch(() => null);
       const settings = await this.deps.store.load().catch(() => null);
       return this.view(

@@ -67,5 +67,8 @@
   "Ui_SpeakerModelFailed": "Speaker labels stay off.",
   "Ui_SpeakerDeleteFailed": "Could not delete the speaker model: {0}",
   "Ui_RetranscribeConfirm": "Re-transcribing \"{0}\" replaces its transcript with a new one made from the saved audio. The current summary is kept.",
-  "Ui_SpeakerModel": "Speaker model"
+  "Ui_SpeakerModel": "Speaker model",
+  "Ui_RestartRefused": "Vozella cannot restart while a recording is in progress. Finish it, then try again.",
+  "Ui_XaiSignedOutApiKeyOnly": "Paste an API key below.",
+  "Ui_XaiAccountApiKeyOnly": "Paste an API key from console.x.ai. Saving a new one replaces the old one."
 }

@@ -132,4 +132,18 @@ describe('MicrophoneSection', () => {
       expect(combo).toHaveTextContent('System default');
     });
   });
+
+  it('stops the preview when the page is left (8.12)', async () => {
+    const api = installApi('mic-2');
+    const view = render(
+      <Providers>
+        <MicrophoneSection />
+      </Providers>,
+    );
+    await waitFor(() => {
+      expect(api.calls.some((call) => call.name === 'audio.preview.start')).toBe(true);
+    });
+    view.unmount();
+    expect(api.calls.some((call) => call.name === 'audio.preview.stop')).toBe(true);
+  });
 });

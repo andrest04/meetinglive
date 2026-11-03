@@ -31,3 +31,21 @@ export function acquireSingleInstance(deps: SingleInstanceDeps): boolean {
 export function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
+
+export interface RelaunchDeps {
+  readonly argv: readonly string[];
+  readonly relaunch: (options: { args: string[] }) => void;
+  readonly quit: () => void;
+  /** Runs the quit after the current call stack, so the answer to the page goes out first. */
+  readonly defer: (run: () => void) => void;
+}
+
+/**
+ * Starts the new process, marked as a relaunch, then quits this one. The mark is never doubled,
+ * so a chain of restarts keeps one flag.
+ */
+export function relaunchApp(deps: RelaunchDeps): void {
+  const args = deps.argv.slice(1).filter((arg) => arg !== RELAUNCH_ARG);
+  deps.relaunch({ args: [...args, RELAUNCH_ARG] });
+  deps.defer(deps.quit);
+}

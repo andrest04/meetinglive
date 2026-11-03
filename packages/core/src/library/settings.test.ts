@@ -127,6 +127,10 @@ describe('resolvers', () => {
     const w = (n: number | null) =>
       resolveNavigationPaneLength({ ...defaults, navigationPaneLength: n });
     expect(w(null)).toBe(280);
+    expect(w(150)).toBe(200);
+    expect(w(200)).toBe(200);
+    expect(w(320)).toBe(320);
+    expect(w(600)).toBe(480);
     expect(w(100)).toBe(200);
     expect(w(900)).toBe(480);
     expect(w(333)).toBe(333);
@@ -157,6 +161,36 @@ describe('resolvers', () => {
     const set = disabledCalendarIdsAsSet({ ...defaults, disabledCalendarIds: ['a', ' ', '', 'A'] });
     expect([...set]).toEqual(['a', 'A']);
     expect(disabledCalendarIdsAsSet(defaults).size).toBe(0);
+  });
+
+  it('disabled calendar ids drop true duplicates and round-trip through a write', () => {
+    const set = disabledCalendarIdsAsSet({
+      ...defaults,
+      disabledCalendarIds: ['a', 'a', ' ', 'b'],
+    });
+    expect([...set]).toEqual(['a', 'b']);
+    const text = serializeSettings(applySettingsPatch({}, { disabledCalendarIds: ['x', 'y'] }));
+    expect(parseSettingsJson(text).settings.disabledCalendarIds).toEqual(['x', 'y']);
+  });
+
+  it('pill dock round-trips through a write, and unset reads as Right and 0.5', () => {
+    const text = serializeSettings(
+      applySettingsPatch({}, { liveCopilotPillEdge: 'Top', liveCopilotPillAlong: 0.25 }),
+    );
+    const read = parseSettingsJson(text).settings;
+    expect(resolvePillEdge(read)).toBe('Top');
+    expect(resolvePillAlong(read)).toBe(0.25);
+    expect(resolvePillEdge(defaults)).toBe('Right');
+    expect(resolvePillAlong(defaults)).toBe(0.5);
+    expect(resolvePillAlong({ ...defaults, liveCopilotPillAlong: Number.NaN })).toBe(0.5);
+  });
+
+  it('removed chat keys are ignored and a stored Codex provider still resolves to Codex', () => {
+    const read = parseSettingsJson(
+      '{"selectedChatProvider":"Claude","selectedLiveAnswerProvider":"Xai","selectedSummaryProvider":"Codex"}',
+    ).settings;
+    expect(resolveSummaryProviderKind(read)).toBe('Codex');
+    expect(Object.keys(read)).not.toContain('selectedChatProvider');
   });
 });
 

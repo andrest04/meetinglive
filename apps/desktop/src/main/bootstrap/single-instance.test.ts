@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acquireSingleInstance } from './single-instance';
+import { acquireSingleInstance, relaunchApp, RELAUNCH_ARG } from './single-instance';
 
 describe('acquireSingleInstance', () => {
   it('takes the lock when it is free', () => {
@@ -49,5 +49,23 @@ describe('acquireSingleInstance', () => {
       }),
     ).toBe(false);
     expect(slept).toBe(5);
+  });
+});
+
+describe('relaunchApp', () => {
+  it('relaunches with the mark once, then quits after the current call', () => {
+    const log: string[] = [];
+    let deferred: (() => void) | null = null;
+    relaunchApp({
+      argv: ['electron', '--flag', RELAUNCH_ARG],
+      relaunch: (options) => log.push(`relaunch ${options.args.join(' ')}`),
+      quit: () => log.push('quit'),
+      defer: (run) => {
+        deferred = run;
+      },
+    });
+    expect(log).toEqual([`relaunch --flag ${RELAUNCH_ARG}`]);
+    deferred!();
+    expect(log).toEqual([`relaunch --flag ${RELAUNCH_ARG}`, 'quit']);
   });
 });

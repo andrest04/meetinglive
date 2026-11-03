@@ -51,7 +51,12 @@ import {
   type BootstrappedPaths,
 } from './bootstrap/data-roots';
 import { isFakeNative, resolveRunMode } from './bootstrap/run-mode';
-import { acquireSingleInstance, RELAUNCH_ARG, sleepSync } from './bootstrap/single-instance';
+import {
+  acquireSingleInstance,
+  RELAUNCH_ARG,
+  relaunchApp,
+  sleepSync,
+} from './bootstrap/single-instance';
 import { installGlobalErrorHandling } from './errors/global-errors';
 import { LocaleState, resolveStartupLanguage } from './i18n/locale-state';
 import { mainCatalogs } from './i18n/main-catalogs';
@@ -297,11 +302,20 @@ function main(): void {
     store: library.settings,
     appDataDirectory: paths.appData,
     osLanguages: () => app.getPreferredSystemLanguages(),
+    // The new process starts as this one exits; it waits for the single instance lock.
     relaunch: () => {
-      // The new process starts as this one exits; it waits for the single instance lock.
-      const args = process.argv.slice(1).filter((arg) => arg !== RELAUNCH_ARG);
-      app.relaunch({ args: [...args, RELAUNCH_ARG] });
-      setImmediate(() => app.quit());
+      relaunchApp({
+        argv: process.argv,
+        relaunch: (options) => {
+          app.relaunch(options);
+        },
+        quit: () => {
+          app.quit();
+        },
+        defer: (run) => {
+          setImmediate(run);
+        },
+      });
     },
     notifyModel: modelEventBridge(broadcast),
     hardware,
