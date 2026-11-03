@@ -80,6 +80,7 @@ function setup(
   };
   const resolver = { resolveSummaryProvider: () => Promise.resolve(gate) };
   const events: { name: string; payload: unknown }[] = [];
+  const clipboard: string[] = [];
   const store = options.models ?? new FakeLocalModelStore();
   const models = new LocalModelsService({ store, settings, notify: () => undefined });
   const dispose = vi.fn(() => Promise.resolve());
@@ -112,13 +113,18 @@ function setup(
   registerSummariesHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
     controller,
+    writeClipboard: (text) => {
+      if (text === 'boom') return Promise.reject(new Error('clipboard busy'));
+      clipboard.push(text);
+      return Promise.resolve();
+    },
   });
   const call = async (name: RequestName, input: unknown): Promise<unknown> => {
     const handler = handlers.get(name);
     if (!handler) throw new Error(`no handler for ${name}`);
     return handler(event as never, input);
   };
-  return { call, controller, repo, settings, events, dispose, store, handlers };
+  return { call, controller, repo, settings, events, dispose, store, handlers, clipboard };
 }
 
 const ok = (value: unknown): unknown => (value as { ok: boolean; value: unknown }).value;
@@ -127,7 +133,7 @@ describe('summaries handlers', () => {
   it('registers every summaries request channel', () => {
     const { handlers } = setup();
     const expected = Object.keys(requestChannels).filter((name) => name.startsWith('summaries.'));
-    expect(expected).toHaveLength(13);
+    expect(expected).toHaveLength(14);
     for (const name of expected) expect(handlers.has(name)).toBe(true);
   });
 
@@ -215,6 +221,18 @@ describe('summaries handlers', () => {
       ok(await call('summaries.setTemplate', { meetingId: ID, templateId: 'standup' })),
     ).toEqual({ status: 'saved' });
     expect(repo.records.get(ID)?.noteTemplateId).toBe('standup');
+  });
+
+  it('writes the clipboard from main and answers a failed write as a value', async () => {
+    const { call, clipboard } = setup();
+    expect(ok(await call('summaries.writeClipboard', { text: 'a\nb' }))).toEqual({
+      status: 'written',
+    });
+    expect(clipboard).toEqual(['a\nb']);
+    expect(ok(await call('summaries.writeClipboard', { text: 'boom' }))).toEqual({
+      status: 'failed',
+      detail: 'clipboard busy',
+    });
   });
 
   it('the loaded tab says a run is going', async () => {

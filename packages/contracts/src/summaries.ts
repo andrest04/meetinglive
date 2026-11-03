@@ -140,6 +140,18 @@ export const summariesCopyActions = defineRequest('summaries.copyActions', {
   ]),
 });
 
+/**
+ * Puts text on the system clipboard from the main process. The renderer's own clipboard API is
+ * denied by the window's permission handler, so every copy goes through here.
+ */
+export const summariesWriteClipboard = defineRequest('summaries.writeClipboard', {
+  input: z.object({ text: z.string().max(1_000_000) }),
+  output: z.discriminatedUnion('status', [
+    z.object({ status: z.literal('written') }),
+    z.object({ status: z.literal('failed'), detail: z.string() }),
+  ]),
+});
+
 export const summariesSetTemplate = defineRequest('summaries.setTemplate', {
   input: z.object({ meetingId, templateId: z.string().max(80).nullable() }),
   output: z.discriminatedUnion('status', [

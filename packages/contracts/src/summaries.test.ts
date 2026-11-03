@@ -23,6 +23,7 @@ describe('summaries contracts', () => {
       'summaries.saveNotes',
       'summaries.toggleAction',
       'summaries.copyActions',
+      'summaries.writeClipboard',
       'summaries.setTemplate',
       'summaries.providerStatus',
       'summaries.hardware',

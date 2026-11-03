@@ -17,6 +17,12 @@ export interface SummaryTabModel {
   readonly flushNotes: () => void;
   readonly toggleAction: (index: number, done: boolean) => void;
   readonly dismissStatus: () => void;
+  /** Saves any unsaved notes and resolves once main has them, so a run reads what was typed. */
+  readonly settleNotes: () => Promise<void>;
+  /** Loads the tab again without the skeleton and without losing unsaved typing. */
+  readonly refresh: () => Promise<void>;
+  /** A run for this meeting was already going when the tab loaded. */
+  readonly runningAtLoad: boolean;
 }
 
 const errorText = (error: unknown): string =>
@@ -38,12 +44,14 @@ export function useSummaryTab(
   const [notes, setNotesState] = useState('');
   const [actionItems, setActionItems] = useState<readonly ActionItemDto[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [runningAtLoad, setRunningAtLoad] = useState(false);
 
   // What the notes box holds now, and what main has: they differ while a save is due.
   const notesRef = useRef('');
   const savedRef = useRef('');
   const idRef = useRef<string | null>(null);
   const pendingToggles = useRef(0);
+  const savingRef = useRef<Promise<void>>(Promise.resolve());
   const messageRef = useRef(failedToggleMessage);
   messageRef.current = failedToggleMessage;
 
@@ -54,7 +62,7 @@ export function useSummaryTab(
     // Claimed before the answer so a blur and an unmount do not save the same text twice.
     const previous = savedRef.current;
     savedRef.current = text;
-    void (async () => {
+    const saving = (async () => {
       try {
         const result = await window.vozella.invoke('summaries.saveNotes', {
           meetingId: id,
@@ -67,6 +75,34 @@ export function useSummaryTab(
         if (idRef.current === id && savedRef.current === text) savedRef.current = previous;
       }
     })();
+    savingRef.current = saving;
+    void saving;
+  }, []);
+
+  const settleNotes = useCallback(async () => {
+    flushNotes();
+    await savingRef.current;
+  }, [flushNotes]);
+
+  const refresh = useCallback(async () => {
+    const id = idRef.current;
+    if (id === null) return;
+    try {
+      const answer = await window.vozella.invoke('summaries.loadTab', { meetingId: id });
+      if (answer.status !== 'loaded' || idRef.current !== id) return;
+      const loaded = answer.state;
+      // Typing since the last save stays; otherwise the file's notes win.
+      if (notesRef.current === savedRef.current) {
+        notesRef.current = loaded.notes;
+        savedRef.current = loaded.notes;
+        setNotesState(loaded.notes);
+      }
+      setState(loaded);
+      setActionItems(loaded.actionItems);
+      setRunningAtLoad(answer.generating);
+    } catch {
+      // The page keeps what it shows; the next load tries again.
+    }
   }, []);
 
   useEffect(() => {
@@ -90,6 +126,7 @@ export function useSummaryTab(
           setActionItems(loaded.actionItems);
           setModeState('enhanced');
           setStatus(null);
+          setRunningAtLoad(answer.generating);
         }
       } catch (error) {
         if (flags.alive) setLoadError(errorText(error));
@@ -184,5 +221,8 @@ export function useSummaryTab(
     flushNotes,
     toggleAction,
     dismissStatus,
+    settleNotes,
+    refresh,
+    runningAtLoad,
   };
 }

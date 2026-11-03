@@ -46,6 +46,7 @@ import {
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   nativeTheme,
@@ -567,6 +568,9 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: summaries,
+      writeClipboard: (text) => {
+        return clipboard.writeText(text);
+      },
     });
     // No llama-server may outlive the app: kill it now, then let it end cleanly.
     app.on('before-quit', () => {

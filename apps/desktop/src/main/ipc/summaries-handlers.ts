@@ -12,6 +12,7 @@ import {
   summariesSaveNotes,
   summariesSetTemplate,
   summariesToggleAction,
+  summariesWriteClipboard,
 } from '@vozella/contracts';
 import type { SummariesController } from '../summaries/summaries-controller';
 import { registerRequest, type IpcServerDeps } from './ipc-server';
@@ -19,11 +20,13 @@ import { registerRequest, type IpcServerDeps } from './ipc-server';
 export interface SummariesHandlerDeps {
   readonly server: IpcServerDeps;
   readonly controller: SummariesController;
+  /** The system clipboard write (Electron's `clipboard.writeText` in the app). */
+  readonly writeClipboard: (text: string) => Promise<void>;
 }
 
 /** Wires the summary channels. One line per channel; the rules live in core. */
 export function registerSummariesHandlers(deps: SummariesHandlerDeps): void {
-  const { server, controller } = deps;
+  const { server, controller, writeClipboard } = deps;
 
   registerRequest(server, summariesLoadTab, ({ meetingId }) => controller.loadTab(meetingId));
   registerRequest(server, summariesGenerate, (input) => controller.generate(input));
@@ -39,6 +42,17 @@ export function registerSummariesHandlers(deps: SummariesHandlerDeps): void {
   registerRequest(server, summariesCopyActions, ({ meetingId }) =>
     controller.copyActions(meetingId),
   );
+  registerRequest(server, summariesWriteClipboard, async ({ text }) => {
+    try {
+      await writeClipboard(text);
+      return { status: 'written' as const };
+    } catch (error) {
+      return {
+        status: 'failed' as const,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
   registerRequest(server, summariesSetTemplate, ({ meetingId, templateId }) =>
     controller.setTemplate(meetingId, templateId),
   );

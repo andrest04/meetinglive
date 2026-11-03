@@ -18,6 +18,8 @@ export interface SummaryTabLabels {
   readonly related: string;
   readonly loading: string;
   readonly dismiss: string;
+  /** Quiet line for a meeting that has a transcript and no summary yet. */
+  readonly readyToGenerate: string;
 }
 
 export interface SummaryTabViewProps {
@@ -45,6 +47,10 @@ export interface SummaryTabViewProps {
   readonly onDismissStatus: () => void;
   /** The right side of the toolbar: generate, template and more arrive here. */
   readonly toolbarEnd?: ReactNode;
+  /** Generation status, right under the toolbar. */
+  readonly statusLine?: ReactNode;
+  /** The result of copying action items. */
+  readonly draft?: ReactNode;
 }
 
 /** The layout of spec 2.2: toolbar, related meetings, a message, then the content. */
@@ -68,11 +74,13 @@ export function SummaryTabView(props: SummaryTabViewProps) {
           <div className="flex min-w-0 items-center gap-2">{props.toolbarEnd}</div>
         ) : null}
       </div>
+      {props.statusLine}
       <RelatedMeetings
         items={props.related}
         caption={labels.related}
         onOpen={props.onOpenRelated}
       />
+      {props.draft}
       {props.status ? (
         <Notice tone="warning" onDismiss={props.onDismissStatus} dismissLabel={labels.dismiss}>
           {props.status}
@@ -105,7 +113,9 @@ export function SummaryTabView(props: SummaryTabViewProps) {
             {labels.emptyCta}
           </Button>
         </div>
-      ) : props.hasSummary ? (
+      ) : !props.hasSummary ? (
+        <p className="max-w-[44ch] py-6 text-read text-ink-muted">{labels.readyToGenerate}</p>
+      ) : (
         <article className="pb-6">
           <MarkdownView source={props.summary} testId="TxtSummaryContent" />
           <ActionItemsList
@@ -114,7 +124,7 @@ export function SummaryTabView(props: SummaryTabViewProps) {
             onToggle={props.onToggleAction}
           />
         </article>
-      ) : null}
+      )}
     </div>
   );
 }
