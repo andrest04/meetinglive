@@ -163,5 +163,8 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
   deps.workspace.on('meetingChanged', (id) => {
     void service.refreshLastTitle(id);
   });
+  deps.workspace.on('meetingDeleted', (id) => {
+    service.forgetMeeting(id);
+  });
   return service;
 }

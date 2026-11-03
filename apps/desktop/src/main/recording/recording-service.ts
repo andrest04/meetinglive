@@ -834,6 +834,11 @@ export class RecordingService {
     return this.runs.isCaptureActive;
   }
 
+  /** A deleted meeting is no longer the last one: the result card goes away (162). */
+  forgetMeeting(meetingId: string): void {
+    this.runs.clearLastMeetingIf(meetingId);
+  }
+
   /** Delete and move refuse a meeting that is recorded now or that a run may re-save (164). */
   isMeetingInUse(meetingId: string): boolean {
     return this.runs.isMeetingInUse(meetingId);

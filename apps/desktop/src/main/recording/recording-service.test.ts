@@ -501,6 +501,18 @@ describe('RecordingService stop', () => {
     expect(t.service.getState().lastMeeting?.title).toBe('Fake planning meeting');
   });
 
+  it('162: the last meeting is forgotten when it is deleted', async () => {
+    const t = build();
+    await t.service.start(sources);
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.service.getState().lastMeeting).toMatchObject({ id: 'meeting-1' });
+    t.service.forgetMeeting('other');
+    expect(t.service.getState().lastMeeting).not.toBeNull();
+    t.service.forgetMeeting('meeting-1');
+    expect(t.service.getState().lastMeeting).toBeNull();
+  });
+
   it('190: a destination folder deleted during the take files the meeting in the Inbox', async () => {
     const t = build({ folders: { f1: 'Clients' } });
     await t.service.start({ ...sources, folderId: 'f1' });
