@@ -37,3 +37,6 @@ export * from './transcription/zip-extractor';
 export * from './fakes/fake-asr-engine';
 export * from './fakes/fake-engine-stores';
 export * from './summaries/cli-process-runner';
+export * from './llama/llama-runtime-catalog';
+export * from './llama/llama-runtime-manager';
+export * from './llama/backend-choice';

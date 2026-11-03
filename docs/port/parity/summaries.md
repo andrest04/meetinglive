@@ -184,6 +184,28 @@ Decisions (S07):
 - **Contract kept wide.** `summaryProviderSchema` still accepts `Xai` so the page DTO can report a legacy selection; `settings.setCliOption` no longer accepts `xai`.
 - **Fake native build.** `apps/desktop/src/main/index.ts` no longer builds an xAI account and no longer imports `safeStorage`.
 
+### llama-server runtime install (S08)
+
+New capability from `docs/port/research/local-inference.md` and `stack.md` "Local LLM". It has no parity item numbers, so the rows are new.
+
+| #     | Item                                                                                                                    | Status | Notes                                                                                                                                                                                                                      |
+| ----- | ----------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S08-1 | llama.cpp tag `b12063` pinned with four Windows x64 backends and SHA-256 values exactly as the spike                    | new    | `llama-runtime-catalog.ts`. cuda12 and cuda13 each pin the llama zip plus the cudart zip; vulkan and cpu one zip. A test compares every name and hash.                                                                     |
+| S08-2 | Folder `<app data>/LlamaRuntime/<backend>`, `isReady`, `binDirectory`, `serverPath`                                     | new    | Ready means no `<backend>.incomplete` marker and `llama-server.exe` in the folder (or one folder down).                                                                                                                    |
+| S08-3 | `ensure(backend, onProgress, cancel)`: resumable checksummed download, `System32	ar.exe` extract, promote under a marker | new    | Uses `downloadToFile` (sha256, resume, stall timeout) and `extractZipWithTar`. Archives are deleted afterwards. A mismatch, a cancel or an interrupted extract leaves no folder; a promote failure leaves only the marker. |
+| S08-4 | One install per backend; a second caller shares the first                                                               | new    | Shared in-flight promise, tested with a server hit counter.                                                                                                                                                                |
+| S08-5 | `delete(backend)` refuses while a file is held open                                                                     | new    | Probes every file first and throws `RuntimeInUseError`, removing nothing. The probe is injectable; the real one opens the file for read and write.                                                                         |
+| S08-6 | `chooseBackend` and `backendFallbackChain` (core, pure)                                                                 | new    | NVIDIA: cuda12, vulkan, cpu. Other GPU with VRAM above 0: vulkan, cpu. Else cpu. `usesGpuOffload` is true for every backend but cpu.                                                                                       |
+| S08-7 | `selectWorkingBackend`: install, self-test (`llama-server --version` exits 0), fall back cuda, vulkan, cpu              | new    | Install errors and cancels propagate; only a failed self-test moves down the chain. `failed` is returned so S11 can remember it for the session.                                                                           |
+
+Decisions:
+
+- cuda13 is chosen only when an injected `CudaDriverProbe` reports it (the chain is then cuda13, cuda12, vulkan, cpu). The default probe returns null, so cuda12 is used. No driver probe is written yet; nothing in this app reads the driver version.
+- The marker is a sibling file (`cuda12.incomplete`), like the NeMo-Speech runtime, not a file inside the folder as in the spike, so removing the folder cannot lose it.
+- macOS and Linux are out of scope: only Windows x64 archives are pinned.
+- The spike's extracted folders under `C:\Codeozella-spikes\llm\work\{cpu,cuda12,cuda13}` are for S09 and S11 integration tests only, selected by `VOZELLA_LLAMA_BIN_DIR` and skipped when absent. No test here downloads a real archive.
+- Not observed: a real 287 MB download from GitHub, and the self-test on a real CUDA or Vulkan machine (the real `--version` run is only checked against `node --version`).
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -199,6 +221,7 @@ Decisions (S07):
 - **B18** (S06): pinned byte size (and SHA-256 for the 1B file) verified before the atomic move; "downloaded" needs the pinned size; resume by Range; one transfer per model shared by every caller.
 - **B20** (S06): catalog labels are keys, asserted by a test.
 - **B1, B14, B22, B23, B29** (S07): dropped with the xAI provider, reason: owner decision 2026-11-03, may return later. B22 for `settings.json` was already done by the settings module's atomic write; the xAI credentials file and the custom template file are no longer written by this app.
+- **S08**: no numbered bug. The spike's marker inside the folder, its missing resume and its unchecked cancel are replaced by the sibling marker, `downloadToFile` and cancel cleanup.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -216,6 +239,10 @@ Decisions (S07):
 - S12 and the generation gate: `isProviderAvailable(kind)` is false for `Xai`. The gate and factory must report the removed provider (offer the Settings page, text `Ui_SummaryProviderXaiRemoved`) and never build the Local provider for it. `AvailableSummaryProviderKind` is the type to switch on.
 - S18 and S19: the wizard and CLI setup must not offer Grok; `Setup_XaiName` and `Setup_XaiHint` are unused catalog keys.
 - Final review: `scripts/convert-strings.mjs` could take an exclusion list so the unused `Xai*` keys leave `en.json` and `es.json` (see the S07 decisions).
+
+- S09 and S11: take `exe` and `binDirectory` from `LlamaRuntimeManager` / `selectWorkingBackend`, spawn with cwd = bin directory, and pass `usesGpuOffload(backend)` to S06's `rateFor`. Integration tests read `VOZELLA_LLAMA_BIN_DIR` and skip when absent.
+- S12 and S18: construct `new LlamaRuntimeManager({ root: <app data>/LlamaRuntime })`, call `selectWorkingBackend` with the hardware profile, and decide where the install progress shows. A `CudaDriverProbe` is optional.
+- Real GitHub download of the pinned archives is pending-real-validation.
 
 ## Dropped by the owner
 
