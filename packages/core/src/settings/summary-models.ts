@@ -5,6 +5,8 @@ export interface HardwareProfile {
   readonly totalRamGb: number;
   readonly gpuName: string | null;
   readonly gpuVramGb: number | null;
+  /** False when the GPU query failed, so "no GPU" is a guess and must not be kept (B17). */
+  readonly gpuReadComplete?: boolean;
 }
 
 export type FitRating = 'Recommended' | 'MayBeSlow' | 'NotRecommended';

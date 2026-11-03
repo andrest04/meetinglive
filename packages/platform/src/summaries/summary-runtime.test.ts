@@ -257,3 +257,52 @@ describe('SummaryRuntime on a real settings.json', () => {
     });
   });
 });
+
+describe('backend choice and an incomplete GPU read (B17)', () => {
+  const make = (complete: boolean) => {
+    const modelDir = path.join(root, 'SummaryModels');
+    const runtime = new SummaryRuntime({
+      settings: new JsonSettingsStore({ settingsFilePath: settingsFile }),
+      hardware: {
+        detect: () =>
+          Promise.resolve({
+            totalRamGb: 16,
+            gpuName: null,
+            gpuVramGb: null,
+            ...(complete ? {} : { gpuReadComplete: false }),
+          }),
+      },
+      models: {
+        isDownloaded: () => Promise.resolve(false),
+        download: () => Promise.resolve(),
+        delete: () => Promise.resolve(),
+        pathFor: (name) => path.join(modelDir, name),
+      },
+      llamaRoot: path.join(root, 'LlamaRuntime'),
+    });
+    runtimes.push(runtime);
+    const ensured = { count: 0 };
+    runtime.runtimeManager.ensure = () => {
+      ensured.count += 1;
+      return Promise.resolve(process.execPath);
+    };
+    runtime.runtimeManager.binDirectory = () => path.dirname(process.execPath);
+    const pick = () =>
+      (runtime as unknown as { pickRuntime(c: typeof never): Promise<unknown> }).pickRuntime(never);
+    return { pick, ensured };
+  };
+
+  it('a failed GPU read is not locked in: the next call chooses again', async () => {
+    const t = make(false);
+    await t.pick();
+    await t.pick();
+    expect(t.ensured.count).toBe(2);
+  });
+
+  it('a complete read is chosen once for the process', async () => {
+    const t = make(true);
+    await t.pick();
+    await t.pick();
+    expect(t.ensured.count).toBe(1);
+  });
+});

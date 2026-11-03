@@ -178,6 +178,22 @@ describe('run (items 58, 65 to 69)', () => {
     expect(isCancellation(error)).toBe(true);
   });
 
+  it('item 64: caller cancellation kills the process and the pid is gone, also while stdin is blocked', async () => {
+    const big = 'x'.repeat(8 * 1024 * 1024);
+    const pidFile = path.join(fake.binDir, '..', 'cancel.pid');
+    const source = new CancelSource();
+    const pending = runner
+      .run('fakeexe', [fake.script, 'pid-hang', pidFile], big, 60_000, source.signal)
+      .catch((e: unknown) => e);
+    const pid = await waitFor(() =>
+      fs.existsSync(pidFile) ? Number(fs.readFileSync(pidFile, 'utf8')) : undefined,
+    );
+    source.cancel();
+    expect(isCancellation(await pending)).toBe(true);
+    await waitFor(() => (alive(pid) ? undefined : true));
+    expect(alive(pid)).toBe(false);
+  });
+
   it('a signal that is already cancelled never starts the process', async () => {
     const source = new CancelSource();
     source.cancel();

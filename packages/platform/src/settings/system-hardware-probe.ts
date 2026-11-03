@@ -118,12 +118,20 @@ export class SystemHardwareProbe implements HardwareProbe {
   private async read(): Promise<{ profile: HardwareProfile; complete: boolean }> {
     const totalRamGb =
       Math.round(((this.options.totalMemoryBytes ?? os.totalmem)() / GIB) * 10) / 10;
-    let complete = true;
+    const read = { complete: true };
     const gpu = await (this.options.queryGpu ?? defaultQuery)().catch(() => {
-      complete = false;
+      read.complete = false;
       return NO_GPU;
     });
-    return { profile: { totalRamGb, gpuName: gpu.name, gpuVramGb: gpu.vramGb }, complete };
+    return {
+      profile: {
+        totalRamGb,
+        gpuName: gpu.name,
+        gpuVramGb: gpu.vramGb,
+        ...(read.complete ? {} : { gpuReadComplete: false }),
+      },
+      complete: read.complete,
+    };
   }
 }
 

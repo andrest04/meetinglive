@@ -231,7 +231,7 @@ export class SummaryTabService {
     }
   }
 
-  /** Item 104 for a stored meeting; the renderer uses `copyTextFor` on its live text. */
+  /** Item 104 for a stored meeting; the session module's copy button is the caller; no renderer code uses it yet. */
   async copyText(meetingId: string, mode: CopyMode): Promise<string | null> {
     try {
       const record = await this.deps.meetings.get(meetingId);

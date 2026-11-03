@@ -65,6 +65,7 @@ export function SummaryActionBar(props: SummaryActionBarProps) {
             value={props.templateId}
             onValueChange={props.onTemplateChange}
             label={labels.template}
+            testId="CmbSummaryNoteTemplate"
             disabled={generating}
             className="min-w-36"
           />
@@ -76,6 +77,7 @@ export function SummaryActionBar(props: SummaryActionBarProps) {
           entries={[
             {
               id: 'copy-actions',
+              testId: 'BtnListActions',
               label: labels.copyActions,
               disabled: generating,
               onSelect: props.onCopyActions,

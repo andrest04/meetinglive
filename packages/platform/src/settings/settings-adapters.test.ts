@@ -216,6 +216,115 @@ describe('downloadToFile', () => {
     }
   });
 
+  it('item 121: while the transfer is in flight the .part exists and the target does not', async () => {
+    let release: (() => void) | undefined;
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 10 });
+      res.write(Buffer.alloc(5));
+      release = () => res.end(Buffer.alloc(5));
+    });
+    try {
+      const target = path.join(dir, 'model.gguf');
+      let seen: { part: boolean; target: boolean } | undefined;
+      const pending = downloadToFile({
+        url: server.url,
+        target,
+        onProgress: (p) => {
+          if (p === 50 && seen === undefined) {
+            seen = { part: fs.existsSync(`${target}.part`), target: fs.existsSync(target) };
+            release?.();
+          }
+        },
+      });
+      await pending;
+      expect(seen).toEqual({ part: true, target: false });
+      expect(fs.existsSync(`${target}.part`)).toBe(false);
+      expect(fs.readFileSync(target).length).toBe(10);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('item 121: a 416 on resume restarts from byte zero', async () => {
+    const full = Buffer.from('GGUFDATA');
+    const ranges: (string | undefined)[] = [];
+    const server = await serve((req, res) => {
+      ranges.push(req.headers.range);
+      if (req.headers.range !== undefined) {
+        res.writeHead(416);
+        res.end();
+        return;
+      }
+      res.writeHead(200, { 'content-length': full.length });
+      res.end(full);
+    });
+    try {
+      const target = path.join(dir, 'model.gguf');
+      fs.writeFileSync(`${target}.part`, 'JUNK');
+      await downloadToFile({ url: server.url, target, resume: true });
+      expect(ranges).toEqual(['bytes=4-', undefined]);
+      expect(fs.readFileSync(target).equals(full)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('item 121: a server that ignores Range and sends 200 overwrites the old part', async () => {
+    const full = Buffer.from('GGUFDATA');
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': full.length });
+      res.end(full);
+    });
+    try {
+      const target = path.join(dir, 'model.gguf');
+      fs.writeFileSync(`${target}.part`, 'JUNK');
+      await downloadToFile({ url: server.url, target, resume: true });
+      expect(fs.readFileSync(target).equals(full)).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('item 121: cancel under resume:true still removes the .part', async () => {
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 10_000_000 });
+      res.write(Buffer.alloc(10_000));
+    });
+    try {
+      const target = path.join(dir, 'model.gguf');
+      const cancel = new CancelSource();
+      const pending = downloadToFile({
+        url: server.url,
+        target,
+        resume: true,
+        cancel: cancel.signal,
+        onProgress: () => {
+          cancel.cancel();
+        },
+      });
+      await expect(pending).rejects.toThrow(/cancel/i);
+      expect(fs.existsSync(target)).toBe(false);
+      expect(fs.existsSync(`${target}.part`)).toBe(false);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('item 122: a slow transfer is not cut by any default timeout', async () => {
+    const server = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': 4 });
+      res.write('GG');
+      setTimeout(() => res.end('UF'), 400);
+    });
+    try {
+      const target = path.join(dir, 'model.gguf');
+      await downloadToFile({ url: server.url, target });
+      expect(fs.readFileSync(target, 'utf8')).toBe('GGUF');
+    } finally {
+      await server.close();
+    }
+  });
+
   it('follows a redirect, as the model host does', async () => {
     const server = await serve((req, res, hits) => {
       if (hits === 1) {
@@ -459,7 +568,12 @@ describe('hardware probe', () => {
           : Promise.resolve({ name: 'GPU', vramGb: 8 });
       },
     });
-    expect(await probe.detect()).toEqual({ totalRamGb: 8, gpuName: null, gpuVramGb: null });
+    expect(await probe.detect()).toEqual({
+      totalRamGb: 8,
+      gpuName: null,
+      gpuVramGb: null,
+      gpuReadComplete: false,
+    });
     expect(await probe.detect()).toEqual({ totalRamGb: 8, gpuName: 'GPU', gpuVramGb: 8 });
     await probe.detect();
     expect(calls).toBe(2);
@@ -498,7 +612,12 @@ describe('hardware probe', () => {
       totalMemoryBytes: () => 8 * 1024 ** 3,
       queryGpu: () => Promise.reject(new Error('powershell missing')),
     });
-    expect(await probe.detect()).toEqual({ totalRamGb: 8, gpuName: null, gpuVramGb: null });
+    expect(await probe.detect()).toEqual({
+      totalRamGb: 8,
+      gpuName: null,
+      gpuVramGb: null,
+      gpuReadComplete: false,
+    });
   });
 });
 

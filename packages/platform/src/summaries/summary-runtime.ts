@@ -91,7 +91,10 @@ export class SummaryRuntime {
         manager: this.runtimeManager,
         cancel,
       });
-      return { exe: picked.exe, gpuOffload: usesGpuOffload(picked.backend) };
+      const runtime = { exe: picked.exe, gpuOffload: usesGpuOffload(picked.backend) };
+      // A failed GPU read made the profile a guess: use it now, but pick again next time (B17).
+      if (hardware.gpuReadComplete === false) this.backend = undefined;
+      return runtime;
     })().catch((error: unknown) => {
       this.backend = undefined;
       throw error;

@@ -70,6 +70,9 @@ describe('Generate and Regenerate buttons', () => {
     expect(await screen.findByTestId('BtnGenerateSummary')).toHaveTextContent('Generate summary');
     expect(screen.queryByTestId('BtnRegenerateSummary')).toBeNull();
     expect(screen.getByRole('combobox', { name: 'Note template' })).toBeVisible();
+    expect(screen.getByTestId('CmbSummaryNoteTemplate')).toBe(
+      screen.getByRole('combobox', { name: 'Note template' }),
+    );
     expect(screen.getByText(/This meeting has a transcript/)).toBeVisible();
   });
 
@@ -521,6 +524,9 @@ describe('copy action items (B16)', () => {
     await openMenu();
     expect(await screen.findAllByRole('menuitem')).toHaveLength(1);
     expect(screen.getByRole('menuitem', { name: 'Copy action items' })).toBeEnabled();
+    expect(screen.getByTestId('BtnListActions')).toBe(
+      screen.getByRole('menuitem', { name: 'Copy action items' }),
+    );
     expect(screen.queryByText('Save as custom template')).toBeNull();
   });
 

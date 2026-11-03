@@ -344,7 +344,7 @@ Decisions (S13):
 | 99  | Copy action items: empty message, or rendered lines without the trailing newline       | done     | `copyActionItems` returns `empty` with `SummaryPage_NoActionItems` or `copied` with the text. The clipboard write and the success/failure messages are the shell's. |
 | 102 | Notes save re-reads the record, skips the write when unchanged, blank gives null       | done     | `saveNotes`, queued with the toggles so a notes save and a toggle never overwrite each other. Field patch only.                                                     |
 | 103 | Related meetings (max 5), newest first                                                 | done     | `findRelated` in `related-meetings.ts`. Series ids are read from the files only when the current meeting has one and the title does not already match.              |
-| 104 | Copy command returns notes or summary, null when blank                                 | done     | `copyTextFor(mode, source)` and `copyText(meetingId, mode)`.                                                                                                        |
+| 104 | Copy command returns notes or summary, null when blank                                 | partial  | Pending the session module: no IPC channel or call site in this slice. `copyTextFor(mode, source)` and `copyText(meetingId, mode)`.                                 |
 
 Decisions (S14):
 
@@ -590,7 +590,7 @@ Each test class of spec section 6 and the file that ports it. Paths are under `p
 
 | Spec test class                              | Status  | Ported in                                                                                                                                       |
 | -------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Models/HardwareProfileTests`                | done    | `core/src/transcription/engine.test.ts` (Nvidia name rules; the rule belongs to transcription)                                                                 |
+| `Models/HardwareProfileTests`                | done    | `core/src/transcription/engine.test.ts` (Nvidia name rules; the rule belongs to transcription)                                                  |
 | `Models/SummaryModelInfoTests`               | done    | `core/src/settings/catalogs.test.ts` (fit rating, fit rating by backend B17)                                                                    |
 | `Services/ModelCatalogTests`                 | done    | `core/src/settings/catalogs.test.ts` (summary model catalog), plus the label key test (B20)                                                     |
 | `Services/HardwareDetectionServiceTests`     | done    | `platform/src/settings/settings-adapters.test.ts` (hardware probe: cached, failed read not cached)                                              |
@@ -701,6 +701,7 @@ On-disk compatibility still applies: `typeSafeEnabled`, calendar settings, Jev f
 ## Audit round 2: decisions
 
 Fixed, each with a test:
+
 - Codex with an effort through a `.cmd` shim: a quote inside an argument is doubled instead of refused (`cli-process-runner.ts`); a real shim test passes `model_reasoning_effort="low"`.
 - B4/B5: `SummaryService` and `SummaryTabService` now share one `PatchQueue` (wired in `main/index.ts`), so the get-then-save of a generate never interleaves with a notes or toggle save.
 - B17: a GPU script that exits 0 with unusable output now rejects, so "no GPU" is not cached (`isUsableGpuReport`).
@@ -708,8 +709,21 @@ Fixed, each with a test:
 - Proof added: Local provider sends `buildSummaryPrompt` and `buildTitlePrompt` text in one inference; stream prompt budget (B8) and truncation signal (B9); dispose on quit kills a loaded server (B3); request fields title, dates and transcript reach the provider (item 91) including the clock fallback.
 
 Rejected or recorded, with reason:
+
 - Item 104 copy: `copyText` is the contract for the session module's copy button (`session-views.md` assigns it there). Status: pending the session module, no call site in this slice.
 - B17 `gpuOffload` caller and integrated GPU: kept as WinUI behavior. The backend choice lives in the runtime and the page rates before it is picked; an integrated GPU with registry memory counts like WinUI. Revisit with the first-run gate.
 - B12 stdout sentinels, B27 (the fix is `resolveSummaryLanguageCode`, not the headings table), B32 PATH-only check, `formatError` localizing only `CliToolError`, custom template id rewritten to null: unchanged, covered by earlier decisions.
 - Not done now (minor): 416 and Range-ignored download tests, `.part` cleanup on model delete, kill-tree assertion on caller cancel (same kill path as the timeout tests), chooser production entry (first-run gate module).
 - Design notes: wizard copy and the double Recommended badge are reused WinUI strings and ratings; screenshots were not regenerated in this round, the screenshot specs stay as skipped by the environment.
+
+## Audit round: decisions
+
+- Fixed, item 64/69: caller cancel now has a test that reads the pid file and asserts the process is gone while stdin is blocked (`cli-process-runner.test.ts`).
+- Fixed, B17/116/117: `HardwareProfile.gpuReadComplete` is false after a failed GPU query; `SummaryRuntime.pickRuntime` does not keep the backend chosen from such a profile (tests in `summary-runtime.test.ts`).
+- Fixed, item 82: `CmbSummaryNoteTemplate` and `BtnListActions` added as `data-testid` (`Select` and `Menu` take an optional `testId`), with a test.
+- Fixed, items 121, 122, 190: tests for `.part` present and target absent mid-transfer, 416 restart, Range ignored (200), cancel with `resume: true` removing the part, and no default timeout.
+- Rejected, item 80 and the most-recent half of 78: the service builds the title, but the session page shows its own empty state without a selected meeting and never mounts the Summary tab, so the title cannot be reached by design (session module owns that screen). Status stays done at service level.
+- Rejected, item 104: stays pending the session module (`session-views.md` 2.4 puts the copy button there); the stale doc comment was corrected and the row is now partial.
+- Rejected, item 115: `HasDedicatedGpu` is VRAM > 0 with the CIM fallback, as in the C# source; the impact is under every half-minimum threshold. Revisit with the first-run gate.
+- Rejected, B17 `gpuOffload` caller: the page rates models before any backend is picked, so there is no backend to pass. Kept as recorded earlier.
+- Not changed, low severity: B3 host switch during a running request, B13 Cancel hidden in My notes mode, cancel lost between renderer and main, item 33 constants imported by tests, clear-on-load message test. B9 has no consumer until the chat module.
