@@ -125,6 +125,7 @@ const IDLE: RetranscriptionState = { isRunning: false, meetingId: null, status: 
 export class MeetingRetranscriptionRunner {
   private state: RetranscriptionState = IDLE;
   private cancelSource: CancelSource | null = null;
+  private readonly results = new Map<string, RetranscriptionResult>();
   private readonly stateListeners = new Set<() => void>();
   private readonly finishedListeners = new Set<(result: RetranscriptionResult) => void>();
 
@@ -132,6 +133,15 @@ export class MeetingRetranscriptionRunner {
 
   get current(): RetranscriptionState {
     return this.state;
+  }
+
+  /** The last result of each meeting, kept until its next run starts or the user dismisses it (B7). */
+  get lastResults(): readonly RetranscriptionResult[] {
+    return [...this.results.values()];
+  }
+
+  dismiss(meetingId: string): void {
+    this.results.delete(meetingId);
   }
 
   onStateChanged(listener: () => void): () => void {
@@ -153,6 +163,7 @@ export class MeetingRetranscriptionRunner {
     if (this.state.isRunning) return false;
     const cancel = new CancelSource();
     this.cancelSource = cancel;
+    this.results.delete(record.id);
     this.setState({ isRunning: true, meetingId: record.id, status: '' });
 
     let completed = false;
@@ -196,6 +207,7 @@ export class MeetingRetranscriptionRunner {
         cancelled: cancel.cancelled,
       });
       this.cancelSource = null;
+      this.results.set(record.id, result);
       this.setState(IDLE);
       for (const listener of [...this.finishedListeners]) listener(result);
     });

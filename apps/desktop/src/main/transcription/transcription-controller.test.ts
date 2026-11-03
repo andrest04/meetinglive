@@ -59,7 +59,12 @@ type SummarizeHook = NonNullable<
 >;
 
 function setup(
-  options: { ready?: boolean; gpuName?: string | null; summarize?: SummarizeHook } = {},
+  options: {
+    ready?: boolean;
+    gpuName?: string | null;
+    summarize?: SummarizeHook;
+    captureActive?: () => boolean;
+  } = {},
 ) {
   const engine = new FakeAsrEngine();
   const models = new FakeModelStore();
@@ -104,6 +109,7 @@ function setup(
       task();
     },
     ...(options.summarize ? { summarize: options.summarize } : {}),
+    ...(options.captureActive ? { isCaptureActive: options.captureActive } : {}),
   });
   return {
     controller,
@@ -594,5 +600,52 @@ describe('re-transcription', () => {
       started: false,
       reason: 'NoAudio',
     });
+  });
+
+  it('parity 91: a take in progress makes availability Busy and start refuses', async () => {
+    let capturing = true;
+    const { controller, meetings } = setup({ captureActive: () => capturing });
+    await meetings.save(record());
+    expect(await controller.retranscriptionAvailability('m1')).toBe('Busy');
+    expect(await controller.startRetranscription('m1')).toEqual({
+      started: false,
+      reason: 'Busy',
+    });
+    capturing = false;
+    expect(await controller.retranscriptionAvailability('m1')).toBe('Available');
+  });
+
+  it('B7: a run that ended while nobody watched is still in the snapshot until dismissed', async () => {
+    const { controller, engine, meetings, events } = setup();
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(events.some((e) => e.channel === 'retranscription.finished')).toBe(true);
+    });
+    expect(controller.retranscriptionSnapshot().lastResults).toEqual([
+      { meetingId: 'm1', outcome: 'TranscriptOnly', message: null },
+    ]);
+    controller.dismissRetranscription('m1');
+    expect(controller.retranscriptionSnapshot().lastResults).toEqual([]);
+  });
+
+  it('B17: every runner event goes through the one broadcast, state before finished', async () => {
+    const { controller, engine, meetings, events } = setup();
+    await meetings.save(record());
+    engine.script = { afterPush: [[final('nuevo texto', 1)]] };
+    await controller.startRetranscription('m1');
+    await vi.waitFor(() => {
+      expect(events.some((e) => e.channel === 'retranscription.finished')).toBe(true);
+    });
+    const names = events.map((e) => e.channel).filter((n) => n.startsWith('retranscription.'));
+    expect(names.at(-1)).toBe('retranscription.finished');
+    expect(names.slice(0, -1).every((n) => n === 'retranscription.stateChanged')).toBe(true);
+    const idle = events.findLastIndex(
+      (e) =>
+        e.channel === 'retranscription.stateChanged' &&
+        !(e.payload as { isRunning: boolean }).isRunning,
+    );
+    expect(idle).toBe(events.length - 2);
   });
 });

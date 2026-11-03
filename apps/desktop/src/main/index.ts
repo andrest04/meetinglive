@@ -710,6 +710,7 @@ function main(): void {
           if (event.type === 'recording-frame') listener(event.pcm);
         }),
       fileExists: (file) => fs.existsSync(file),
+      isCaptureActive: () => workspace.state.isCaptureActive,
       onMeetingChanged: (id) => {
         workspace.notifyMeetingChanged(id);
       },

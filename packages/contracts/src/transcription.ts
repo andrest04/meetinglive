@@ -156,9 +156,16 @@ export const retranscriptionCancel = defineRequest('retranscription.cancel', {
   output: z.object({ cancelled: z.literal(true) }),
 });
 
+/** The run state plus the last result of each meeting not yet dismissed (B7). */
 export const retranscriptionGetState = defineRequest('retranscription.getState', {
   input: empty,
-  output: retranscriptionStateSchema,
+  output: retranscriptionStateSchema.extend({ lastResults: z.array(retranscriptionResultSchema) }),
+});
+
+/** Drops the kept result of a meeting once the user has seen it. */
+export const retranscriptionDismiss = defineRequest('retranscription.dismiss', {
+  input: z.object({ meetingId: z.string().min(1) }),
+  output: z.object({ dismissed: z.literal(true) }),
 });
 
 // ------------------------------------------------------------------- events

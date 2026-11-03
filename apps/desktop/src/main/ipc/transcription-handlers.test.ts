@@ -41,6 +41,13 @@ function setup(trusted = true) {
     retranscriptionAvailability: vi.fn(() => Promise.resolve('Available' as const)),
     startRetranscription: vi.fn(() => Promise.resolve({ started: true as const, reason: null })),
     cancelRetranscription: vi.fn(),
+    dismissRetranscription: vi.fn(),
+    retranscriptionSnapshot: vi.fn(() => ({
+      isRunning: false,
+      meetingId: null,
+      status: '',
+      lastResults: [{ meetingId: 'm1', outcome: 'Failed' as const, message: 'boom' }],
+    })),
     retranscription: { isRunning: false, meetingId: null, status: '' },
   };
   registerTranscriptionHandlers({
@@ -123,8 +130,14 @@ describe('transcription handlers', () => {
     expect(controller.cancelRetranscription).toHaveBeenCalled();
     expect(await call('retranscription.getState', {})).toMatchObject({
       ok: true,
-      value: { isRunning: false },
+      value: { isRunning: false, lastResults: [{ meetingId: 'm1', outcome: 'Failed' }] },
     });
+    expect(await call('retranscription.dismiss', { meetingId: 'm1' })).toMatchObject({
+      ok: true,
+      value: { dismissed: true },
+    });
+    expect(controller.dismissRetranscription).toHaveBeenCalledWith('m1');
+    expect(await call('retranscription.dismiss', { meetingId: '' })).toMatchObject({ ok: false });
   });
 
   it('refuses an untrusted sender', async () => {

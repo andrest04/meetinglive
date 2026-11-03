@@ -30,6 +30,7 @@ import {
   type RetranscriptionAvailability,
   type RetranscriptionPipeline,
   type RetranscriptionPipelineCallbacks,
+  type RetranscriptionResult,
   type SettingsStore,
   type TranslateFn,
 } from '@vozella/core';
@@ -64,6 +65,11 @@ export interface TranscriptionControllerDeps {
     | { readonly status: 'failed'; readonly message: string }
   >;
   readonly defer?: (task: () => void) => void;
+  /**
+   * Port: true while a take is being recorded. The recording module supplies it (it sets
+   * `isCaptureActive` on the workspace); re-transcription is refused meanwhile (parity 91).
+   */
+  readonly isCaptureActive?: () => boolean;
 }
 
 export interface LiveStartResult {
@@ -392,11 +398,24 @@ export class TranscriptionController {
     return this.runner.current;
   }
 
+  /** The run state plus the kept results of finished runs (B7). */
+  retranscriptionSnapshot(): MeetingRetranscriptionRunner['current'] & {
+    readonly lastResults: RetranscriptionResult[];
+  } {
+    return { ...this.runner.current, lastResults: [...this.runner.lastResults] };
+  }
+
+  dismissRetranscription(meetingId: string): void {
+    this.runner.dismiss(meetingId);
+  }
+
   async retranscriptionAvailability(meetingId: string): Promise<RetranscriptionAvailability> {
     const record = await this.deps.meetings.get(meetingId);
     return evaluateRetranscription(
       record,
-      this.deps.busy.isBusy(meetingId) || this.runner.current.isRunning,
+      this.deps.busy.isBusy(meetingId) ||
+        this.runner.current.isRunning ||
+        (this.deps.isCaptureActive?.() ?? false),
       this.deps.fileExists,
     );
   }
@@ -413,7 +432,7 @@ export class TranscriptionController {
     if (this.runner.current.isRunning) return { started: false, reason: 'AlreadyRunning' };
     const availability = evaluateRetranscription(
       record,
-      this.deps.busy.isBusy(meetingId),
+      this.deps.busy.isBusy(meetingId) || (this.deps.isCaptureActive?.() ?? false),
       this.deps.fileExists,
     );
     if (availability !== 'Available') return { started: false, reason: availability };

@@ -140,6 +140,7 @@ export const requestChannels = {
   [transcription.retranscriptionStart.name]: transcription.retranscriptionStart,
   [transcription.retranscriptionCancel.name]: transcription.retranscriptionCancel,
   [transcription.retranscriptionGetState.name]: transcription.retranscriptionGetState,
+  [transcription.retranscriptionDismiss.name]: transcription.retranscriptionDismiss,
   [summaries.summariesLoadTab.name]: summaries.summariesLoadTab,
   [summaries.summariesGenerate.name]: summaries.summariesGenerate,
   [summaries.summariesCancel.name]: summaries.summariesCancel,
