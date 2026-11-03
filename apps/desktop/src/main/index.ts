@@ -19,6 +19,7 @@ import {
   FileXaiAccount,
   ForbiddenDataRootError,
   LibraryRuntime,
+  readWavDurationSeconds,
   recoverCrashedRecordings,
   RotatingFileLogger,
   SettingsRuntime,
@@ -51,6 +52,8 @@ import { mainCatalogs } from './i18n/main-catalogs';
 import { registerHandlers } from './ipc/handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
+import { createAppIconProvider } from './audio/app-icon';
+import { RecordingTakes } from './audio/recording-take';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -416,6 +419,14 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: audioController,
+      takes: new RecordingTakes({
+        controller: audioController,
+        inboxDirectory: () => library.paths.inboxDirectory,
+        nowMs: () => Date.now(),
+        wavDurationSeconds: readWavDurationSeconds,
+        logger: logger.child('recording'),
+      }),
+      appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
       pickAudioFile: async (extensions) => {
         const options = {
           defaultPath: app.getPath('downloads'),

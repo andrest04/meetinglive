@@ -5,6 +5,7 @@ import { requestChannels, type RequestName } from '@vozella/contracts';
 import type { Logger } from '@vozella/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AudioController } from '../audio/audio-controller';
+import type { RecordingTakes } from '../audio/recording-take';
 import type { IpcEventLike } from '../security/trusted-origin';
 import { registerAudioHandlers } from './audio-handlers';
 import type { IpcMainLike } from './ipc-server';
@@ -50,10 +51,33 @@ function setup(pick: string | null = null) {
     startPreview: vi.fn(),
     stopPreview: vi.fn(),
   };
+  const takes = {
+    start: vi.fn(() => Promise.resolve({ started: true as const, recordedAtMs: 9 })),
+    pause: vi.fn(() => Promise.resolve(true)),
+    resume: vi.fn(() => Promise.resolve(true)),
+    stop: vi.fn(() =>
+      Promise.resolve({ path: 'a.wav', recordedAtMs: 9, pausedSeconds: 2, error: null }),
+    ),
+    rememberPick: vi.fn(),
+    importPicked: vi.fn(() =>
+      Promise.resolve({
+        imported: true as const,
+        path: 'a.wav',
+        recordedAtMs: 1,
+        endedAtMs: 2,
+        durationSeconds: 0.001,
+      }),
+    ),
+  };
+  const appIcon = vi.fn((_: string) =>
+    Promise.resolve<string | null>('data:image/png;base64,AA=='),
+  );
   const pickAudioFile = vi.fn((_: readonly string[]) => Promise.resolve(pick));
   registerAudioHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
     controller: controller as unknown as AudioController,
+    takes: takes as unknown as RecordingTakes,
+    appIcon,
     pickAudioFile,
     nowMs: () => 5_000,
   });
@@ -62,15 +86,14 @@ function setup(pick: string | null = null) {
     if (!handler) throw new Error(`no handler for ${name}`);
     return handler(event as never, input);
   };
-  return { call, controller, pickAudioFile, handlers };
+  return { call, controller, takes, appIcon, pickAudioFile, handlers };
 }
 
 describe('audio handlers', () => {
-  it('registers every audio request channel and no recording start (the path is not the page to choose)', () => {
+  it('registers every audio request channel', () => {
     const { handlers } = setup();
     const audioChannels = Object.keys(requestChannels).filter((n) => n.startsWith('audio.'));
     expect(audioChannels.sort()).toEqual([...handlers.keys()].sort());
-    expect(audioChannels.some((n) => n.startsWith('audio.recording'))).toBe(false);
   });
 
   it('loads microphones with the user choice', async () => {
@@ -137,5 +160,66 @@ describe('audio handlers', () => {
     });
     const cancelled = setup(null);
     expect(await cancelled.call('audio.import.pickFile', {})).toMatchObject({ value: null });
+  });
+
+  it('remembers the pick in main and never lets the page name the file to convert', async () => {
+    const file = path.join(dir, 'talk.mp3');
+    fs.writeFileSync(file, 'x');
+    const { call, takes } = setup(file);
+    await call('audio.import.pickFile', {});
+    expect(takes.rememberPick).toHaveBeenCalledWith({
+      path: file,
+      recordedAtMs: expect.any(Number),
+    });
+    const run = await call('audio.import.run', { title: 'Call' });
+    expect(run).toMatchObject({ ok: true, value: { imported: true } });
+    expect(takes.importPicked).toHaveBeenCalledWith('Call');
+    const smuggled = await call('audio.import.run', {
+      title: 'x',
+      path: String.raw`C:\secret.wav`,
+    });
+    expect(smuggled).toMatchObject({ ok: true });
+  });
+
+  it('forgets an earlier pick when the dialog is cancelled', async () => {
+    const { call, takes } = setup(null);
+    await call('audio.import.pickFile', {});
+    expect(takes.rememberPick).toHaveBeenCalledWith(null);
+  });
+
+  it('starts, pauses, resumes and stops a take through the take object', async () => {
+    const { call, takes } = setup();
+    const micInput = { kind: 'SystemDefault', deviceId: null };
+    expect(await call('audio.recording.start', { title: 'T', microphone: micInput })).toMatchObject(
+      {
+        ok: true,
+        value: { started: true, recordedAtMs: 9 },
+      },
+    );
+    expect(takes.start).toHaveBeenCalledWith('T', micInput);
+    expect(await call('audio.recording.pause', {})).toMatchObject({ value: { paused: true } });
+    expect(await call('audio.recording.resume', {})).toMatchObject({ value: { resumed: true } });
+    expect(await call('audio.recording.stop', {})).toMatchObject({
+      value: { path: 'a.wav', pausedSeconds: 2, error: null },
+    });
+  });
+
+  it('rejects a recording start with a bad microphone kind', async () => {
+    const { call, takes } = setup();
+    const result = await call('audio.recording.start', {
+      title: 'T',
+      microphone: { kind: 'Everything', deviceId: null },
+    });
+    expect(result).toMatchObject({ ok: false });
+    expect(takes.start).not.toHaveBeenCalled();
+  });
+
+  it('returns the icon of an executable', async () => {
+    const { call, appIcon } = setup();
+    const exePath = String.raw`C:\Apps\Zoom.exe`;
+    expect(await call('audio.apps.icon', { exePath })).toMatchObject({
+      value: { dataUrl: 'data:image/png;base64,AA==' },
+    });
+    expect(appIcon).toHaveBeenCalledWith(exePath);
   });
 });

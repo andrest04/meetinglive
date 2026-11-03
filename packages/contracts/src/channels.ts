@@ -114,6 +114,12 @@ export const requestChannels = {
   [audio.audioPreviewStart.name]: audio.audioPreviewStart,
   [audio.audioPreviewStop.name]: audio.audioPreviewStop,
   [audio.audioImportPickFile.name]: audio.audioImportPickFile,
+  [audio.audioRecordingStart.name]: audio.audioRecordingStart,
+  [audio.audioRecordingPause.name]: audio.audioRecordingPause,
+  [audio.audioRecordingResume.name]: audio.audioRecordingResume,
+  [audio.audioRecordingStop.name]: audio.audioRecordingStop,
+  [audio.audioImportRun.name]: audio.audioImportRun,
+  [audio.audioAppIcon.name]: audio.audioAppIcon,
 } as const;
 
 export const eventChannels = {
