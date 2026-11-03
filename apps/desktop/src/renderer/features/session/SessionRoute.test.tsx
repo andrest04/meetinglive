@@ -278,6 +278,9 @@ describe('SessionRoute', () => {
       'workspace.changed',
       'workspace.meetingChanged',
       'workspace.meetingDeleted',
+      'workspace.navigationRequested',
+      'retranscription.stateChanged',
+      'retranscription.finished',
     ]) {
       expect(fake.listenerCount(name)).toBe(0);
     }

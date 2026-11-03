@@ -112,6 +112,7 @@ export class TranscriptionController {
       templateInstructions: (record) =>
         deps.templateInstructions?.(record) ?? Promise.resolve(null),
       formatFailure: deps.formatFailure ?? messageOf,
+      startStatus: deps.t('Status_Transcribing'),
       defer: deps.defer ?? ((task) => setImmediate(task)),
       onMeetingChanged: (id) => {
         deps.onMeetingChanged(id);

@@ -114,6 +114,8 @@ export interface RetranscriptionRunnerDeps {
   /** Resolves the note template text for the record. */
   readonly templateInstructions: (record: MeetingRecord) => Promise<string | null>;
   readonly formatFailure: (error: unknown) => string;
+  /** The status shown as soon as a run starts (Status_Transcribing). */
+  readonly startStatus?: string;
   /** Runs after the pipeline callbacks have been delivered (the UI thread in the old app). */
   readonly defer: (task: () => void) => void;
   readonly onMeetingChanged: (meetingId: string) => void;
@@ -164,7 +166,7 @@ export class MeetingRetranscriptionRunner {
     const cancel = new CancelSource();
     this.cancelSource = cancel;
     this.results.delete(record.id);
-    this.setState({ isRunning: true, meetingId: record.id, status: '' });
+    this.setState({ isRunning: true, meetingId: record.id, status: this.deps.startStatus ?? '' });
 
     let completed = false;
     let summaryFailure: string | null = null;

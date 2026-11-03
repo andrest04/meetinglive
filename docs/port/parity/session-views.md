@@ -438,3 +438,20 @@ Bugs fixed (sv-7)
 
 Left for other modules (sv-7)
 - None.
+
+## Audit round 1 decisions (2026-11-03)
+
+Fixed, with tests
+- Items 36-51 dead strings: rejected. The locale catalogs are generated from the WinUI resources and checked byte for byte by `i18n-catalogs.test.ts`, so the four suggest-title keys stay unused until the generator drops them (dropped, owner decision 2026-11-03, may return later).
+- Spec 8 item 12: the unmount test now covers all six subscriptions, including navigationRequested and both runner events.
+- Bug 1: highlights restored on abutting lines now star the line that starts at the mark (`transcript-text.test.ts`).
+- Item 125: the runner starts with Status_Transcribing (`startStatus`), test updated.
+
+Rejected or deferred
+- Owner drop of the resize grip (145-152): the grip lives in the shell module (AppShell, Splitter), not in session-views. Left to the shell ledger.
+- 113, 120, 121, bug 5, 114, 160: need the recording pipeline, which this port does not have yet. Still left for the recording module; the re-transcribe path keeps SummaryFailed as its only summary outcome until then.
+- Item 23: opening the session after a take belongs to the Record screen and needs the recording module; `initialTabAfterTake` stays ready for it.
+- Item 70: padding is a recorded variance. The content uses ps-3 pe-2 py-1 to keep the page quiet; 24 px was not kept.
+- Item 63 adapter: `shell.showItemInFolder` is a one-line platform call; a real call is not exercised in tests.
+- Tests not added this round (coverage-only, behavior unchanged): items 21, 25, 28, 35, 53, 57 failure path, 107, 108, 124, 126, 129, bug 2/3/20, item 85 literal.
+- Design notes (double scrollbar, button styles, empty-state wording, quiet-load error) are polish, left for the final review.

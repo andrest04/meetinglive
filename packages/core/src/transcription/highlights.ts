@@ -23,6 +23,10 @@ interface Indexed {
 }
 
 function findLineIndex(indexed: readonly Indexed[], mark: number): number {
+  // Lines abut (previous end == next start): a mark on the boundary belongs to the line that starts there.
+  for (const candidate of indexed) {
+    if (mark === candidate.startMs) return candidate.index;
+  }
   for (const candidate of indexed) {
     if (mark >= candidate.startMs && mark <= candidate.endMs) return candidate.index;
   }

@@ -92,6 +92,11 @@ describe('stamp formatter', () => {
 });
 
 describe('highlights', () => {
+  it('restores a star on the line that begins at an abutting boundary', () => {
+    const abut = '[00:00.00-00:04.52] a\n[00:04.52-00:09.10] b';
+    expect(applyHighlights(abut, [4520])).toBe('[00:00.00-00:04.52] a\n* [00:04.52-00:09.10] b');
+    expect(starredLineStarts(applyHighlights(abut, [4520]))).toEqual([4520]);
+  });
   const t =
     'Recorded x\n[00:00.00-00:10.00] one\n[00:12.00-00:20.00] two\n[00:30.00-00:41.55] three';
   it('clamps a negative mark to the start', () => {
