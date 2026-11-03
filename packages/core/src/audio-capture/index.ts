@@ -8,3 +8,4 @@ export * from './record-sources';
 export * from './recording-service';
 export * from './source-picker';
 export * from './wav-format';
+export * from './ports';

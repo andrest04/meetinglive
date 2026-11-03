@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { systemLoopbackSources, processTreeSources } from './capture-sources';
+import { assertProcessLoopbackSupported, ProcessLoopbackUnsupportedError } from './ports';
 import {
   AudioCaptureService,
   PUMP_CHUNK_BYTES,
@@ -70,6 +71,26 @@ describe('AudioCaptureService start', () => {
       'System loopback cannot also target a process.',
     );
     expect(r.port.sessions).toHaveLength(0);
+  });
+
+  it('C7: refuses a process capture with a clear error before any device opens', async () => {
+    const r = rig();
+    const gated = new AudioCaptureService({
+      sources: r.port,
+      clock: r.clock,
+      createWriter: () => r.writer,
+      removeFile: () => undefined,
+      repairWav: () => undefined,
+      preflight: (s) => {
+        if (s.output === 'ProcessTree') assertProcessLoopbackSupported(19045);
+      },
+    });
+    await expect(gated.start('a.wav', processTreeSources(true, null, 4242))).rejects.toThrow(
+      ProcessLoopbackUnsupportedError,
+    );
+    expect(r.port.sessions).toHaveLength(0);
+    await gated.start('a.wav', withMic);
+    expect(gated.isRecording).toBe(true);
   });
 
   it('throws while a recording is in progress, also during a stop', async () => {
@@ -230,6 +251,34 @@ describe('mixing and file output', () => {
     await r.clock.advance(5200);
     expect(r.faulted).toHaveLength(0);
     expect(r.service.isRecording).toBe(true);
+  });
+});
+
+describe('microphone level (fixes C4)', () => {
+  it('reports the microphone alone, once per 100 ms, and never from the output', async () => {
+    const r = rig();
+    const levels: number[] = [];
+    r.service.setListeners({ onMicrophoneLevel: (l) => levels.push(l) });
+    await r.service.start('a.wav', withMic);
+    for (let i = 0; i < 5; i += 1) r.port.output?.emit(30000);
+    expect(levels).toEqual([]);
+    for (let i = 0; i < 5; i += 1) r.port.mic?.emit(16384);
+    expect(levels).toHaveLength(1);
+    expect(levels[0]).toBeCloseTo(0.5, 2);
+  });
+
+  it('stays silent with no microphone and while paused', async () => {
+    const r = rig();
+    const levels: number[] = [];
+    r.service.setListeners({ onMicrophoneLevel: (l) => levels.push(l) });
+    await r.service.start('a.wav', systemOnly);
+    for (let i = 0; i < 20; i += 1) r.port.output?.emit(30000);
+    expect(levels).toEqual([]);
+    await r.service.stop();
+    await r.service.start('b.wav', withMic);
+    r.service.pause();
+    for (let i = 0; i < 10; i += 1) r.port.mic?.emit(30000);
+    expect(levels).toEqual([]);
   });
 });
 

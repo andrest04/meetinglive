@@ -9,7 +9,7 @@ import {
   usesSystemLoopback,
   type RecordingCaptureSources,
 } from './capture-sources';
-import { pcm16ToFloat } from './level-meter';
+import { computeBufferRms, pcm16ToFloat } from './level-meter';
 import { AudioMixer } from './mixer';
 import { FILE_BYTES_PER_SECOND, WavHeaderFlushCadence } from './wav-format';
 
@@ -48,7 +48,12 @@ export interface SourceLostEvent {
 export interface PcmFrame {
   readonly samples: Float32Array;
   readonly sampleRate: number;
+  /** The same audio as PCM16 little-endian, as written to the file. */
+  readonly pcm: Uint8Array;
 }
+
+/** The microphone level is reported once per this many 20 ms frames (100 ms). */
+const MIC_LEVEL_FRAMES = 5;
 
 export interface RecordingServiceDeps {
   readonly sources: AudioCapturePort;
@@ -58,6 +63,8 @@ export interface RecordingServiceDeps {
   /** Repairs the header of a file whose writer failed to flush or close. */
   readonly repairWav: (path: string) => void;
   readonly clock: PumpClock;
+  /** Runs after validation and before any device opens; throws to refuse the request (C7). */
+  readonly preflight?: (sources: RecordingCaptureSources) => void;
 }
 
 export interface RecordingListeners {
@@ -67,6 +74,11 @@ export interface RecordingListeners {
   onOutputCaptureFailed?(error: Error): void;
   /** The pump died (full disk, throwing subscriber): the caller stops the recording. */
   onFaulted?(error: Error): void;
+  /**
+   * Peak RMS (0..1) of the microphone over the last 100 ms while recording, not paused.
+   * The bar shows the microphone, not the mix (fixes C4); it never moves with no microphone.
+   */
+  onMicrophoneLevel?(level: number): void;
 }
 
 interface Handles {
@@ -95,6 +107,8 @@ export class AudioCaptureService {
   private handles: Handles | undefined;
   private stopTask: Promise<void> | undefined;
   private listeners: RecordingListeners = {};
+  private micLevelPeak = 0;
+  private micLevelFrames = 0;
 
   constructor(private readonly deps: RecordingServiceDeps) {}
 
@@ -114,6 +128,7 @@ export class AudioCaptureService {
   async start(path: string, sources: RecordingCaptureSources): Promise<void> {
     assertValidCaptureSources(sources);
     if (this.recording || this.starting) throw new Error('A recording is already in progress.');
+    this.deps.preflight?.(sources);
 
     this.paused = false;
     this.userStop = false;
@@ -142,6 +157,7 @@ export class AudioCaptureService {
           { kind: 'mic', deviceId: effectiveMicrophoneId(sources) },
           (frame) => {
             input.push(frame.pcm);
+            this.noteMicrophoneLevel(frame.pcm);
           },
           (error) => {
             this.onSourceStopped('Microphone', error);
@@ -289,6 +305,17 @@ export class AudioCaptureService {
     this.handles = undefined;
   }
 
+  private noteMicrophoneLevel(pcm: Uint8Array): void {
+    if (this.paused || !this.listeners.onMicrophoneLevel || pcm.byteLength === 0) return;
+    this.micLevelPeak = Math.max(this.micLevelPeak, computeBufferRms(pcm, 'int16'));
+    this.micLevelFrames += 1;
+    if (this.micLevelFrames < MIC_LEVEL_FRAMES) return;
+    const level = this.micLevelPeak;
+    this.micLevelPeak = 0;
+    this.micLevelFrames = 0;
+    this.listeners.onMicrophoneLevel(level);
+  }
+
   private onOutputStopped(error: Error | null): void {
     if (!shouldSurfaceOutputFailure(error, this.userStop, this.outputIsProcessCapture)) {
       this.reportSourceStopped('Output', error);
@@ -341,7 +368,7 @@ export class AudioCaptureService {
           }
         }
         if (this.listeners.onFrame && chunk.byteLength >= 2) {
-          this.listeners.onFrame({ samples: pcm16ToFloat(chunk), sampleRate: 16_000 });
+          this.listeners.onFrame({ samples: pcm16ToFloat(chunk), sampleRate: 16_000, pcm: chunk });
         }
         const expectedMs = (bytesWritten * 1000) / FILE_BYTES_PER_SECOND;
         const sleepMs = expectedMs - (clock.nowMs() - startedAt - pauseAccumulatedMs);
