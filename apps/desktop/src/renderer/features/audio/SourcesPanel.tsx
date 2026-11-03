@@ -17,6 +17,8 @@ export interface SourcesSelection {
   /** Null means all system audio. */
   readonly processId: number | null;
   readonly appName: string | null;
+  /** "Mic: {0} · Audio: {1}", for the recording bar. */
+  readonly summary: string;
 }
 
 const SYSTEM_VALUE = 'system';
@@ -79,10 +81,6 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   );
   const appName = selectedCard?.app?.friendlyName ?? null;
 
-  useEffect(() => {
-    onSelectionChange?.({ microphone: selectedMic, processId: selectedProcessId, appName });
-  }, [onSelectionChange, selectedMic, selectedProcessId, appName]);
-
   const summary = t(
     'RecordPage_SourcesSummary',
     ...sourcesSummaryArgs(selectedMicLabel, appName, {
@@ -90,6 +88,15 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
       allSystem: t('RecordPage_AllSystemAudio.Text'),
     }),
   );
+
+  useEffect(() => {
+    onSelectionChange?.({
+      microphone: selectedMic,
+      processId: selectedProcessId,
+      appName,
+      summary,
+    });
+  }, [onSelectionChange, selectedMic, selectedProcessId, appName, summary]);
 
   const cards = state?.cards ?? [];
   const options: RadioOption[] = cards.map((card) => cardOption(card, t, locked));

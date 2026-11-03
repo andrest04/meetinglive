@@ -10,6 +10,7 @@ import { buildDestinations, fromOptionValue, toOptionValue } from './destination
  * processed and locked while it records; the destination is locked while it records (spec 2.2).
  */
 export function RecordIdle({
+  hidden = false,
   title,
   onTitleChange,
   titleDisabled,
@@ -19,6 +20,8 @@ export function RecordIdle({
   destinationDisabled,
   children,
 }: {
+  /** A take records: the fields stay mounted (the sources keep their state) but are not drawn. */
+  readonly hidden?: boolean;
   readonly title: string;
   readonly onTitleChange: (title: string) => void;
   readonly titleDisabled: boolean;
@@ -39,7 +42,7 @@ export function RecordIdle({
     [folders, inbox, locale],
   );
   return (
-    <div className="flex max-w-[960px] flex-col gap-6" data-testid="record-idle">
+    <div className="flex max-w-[960px] flex-col gap-6" data-testid="record-idle" hidden={hidden}>
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,16rem)]">
         <Field label={t('RecordPage_MeetingTitle.Header')}>
           <Input

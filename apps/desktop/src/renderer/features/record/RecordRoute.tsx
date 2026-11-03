@@ -1,15 +1,21 @@
 import { defaultMeetingTitle } from '@vozella/core';
-import { FileUp, Mic, Pause, Play, Square } from 'lucide-react';
+import { FileUp, Mic } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
-import { Button, Meter, Progress, SectionHeader } from '../../ui';
+import { Button, Progress, SectionHeader } from '../../ui';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
-import { useRecordingFeedback } from '../audio/use-recording-feedback';
-import { LiveTranscript } from '../transcription/LiveTranscript';
 import { useEngineStatus } from '../transcription/use-engine-status';
+import { LiveCanvas } from './LiveCanvas';
 import { NotepadPanel } from './notepad/NotepadPanel';
 import { RecordIdle } from './RecordIdle';
-import { arrangePanels, deriveRecordLayout, type StatusMessage } from './record-layout';
+import { buildDestinations } from './destinations';
+import {
+  arrangePanels,
+  deriveRecordLayout,
+  hasStatusError,
+  type StatusMessage,
+} from './record-layout';
+import { RecordingSession, useCanvasCopy } from './RecordingSession';
 import { ResultCard } from './ResultCard';
 import { SetupChecklist } from './SetupChecklist';
 import { StatusBars, useStatusText } from './StatusBars';
@@ -18,17 +24,19 @@ import {
   cancelProcessing,
   connectRecording,
   importRecording,
-  pauseRecording,
-  resumeRecording,
   setFolderId,
   setTitle,
   startRecording,
-  stopRecording,
   useRecordingStore,
 } from './use-recording';
 import { useTakeNotesRequest } from './use-take-notes';
 
-const NO_SELECTION: SourcesSelection = { microphone: null, processId: null, appName: null };
+const NO_SELECTION: SourcesSelection = {
+  microphone: null,
+  processId: null,
+  appName: null,
+  summary: '',
+};
 
 const useWindowWidth = (): number => {
   const [width, setWidth] = useState(() => window.innerWidth);
@@ -123,9 +131,18 @@ export function RecordRoute() {
     return [];
   }, [state?.status, store.notice, active, setup]);
   const statusText = useStatusText(messages);
-  const feedback = useRecordingFeedback(active);
+  const canvasCopy = useCanvasCopy(store.liveText);
+  const destination = useMemo(() => {
+    const inbox = t('Library_Inbox');
+    return (
+      buildDestinations(store.folders, inbox, locale).find((d) => d.folderId === store.folderId)
+        ?.path ?? inbox
+    );
+  }, [store.folders, store.folderId, locale, t]);
+  const emptyText =
+    engine && !engine.liveEnabled ? t('Ui_LiveSkipped') : t('RecordPage_LiveTranscriptHint.Text');
+  const captionText = hasStatusError(messages) ? '' : statusText;
   const panels = arrangePanels(width);
-  const stopping = phase === 'Stopping';
   const scrollSession = flags.isSessionActive;
 
   return (
@@ -137,10 +154,11 @@ export function RecordRoute() {
       <SectionHeader
         level={1}
         title={t('RecordPage_Title.Text')}
-        description={t('RecordPage_Subtitle.Text')}
+        description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
       />
 
       <RecordIdle
+        hidden={isRecording}
         title={title}
         onTitleChange={setTitle}
         titleDisabled={isRecording || busy === 'starting'}
@@ -194,7 +212,22 @@ export function RecordRoute() {
         {!active ? <StatusBars messages={messages} scope="idle" /> : null}
       </RecordIdle>
 
-      {active ? (
+      {isRecording && state ? (
+        <>
+          <StatusBars messages={messages} scope="session" />
+          <RecordingSession
+            state={state}
+            liveText={store.liveText}
+            committedText={store.committedText}
+            destination={destination}
+            sources={selection.summary}
+            statusText={captionText}
+            emptyText={emptyText}
+            side={<NotepadPanel maxHeight={panels.notesMaxHeight} />}
+            sideBySide={panels.sideBySide}
+          />
+        </>
+      ) : active ? (
         <div
           className={
             panels.sideBySide
@@ -205,32 +238,9 @@ export function RecordRoute() {
         >
           <div className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-wrap items-center gap-3">
-              {isRecording ? (
-                <>
-                  <Button
-                    variant="primary"
-                    icon={Square}
-                    disabled={stopping}
-                    data-testid="BtnStop"
-                    onClick={() => void stopRecording()}
-                  >
-                    {t('Record_Stop')}
-                  </Button>
-                  {state?.isPaused ? (
-                    <Button icon={Play} onClick={() => void resumeRecording()}>
-                      {t('Record_Resume')}
-                    </Button>
-                  ) : (
-                    <Button icon={Pause} disabled={stopping} onClick={() => void pauseRecording()}>
-                      {t('Record_Pause')}
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <Button data-testid="BtnCancelProcessing" onClick={() => void cancelProcessing()}>
-                  {t('RecordPage_CancelProcessing.Content')}
-                </Button>
-              )}
+              <Button data-testid="BtnCancelProcessing" onClick={() => void cancelProcessing()}>
+                {t('RecordPage_CancelProcessing.Content')}
+              </Button>
               <p
                 role="status"
                 aria-live="polite"
@@ -240,19 +250,21 @@ export function RecordRoute() {
                 {statusText}
               </p>
             </div>
-            {isRecording ? (
-              <Meter
-                value={state?.isPaused ? 0 : feedback.level}
-                label={t('RecordPage_MicLevelBar.AutomationProperties.Name')}
-              />
-            ) : (
-              <Progress value={null} label={statusText} />
-            )}
+            <Progress value={null} label={statusText} />
             <StatusBars messages={messages} scope="session" />
-            {flags.showTranscriptCanvas && engine?.liveEnabled ? (
-              <LiveTranscript loading={phase === 'Preparing'} />
-            ) : isRecording && engine ? (
-              <p className="text-ui-lg text-ink-muted">{t('Ui_LiveSkipped')}</p>
+            {flags.showTranscriptCanvas ? (
+              <LiveCanvas
+                heading={t(flags.canvasHeadingKey)}
+                live={false}
+                text={store.liveText}
+                committedLines={Number.POSITIVE_INFINITY}
+                emptyText={emptyText}
+                highlightFeedback={null}
+                statusText={null}
+                copied={canvasCopy.copied}
+                onCopy={null}
+                className="h-96"
+              />
             ) : null}
           </div>
           <NotepadPanel />
@@ -269,20 +281,19 @@ export function RecordRoute() {
       ) : null}
 
       {!active && flags.showTranscriptCanvas ? (
-        <section className="flex flex-col gap-2" aria-labelledby="record-canvas-heading">
-          <h2 id="record-canvas-heading" className="text-ui-lg font-semibold text-ink">
-            {t(flags.canvasHeadingKey)}
-          </h2>
-          <div
-            tabIndex={0}
-            role="region"
-            aria-labelledby="record-canvas-heading"
-            data-testid="saved-transcript"
-            className="max-h-64 overflow-y-auto rounded-control border border-hairline px-3 py-2.5 text-read whitespace-pre-wrap text-ink"
-          >
-            {store.liveText}
-          </div>
-        </section>
+        <LiveCanvas
+          heading={t(flags.canvasHeadingKey)}
+          live={false}
+          text={store.liveText}
+          committedLines={Number.POSITIVE_INFINITY}
+          emptyText={emptyText}
+          highlightFeedback={null}
+          statusText={null}
+          copied={canvasCopy.copied}
+          onCopy={canvasCopy.copy}
+          surfaceTestId="saved-transcript"
+          className="h-96"
+        />
       ) : null}
 
       {dialogs}

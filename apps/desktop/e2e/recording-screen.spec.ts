@@ -152,8 +152,9 @@ test('a take runs from Record to the result card, and Open shows the meeting', a
   await page.getByRole('button', { name: 'Record', exact: true }).click();
   const stop = page.getByRole('button', { name: 'Stop' });
   await expect(stop).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('textbox', { name: 'Title' })).toBeDisabled();
-  await expect(page.getByRole('combobox', { name: 'Save to' })).toBeDisabled();
+  await expect(page.getByTestId('bar-title')).toHaveText('Screen check');
+  await expect(page.getByRole('textbox', { name: 'Title' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Save to' })).toHaveCount(0);
   await expect(page.getByTestId('recording-status')).toContainText('Recording');
   await page.waitForTimeout(800);
   await shot('screen-recording-dark.png');

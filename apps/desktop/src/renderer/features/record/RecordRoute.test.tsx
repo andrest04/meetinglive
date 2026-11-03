@@ -207,7 +207,7 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
     });
   });
 
-  it('locks the title and the destination while recording, and unlocks the title while processing', async () => {
+  it('shows the title in the bar while recording, with the fields out of the way, and unlocks the title while processing', async () => {
     installApi({
       'recording.getState': () => ({
         ...idleState,
@@ -219,10 +219,11 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
     });
     const view = mount();
     await waitFor(() => {
-      expect(screen.getByRole('textbox', { name: 'Title' })).toBeDisabled();
+      expect(screen.getByTestId('bar-title')).toHaveTextContent('Live take');
     });
-    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Live take');
-    expect(screen.getByRole('combobox', { name: 'Save to' })).toBeDisabled();
+    // The fields stay mounted so the sources keep their state, but are not drawn.
+    expect(screen.queryByRole('textbox', { name: 'Title' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Save to' })).toBeNull();
     view.unmount();
     installApi({
       'recording.getState': () => ({

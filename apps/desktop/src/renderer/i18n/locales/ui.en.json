@@ -54,7 +54,7 @@
   "Ui_EngineNotInstalled": "Not installed",
   "Ui_SwitchOn": "On",
   "Ui_SwitchOff": "Off",
-  "Ui_LiveWaiting": "Listening. Text appears here as people speak.",
+  "Ui_RecordingLevel": "Recording level",
   "Ui_LiveSkipped": "The live preview is off. The transcript is made after you stop.",
   "Ui_RetranscribeNoAudio": "This meeting has no saved audio, so it cannot be re-transcribed.",
   "Ui_RetranscribeBusy": "Wait for the current recording or re-transcription to finish.",

@@ -26,6 +26,8 @@ export interface RecordingStore {
   /** Null until main answered. */
   readonly state: RecordingStateDto | null;
   readonly liveText: string;
+  /** The part of the live transcript the engine will not rewrite (the rest is the interim tail). */
+  readonly committedText: string;
   readonly setup: RecordingSetupDto | null;
   readonly folders: readonly FolderDto[];
   /** Null is the Inbox. */
@@ -43,6 +45,7 @@ export interface RecordingStore {
 const initial = (): RecordingStore => ({
   state: null,
   liveText: '',
+  committedText: '',
   setup: null,
   folders: [],
   folderId: null,
@@ -81,8 +84,10 @@ export function resetRecordingStore(): void {
 export function applyRecordingState(next: RecordingStateDto): void {
   const previous = get().state;
   const ended = previous !== null && previous.phase !== 'Idle' && next.phase === 'Idle';
+  const began = previous?.phase === 'Idle' && next.phase !== 'Idle';
   set({
     state: next,
+    ...(began ? { committedText: '' } : {}),
     ...(ended ? { title: null, defaultAtMs: Date.now() } : {}),
   });
 }
@@ -150,6 +155,9 @@ export function connectRecording(): () => void {
       window.vozella.on('recording.state', applyRecordingState),
       window.vozella.on('recording.liveText', ({ text }) => {
         applyLiveText(text);
+      }),
+      window.vozella.on('transcription.liveUpdate', ({ committedText }) => {
+        set({ committedText });
       }),
       window.vozella.on('workspace.meetingDeleted', ({ id }) => {
         if (get().state?.lastMeeting?.id === id) set({ clearedMeetingId: id });
@@ -235,6 +243,35 @@ async function command(name: 'pause' | 'resume' | 'stop'): Promise<void> {
 export const pauseRecording = (): Promise<void> => command('pause');
 export const resumeRecording = (): Promise<void> => command('resume');
 export const stopRecording = (): Promise<void> => command('stop');
+
+/** Item 68: marks this moment; the elapsed time (WAV time, pauses excluded) comes back from main. */
+export async function highlightMoment(): Promise<number | null> {
+  try {
+    const result = await window.vozella.invoke('recording.highlight', {});
+    return result.marked ? result.elapsedMs : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Item 70: puts text on the clipboard through main (the renderer clipboard is denied). */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    const result = await window.vozella.invoke('summaries.writeClipboard', { text });
+    return result.status === 'written';
+  } catch {
+    return false;
+  }
+}
+
+/** Item 71, after the confirmation. */
+export async function discardRecording(): Promise<void> {
+  try {
+    await window.vozella.invoke('recording.discard', {});
+  } catch {
+    // Main keeps the take; the next state push says where it stands.
+  }
+}
 
 export async function cancelProcessing(): Promise<void> {
   try {

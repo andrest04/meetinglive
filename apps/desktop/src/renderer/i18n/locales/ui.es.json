@@ -54,7 +54,7 @@
   "Ui_EngineNotInstalled": "No instalado",
   "Ui_SwitchOn": "Activado",
   "Ui_SwitchOff": "Desactivado",
-  "Ui_LiveWaiting": "Escuchando. El texto aparece aquí mientras se habla.",
+  "Ui_RecordingLevel": "Nivel de la grabación",
   "Ui_LiveSkipped": "La vista previa en vivo está desactivada. La transcripción se hace al detener.",
   "Ui_RetranscribeNoAudio": "Esta reunión no tiene audio guardado, así que no se puede volver a transcribir.",
   "Ui_RetranscribeBusy": "Espera a que termine la grabación o la nueva transcripción en curso.",

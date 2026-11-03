@@ -144,6 +144,6 @@ describe('the recording store', () => {
     first();
     expect(api.offs.count).toBe(0);
     second();
-    expect(api.offs.count).toBe(3);
+    expect(api.offs.count).toBe(4);
   });
 });
