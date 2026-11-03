@@ -1,8 +1,11 @@
-import { ArrowUp, Square } from 'lucide-react';
-import { useLayoutEffect, useRef } from 'react';
+import type { ChatRecipe } from '@vozella/core';
+import { ArrowUp, BookOpenText, Square } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Button, IconButton, Tooltip, cn } from '../../ui';
 import { keyIntent } from './chat-view-model';
+import { RECIPES_LIST_ID, RecipesMenu, recipeOptionId } from './RecipesMenu';
+import { useRecipesMenu } from './use-recipes-menu';
 
 const MIN_HEIGHT = 32;
 const MAX_HEIGHT = 96;
@@ -13,12 +16,37 @@ export interface ComposerProps {
   readonly onSend: () => void;
   readonly onStop: () => void;
   readonly isSending: boolean;
+  /** Built-in recipes of the current scope for the Recipes flyout. */
+  readonly recipes: readonly ChatRecipe[];
 }
 
 /** The message box: Enter sends, Shift+Enter adds a line, and the box grows to three lines. */
-export function Composer({ draft, onDraftChange, onSend, onStop, isSending }: ComposerProps) {
+export function Composer({
+  draft,
+  onDraftChange,
+  onSend,
+  onStop,
+  isSending,
+  recipes,
+}: ComposerProps) {
   const t = useT();
   const field = useRef<HTMLTextAreaElement>(null);
+
+  const menu = useRecipesMenu({ draft, onDraftChange, recipes, field });
+  const wrapper = useRef<HTMLDivElement>(null);
+  const { isOpen, close } = menu;
+
+  // A press outside the composer, or focus leaving it, closes the flyout.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPress = (event: PointerEvent) => {
+      if (!wrapper.current?.contains(event.target as Node)) close();
+    };
+    document.addEventListener('pointerdown', onPress);
+    return () => {
+      document.removeEventListener('pointerdown', onPress);
+    };
+  }, [isOpen, close]);
 
   useLayoutEffect(() => {
     const el = field.current;
@@ -29,8 +57,30 @@ export function Composer({ draft, onDraftChange, onSend, onStop, isSending }: Co
 
   const canSend = !isSending && draft.trim() !== '';
 
+  const activeId = menu.visible[menu.activeIndex]?.id;
+
   return (
-    <div className="flex min-w-[180px] items-end gap-2 rounded-control border border-border-control bg-paper px-2.5 py-1 focus-within:border-ink">
+    <div
+      ref={wrapper}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) close();
+      }}
+      className="relative flex min-w-[180px] items-end gap-2 rounded-control border border-border-control bg-paper px-2.5 py-1 focus-within:border-ink"
+    >
+      {isOpen ? (
+        <RecipesMenu recipes={menu.visible} activeIndex={menu.activeIndex} onPick={menu.pick} />
+      ) : null}
+      <IconButton
+        label={t('Chat_Recipes.AutomationProperties.Name')}
+        icon={BookOpenText}
+        size="sm"
+        data-testid="BtnMeetingChatRecipes"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? RECIPES_LIST_ID : undefined}
+        onClick={menu.toggle}
+        className="mb-0.5"
+      />
       <textarea
         ref={field}
         id="TxtMeetingChat"
@@ -42,7 +92,10 @@ export function Composer({ draft, onDraftChange, onSend, onStop, isSending }: Co
         onChange={(event) => {
           onDraftChange(event.target.value);
         }}
+        aria-controls={isOpen ? RECIPES_LIST_ID : undefined}
+        aria-activedescendant={activeId === undefined ? undefined : recipeOptionId(activeId)}
         onKeyDown={(event) => {
+          if (menu.handleKeyDown(event)) return;
           const intent = keyIntent({
             key: event.key,
             shiftKey: event.shiftKey,

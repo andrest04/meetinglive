@@ -23,10 +23,11 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const { rows, error } = chat.view;
 
   // Names are looked up on every render, so a language change relabels the chips (B8).
-  const starters = useMemo(
-    () => recipesForScope(scope.kind, (key) => t(key as StringKey)).slice(0, STARTER_COUNT),
+  const recipes = useMemo(
+    () => recipesForScope(scope.kind, (key) => t(key as StringKey)),
     [scope.kind, t],
   );
+  const starters = useMemo(() => recipes.slice(0, STARTER_COUNT), [recipes]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -50,6 +51,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
         onSend={() => void chat.send(chat.draft)}
         onStop={chat.stop}
         isSending={chat.isSending}
+        recipes={recipes}
       />
       <ProviderGateDialogs gate={gate} />
     </div>

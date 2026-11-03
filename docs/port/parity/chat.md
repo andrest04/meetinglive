@@ -260,12 +260,12 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 104 | Scope to availability: Meeting/Live single; Folder/All multiple. | chat-2 / chat-8 | done | recipes.test.ts AvailabilityFor_MatchesScope |
 | 105 | Scope list = built-ins (catalog order) then user recipes (file order); user rows with colliding built-in ids skipped (apply the B9 fix or keep, but document). | chat-2 / chat-8 | improved | recipes.test.ts ForScope; built-ins only, user half dropped (owner decision 2026-11-03, may return later), B9 moot |
 | 106 | Starter chips = first 4 of the scope list. | chat-2 / chat-8 | done | recipes.test.ts starterRecipes; chips UI in chat-8 |
-| 107 | Chip click fills the draft and sends immediately. | chat-2 / chat-8 | pending |  |
-| 108 | Recipes flyout lists name and two-line prompt preview; item click fills the draft without sending, closes the flyout, focuses and puts the caret at the end. | chat-2 / chat-8 | pending |  |
+| 107 | Chip click fills the draft and sends immediately. | chat-2 / chat-8 | done | e2e `chat-recipes.spec.ts` "a chip click sends and streams the answer"; chip behavior from chat-7. |
+| 108 | Recipes flyout lists name and two-line prompt preview; item click fills the draft without sending, closes the flyout, focuses and puts the caret at the end. | chat-2 / chat-8 | done | `RecipesMenu.test.tsx` (fill without send, closes, focus, caret at end); e2e click fills the draft. |
 | 109 | Delete icon only on user recipes; built-ins cannot be deleted even through the API. | chat-2 / chat-8 | dropped | moot: no user recipes (owner decision 2026-11-03, may return later); built-ins have no delete path |
-| 110 | Slash filter opens automatically when the draft starts with `/`, filtering by name or prompt, case-insensitive substring of `Draft[1..].Trim()`. | chat-2 / chat-8 | pending |  |
-| 111 | Button-open shows the full list; slash-open shows the filtered list. | chat-2 / chat-8 | pending |  |
-| 112 | Empty state `Chat_NoRecipes`. | chat-2 / chat-8 | pending |  |
+| 110 | Slash filter opens automatically when the draft starts with `/`, filtering by name or prompt, case-insensitive substring of `Draft[1..].Trim()`. | chat-2 / chat-8 | done | `RecipesMenu.test.tsx` slash filter cases; e2e `/ac` leaves one row. |
+| 111 | Button-open shows the full list; slash-open shows the filtered list. | chat-2 / chat-8 | done | `RecipesMenu.test.tsx` button-open lists all (5 meeting, 3 folder); e2e checks both counts. |
+| 112 | Empty state `Chat_NoRecipes`. | chat-2 / chat-8 | done | `RecipesMenu.test.tsx` "No recipes for this scope." on a filter with no match. |
 | 113 | Create recipe dialog fields, placeholders, availability radio with default from current scope, validation that blocks Save on blank name or prompt. | dropped | dropped |  |
 | 114 | Saved recipe: new Guid, trimmed name and prompt, availability from the radio, `CreatedAt` now. | dropped | dropped |  |
 | 115 | Delete recipe dialog `Chat_DeleteRecipe*` strings, default Close. | dropped | dropped |  |
@@ -306,7 +306,7 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 150 | Brief shown only while the coming-up note is open and not processing; passed to the pipeline and to live answers. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 151 | Brief renders as Markdown in the port (B13). | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-1 (context strings only) | done (context strings) |  |
-| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). Chat-7 added `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend` as `data-testid` (the composer and send button also `id`). Still open: `BtnMeetingChatPersonalTasks` (cut), `BtnMeetingChatRecipes` and `ListMeetingChatRecipes` (chat-8). |
+| 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). Chat-7 added `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend` as `data-testid` (the composer and send button also `id`). Still open: `BtnMeetingChatPersonalTasks` (cut), `BtnMeetingChatRecipes` and `ListMeetingChatRecipes` were added by chat-8 as `data-testid` (also `PopupMeetingChatRecipes`, `ItemMeetingChatRecipe`). |
 | 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
 | 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |
 
@@ -354,3 +354,23 @@ Files in `apps/desktop/src/renderer/features/chat/`: `ChatBody` (container), `us
 - Links in answers still use the default `MarkdownView` navigation; `MarkdownView` accepts an `onLink` handler for chat-9 (citation links and the http/https check).
 - Recipes flyout and slash filter (chat-8).
 - The failed-answer notice repeats "Could not answer" in its title and in `Chat_SendFailed`; the key text is shared with the earlier packages and was left alone.
+
+## Chat-8 (Recipes flyout and slash filter)
+
+- Files: `RecipesMenu.tsx`, `use-recipes-menu.ts`, a small edit in `Composer.tsx` (button, key hook) and `ChatBody.tsx` (passes the full scope list).
+- Decision: no Menu/Popover from `ui` fits. The base-ui Menu moves focus into the popup, and S7 needs focus to stay in the textarea. The flyout is a listbox the textarea points at with `aria-activedescendant`, positioned above the composer, 320 px wide, list max height 240.
+- S7: arrows move the highlight only after the first ArrowDown, so Enter keeps sending a typed draft until a row is highlighted. Escape closes. A press outside or focus leaving the composer closes it.
+- Suppress flag: a pick fills the draft and the next draft change skips the slash filter once, then focuses the field and puts the caret at the end.
+- Item 116 stays dropped with user recipes; 113 to 115 cross-checked, no delete icon or New recipe button exists (tested).
+- Sending a draft that starts with `/` sends it literally (tested).
+- Screenshots: `docs/port/screens/chat/chat-recipes-flyout-light.png`, `chat-recipes-slash-light.png`, `chat-recipes-flyout-dark.png` (Spanish).
+
+### Bugs fixed (chat-8)
+
+- None found in the C# flows. The prompts of built-in recipes stay English in every language, as in the original.
+
+### Left for other modules (chat-8)
+
+- Recipe prompts are not localized (original behavior); revisit only if the owner asks.
+- The flyout can cover the New chat button while open; it closes on any outside press.
+- Not observed: screen reader announcement of the highlighted row (only the ARIA wiring is tested).
