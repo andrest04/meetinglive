@@ -12,6 +12,7 @@ import {
   type ThemePreference,
 } from '@vozella/contracts';
 import {
+  ChatService,
   MeetingBusyRegistry,
   PatchQueue,
   resolveTemplateInstructions,
@@ -35,6 +36,7 @@ import {
   createNativePorts,
   SummaryRuntime,
   ForbiddenDataRootError,
+  LibraryChatReader,
   LibraryRuntime,
   readWavDurationSeconds,
   recoverCrashedRecordings,
@@ -83,6 +85,8 @@ import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { SummariesController } from './summaries/summaries-controller';
+import { ChatController, chatProviderSource } from './chat/chat-controller';
+import { registerChatHandlers } from './ipc/chat-handlers';
 import {
   fakeModelScriptFromEnv,
   ScriptedFakeModelStore,
@@ -674,6 +678,36 @@ function main(): void {
     });
     app.on('will-quit', () => {
       void summaries.dispose();
+    });
+
+    // Chat: one in-memory conversation; the engine is whichever one the summaries resolver picks.
+    const chatReader = new LibraryChatReader({
+      meetings: library.meetings,
+      folders: library.folders,
+    });
+    const chat = new ChatController({
+      service: new ChatService({
+        meetings: chatReader,
+        providers: chatProviderSource(summaryRuntime.resolver),
+        clock: new SystemClock(),
+        translate: (key, ...args) => locale.t(key, ...args),
+        newId: () => randomUUID(),
+      }),
+      findMeetingId: (id) => chatReader.findMeetingId(id),
+      writeClipboard: (text) => {
+        return clipboard.writeText(text);
+      },
+      openExternal: (url) => (fakeNative ? Promise.resolve() : shell.openExternal(url)),
+      broadcast,
+      logger: logger.child('chat'),
+    });
+    registerChatHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: chat,
     });
 
     // Transcription: the engine runs in its own process; the controller serves the pages and

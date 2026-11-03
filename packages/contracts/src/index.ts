@@ -10,3 +10,4 @@ export * from './summaries';
 export * from './wire';
 export * from './workers';
 export * from './transcription';
+export * from './chat';

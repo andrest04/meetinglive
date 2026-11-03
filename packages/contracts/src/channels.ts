@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
+import * as chat from './chat';
 import * as library from './library';
 import * as meetingPrompt from './meeting-prompt';
 import * as settings from './settings';
@@ -154,6 +155,14 @@ export const requestChannels = {
   [summaries.summariesChooseLocalModel.name]: summaries.summariesChooseLocalModel,
   [summaries.summariesCancelLocalModel.name]: summaries.summariesCancelLocalModel,
   [summaries.summariesChooseCli.name]: summaries.summariesChooseCli,
+  [chat.chatSend.name]: chat.chatSend,
+  [chat.chatCancel.name]: chat.chatCancel,
+  [chat.chatNewChat.name]: chat.chatNewChat,
+  [chat.chatState.name]: chat.chatState,
+  [chat.chatSetScope.name]: chat.chatSetScope,
+  [chat.chatMeetingExists.name]: chat.chatMeetingExists,
+  [chat.chatCopyText.name]: chat.chatCopyText,
+  [chat.chatOpenExternal.name]: chat.chatOpenExternal,
 } as const;
 
 export const eventChannels = {
@@ -180,6 +189,8 @@ export const eventChannels = {
   [transcription.retranscriptionStateChanged.name]: transcription.retranscriptionStateChanged,
   [transcription.retranscriptionFinished.name]: transcription.retranscriptionFinished,
   [summaries.summariesProgress.name]: summaries.summariesProgress,
+  [chat.chatChunk.name]: chat.chatChunk,
+  [chat.chatStateChanged.name]: chat.chatStateChanged,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

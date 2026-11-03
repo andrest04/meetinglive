@@ -85,6 +85,29 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 - Package 3: call `resolveScopeFromWorkspace` and `matchesOpenThread`; snapshot the live transcript at send start.
 - Package 2: reuse `cutPrefix` and `cutTail` from `text-cut.ts`, and `singleLine` and `neutralizeStructure` from `context-packer.ts` for prior turns.
 
+## Chat-4 (contracts, main controller, platform reader, IPC)
+
+Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, scope, live transcript snapshot; answers `answered`, `setup-required{kind, originalDraft}`, `failed{kind, message, originalDraft}`, `cancelled{originalDraft}` or `empty`), `chat.cancel`, `chat.newChat`, `chat.state`, `chat.setScope`, `chat.meetingExists`, `chat.copyText`, `chat.openExternal`; events `chat.chunk` (request id and the text so far, about every 80 ms) and `chat.stateChanged`. Decisions:
+
+- `empty` means nothing was sent (blank draft, hidden chat, an answer already running). A provider that returned no text is `failed` with kind `empty-answer`.
+- The scope lives in the renderer; `chat.setScope` hands it to main so `showScopeMismatch` follows it (token guard from `beginScopeRefresh`/`applyScope`). `chat.stateChanged` goes out only when messages, sending, mismatch or the New chat flag change, not on every chunk.
+- `LibraryChatReader` (platform) reads the light list, then parses only the newest 12 records in full (B17). Older meetings come back as stubs without text so the packer's "Showing the 12 most recent of N" count stays right.
+- The fake provider streams its reply as one chunk, so the e2e proves the chunk path and ordering but not many small chunks; the many-chunk coalescing is covered by the `StreamCoalescer` tests.
+
+## Bugs fixed (chat-4)
+
+- B17: no send loads every transcript. Folder and All scopes parse at most 12 records; the existence check parses none (`LibraryChatReader` test counts `get` calls).
+- B14: the mapper is wired in the live path; the e2e shows a not-signed-in CLI failure as a `send-failed` sentence, not raw error text.
+- S2: `chat.openExternal` refuses every scheme except http and https (`file:`, `javascript:`, `ms-settings:`, custom schemes and non-URLs are tested).
+- B1 (main side): `chat.newChat` answers `started:false` while an answer is running (e2e).
+
+## Left for other modules (chat-4)
+
+- Chat-6: call `chat.setScope` after each scope refresh, listen to `chat.stateChanged`, and read `workspace.state.liveTranscript` at the moment of sending.
+- Chat-7: run the provider gate on `setup-required` (`summaries.providerStatus`, `chooseLocalModel`, `chooseCli`), then send again; restore `originalDraft` only into an empty composer; correlate `chat.chunk` by request id.
+- Chat-9: use `chat.copyText`, `chat.meetingExists` and `chat.openExternal`; never `navigator.clipboard` or `window.open`.
+- Tests for the controller and handlers use a service double (written together with the code, not RED first); the contract and reader tests also came with the code.
+
 ## Items
 
 | # | Item | Package | Status | Notes |
@@ -108,8 +131,8 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 17 | Everything else: AllMeetings (History Inbox, Recording idle, Session without meeting, Unknown). | chat-1 | done | `resolveScope`. |
 | 18 | Scope refresh is generation-guarded: a stale refresh is discarded. | chat-3 / chat-6 | done | `ScopeRefreshGuard`, `ChatService.beginScopeRefresh/applyScope`; stale result returns false. chat-service.test.ts |
 | 19 | Scope refresh re-reads the TypeSafe availability and rebuilds recipe lists. | chat-3 / chat-6 | done | Service half only: scope refresh rebuilds nothing stored; recipe lists are derived by `recipesForScope` (chat-2). TypeSafe half cut. |
-| 20 | Scope changes are raised for: shell tag change, folder publish (always), meeting id change, capture flag change; not for live transcript text changes. | chat-1 | done | Already provided by `Workspace` (`library/workspace.ts`); proven by a test in `scope-resolver.test.ts`. |
-| 21 | Live transcript is read from the workspace at send time, not subscribed. | chat-1 | done | `Workspace.state.liveTranscript` is read by the caller; `packContext` takes it as an argument (B5). |
+| 20 | Scope changes are raised for: shell tag change, folder publish (always), meeting id change, capture flag change; not for live transcript text changes. | chat-1 | done | Already provided by `Workspace` (`library/workspace.ts`); proven by a test in `scope-resolver.test.ts`. chat-4 verified: `workspace.changed` carries the state with every scope input (`currentShellTag`, `selectedFolderId`, `selectedMeetingId`, `isCaptureActive`) and `liveTranscript`, so no new event was added. Chat-6 must not refresh the scope when only `liveTranscript` changes. |
+| 21 | Live transcript is read from the workspace at send time, not subscribed. | chat-1 | done | `Workspace.state.liveTranscript` is read by the caller; `packContext` takes it as an argument (B5). chat-4: `chat.send` carries `liveTranscript` from the renderer's workspace state at the moment of sending; main passes it to `ChatService.send` unchanged. |
 | 22 | Match test for open thread uses kind, folder id, and meeting id with null equality. | chat-1 | done | `matchesOpenThread`. |
 | 23 | Mismatch banner text `Chat_ScopeMismatch` shows when an open thread does not match the current scope; not recomputed while sending (decide whether to keep B24). | chat-3 / chat-6 | improved | `state.showScopeMismatch` is derived on every read, so it is recomputed also while sending (B24 decision: keep the fix, the banner follows the live scope). Banner UI is chat-6. |
 | 24 | A mismatched open thread is not edited; the next send creates a new thread. | chat-1 | done | Pure rule only; the next send creating a new thread is package 3. |
@@ -125,7 +148,7 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 34 | Pending row shows spinner plus `Chat_Thinking` until first visible text. | chat-7 | pending |  |
 | 35 | Streaming shows Markdown live; first push on first non-whitespace chunk; further pushes at most every 80 ms; final flush at end; leading whitespace trimmed in pushes. | chat-7 | done | Service half: `StreamCoalescer` (stream-coalescer.test.ts, fake clock), fed by `ChatService`. Markdown rendering is chat-7/9. |
 | 36 | Transcript auto-scrolls to the end on new rows and on every streamed text change. | chat-7 | pending |  |
-| 37 | Provider is resolved per send from settings; gating dialogs (local model download, CLI check, xAI sign-in) run via the shared resolver. | chat-3 / chat-7 | done | Service half: `ProviderSource.resolve()` per send; `needs-setup` returns `setup-required`, or runs an optional `setupGate`. The gate dialogs reuse features/summaries/use-provider-gate in chat-7. xAI selection returns `provider-removed` with Ui_SummaryProviderXaiRemoved. |
+| 37 | Provider is resolved per send from settings; gating dialogs (local model download, CLI check, xAI sign-in) run via the shared resolver. | chat-3 / chat-7 | done | Service half: `ProviderSource.resolve()` per send; `needs-setup` returns `setup-required`, or runs an optional `setupGate`. The gate dialogs reuse features/summaries/use-provider-gate in chat-7. xAI selection returns `provider-removed` with Ui_SummaryProviderXaiRemoved. chat-4 (main half): `chatProviderSource` maps the summaries resolver (`resolveSummaryProvider`) to `ProviderSource`; the fake native build uses the same `FakeSummaryProvider` override as summaries. `chat.send` answers `setup-required{kind}` with the draft; the page runs the gate and sends again (no `setupGate` in main). |
 | 38 | Cancelled/unsatisfied gate shows `Status_SetupCancelled` and keeps the user's turn out of history. | chat-3 / chat-7 | done | Gate returning null gives `Status_SetupCancelled` with no prefix; nothing kept. chat-service.test.ts |
 | 39 | Provider exception shows `Chat_SendFailed` with the message. | chat-3 / chat-7 | improved | B14: `Chat_SendFailed` with the shared `formatFailure` message, never the raw error text. Local budget `PromptTooLong` maps to Ui_SummaryPromptTooLong. |
 | 40 | Blank answer shows `Chat_EmptyAnswer` and persists nothing. | chat-3 / chat-7 | done | `Chat_EmptyAnswer`, nothing kept. |
@@ -208,11 +231,11 @@ Reason for every item below: owner decision 2026-11-03, may return later. Audito
 | 117 | User messages are plain text bubbles, right-aligned, max about 75% width, selectable. | chat-9 | pending |  |
 | 118 | Assistant messages render Markdown (headings, lists, emphasis, code, tables, links); no raw HTML. | chat-9 | pending |  |
 | 119 | Role labels `Chat_RoleUser` and `Chat_RoleAssistant` exist; assistant label shown above the answer. | chat-9 | pending |  |
-| 120 | Copy button on completed assistant messages copies the raw Markdown; failure shows `Chat_CopyFailed`. | chat-9 | pending |  |
+| 120 | Copy button on completed assistant messages copies the raw Markdown; failure shows `Chat_CopyFailed`. | chat-9 | pending |  chat-4 (main half): `chat.copyText` writes the clipboard in main and answers `written` or `failed{detail}`; the button and `Chat_CopyFailed` are chat-9. |
 | 121 | Transcript list max height 420 with internal scrolling. | chat-9 | pending |  |
-| 122 | Meeting citation links open the meeting on the Summary tab (select meeting, navigate to Session). | chat-9 | pending |  |
-| 123 | Missing cited meeting shows `Chat_MeetingLinkMissing`. | chat-9 | pending |  |
-| 124 | http(s) links open in the system browser; other schemes are ignored. | chat-9 | pending |  |
+| 122 | Meeting citation links open the meeting on the Summary tab (select meeting, navigate to Session). | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` takes the hex or hyphenated id and answers the stored id, so the page can select it; chat-9 does the navigation. |
+| 123 | Missing cited meeting shows `Chat_MeetingLinkMissing`. | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` answers `exists:false`; chat-9 shows `Chat_MeetingLinkMissing`. |
+| 124 | http(s) links open in the system browser; other schemes are ignored. | chat-9 | pending |  chat-4 (main half): `chat.openExternal` allows http and https only (S2) and answers `rejected` for any other scheme; the fake native build opens nothing. |
 | 125 | Link handler errors surface in the error bar. | chat-9 | pending |  |
 | 126 | Accessible text of each row is `Role: text` (or just the role while thinking). | chat-9 | pending |  |
 | 127 | Button visible only in Meeting scope when TypeSafe is enabled and an API key exists. | dropped | dropped |  |
