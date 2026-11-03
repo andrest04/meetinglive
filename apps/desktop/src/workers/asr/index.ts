@@ -1,25 +1,27 @@
-// utilityProcess entry for speech recognition (skeleton). koffi is external to the bundle
-// and loaded on demand.
-import path from 'node:path';
+// utilityProcess entry for speech recognition. koffi is external to the bundle and loaded on
+// demand, so a broken install is reported as a message instead of a crashed worker.
 import { createAsrWorker } from './asr-worker-core';
+import { loadNemoLibrary, type Koffi } from './nemo-library';
 
 const parentPort = process.parentPort;
+
+let koffiModule: Koffi | undefined;
+// A real require, so rolldown leaves koffi's native binary to runtime.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const requireKoffi = (): Koffi => (koffiModule ??= require('koffi') as Koffi);
 
 const handle = createAsrWorker({
   post: (event) => {
     parentPort.postMessage(event);
   },
-  join: (...parts) => path.join(...parts),
-  loadKoffi: async () => {
-    const koffi = (await import('koffi')).default;
-    return koffi;
+  koffiVersion: () => {
+    try {
+      return Promise.resolve(requireKoffi().version);
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
   },
-  prepareDllDirectory: (binDir, koffi) => {
-    const kernel32 = koffi.load('kernel32.dll');
-    const setDllDirectory = kernel32.func('int __stdcall SetDllDirectoryW(const char16_t *path)');
-    (setDllDirectory as (dir: string) => unknown)(path.resolve(binDir));
-    process.env.PATH = `${path.resolve(binDir)};${process.env.PATH ?? ''}`;
-  },
+  openLibrary: (binDir) => loadNemoLibrary(requireKoffi(), binDir),
 });
 
 parentPort.on('message', (event) => {

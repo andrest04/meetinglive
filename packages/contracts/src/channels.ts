@@ -3,6 +3,7 @@ import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as library from './library';
 import * as settings from './settings';
+import * as transcription from './transcription';
 
 /** No input. An object keeps room to add optional fields without breaking callers. */
 const empty = z.object({}).strict();
@@ -120,6 +121,20 @@ export const requestChannels = {
   [audio.audioRecordingStop.name]: audio.audioRecordingStop,
   [audio.audioImportRun.name]: audio.audioImportRun,
   [audio.audioAppIcon.name]: audio.audioAppIcon,
+  [transcription.transcriptionGetStatus.name]: transcription.transcriptionGetStatus,
+  [transcription.transcriptionEnsureEngine.name]: transcription.transcriptionEnsureEngine,
+  [transcription.transcriptionCancelInstall.name]: transcription.transcriptionCancelInstall,
+  [transcription.transcriptionDeleteEngine.name]: transcription.transcriptionDeleteEngine,
+  [transcription.transcriptionSetLiveEnabled.name]: transcription.transcriptionSetLiveEnabled,
+  [transcription.transcriptionSetSpeakerLabels.name]: transcription.transcriptionSetSpeakerLabels,
+  [transcription.transcriptionDownloadSpeakerModel.name]:
+    transcription.transcriptionDownloadSpeakerModel,
+  [transcription.transcriptionDeleteSpeakerModel.name]:
+    transcription.transcriptionDeleteSpeakerModel,
+  [transcription.retranscriptionAvailability.name]: transcription.retranscriptionAvailability,
+  [transcription.retranscriptionStart.name]: transcription.retranscriptionStart,
+  [transcription.retranscriptionCancel.name]: transcription.retranscriptionCancel,
+  [transcription.retranscriptionGetState.name]: transcription.retranscriptionGetState,
 } as const;
 
 export const eventChannels = {
@@ -136,6 +151,11 @@ export const eventChannels = {
   [audio.audioPreviewLevel.name]: audio.audioPreviewLevel,
   [audio.audioRecordingLevel.name]: audio.audioRecordingLevel,
   [audio.audioRecordingNotice.name]: audio.audioRecordingNotice,
+  [transcription.transcriptionStatusChanged.name]: transcription.transcriptionStatusChanged,
+  [transcription.transcriptionInstallProgress.name]: transcription.transcriptionInstallProgress,
+  [transcription.transcriptionLiveUpdate.name]: transcription.transcriptionLiveUpdate,
+  [transcription.retranscriptionStateChanged.name]: transcription.retranscriptionStateChanged,
+  [transcription.retranscriptionFinished.name]: transcription.retranscriptionFinished,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

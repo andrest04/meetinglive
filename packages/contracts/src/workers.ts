@@ -123,9 +123,78 @@ export const audioWorkerEventSchema = z.discriminatedUnion('type', [
 ]);
 export type AudioWorkerEvent = z.infer<typeof audioWorkerEventSchema>;
 
+export const asrGeometrySchema = z.object({
+  chunkFrames: z.number().int(),
+  rightContextFrames: z.number().int(),
+  leftContextFrames: z.number().int(),
+  fifoFrames: z.number().int(),
+  speakerCacheFrames: z.number().int(),
+  updatePeriodFrames: z.number().int(),
+});
+
+export const asrRecognizerSettingsSchema = z.object({
+  modelPath: z.string().min(1),
+  binDirectory: z.string().min(1),
+  /** 0 for CUDA, -1 for CPU. */
+  gpu: z.number().int(),
+  diarizationModelPath: z.string().nullable(),
+  geometry: asrGeometrySchema,
+  latency: z.enum(['live', 'offline']),
+});
+
+export const asrStreamOptionsSchema = z.object({
+  language: z.string(),
+  interimResults: z.boolean(),
+  diarization: z.boolean(),
+});
+
+export const asrWordSchema = z.object({
+  startMs: z.number(),
+  endMs: z.number(),
+  speakerTag: z.number().int(),
+  text: z.string().nullable(),
+});
+
+export const asrResultSchema = z.object({
+  isFinal: z.boolean(),
+  transcript: z.string(),
+  audioProcessedSeconds: z.number(),
+  words: z.array(asrWordSchema),
+});
+export type AsrResultDto = z.infer<typeof asrResultSchema>;
+export const asrResultsSchema = z.array(asrResultSchema);
+
+/** Calls that expect one answer from the ASR worker. The worker owns every native handle. */
+export const asrRpcCallSchema = z.discriminatedUnion('method', [
+  z.object({
+    method: z.literal('createRecognizer'),
+    recognizerId: z.string().min(1),
+    settings: asrRecognizerSettingsSchema,
+  }),
+  z.object({
+    method: z.literal('startStream'),
+    streamId: z.string().min(1),
+    recognizerId: z.string().min(1),
+    options: asrStreamOptionsSchema,
+  }),
+  z.object({
+    method: z.literal('push'),
+    streamId: z.string().min(1),
+    /** Mono float32. */
+    samples: z.custom<Float32Array>((value) => value instanceof Float32Array),
+    sampleRate: z.number().int(),
+  }),
+  z.object({ method: z.literal('pull'), streamId: z.string().min(1) }),
+  z.object({ method: z.literal('disposeStream'), streamId: z.string().min(1) }),
+  z.object({ method: z.literal('disposeRecognizer'), recognizerId: z.string().min(1) }),
+]);
+export type AsrRpcCall = z.infer<typeof asrRpcCallSchema>;
+
 export const asrWorkerCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping') }),
+  /** Loads the engine library from a folder and reports its version. Used by the self test. */
   z.object({ type: z.literal('load'), binDir: z.string().min(1) }),
+  z.object({ type: z.literal('rpc'), id: z.number().int(), call: asrRpcCallSchema }),
   z.object({ type: z.literal('shutdown') }),
 ]);
 export type AsrWorkerCommand = z.infer<typeof asrWorkerCommandSchema>;
@@ -134,5 +203,12 @@ export const asrWorkerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pong'), koffi: z.string().nullable() }),
   z.object({ type: z.literal('loaded'), version: z.string() }),
   z.object({ type: z.literal('error'), message: z.string() }),
+  z.object({
+    type: z.literal('rpc-result'),
+    id: z.number().int(),
+    ok: z.boolean(),
+    result: z.unknown().optional(),
+    message: z.string().optional(),
+  }),
 ]);
 export type AsrWorkerEvent = z.infer<typeof asrWorkerEventSchema>;
