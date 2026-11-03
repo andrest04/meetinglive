@@ -13,11 +13,24 @@ const PHRASES = [
   'Quedamos en cerrar las fechas de entrega esta semana.',
 ];
 
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
 /** A speech engine that "hears" a fixed script, for the fake native build. No model, no GPU. */
 export class FakeSpeechEngine implements AsrEngine {
-  createRecognizer(_settings: RecognizerSettings): Promise<AsrRecognizer> {
+  /**
+   * `offlinePushMs` slows the offline pass only, so a test can cancel it while it runs. The live
+   * preview is never slowed.
+   */
+  constructor(private readonly offlinePushMs = 0) {}
+
+  createRecognizer(settings: RecognizerSettings): Promise<AsrRecognizer> {
+    const delay = settings.latency === 'offline' ? this.offlinePushMs : 0;
     return Promise.resolve({
-      startStream: (options: StreamOptions) => Promise.resolve(new FakeSpeechStream(options)),
+      startStream: (options: StreamOptions) =>
+        Promise.resolve(new FakeSpeechStream(options, delay)),
       dispose: () => Promise.resolve(),
     });
   }
@@ -29,9 +42,13 @@ class FakeSpeechStream implements AsrStream {
   private emittedPhrases = 0;
   private pending: AsrResult[] = [];
 
-  constructor(private readonly options: StreamOptions) {}
+  constructor(
+    private readonly options: StreamOptions,
+    private readonly pushDelayMs: number,
+  ) {}
 
-  push(samples: Float32Array, sampleRate: number): Promise<void> {
+  async push(samples: Float32Array, sampleRate: number): Promise<void> {
+    if (this.pushDelayMs > 0) await sleep(this.pushDelayMs);
     this.audioMs += (samples.length * 1000) / sampleRate;
     const completed = Math.floor(this.audioMs / 3000);
     while (this.emittedPhrases < completed) {
@@ -63,7 +80,6 @@ class FakeSpeechStream implements AsrStream {
         words: [],
       });
     }
-    return Promise.resolve();
   }
 
   pullAvailable(): Promise<readonly AsrResult[]> {

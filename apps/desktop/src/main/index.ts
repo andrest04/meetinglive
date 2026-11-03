@@ -704,7 +704,11 @@ function main(): void {
     const transcription = new TranscriptionRuntime({
       transcriptionModelsDirectory: library.paths.transcriptionModelsDirectory,
       nemoSpeechDirectory: library.paths.nemoSpeechDirectory,
-      engine: fakeNative ? new FakeSpeechEngine() : asr,
+      engine: fakeNative
+        ? new FakeSpeechEngine(
+            Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
+          )
+        : asr,
       hardware: () => hardware.detect(),
       logger: logger.child('transcription'),
       ...(fakeNative
