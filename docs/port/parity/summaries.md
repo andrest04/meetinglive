@@ -468,6 +468,25 @@ Decisions (S18):
 
 **Decision (B32):** the check still tests PATH only, as the WinUI app does. A CLI that is installed but not signed in is found, and the classified `NotSignedIn` message shows at summarize time. No extra hint line was added to the dialogs; the copy is unchanged.
 
+### Settings provider section and closing audit (S20)
+
+| #   | Item                                                                                      | Status   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 172 | Provider radios Local, Claude Code, Codex; a choice saves the enum name                   | improved | Three radios in that order. The xAI "refresh account" half is dropped with the provider (owner decision 2026-11-03, may return later). A saved `Xai` shows the `Ui_SummaryProviderXaiRemoved` notice, checks no radio and writes nothing on open; picking another provider clears the notice and keeps the `xai*` fields in the file (e2e `settings-provider.spec.ts`, jsdom test).                                                                                                       |
+| 173 | CLI status line `Status_CliOnPath` / `Status_CliMissing`                                  | done     | Shown for Claude Code and Codex, with Check again. e2e reads both texts; the Spanish run reads the Spanish catalog.                                                                                                                                                                                                                                                                                                                                                                       |
+| 174 | Claude and Codex model and effort selectors, catalogs, defaults, write guards             | done     | Claude `sonnet`/`low`, Codex `gpt-5.6`/`low`, lists from spec 2.9 (xAI list dropped). A value already shown sends nothing; blank, unknown and unchanged values are ignored by `SettingsCommands`; the page draws no control until the first answer (skeleton). Tests: `settings-services.test.ts`, `SettingsRoute.test.tsx`, `settings-provider.spec.ts`.                                                                                                                                 |
+| 175 | Each save writes its own field and shows `Saved. Using {model} · {effort}.` for 4 seconds | done     | The `Xai_FeedbackModel` key is reused, as in WinUI. e2e waits for the toast to go away (between 2.5 s and 8 s) and checks the file after each pick.                                                                                                                                                                                                                                                                                                                                       |
+| 182 | B35: unknown provider names fall back to Local                                            | done     | S12: `resolveSummaryProviderKind` is strict (`Xai` stays unavailable). Row added in the closing audit; it was not listed before.                                                                                                                                                                                                                                                                                                                                                          |
+| 187 | Every key of spec 2.9 exists in English and Spanish with the same keys                    | done     | `apps/desktop/src/main/summary-provider-catalog.test.ts`: the settings keys by name, every key of the module families (Fit, Model, Hardware, Download, Setup, Cli, CliFailure, ModelSpeed/Quality/UseCase, NoteTemplate, NotesMode, SummaryPage, Ui_Summary*) in both catalogs with equal placeholders, equal key sets in the generated and the hand written files, and the copy rules (no em or en dash, no double space, starts uppercase, no assistant wording) on the new `Ui_` keys. |
+| 190 | Every test of section 6 ported                                                            | done     | See "Section 6 test traceability" below. The xAI and custom template classes are dropped, not missing.                                                                                                                                                                                                                                                                                                                                                                                    |
+| 191 | The gap tests of section 6 added                                                          | done     | See "Gaps added" below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+**Local models block (S20).** It reuses the shared `LocalModelsService` rows. When no model is active a primary **Set up** button sits in the block header (existing key `RecordingSetup_SetUp`, "Configurar" in Spanish). It opens the S18 wizard in `local-only` mode on the hardware step, with no chooser flash (B33); on close the page is read again, so a model downloaded in the wizard shows as Active and the button disappears. A CLI provider never shows it.
+
+**Decision (S20, chooser mode).** Settings does not open the wizard in `choose` mode. The radio group already is the engine chooser, and the CLI check has Check again beside it. `choose` stays for a first-run gate in another module; the gallery buttons stay as the dev entry.
+
+**Decision (S20, unused Xai keys).** `Settings_ProviderXai.Text`, `Setup_Xai*`, `Xai_Status*` and the other unused xAI keys stay in `en.json` and `es.json` because those files are generated from the WinUI resources (see S07). Only `Xai_FeedbackModel` is used, for the Claude and Codex toast.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -509,6 +528,8 @@ Decisions (S18):
 - **B20** (S18, UI half): the wizard resolves every label key when drawn; tested in Spanish.
 - **B33** (S18): local-only mode opens on hardware detection, the chooser is never rendered (tested).
 - **B32** (S19): not changed, by design. The CLI check tests PATH only; the sign-in problem is reported by the classified `NotSignedIn` failure when a run starts.
+- **B2** (S20): end to end from the Settings commands to the fake CLI argv (`summary-runtime.test.ts`), on top of S12's file test.
+- **S20**: no new numbered bug. The legacy `Xai` setting is shown as a notice and never silently replaced; a model chosen in the wizard from Settings shows at once.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -558,6 +579,103 @@ Decisions (S18):
 
 - S19 to chat and the recording pipeline: call `useProviderGate()` once on the page, pass `gate.runSetup` to whatever can hit `needs-setup`, render `<ProviderGateDialogs gate>` and `<ProviderUnavailableNotice gate>`, and retry the refused call when `runSetup` resolves `completed`. For an `unavailable` outcome call `runSetup({ kind: 'Xai', reason: 'unavailable' })`.
 - S19 to S20: nothing opens `mode: 'choose'` outside the gallery yet; the Settings provider section should. `ProviderGateDialogs` always opens the wizard in local-only mode.
+
+- S20 to the final review: the provider section was run on the fake native build only. A real PATH with real `claude` and `codex`, a real model download from the Settings wizard and the full-suite e2e run belong to the final review. The e2e for Codex and Claude toasts use no real CLI.
+- S20 to the first-run gate of the recording module: `SetupWizardDialog` in `choose` mode is not opened from Settings; use `useProviderGate` plus `ProviderGateDialogs` there.
+- S20 to the settings module: `scripts/convert-strings.mjs` still generates the unused xAI keys (S07 note); an exclusion list would remove them.
+
+## Section 6 test traceability
+
+Each test class of spec section 6 and the file that ports it. Paths are under `packages/` unless they start with `apps/`.
+
+| Spec test class                              | Status  | Ported in                                                                                                                                       |
+| -------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Models/HardwareProfileTests`                | done    | `core/src/settings/catalogs.test.ts` (hardware profile and Nvidia name rules)                                                                   |
+| `Models/SummaryModelInfoTests`               | done    | `core/src/settings/catalogs.test.ts` (fit rating, fit rating by backend B17)                                                                    |
+| `Services/ModelCatalogTests`                 | done    | `core/src/settings/catalogs.test.ts` (summary model catalog), plus the label key test (B20)                                                     |
+| `Services/HardwareDetectionServiceTests`     | done    | `platform/src/settings/settings-adapters.test.ts` (hardware probe: cached, failed read not cached)                                              |
+| `Services/LocalLlmModelManagerTests`         | done    | `platform/src/settings/settings-adapters.test.ts` (`FileLocalModelStore`), `core/src/settings/settings-services.test.ts` (`LocalModelsService`) |
+| `Services/ResumableFileDownloaderTests`      | done    | `platform/src/settings/settings-adapters.test.ts` (`downloadToFile`, verification B18)                                                          |
+| `Services/LocalLlmSummaryProviderTests`      | done    | `platform/src/llama/local-llm-provider.test.ts`, `local-llm-provider.real.test.ts`, `summaries/summary-runtime.test.ts`                         |
+| `Services/LocalLlmSummaryMapReduceTests`     | done    | `core/src/summaries/local-map-reduce.test.ts`, `local-prompt-budget.test.ts`                                                                    |
+| `Services/CliSummaryPromptBuilderTests`      | done    | `core/src/summaries/prompt-builders.test.ts`                                                                                                    |
+| `Services/SummaryMarkdownSplitterTests`      | done    | `core/src/summaries/summary-splitter.test.ts`                                                                                                   |
+| `Services/SuggestedMeetingTitleTests`        | done    | `core/src/summaries/suggested-title.test.ts`                                                                                                    |
+| `Services/NoteTemplateCatalogTests`          | done    | `core/src/settings/catalogs.test.ts` (note templates), `core/src/summaries/summary-service.test.ts` (template instructions)                     |
+| `Services/JsonCustomNoteTemplateStoreTests`  | dropped | owner decision 2026-11-03, may return later (custom note template)                                                                              |
+| `Services/CliInvocationTests`                | done    | `core/src/summaries/cli-invocation.test.ts`                                                                                                     |
+| `Services/CliFailureMapperTests`             | done    | `core/src/summaries/cli-failure.test.ts`                                                                                                        |
+| `Services/CliToolProviderBaseTests`          | done    | `core/src/summaries/cli-providers.test.ts`, `provider.test.ts`                                                                                  |
+| `Services/CliProcessRunnerTests`             | done    | `platform/src/summaries/cli-process-runner.test.ts`, `platform/src/settings/settings-adapters.test.ts` (`PathCliProbe`)                         |
+| `Services/ClaudeCodeCliSummaryProviderTests` | done    | `core/src/summaries/cli-providers.test.ts` (contract helper in `provider-contract.ts`)                                                          |
+| `Services/CodexCliSummaryProviderTests`      | done    | `core/src/summaries/cli-providers.test.ts`                                                                                                      |
+| `Services/XaiApiClientTests`                 | dropped | owner decision 2026-11-03, may return later (xAI provider)                                                                                      |
+| `Services/XaiAuthSessionTests`               | dropped | owner decision 2026-11-03, may return later (xAI provider)                                                                                      |
+| `Services/XaiOAuthClientTests`               | dropped | owner decision 2026-11-03, may return later (xAI provider)                                                                                      |
+| `Services/XaiSummaryProviderTests`           | dropped | owner decision 2026-11-03, may return later (xAI provider)                                                                                      |
+| `Services/FileDpapiXaiCredentialStoreTests`  | dropped | owner decision 2026-11-03, may return later (xAI provider)                                                                                      |
+
+Tests with no spec class that guard the ports: `core/src/summaries/patch-queue.test.ts` (B5), `provider-resolver.test.ts` (B2, B19, B35), `summary-service.test.ts` and `platform/src/summaries/summary-service.test.ts` (B4, B13, B34), `tab-service.test.ts`, `tab-state.test.ts`, `platform/src/llama/*.test.ts` (sidecar, process guard, orphan kill), `apps/desktop/src/main/summary-failure-catalog.test.ts` and `summary-provider-catalog.test.ts` (items 187, 188).
+
+## Gaps added
+
+The spec lists nine classes that had no tests in the WinUI repository. Each now has one, or is dropped.
+
+| Gap in the WinUI repository             | Status  | Test in the port                                                                                                                                                                                                                                |
+| --------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ActionItemParser` directly             | done    | `core/src/summaries/summary-splitter.test.ts` (`parseActionItems`, B26 forms)                                                                                                                                                                   |
+| `NoteTemplateInstructions.ResolveAsync` | done    | `core/src/summaries/summary-service.test.ts` (`resolveTemplateInstructions`, `templateIdToStore`); the custom half is dropped with the template                                                                                                 |
+| `XaiJwt` directly                       | dropped | owner decision 2026-11-03, may return later                                                                                                                                                                                                     |
+| xAI auth dialog view model              | dropped | owner decision 2026-11-03, may return later                                                                                                                                                                                                     |
+| Setup wizard view model                 | done    | S18: `apps/desktop/src/renderer/features/summaries/wizard-state.test.ts`, `SetupWizardDialog.test.tsx`; S19: `CliSetupDialog.test.tsx`                                                                                                          |
+| Resolvers                               | done    | S12: `core/src/summaries/provider-resolver.test.ts`, `platform/src/summaries/summary-runtime.test.ts`                                                                                                                                           |
+| Settings section view model             | done    | S20: `core/src/settings/settings-services.test.ts`, `page-service.test.ts`, `apps/desktop/src/renderer/features/settings/SettingsRoute.test.tsx`, `apps/desktop/e2e/settings-provider.spec.ts`, and the argv chain in `summary-runtime.test.ts` |
+| Summary page view model                 | done    | S14: `core/src/summaries/tab-service.test.ts`, `tab-state.test.ts`; S16 and S17: `SummaryTab.test.tsx`, `SummaryGeneration.test.tsx`                                                                                                            |
+| `CliFailureUserMessage`                 | done    | S03: `core/src/summaries/cli-failure-messages.test.ts`, `apps/desktop/src/main/summary-failure-catalog.test.ts`                                                                                                                                 |
+
+## Final ledger check (S20)
+
+Checked by a script that reads this file: every parity number from 1 to 191 has a row with a final status (`done`, `improved`, `dropped` or `pending-real-validation`), and every `dropped` row carries the reason "owner decision 2026-11-03, may return later". Row 182 and rows 172 to 175, 187, 190 and 191 were missing before S20 and are added above. Items 166 to 171, 177 to 181 and 185 are `dropped` for the reason above.
+
+Final status of the numbered bugs of section 7:
+
+| Bug | Status   | Where                                                                                                             |
+| --- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| B1  | dropped  | owner decision 2026-11-03, may return later (xAI)                                                                 |
+| B2  | done     | S12, S20 (chain to the fake CLI argv)                                                                             |
+| B3  | done     | S11                                                                                                               |
+| B4  | done     | S13                                                                                                               |
+| B5  | done     | S14, S16                                                                                                          |
+| B6  | done     | S18                                                                                                               |
+| B7  | done     | S18                                                                                                               |
+| B8  | done     | S11                                                                                                               |
+| B9  | done     | S11                                                                                                               |
+| B10 | done     | S02, S13                                                                                                          |
+| B11 | done     | S05                                                                                                               |
+| B12 | done     | S03                                                                                                               |
+| B13 | done     | S13, S17                                                                                                          |
+| B14 | dropped  | owner decision 2026-11-03, may return later (xAI)                                                                 |
+| B15 | dropped  | owner decision 2026-11-03, may return later (Jev); the summary no longer waits for anything after the save        |
+| B16 | done     | S17                                                                                                               |
+| B17 | done     | S06                                                                                                               |
+| B18 | done     | S06                                                                                                               |
+| B19 | done     | S12                                                                                                               |
+| B20 | done     | S06, S18                                                                                                          |
+| B21 | dropped  | owner decision 2026-11-03, may return later (custom note template)                                                |
+| B22 | dropped  | owner decision 2026-11-03, may return later (xAI credentials file; `settings.json` is already written atomically) |
+| B23 | dropped  | owner decision 2026-11-03, may return later (xAI)                                                                 |
+| B24 | done     | S05                                                                                                               |
+| B25 | done     | S02                                                                                                               |
+| B26 | done     | S02                                                                                                               |
+| B27 | improved | S01 (headings by code, documented fallback)                                                                       |
+| B28 | done     | S03, S17                                                                                                          |
+| B29 | dropped  | owner decision 2026-11-03, may return later (xAI)                                                                 |
+| B30 | done     | S04                                                                                                               |
+| B31 | done     | S04, kept for parity on purpose (5 minute timeout, injectable)                                                    |
+| B32 | done     | S19, kept for parity on purpose (PATH check only)                                                                 |
+| B33 | done     | S18, S20 (Settings opens local-only)                                                                              |
+| B34 | done     | S13, S17                                                                                                          |
+| B35 | done     | S12                                                                                                               |
 
 ## Dropped by the owner
 
