@@ -72,6 +72,11 @@ export interface LibraryRuntimeDeps {
   readonly pickFolder: (defaultPath: string) => Promise<string | null>;
   readonly version: string;
   readonly onChanged?: (reason: LibraryChangeReason) => void;
+  /** A damaged settings.json was set aside; the Settings page tells the user. */
+  readonly onSettingsDamaged?: (info: {
+    readonly keptAs: string;
+    readonly message: string;
+  }) => void;
 }
 
 const LOCATION_FILE = 'library-location.json';
@@ -98,6 +103,7 @@ export class LibraryRuntime {
       settingsFilePath: nodePath.join(deps.roots.appData, 'settings.json'),
       ensureDirectories: () => ensureDirectoriesExist(this.appPaths()),
       logger: deps.logger,
+      ...(deps.onSettingsDamaged ? { onDamaged: deps.onSettingsDamaged } : {}),
     });
   }
 

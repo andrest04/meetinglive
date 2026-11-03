@@ -20,6 +20,8 @@ export interface JsonSettingsStoreOptions {
   readonly ensureDirectories?: () => Promise<void>;
   readonly logger?: Logger;
   readonly locks?: KeyedMutex;
+  /** Called when a damaged file was set aside, so the user can be told (B5). */
+  readonly onDamaged?: (info: { readonly keptAs: string; readonly message: string }) => void;
 }
 
 /**
@@ -70,6 +72,7 @@ export class JsonSettingsStore implements SettingsStore {
         error: error.message,
         keptAs: aside,
       });
+      this.options.onDamaged?.({ keptAs: aside, message: error.message });
       return {};
     }
   }
