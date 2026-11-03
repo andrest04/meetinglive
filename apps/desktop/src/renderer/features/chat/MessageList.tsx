@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { useT } from '../../i18n/I18nProvider';
+import type { LinkHandler } from '../summaries/MarkdownView';
 import type { ChatRow } from './chat-view-model';
 import { MessageRow } from './MessageRow';
 
@@ -7,9 +8,11 @@ import { MessageRow } from './MessageRow';
 export function MessageList({
   rows,
   onCopy,
+  onLink,
 }: {
   readonly rows: readonly ChatRow[];
   readonly onCopy: (text: string) => Promise<boolean>;
+  readonly onLink: LinkHandler;
 }) {
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
@@ -28,7 +31,7 @@ export function MessageList({
         className="flex flex-col gap-4 py-1 pe-1"
       >
         {rows.map((row) => (
-          <MessageRow key={row.id} row={row} onCopy={onCopy} />
+          <MessageRow key={row.id} row={row} onCopy={onCopy} onLink={onLink} />
         ))}
       </ul>
     </div>

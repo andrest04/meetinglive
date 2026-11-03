@@ -697,7 +697,18 @@ function main(): void {
       writeClipboard: (text) => {
         return clipboard.writeText(text);
       },
-      openExternal: (url) => (fakeNative ? Promise.resolve() : shell.openExternal(url)),
+      openExternal: (url) => {
+        if (!fakeNative) return shell.openExternal(url);
+        // E2E double: nothing opens; the address is appended to a file the spec can read.
+        const log = process.env.VOZELLA_FAKE_OPENED_LOG;
+        if (log)
+          fs.appendFileSync(
+            log,
+            `${url}
+`,
+          );
+        return Promise.resolve();
+      },
       broadcast,
       logger: logger.child('chat'),
     });

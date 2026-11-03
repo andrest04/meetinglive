@@ -11,6 +11,7 @@ function Link({ href, children }: { readonly href: string; readonly children: Re
   return (
     <a
       href={href}
+      title={href}
       target="_blank"
       rel="noreferrer noopener"
       onClick={
@@ -118,6 +119,37 @@ function renderBlock(block: Block, key: number): ReactNode {
         >
           <code>{block.text}</code>
         </pre>
+      );
+    case 'table':
+      return (
+        <div key={key} className="mt-3 overflow-x-auto first:mt-0">
+          <table className="w-full border-collapse text-start text-ui-lg">
+            <thead>
+              <tr>
+                {block.header.map((cell, column) => (
+                  <th
+                    key={column}
+                    scope="col"
+                    className="border-b border-hairline px-2 py-1.5 text-start font-semibold"
+                  >
+                    {renderInline(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, index) => (
+                <tr key={index}>
+                  {row.map((cell, column) => (
+                    <td key={column} className="border-b border-hairline px-2 py-1.5 align-top">
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       );
     case 'rule':
       return <hr key={key} className="my-5 border-hairline" />;

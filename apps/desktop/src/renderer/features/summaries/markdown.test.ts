@@ -72,3 +72,37 @@ describe('parseBlocks', () => {
     expect(parseBlocks('  \n\n')).toEqual([]);
   });
 });
+
+describe('parseBlocks tables and unfinished syntax', () => {
+  it('reads a pipe table with a delimiter row', () => {
+    const [table] = parseBlocks('| Name | Day |\n| --- | :-: |\n| Ana | Mon |\n| Luis |');
+    if (table?.type !== 'table') throw new Error('not a table');
+    expect(table.header).toHaveLength(2);
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows[1]).toHaveLength(2);
+  });
+
+  it('keeps a header with no delimiter row as a paragraph while it streams', () => {
+    expect(parseBlocks('| Name | Day |')[0]?.type).toBe('paragraph');
+  });
+
+  it('never throws on text cut at any point', () => {
+    const full =
+      '# T\n\n**bold** and *it* `c` [x](https://a.io/p) [m](https://meetinglive.local/meeting/abc)\n\n```js\ncode\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- one\n  - two\n> q';
+    for (let end = 0; end <= full.length; end += 1) {
+      expect(() => parseBlocks(full.slice(0, end))).not.toThrow();
+    }
+  });
+
+  it.each(['**unclosed bold', '```\nopen fence', '[label](https://x.io', '[label](', '`tick'])(
+    'keeps unfinished %j as text',
+    (source) => {
+      expect(parseBlocks(source).length).toBeGreaterThan(0);
+    },
+  );
+
+  it('drops the link of an unsafe scheme and keeps its label', () => {
+    expect(parseInline('[go](javascript:alert(1))')).toEqual([{ type: 'text', text: 'go' }]);
+    expect(parseInline('[f](file:///c:/x)')).toEqual([{ type: 'text', text: 'f' }]);
+  });
+});

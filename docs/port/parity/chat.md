@@ -271,14 +271,14 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 115 | Delete recipe dialog `Chat_DeleteRecipe*` strings, default Close. | dropped | dropped |  |
 | 116 | Recipe errors surface through the chat error bar. | dropped | dropped |  |
 | 117 | User messages are plain text bubbles, right-aligned, max about 75% width, selectable. | chat-9 | done | `MessageRow`: right-aligned bubble, max 75% width, selectable plain text. |
-| 118 | Assistant messages render Markdown (headings, lists, emphasis, code, tables, links); no raw HTML. | chat-9 | pending |  |
+| 118 | Assistant messages render Markdown (headings, lists, emphasis, code, tables, links); no raw HTML. | chat-9 | done | `MarkdownView.tsx` and `markdown.ts` now read pipe tables as well; raw HTML stays text. `MarkdownView.test.tsx`, `markdown.test.ts`, `e2e/chat-links.spec.ts` (light and dark screenshots `chat-links-answer-*.png`). |
 | 119 | Role labels `Chat_RoleUser` and `Chat_RoleAssistant` exist; assistant label shown above the answer. | chat-9 | done | Assistant label `Chat_RoleAssistant` above the answer; user rows carry `Chat_RoleUser` in their accessible text. |
-| 120 | Copy button on completed assistant messages copies the raw Markdown; failure shows `Chat_CopyFailed`. | chat-9 | pending |  chat-4 (main half): `chat.copyText` writes the clipboard in main and answers `written` or `failed{detail}`; the button and `Chat_CopyFailed` are chat-9. |
+| 120 | Copy button on completed assistant messages copies the raw Markdown; failure shows `Chat_CopyFailed`. | chat-9 | done | `MessageRow` copy button calls `chat.copyText` with the raw Markdown; `Chat_CopyFailed` goes to the error notice. `e2e/chat-links.spec.ts` reads the clipboard and compares it with the scripted reply. |
 | 121 | Transcript list max height 420 with internal scrolling. | chat-9 | done | `MessageList` max-h 420 with internal scrolling. |
-| 122 | Meeting citation links open the meeting on the Summary tab (select meeting, navigate to Session). | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` takes the hex or hyphenated id and answers the stored id, so the page can select it; chat-9 does the navigation. |
-| 123 | Missing cited meeting shows `Chat_MeetingLinkMissing`. | chat-9 | pending |  chat-4 (main half): `chat.meetingExists` answers `exists:false`; chat-9 shows `Chat_MeetingLinkMissing`. |
-| 124 | http(s) links open in the system browser; other schemes are ignored. | chat-9 | pending |  chat-4 (main half): `chat.openExternal` allows http and https only (S2) and answers `rejected` for any other scheme; the fake native build opens nothing. |
-| 125 | Link handler errors surface in the error bar. | chat-9 | pending |  |
+| 122 | Meeting citation links open the meeting on the Summary tab (select meeting, navigate to Session). | chat-9 | done | `use-chat-links.ts`: `chat.meetingExists`, then `workspace.dispatch` selectMeeting and openSession on the Summary tab. `use-chat-links.test.tsx` and the e2e spec. Main half (chat-4): `chat.meetingExists` takes the hex or hyphenated id and answers the stored id. |
+| 123 | Missing cited meeting shows `Chat_MeetingLinkMissing`. | chat-9 | done | The missing citation puts `Chat_MeetingLinkMissing` in the chat error notice (`InfoMeetingChatError`); no navigation. Unit and e2e. |
+| 124 | http(s) links open in the system browser; other schemes are ignored. | chat-9 | done | `chat.openExternal` for http and https, target visible in the link `title`. Any other scheme is not a link at all: `safeHref` drops it and the label shows as plain text. The e2e opener double is `VOZELLA_FAKE_OPENED_LOG` (fake native only). Main half (chat-4): `rejected` for other schemes (S2). |
+| 125 | Link handler errors surface in the error bar. | chat-9 | done | A thrown error or a `failed` answer from the handler goes to the error notice through `Chat_SendFailed` (unit tests). |
 | 126 | Accessible text of each row is `Role: text` (or just the role while thinking). | chat-9 | done | Each row is a list item named `Role: text`; a thinking row is named just the role (component and e2e tests). |
 | 127 | Button visible only in Meeting scope when TypeSafe is enabled and an API key exists. | dropped | dropped |  |
 | 128 | Click opens the Personal tasks dialog for the current meeting id; ignores clicks while opening. | dropped | dropped |  |
@@ -305,10 +305,10 @@ Channels (`packages/contracts/src/chat.ts`): `chat.send` (request id, draft, sco
 | 149 | Brief persists to the linked existing meeting; save errors show in the same error bar. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 150 | Brief shown only while the coming-up note is open and not processing; passed to the pipeline and to live answers. | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
 | 151 | Brief renders as Markdown in the port (B13). | chat-5 | dropped | owner decision 2026-11-03, may return later (calendar cut): pre-meeting brief, not built; brief frontmatter and Brief section pass through untouched. |
-| 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-1 (context strings only) | done (context strings) |  |
+| 152 | All strings above exist in en and es, with the same keys, including placeholders `{0}`. | chat-9 | done | No new strings in chat-9; every key it shows already existed in en and es. |
 | 153 | Automation ids preserved: `BarMeetingChat`, `LblMeetingChatScope`, `BtnMeetingChatHistory`, `ListMeetingChatHistory`, `BtnMeetingChatNew`, `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend`, `BtnMeetingChatPersonalTasks`, `BtnMeetingChatRecipes`, `ListMeetingChatRecipes`, `ListRelatedMeetings`, `TxtMeetingBrief`, `BriefSection`, `InfoBriefError`. | none for chat-1 | done (ListRelatedMeetings only) | `ListRelatedMeetings` is a `data-testid` on the list in `RelatedMeetings.tsx` (B21 test finds it). The other ids belong to chat-6/7/8; `TxtMeetingBrief`, `BriefSection`, `InfoBriefError` dropped (owner decision 2026-11-03, may return later (calendar cut)). Chat-7 added `ListMeetingChat`, `InfoMeetingChatError`, `ListMeetingChatStarters`, `TxtMeetingChat`, `BtnMeetingChatSend` as `data-testid` (the composer and send button also `id`). Still open: `BtnMeetingChatPersonalTasks` (cut), `BtnMeetingChatRecipes` and `ListMeetingChatRecipes` were added by chat-8 as `data-testid` (also `PopupMeetingChatRecipes`, `ItemMeetingChatRecipe`). |
 | 154 | Built-in recipe names resolve at call time against the current UI language (fix for B8). | chat-2 | improved | recipes.test.ts B8 test switches language between calls |
-| 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-4 | pending (chat-1 ports ChatContextPackerTests and ChatScopeResolverTests) |  |
+| 155 | Every test named in section 6 has an equivalent in the new test suite, plus new tests for B1, B3, B10, and the send/rollback flow. | chat-9 | done | See the audit index below: every section 6 class has one row. |
 
 ## Chat-6 (chat bar in the shell)
 
@@ -374,3 +374,68 @@ Files in `apps/desktop/src/renderer/features/chat/`: `ChatBody` (container), `us
 - Recipe prompts are not localized (original behavior); revisit only if the owner asks.
 - The flyout can cover the New chat button while open; it closes on any outside press.
 - Not observed: screen reader announcement of the highlighted row (only the ARIA wiring is tested).
+
+## Chat-9 (answer Markdown, citations, external links) and final audit
+
+- `use-chat-links.ts` classifies an address: a meeting citation (parsed with `tryParseMeetingLink` after percent decoding, because the Markdown reader normalizes braces to `%7B`), a web address, or ignored. Every click calls `preventDefault`, so the page never navigates and the window never opens a second tab.
+- Decision: `CitationLink.tsx` was not created. `MarkdownView` already renders the anchor, and a second component would only wrap it.
+- `MarkdownView` and `markdown.ts` gained pipe tables and a `title` on links. `onLink` already existed from chat-7. `MessageRow` and `MessageList` take one `onLink` prop; `ChatBody` supplies it, and `useChat.reportError` feeds the error notice.
+- S3 is documented: a braced or hyphenated id parses; an unknown id shows `Chat_MeetingLinkMissing`. Models that invent ids get that message.
+- E2E hooks, fake native only: `VOZELLA_FAKE_CHAT_REPLY` replaces the reply of chat prompts, and `VOZELLA_FAKE_OPENED_LOG` receives each address the opener would open.
+
+### Bugs fixed (chat-9)
+
+- A braced citation id would have been treated as a web link once the reader encoded it; it now routes to the meeting lookup.
+- Unfinished syntax (bold, fence, link, table header) never throws at any cut point of a streamed answer (a test cuts a full reply at every index).
+
+### Left for other modules (chat-9)
+
+- Real CLI and local-model answers have not been seen rendering; the screenshots use a scripted reply (pending-real-validation for the model side only).
+- Screen reader behavior of links and the table was not observed.
+
+### Audit index (final)
+
+Every item 1 to 155 above has one row. Bugs, suggestions and section 6 test classes, one row each:
+
+| Id | Status | Evidence |
+| --- | --- | --- |
+| B1 | improved | `newChat` refused while sending; New chat disabled (chat-3, chat-6, chat-7) |
+| B2 | dropped | owner decision 2026-11-03, may return later (thread files) |
+| B3 | dropped | owner decision 2026-11-03, may return later (thread and recipe files) |
+| B4 | improved | `PromptTooLong` shown as a plain sentence (chat-3) |
+| B5 | improved | live transcript snapshot at send start (chat-1, chat-3, chat-7) |
+| B6 | dropped | owner decision 2026-11-03, may return later (no thread persistence) |
+| B7 | improved | separate timestamps (chat-3) |
+| B8 | improved | recipe names resolved per call (chat-2) |
+| B9 | dropped | owner decision 2026-11-03, may return later (user recipes) |
+| B10 | improved | surrogate-safe cuts everywhere (chat-1, chat-2, chat-5) |
+| B11 | improved | blank titles never relate (chat-5) |
+| B12 | improved | context and prompt neutralizer (chat-1, chat-2); the brief part is dropped with the calendar cut |
+| B13 | dropped | owner decision 2026-11-03, may return later (brief) |
+| B14 | improved | failures mapped, never raw messages (chat-3, chat-4) |
+| B15 | improved | snippet keeps markers inside words (chat-5) |
+| B16 | done | snippet computed once per listing (chat-5) |
+| B17 | improved | at most 12 meetings parsed in full (chat-4) |
+| B18 | dropped | owner decision 2026-11-03, may return later (thread history) |
+| B19 | improved | Stop button and `chat.cancel` (chat-3, chat-7) |
+| B20 | done | partial answer discarded by decision (chat-3) |
+| B21 | improved | missing related meeting shows `Chat_MeetingLinkMissing` (chat-5); the same for citations (chat-9) |
+| B22 | done | `Chat_ScopeFolder` kept for Library (chat-5) |
+| B23 | done | en and es chat strings present, same keys |
+| B24 | improved | mismatch follows scope while sending (chat-3, chat-7) |
+| S1 | improved | Enter ignored during IME composition (chat-7) |
+| S2 | improved | only http and https open (chat-4, chat-9); no confirmation dialog, as in WinUI |
+| S3 | done | documented, an unknown id shows the missing message (chat-9) |
+| S4 | dropped | owner decision 2026-11-03, may return later (brief) |
+| S5 | improved | scope refresh token discards stale results (chat-3, chat-6) |
+| S6 | done | unchanged on purpose: a spoken line starting with `#` is still a heading in the snippet |
+| S7 | improved | listbox keeps focus in the textarea (chat-8) |
+| S8 | pending-real-validation | no output language is passed to chat prompts, as in WinUI; real local-model answers unverified |
+| ChatContextPackerTests, ChatScopeResolverTests | done | chat-1 |
+| ChatPromptBuilderTests, ChatThreadTitleTests | done | chat-2 |
+| ChatRecipeCatalogTests, ChatRecipeListTests | done | chat-2 (built-in cases); the user-recipe cases are dropped, owner decision 2026-11-03, may return later |
+| JsonChatThreadRepositoryTests, JsonChatRecipeRepositoryTests | dropped | owner decision 2026-11-03, may return later |
+| MeetingBriefPromptBuilderTests | dropped | owner decision 2026-11-03, may return later (calendar cut) |
+| MeetingSnippetTests, RelatedMeetingsTests | done | chat-5 test map above; the event-id case is dropped |
+
+Real CLI and local-model answers remain unverified for every row that depends on them (pending-real-validation); the fake provider was used throughout.

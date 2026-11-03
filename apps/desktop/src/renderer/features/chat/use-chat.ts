@@ -15,6 +15,8 @@ export interface ChatController {
   readonly stop: () => void;
   readonly copy: (text: string) => Promise<boolean>;
   readonly dismissError: () => void;
+  /** Puts a plain line in the error notice (a failed link, for example). */
+  readonly reportError: (message: string) => void;
 }
 
 const newRequestId = (): string => `req-${crypto.randomUUID()}`;
@@ -174,6 +176,10 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
     dispatch({ type: 'dismissError' });
   }, []);
 
+  const reportError = useCallback((message: string): void => {
+    dispatch({ type: 'failed', error: { message, titled: false } });
+  }, []);
+
   return {
     view,
     draft,
@@ -184,5 +190,6 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
     stop,
     copy,
     dismissError,
+    reportError,
   };
 }

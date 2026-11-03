@@ -2,19 +2,20 @@ import { Check, Copy, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, IconButton, cn } from '../../ui';
-import { MarkdownView } from '../summaries/MarkdownView';
+import { MarkdownView, type LinkHandler } from '../summaries/MarkdownView';
 import { accessibleMessageText, type ChatRow } from './chat-view-model';
 
 export interface MessageRowProps {
   readonly row: ChatRow;
   readonly onCopy: (text: string) => Promise<boolean>;
+  readonly onLink: LinkHandler;
 }
 
 /**
  * One message. The user's words sit right in a quiet bubble; the assistant's answer reads as a
  * document under a small role label. The copy button appears only once the answer is complete.
  */
-export function MessageRow({ row, onCopy }: MessageRowProps) {
+export function MessageRow({ row, onCopy, onLink }: MessageRowProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -56,6 +57,7 @@ export function MessageRow({ row, onCopy }: MessageRowProps) {
       ) : (
         <MarkdownView
           source={row.text}
+          onLink={onLink}
           className={cn(
             'mt-1 text-ui-lg select-text',
             // Headings in an answer stay the size of the text around them, only heavier.

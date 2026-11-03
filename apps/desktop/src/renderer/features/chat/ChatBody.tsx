@@ -9,6 +9,7 @@ import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { StarterChips } from './StarterChips';
 import { useChat } from './use-chat';
+import { useChatLinks } from './use-chat-links';
 
 const STARTER_COUNT = 4;
 
@@ -21,6 +22,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const gate = useProviderGate();
   const chat = useChat(scope, gate);
   const { rows, error } = chat.view;
+  const onLink = useChatLinks(chat.reportError);
 
   // Names are looked up on every render, so a language change relabels the chips (B8).
   const recipes = useMemo(
@@ -31,7 +33,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      {rows.length > 0 ? <MessageList rows={rows} onCopy={chat.copy} /> : null}
+      {rows.length > 0 ? <MessageList rows={rows} onCopy={chat.copy} onLink={onLink} /> : null}
       {chat.showScopeMismatch ? (
         <p
           role="status"
