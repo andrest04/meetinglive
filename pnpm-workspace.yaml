@@ -1,0 +1,23 @@
+packages:
+  - apps/*
+  - packages/*
+  - native/*
+
+# pnpm 12 skips dependency install scripts. These are the only ones that may run.
+# electron: downloads the Electron binary (apps/desktop/scripts/ensure-electron.mjs
+# re-runs the download if it was skipped or failed).
+# esbuild: platform binary used by the build toolchain.
+allowBuilds:
+  electron: true
+  esbuild: true
+  # koffi ships prebuilt binaries for win32-x64; its install script is not needed.
+  koffi: false
+  # electron-winstaller only serves the Squirrel target; we build NSIS.
+  electron-winstaller: false
+
+minimumReleaseAgeExclude:
+  - '@napi-rs/cli@3.10.10'
+  - '@vitejs/plugin-react@6.2.1'
+  - '@vitest/mocker@5.1.0'
+  - '@vitest/spy@5.1.0'
+  - vitest@5.1.0

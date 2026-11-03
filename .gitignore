@@ -41,3 +41,16 @@ Thumbs.db
 
 ## Agent skill symlinks
 .claude/skills/
+
+## Electron port (pnpm workspace, electron-vite, Rust addon)
+node_modules/
+apps/desktop/out/
+apps/desktop/release/
+apps/desktop/release-*/
+apps/desktop/resources/native/
+apps/desktop/test-results/
+apps/desktop/playwright-report/
+target/
+*.node
+*.tsbuildinfo
+.vite/

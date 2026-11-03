@@ -1,0 +1,31 @@
+{
+  "name": "vozella-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vozella, Electron port. Workspace root: orchestration scripts only.",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "postinstall": "node apps/desktop/scripts/ensure-electron.mjs",
+    "dev": "pnpm --filter @vozella/native build && pnpm --filter @vozella/desktop dev",
+    "build:native": "pnpm --filter @vozella/native build",
+    "build": "pnpm build:native && pnpm --filter @vozella/desktop build",
+    "package": "pnpm build && pnpm --filter @vozella/desktop package",
+    "test:e2e": "pnpm build && pnpm --filter @vozella/desktop test:e2e",
+    "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
+    "lint": "eslint . && prettier --check \"apps/**/*.{ts,tsx,mjs,json,html}\" \"packages/**/*.{ts,json}\" \"native/**/*.{json,mjs}\" \"*.{json,mjs}\" && pnpm --filter @vozella/native lint",
+    "test": "pnpm -r run test",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,mjs,json,html}\" \"packages/**/*.{ts,json}\" \"native/**/*.{json,mjs}\" \"*.{json,mjs}\"",
+    "check": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
