@@ -16,6 +16,9 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | Provider contract test helper, reused by S04 and S11 (S03) | `packages/core/src/summaries/provider-contract.ts` (`describeSummaryProviderContract`, not exported from the index) |
 | CLI failure classification, sanitizer, `CliToolError`, `runRequiredStdout`, `CliProcessRunner` port (S03) | `packages/core/src/summaries/cli-failure.ts` |
 | Failure codes, key maps, `formatFailure` (S03) | `packages/core/src/summaries/cli-failure-messages.ts` |
+| CLI argv builders, B30 validation, legacy string form (S04) | `packages/core/src/summaries/cli-invocation.ts` |
+| CLI provider base, Claude Code and Codex providers, web-search factories (S04) | `cli-provider.ts`, `claude-code-provider.ts`, `codex-provider.ts` |
+| `FakeCliProcessRunner` test double (S04) | `packages/core/src/summaries/test-kit.ts` (not exported from the index) |
 | Catalog key parity test (S03) | `apps/desktop/src/main/summary-failure-catalog.test.ts` |
 
 ## Decisions
@@ -33,6 +36,12 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **New keys (S03).** `Ui_SummaryLocalModelMissing`, `Ui_SummaryLocalEmpty`, `Ui_SummaryNotesTooLong`, `Ui_SummaryTranscriptTooLong` (`{0}` parts, `{1}` limit), `Ui_SummaryCannotCondense` in `ui.en.json` and `ui.es.json`; the main catalogs are pinned to the C# resources. The `Cancelled` code reuses `Status_ProcessingCancelled`.
 - **Spawn errors (S03).** `ENOENT`, `ENOTDIR`, `EACCES` and `EPERM` all mean the program cannot be run and map to NotInstalled. WinUI mapped only Win32 error 2 and 3; EACCES on a CLI path is the same user action (reinstall or fix the install).
 - **Cancellation (S03).** `CancelledError` (name `AbortError`) is thrown for a cancelled signal; `runRequiredStdout` also throws it when the signal fired during the run, whatever the process returned, and `wrapCliError` never wraps it.
+- **Argv, not strings (S04, B30).** Providers start `claude`/`codex` with an argument array and no shell. `claudePrintArgs` and `codexExecArgs` build it; `claudePrintLine` and `codexExecLine` keep the WinUI string form for display and the ported tests, and are never used to start a process.
+- **Option validation (S04, B30).** A model or effort in the allow-list of `settings/inference-options.ts` passes. Any other stored value passes only if it matches `[A-Za-z0-9][A-Za-z0-9._:-]*`; I added the leading letter or digit so a value like `--tools` cannot look like a flag. Anything else (spaces, quotes, `;`, `$`, newlines) throws `InvalidCliOptionError` before any process starts. The message is English and technical; the UI shows it as any other error. A model with a space is therefore refused, so the WinUI quoting never applies to a real launch.
+- **Args built per call (S04).** A bad stored value fails the summary call, not provider construction, so settings loading and the provider factory (S12) never throw on a hand edited file.
+- **B31 kept for parity (S04).** Five minute timeout (`CLI_TIMEOUT_MS`) and the whole transcript in one prompt; no chunking for CLI providers, per spec. The timeout is injectable through `timeoutMs`. Very long meetings can still time out and show the TimedOut message.
+- **Web search only by factory (S04, item 71).** `createClaudeCodeProvider` and `createCodexProvider` never add search. `create...WebSearchProvider` is for the live-answer path only. Summaries, titles and prompts use the plain ones.
+- **Stdin encoding (S04).** The provider passes the prompt as a string; S05's runner must write it as UTF-8 without a BOM (item 58, B24).
 - **Part and merge prompts (S01)** take the English language name (`toEnglishLanguageName`), as `BuildPartPrompt` and `BuildMergePrompt` do, and are used by S10.
 
 ## Parity items
@@ -90,6 +99,24 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 77 | Error text localized in the UI layer | improved | B28, new `Ui_Summary*` keys. |
 | 188 | Six `CliFailure*` and the `ModelSpeed/Quality/UseCase` keys in both catalogs | done | Parity test. |
 
+### CLI providers (S04)
+
+| # | Item | Status | Notes |
+| --- | --- | --- | --- |
+| 55 | Executables `claude`/`codex`, display names, 5 minute timeout | done | Timeout injectable (B31). |
+| 56 | Claude argv order `-p`, `--model`, `--effort`, tools | improved | Array form; each part only when set; legacy string kept (B30). |
+| 57 | Codex argv `--search` before `exec -`, `-m`, `-c model_reasoning_effort="..."` | improved | Array form (B30). |
+| 59 | Not on PATH gives NotInstalled before spawn | done | Tested with the fake runner: no spawn. |
+| 60 | Non-zero exit classified; empty stdout EmptyOutput | done | Via `runRequiredStdout`. |
+| 61 | Cancellation never wrapped | done | Tested. |
+| 62 | Other errors wrapped by kind | done | Runner timeout gives TimedOut. |
+| 70 | B30 model and effort validated, argv items | improved | See Decisions. |
+| 71 | Web search variants only for live answers | done | Explicit factories. |
+
+Contract: both providers run `describeSummaryProviderContract`. Ported tests: CliInvocationTests (6 cases), CliToolProviderBaseTests and both provider test classes (`cli-invocation.test.ts`, `cli-providers.test.ts`). Items 58, 63 to 69 belong to S05.
+
+Pending-real-validation: S04 ran only against `FakeCliProcessRunner`. The real `claude` and `codex` flags (`--effort`, `--tools`, `--allowedTools`, `--search`, `-c model_reasoning_effort`) were not run against the installed CLIs.
+
 ## Bugs fixed
 
 - **B12** (S03): stderr is classified first; stdout only for CLI sentinel phrases; `model not found` and `404 Not Found` are not a missing program.
@@ -98,6 +125,8 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - **B26** (S02): action items accept `-`, `*`, `+` bullets and flexible spacing, still need text after the box, and ignore numbered lists.
 - **B10** (S02): Spanish auto titles (`Reunión {0}`) are placeholders when the catalog formats are supplied, so they are renamed on summarize.
 - **B27** (S01): headings are keyed by language code, unknown codes fall back to Spanish on purpose and this is documented and tested against `SUMMARY_LANGUAGES`.
+- **B30** (S04): model and effort are validated and passed as separate argv items; no shell string is ever built.
+- **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
 
@@ -105,6 +134,7 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 - S04 and S11 must run `describeSummaryProviderContract` against their providers; S04 builds on `runRequiredStdout` and implements S05's runner against `CliProcessRunner`. S05 must throw `CliTimeoutError` on timeout and a `CancelledError` on cancel, and let spawn errors keep their `code`.
 - S10 and S11 throw `SummaryError` (`LocalModelMissing`, `LocalEmpty`, `NotesTooLong`, `TranscriptTooLong` with `[parts, 64]`, `CannotCondense`) instead of English messages. S13 and S14 show failures with `formatFailure`.
 - Pending-real-validation: none for S03; the classification keyword lists were not checked against real CLI output.
+- S05's runner must accept an argv array, write stdin as UTF-8 without BOM, and implement `isOnPath` and the launch of the resolved path (B11). S12 builds providers with `createClaudeCodeProvider` and `createCodexProvider` from the resolved model and effort. The live-answer path (chat module) uses the `...WebSearchProvider` factories. S13 shows `InvalidCliOptionError` text as a plain error.
 - Token budgeting that uses the part and merge prompts: S10.
 
 ## Dropped by the owner
