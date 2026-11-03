@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type {
   CancelSignal,
   CliPathProbe,
@@ -24,6 +26,15 @@ export class FakeCliProbe implements CliPathProbe {
 
   isOnPath(executable: string): Promise<boolean> {
     return Promise.resolve(this.installed.has(executable));
+  }
+}
+
+/** Programs that are "installed" while a file of that name exists in a folder (e2e toggles it). */
+export class FileFakeCliProbe implements CliPathProbe {
+  constructor(private readonly directory: string) {}
+
+  isOnPath(executable: string): Promise<boolean> {
+    return Promise.resolve(fs.existsSync(path.join(this.directory, executable)));
   }
 }
 

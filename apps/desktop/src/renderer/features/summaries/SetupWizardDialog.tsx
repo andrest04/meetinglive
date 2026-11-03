@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Button, Dialog, Progress } from '../../ui';
+import { CliCheckPanel } from './CliCheckPanel';
 import { EngineChooser } from './EngineChooser';
 import { ModelPicker } from './ModelPicker';
 import { useSetupWizard, type SetupWizard } from './use-setup-wizard';
@@ -20,7 +21,7 @@ export interface SetupWizardDialogProps {
   readonly mode: WizardMode;
   /** Called once: the engine that is ready, or null when the user leaves. */
   readonly onFinished: (result: WizardResult | null) => void;
-  /** The CheckingCli panel. Built in S19; until then that state shows only a Back button. */
+  /** The CheckingCli panel. Defaults to `CliCheckPanel`; tests pass a stub. */
   readonly renderCliPanel?: (context: CliPanelContext) => ReactNode;
 }
 
@@ -29,6 +30,8 @@ export interface SetupWizardDialogProps {
  * Cancel, Escape and the close button all leave the wizard; a running download is cancelled
  * through the shared model service and nothing is saved afterwards (B6).
  */
+const defaultCliPanel = (context: CliPanelContext): ReactNode => <CliCheckPanel {...context} />;
+
 export function SetupWizardDialog(props: SetupWizardDialogProps) {
   // The wizard is built when it opens and dropped when it closes, so every opening starts fresh.
   return props.open ? <OpenWizard {...props} /> : null;
@@ -64,15 +67,11 @@ function OpenWizard({ mode, onFinished, renderCliPanel }: SetupWizardDialogProps
         ) : null}
         {state.phase === 'Downloading' ? <DownloadingPanel wizard={wizard} /> : null}
         {state.phase === 'CheckingCli'
-          ? (renderCliPanel?.({
+          ? (renderCliPanel ?? defaultCliPanel)({
               kind: state.cli,
               onBack: wizard.back,
               onReady: wizard.cliReady,
-            }) ?? (
-              <Button data-testid="BtnBackToEngineChoice" onClick={wizard.back}>
-                {t('Setup_Back.Content')}
-              </Button>
-            ))
+            })
           : null}
       </div>
     </Dialog>

@@ -94,7 +94,7 @@ describe('SetupWizardDialog: chooser', () => {
     expect(called(api, 'summaries.hardware')).toHaveLength(1);
   });
 
-  it('choosing a CLI leaves the chooser and offers Back until the CLI panel exists', async () => {
+  it('choosing a CLI leaves the chooser and shows the CLI check panel with Back', async () => {
     mount();
     await userEvent.click(await screen.findByTestId('BtnEngineCodex'));
     expect(screen.queryByTestId('BtnEngineLocal')).toBeNull();

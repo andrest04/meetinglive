@@ -23,6 +23,7 @@ import {
   SteppedModelStore,
   SteppedRuntimeStore,
   FakeCliProbe,
+  FileFakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
   FakeSummaryProvider,
@@ -219,9 +220,17 @@ function main(): void {
   });
 
   app.on('web-contents-created', (_event, contents) => {
-    hardenWebContents(contents, trusted, (kind, url) => {
-      logger.warn('blocked', { kind, url });
-    });
+    hardenWebContents(
+      contents,
+      trusted,
+      (kind, url) => {
+        logger.warn('blocked', { kind, url });
+      },
+      (url) => {
+        // The fake native build records nothing and opens nothing.
+        if (!fakeNative) void shell.openExternal(url);
+      },
+    );
   });
 
   app.on('render-process-gone', (_event, contents, details) => {
@@ -320,7 +329,13 @@ function main(): void {
   const summaryModels = fakeNative
     ? new ScriptedFakeModelStore(fakeModelScriptFromEnv(process.env))
     : new FileLocalModelStore({ directory: path.join(paths.appData, 'SummaryModels') });
-  const summaryCli = fakeNative ? new FakeCliProbe(new Set(['claude'])) : new PathCliProbe();
+  // A test that sets VOZELLA_FAKE_CLI_FILES decides what is installed by putting files in
+  // <app data>/fake-cli, so it can flip the answer while the app runs.
+  const summaryCli = !fakeNative
+    ? new PathCliProbe()
+    : process.env.VOZELLA_FAKE_CLI_FILES === '1'
+      ? new FileFakeCliProbe(path.join(paths.appData, 'fake-cli'))
+      : new FakeCliProbe(new Set(['claude']));
 
   // Settings page services. In the fake native build the machine, the CLIs, the model downloads
   // are doubles, so nothing touches the network.

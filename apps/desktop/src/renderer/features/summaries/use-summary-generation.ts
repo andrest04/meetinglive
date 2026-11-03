@@ -3,16 +3,10 @@ import { deriveTabFlags, type TabFlags } from '@vozella/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StringKey, Translate } from '../../i18n/translate';
 import type { Option } from '../../ui';
+import type { RunSetup } from './use-provider-gate';
 import type { NotesMode } from './summary-tab-model';
 
-/** What the generation gate needs set up before a run can start. */
-export interface SetupRequest {
-  readonly kind: 'Local' | 'ClaudeCode' | 'Codex';
-  readonly reason: 'model-missing' | 'cli-missing';
-}
-
-/** `completed` means the engine is ready now; anything else leaves the summary alone. */
-export type RunSetup = (request: SetupRequest) => Promise<'completed' | 'cancelled'>;
+export type { RunSetup, SetupRequest } from './use-provider-gate';
 
 export interface GenerationStatus {
   readonly text: string;
@@ -189,7 +183,7 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
     setGenerating(true);
     setDraft(null);
     setStatus({ text: tr('Status_GeneratingSummary'), tone: 'info' });
-    let final: GenerationStatus;
+    let final: GenerationStatus | null;
     try {
       await settleNotes();
       let askedSetup = false;
@@ -206,6 +200,12 @@ export function useSummaryGeneration(input: UseSummaryGenerationInput): SummaryG
           // error inside the dialog, so this line is not used for it (B34).
           if (result === 'completed') continue;
           final = { text: tr('Status_SetupCancelled'), tone: 'info' };
+          break;
+        }
+        if (outcome.status === 'unavailable' && runSetup) {
+          // The gate shows a notice that points at Settings; the status line would repeat it.
+          void runSetup({ kind: 'Xai', reason: 'unavailable' });
+          final = null;
           break;
         }
         final = describeOutcome(outcome, tr);

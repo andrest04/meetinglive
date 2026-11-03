@@ -1,4 +1,5 @@
 import type { Session, WebContents } from 'electron';
+import { isSafeExternalUrl } from './external-url';
 import { buildCsp } from './csp';
 import { isTrustedUrl, type TrustedOrigins } from './trusted-origin';
 
@@ -10,6 +11,8 @@ export function hardenWebContents(
   contents: WebContents,
   trusted: TrustedOrigins,
   onBlocked: (kind: string, url: string) => void,
+  /** Opens an allowed https link outside the app. A window is never opened either way. */
+  openExternal?: (url: string) => void,
 ): void {
   contents.on('will-navigate', (event, url) => {
     if (!isTrustedUrl(url, trusted)) {
@@ -28,7 +31,8 @@ export function hardenWebContents(
     onBlocked('webview', '');
   });
   contents.setWindowOpenHandler(({ url }) => {
-    onBlocked('window-open', url);
+    if (openExternal && isSafeExternalUrl(url)) openExternal(url);
+    else onBlocked('window-open', url);
     return { action: 'deny' };
   });
 }

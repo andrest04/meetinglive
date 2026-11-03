@@ -454,6 +454,20 @@ Decisions (S18):
 - **Screenshots.** `docs/port/screens/summaries/wizard-{engine,models,downloading,failed}-{light,dark}.png`, and `wizard-{engine,models}-es.png`.
 - **Verification.** Reducer and component tests (jsdom) and `e2e/summaries-wizard.spec.ts` (10 specs: chooser order and no Grok, GPU and no-GPU lines, rows, cancel and close during a download with nothing saved, finish saves model and Local, downloaded model finishes at once, failure with retry, Spanish, axe on every panel). Pending-real-validation: a real download over the network and a screen reader pass.
 
+### CLI setup and the generation gate (S19)
+
+| #   | Item                               | Status | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --- | ---------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 134 | CLI setup dialog (2.7)             | done   | `CliSetupDialog`: title `Cli_SetupTitle` with the CLI name, a warning `Notice` titled `CliSetup_NotFound.Title`, body `Cli_NotFound` with the executable and the install hint, Retry (primary, `CliSetup.PrimaryButtonText`) and Cancel (`CliSetup.CloseButtonText`). Unit and e2e, en and es.                                                                                                                                       |
+| 135 | Wizard CheckingCli panel           | done   | `CliCheckPanel` is the default panel of `SetupWizardDialog`. It checks once on entering through `summaries.chooseCli` (found: saved and the wizard closes); otherwise `Cli_NotFoundCheckAgain`, Check again (`BtnRecheckCli`) and Back (`BtnBackToEngineChoice`).                                                                                                                                                                    |
+| 139 | Generation gate for CLI engines    | done   | `useProviderGate` is the single renderer owner of the gate: Local opens the wizard in local-only mode, ClaudeCode and Codex open `CliSetupDialog`, a Retry that finds the CLI resolves `completed` and `useSummaryGeneration` re-runs generate once; cancel gives "Setup cancelled." (B34). One dialog at a time; a page that unmounts releases the caller. Exported with `ProviderGateDialogs` for chat and the recording pipeline. |
+| 140 | Retry that misses                  | done   | The dialog stays open and the message becomes `Cli_StillMissing`. Same for Check again.                                                                                                                                                                                                                                                                                                                                              |
+| -   | Removed provider (Xai) at generate | done   | Gate shows `ProviderUnavailableNotice` (`Ui_SummaryProviderXaiRemoved` plus a Settings button that navigates through the workspace). No fallback to Local; no status line duplicate.                                                                                                                                                                                                                                                 |
+| -   | Install-hint links                 | done   | The hint URLs render as links; the npm command stays plain text. Main's `setWindowOpenHandler` opens a link with `shell.openExternal` only when `isSafeExternalUrl` accepts it (https, a host, no credentials); the window is always denied. This also unblocks the S16 summary links. Pending-real-validation: a real click was not made, the fake build opens nothing.                                                             |
+| -   | Fake CLI probe toggled by tests    | done   | `VOZELLA_FAKE_CLI_FILES=1` makes the fake probe read `<app data>/fake-cli/<exe>`, so e2e flips the answer while the app runs.                                                                                                                                                                                                                                                                                                        |
+
+**Decision (B32):** the check still tests PATH only, as the WinUI app does. A CLI that is installed but not signed in is found, and the classified `NotSignedIn` message shows at summarize time. No extra hint line was added to the dialogs; the copy is unchanged.
+
 ## Bugs fixed
 
 - **B4** (S13): the result is laid over a record re-read at save time as a field patch; a rename during the run survives (tested).
@@ -494,6 +508,7 @@ Decisions (S18):
 - **B7** (S18): a failed download returns to the model list with a visible `Error_DownloadModel` notice and a Try again button.
 - **B20** (S18, UI half): the wizard resolves every label key when drawn; tested in Spanish.
 - **B33** (S18): local-only mode opens on hardware detection, the chooser is never rendered (tested).
+- **B32** (S19): not changed, by design. The CLI check tests PATH only; the sign-in problem is reported by the classified `NotSignedIn` failure when a run starts.
 - **B31** (S04): not fixed on purpose. Kept for parity and recorded; timeout is injectable.
 
 ## Left for other modules
@@ -540,6 +555,9 @@ Decisions (S18):
 - S18 to S19: pass `renderCliPanel` to `SetupWizardDialog` (or extend `useSummarySetup`) to build the CheckingCli panel with `summaries.checkCli` and `summaries.chooseCli`; call `onReady` when the CLI is saved and `onBack` for Back. `useSummarySetup` resolves a CLI `needs-setup` as `cancelled` until then.
 - S18 to S20: decide where `mode: 'choose'` is opened from (Settings provider section or a first-run gate). The gallery buttons are only a dev entry.
 - S18 to the final review: no real network download was run; the 1B model integration of S11 covers the runtime side.
+
+- S19 to chat and the recording pipeline: call `useProviderGate()` once on the page, pass `gate.runSetup` to whatever can hit `needs-setup`, render `<ProviderGateDialogs gate>` and `<ProviderUnavailableNotice gate>`, and retry the refused call when `runSetup` resolves `completed`. For an `unavailable` outcome call `runSetup({ kind: 'Xai', reason: 'unavailable' })`.
+- S19 to S20: nothing opens `mode: 'choose'` outside the gallery yet; the Settings provider section should. `ProviderGateDialogs` always opens the wizard in local-only mode.
 
 ## Dropped by the owner
 
