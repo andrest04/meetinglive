@@ -37,6 +37,11 @@ export class FakeLocalModelStore implements LocalModelStore {
   hold: Promise<void> | null = null;
   failWith: Error | null = null;
 
+  /** A path that is never opened: the fake summary provider ignores it. */
+  pathFor(fileName: string): string {
+    return `fake-models/${fileName}`;
+  }
+
   isDownloaded(model: SummaryModelInfo): Promise<boolean> {
     return Promise.resolve(this.files.has(model.fileName));
   }

@@ -21,3 +21,4 @@ export * from './patch-queue';
 export * from './related-meetings';
 export * from './tab-state';
 export * from './tab-service';
+export * from './setup-options';

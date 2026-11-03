@@ -367,3 +367,51 @@ describe('SummaryService.generate', () => {
     expect(await run(service)).toEqual({ status: 'cancelled' });
   });
 });
+
+describe('pipeline options (S15)', () => {
+  const withBusy = (agenda: string | null, skip: boolean) => {
+    const repo = new InMemoryMeetingRepository();
+    repo.records.set(ID, record());
+    const seen: Seen['request'][] = [];
+    const provider = {
+      id: 'claude-code',
+      summarize: (request: Seen['request']) => {
+        seen.push(request);
+        return Promise.resolve(result());
+      },
+    } as unknown as SummaryProvider;
+    const service = new SummaryService({
+      meetings: repo,
+      settings: new InMemorySettingsStore(),
+      resolver: {
+        resolveSummaryProvider: () =>
+          Promise.resolve({ status: 'ready', kind: 'ClaudeCode', provider } as const),
+      },
+      clock,
+      notifyMeetingChanged: () => undefined,
+      busy: { isBusy: () => true },
+    });
+    return {
+      seen,
+      outcome: service.generate({
+        meetingId: ID,
+        regenerate: true,
+        cancel: new CancelSource().signal,
+        agenda,
+        skipBusyProbe: skip,
+      }),
+    };
+  };
+
+  it('refuses a busy meeting unless the pipeline asks to skip the probe', async () => {
+    expect(await withBusy(null, false).outcome).toEqual({ status: 'busy' });
+    const run2 = withBusy(null, true);
+    expect((await run2.outcome).status).toBe('generated');
+  });
+
+  it('hands the agenda to the prompt', async () => {
+    const run2 = withBusy('1. Budget', true);
+    await run2.outcome;
+    expect(run2.seen[0]?.enhancement?.agenda).toBe('1. Budget');
+  });
+});

@@ -28,6 +28,13 @@ export interface GenerateRequest {
   readonly cancel: CancelSignal;
   /** The picker's selection. Defaults to the template stored on the record. */
   readonly templateId?: string | null;
+  /** The meeting agenda for the prompt. Only the recording pipeline has one. */
+  readonly agenda?: string | null;
+  /**
+   * The recording pipeline holds the meeting busy for its own run, so it asks to skip the
+   * external busy probe. Two runs of the same meeting are still refused.
+   */
+  readonly skipBusyProbe?: boolean;
 }
 
 /** A failure as plain data, so it can cross the IPC boundary. Text is built by `describeFailed`. */
@@ -120,7 +127,10 @@ export class SummaryService {
 
   async generate(request: GenerateRequest): Promise<GenerateOutcome> {
     const { meetingId, cancel } = request;
-    if (this.inFlight.has(meetingId) || this.deps.busy?.isBusy(meetingId) === true) {
+    if (
+      this.inFlight.has(meetingId) ||
+      (request.skipBusyProbe !== true && this.deps.busy?.isBusy(meetingId) === true)
+    ) {
       return { status: 'busy' };
     }
     this.inFlight.add(meetingId);
@@ -153,7 +163,7 @@ export class SummaryService {
     const enhancement = createEnhancementContext({
       rawNotes: record.notes,
       attendees: record.attendees,
-      agenda: null,
+      agenda: request.agenda ?? null,
       templateInstructions: resolveTemplateInstructions(requested),
     });
     const now = (): OffsetDate => offsetDateFromInstant(this.deps.clock.now());

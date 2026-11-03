@@ -3,6 +3,7 @@ import type { ActionItem, MeetingRecord } from '../library/meeting';
 import type { MeetingRepository } from '../library/ports';
 import { noteTemplateOptions } from '../settings/note-templates';
 import { renderActionItems } from './action-items';
+import { templateIdToStore } from './template-instructions';
 import { PatchQueue } from './patch-queue';
 import {
   findRelated,
@@ -36,6 +37,10 @@ export type ToggleResult =
   | { readonly status: 'not-found' | 'out-of-range' }
   /** `message` is the localized `Error_SaveActionItem` sentence for the status line. */
   | { readonly status: 'failed'; readonly message: string; readonly detail: string };
+
+export type SetTemplateResult =
+  | { readonly status: 'saved' | 'unchanged' | 'not-found' }
+  | { readonly status: 'failed'; readonly detail: string };
 
 export type CopyActionItemsResult =
   /** `message` is `SummaryPage_NoActionItems`; the UI shows it as an error draft message. */
@@ -190,6 +195,26 @@ export class SummaryTabService {
           detail,
         };
       });
+  }
+
+  /**
+   * Remembers the picker's choice on the record. Only a built-in template is stored; `auto` and
+   * unknown ids clear it, as a generate does. Queued with the other writes (B5).
+   */
+  setTemplate(meetingId: string, templateId: string | null): Promise<SetTemplateResult> {
+    return this.queue
+      .run(meetingId, async (): Promise<SetTemplateResult> => {
+        const fresh = await this.deps.meetings.get(meetingId);
+        if (fresh === null) return { status: 'not-found' };
+        const stored = templateIdToStore(templateId);
+        if (stored === (fresh.noteTemplateId ?? null)) return { status: 'unchanged' };
+        await this.deps.meetings.save({ ...fresh, noteTemplateId: stored });
+        return { status: 'saved' };
+      })
+      .catch((error: unknown): SetTemplateResult => ({
+        status: 'failed',
+        detail: errorText(error),
+      }));
   }
 
   /** Item 99. The clipboard write belongs to the shell. */

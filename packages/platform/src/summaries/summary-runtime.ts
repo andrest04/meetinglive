@@ -8,6 +8,8 @@ import {
   type HardwareProbe,
   type LocalModelStore,
   type SettingsStore,
+  type SummaryProvider,
+  type SummaryProviderKind,
 } from '@vozella/core';
 import { selectWorkingBackend } from '../llama/backend-choice';
 import { LlamaRuntimeManager } from '../llama/llama-runtime-manager';
@@ -30,6 +32,8 @@ export interface SummaryRuntimeDeps {
   readonly processJob?: ProcessJobPort;
   readonly runner?: CliProcessRunner;
   readonly cli?: CliPathProbe;
+  /** The fake native build: a double for every engine. Null falls through to the real one. */
+  readonly providerOverride?: (kind: SummaryProviderKind) => SummaryProvider | null;
   /** Replacements for tests. */
   readonly createServer?: () => LocalLlmServer;
   readonly resolveRuntime?: (cancel: CancelSignal) => Promise<LocalLlmRuntime>;
@@ -60,6 +64,7 @@ export class SummaryRuntime {
     this.factory = new SummaryProviderFactory({
       settings: deps.settings,
       runner: this.runner,
+      ...(deps.providerOverride ? { override: deps.providerOverride } : {}),
       createLocal: (modelPath) =>
         new LocalLlmSummaryProvider({ host: this.host, modelPath: () => modelPath }),
     });

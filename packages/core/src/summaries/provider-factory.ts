@@ -21,6 +21,8 @@ export interface SummaryProviderFactoryDeps {
   readonly runner: CliProcessRunner;
   /** Builds the local provider for a model file. The platform shares one host behind it (B3). */
   readonly createLocal: (modelPath: string) => SummaryProvider;
+  /** The fake native build answers every kind with a double. Null falls through to the real one. */
+  readonly override?: (kind: SummaryProviderKind) => SummaryProvider | null;
 }
 
 export interface CreateProviderOptions {
@@ -45,6 +47,8 @@ export class SummaryProviderFactory {
     if (!isProviderAvailable(kind)) {
       throw new RangeError(`The ${kind} provider was removed.`);
     }
+    const overridden = this.deps.override?.(kind) ?? null;
+    if (overridden !== null) return overridden;
     if (kind === 'Local') {
       if (options.modelPath === undefined || options.modelPath === null) {
         throw new TypeError('A model path is required for the local provider.');
