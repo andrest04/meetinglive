@@ -1,3 +1,5 @@
+import { extractCommittedBody, isTranscriptHeader } from '../transcription/committed-line';
+
 export const SNIPPET_MAX_LENGTH = 140;
 
 const HEADING = /^#{1,6}(?:\s|$)/;
@@ -31,34 +33,10 @@ export function snippetFromMarkdown(markdown: string): string {
   return chosen.length > SNIPPET_MAX_LENGTH ? `${chosen.slice(0, SNIPPET_MAX_LENGTH)}…` : chosen;
 }
 
-// `CommittedTranscriptLine` (transcription module): `[mm:ss.ff-mm:ss.ff] [ Speaker-N ] text`.
-const SIDE = /^\d{2,}:[0-5]\d\.\d{2}$/;
-
-function validStamp(stamp: string): boolean {
-  const dash = stamp.indexOf('-');
-  if (dash <= 0 || dash === stamp.length - 1) return false;
-  return SIDE.test(stamp.slice(0, dash)) && SIDE.test(stamp.slice(dash + 1));
-}
-
-export function isTranscriptHeader(line: string): boolean {
-  const trimmed = line.trimStart();
-  return trimmed.startsWith('Recorded ') || trimmed.startsWith('Ended ');
-}
-
-/** The spoken text of one transcript line, without the stamp and speaker tag. */
-export function committedLineBody(line: string): string {
-  if (line === '') return '';
-  if (line.startsWith('[')) {
-    const close = line.indexOf(']');
-    if (close > 1 && validStamp(line.slice(1, close))) {
-      return line
-        .slice(close + 1)
-        .replace(/^\s*\[ Speaker-\d+ \]/, '')
-        .trim();
-    }
-  }
-  return line.trim();
-}
+// The line grammar lives in the transcription module; these names stay for the callers here.
+export { isTranscriptHeader };
+/** The spoken text of one transcript line, without the star, the stamp and the speaker tag. */
+export const committedLineBody = extractCommittedBody;
 
 function transcriptBody(transcript: string): string {
   return transcript

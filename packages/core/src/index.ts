@@ -8,3 +8,4 @@ export * from './logging';
 export * from './library';
 export * from './i18n';
 export * from './settings';
+export * from './transcription';
