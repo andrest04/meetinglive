@@ -71,6 +71,7 @@
   "Ui_SummaryNotesTooLong": "Las notas, la agenda o la plantilla de la reunión son demasiado largas para el modelo local de resumen. Acórtalas o usa otro motor de resumen.",
   "Ui_SummaryTranscriptTooLong": "La transcripción es demasiado larga para el modelo local de resumen ({0} partes, límite {1}). Usa otro motor de resumen.",
   "Ui_SummaryCannotCondense": "El modelo local de resumen no pudo condensar esta reunión lo suficiente para resumirla. Usa otro motor de resumen.",
+  "Ui_SummaryPromptTooLong": "El texto es demasiado largo para el modelo local de resumen. Usa otro motor de resumen.",
   "Ui_SummaryProviderXaiRemoved": "Grok (xAI) ya no está disponible. Elige Local, Claude Code o Codex para resumir tus reuniones.",
   "Ui_SummaryProviderCardDescription": "Local se ejecuta completamente en este PC de forma gratuita. Claude Code y Codex usan una CLI ya instalada."
 }

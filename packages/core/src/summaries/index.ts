@@ -11,3 +11,4 @@ export * from './claude-code-provider';
 export * from './codex-provider';
 export * from './llama-backend';
 export * from './local-map-reduce';
+export * from './local-prompt-budget';

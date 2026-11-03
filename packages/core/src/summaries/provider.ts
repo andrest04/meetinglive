@@ -24,6 +24,17 @@ export interface SuggestTitleRequest {
   readonly outputLanguage: string | null | undefined;
 }
 
+/** What a prompt call tells its caller besides the text (B9). */
+export interface PromptOutcome {
+  /** The answer stopped because the output cap was reached, not because the model finished. */
+  readonly truncated: boolean;
+}
+
+/** Optional extras for `completePrompt` and `streamPrompt`. Providers that have none ignore it. */
+export interface PromptCallOptions {
+  onOutcome?(outcome: PromptOutcome): void;
+}
+
 export interface SummaryResult {
   readonly summaryMarkdown: string;
   readonly actionItems: ActionItem[];
@@ -43,9 +54,17 @@ export interface SummaryProvider {
   /** Raw model text. The caller runs `titleFromModelResponse`. */
   suggestTitle(request: SuggestTitleRequest, cancel: CancelSignal): Promise<string>;
   /** Raw model text for an already built prompt. */
-  completePrompt(prompt: string, cancel: CancelSignal): Promise<string>;
+  completePrompt(
+    prompt: string,
+    cancel: CancelSignal,
+    options?: PromptCallOptions,
+  ): Promise<string>;
   /** Text chunks whose concatenation equals the full answer. */
-  streamPrompt(prompt: string, cancel: CancelSignal): AsyncIterable<string>;
+  streamPrompt(
+    prompt: string,
+    cancel: CancelSignal,
+    options?: PromptCallOptions,
+  ): AsyncIterable<string>;
 }
 
 /** The shared reply handling: split the three sections of the model text (S02). */

@@ -27,7 +27,22 @@ export interface ChatMessage {
 export interface ChatOptions {
   readonly maxTokens?: number;
   readonly temperature?: number;
+  /** Sampler values sent to the server as given. Left out, the server defaults apply. */
+  readonly topP?: number;
+  readonly topK?: number;
+  readonly minP?: number;
+  readonly repeatPenalty?: number;
+  readonly seed?: number;
+  /** False makes the server forget the prompt after the call (no slot reuse). */
+  readonly cachePrompt?: boolean;
   readonly signal?: CancelSignal;
+}
+
+export interface TokenizeOptions {
+  /** Count the BOS token the way a real prompt gets it. */
+  readonly addSpecial?: boolean;
+  /** Read special-token text such as chat markers as tokens, not as plain text. */
+  readonly parseSpecial?: boolean;
 }
 
 /** One parsed SSE event. */
@@ -174,6 +189,12 @@ export class LlamaSidecar {
           stream: true,
           max_tokens: options.maxTokens ?? 256,
           temperature: options.temperature ?? 0.2,
+          ...(options.topP === undefined ? {} : { top_p: options.topP }),
+          ...(options.topK === undefined ? {} : { top_k: options.topK }),
+          ...(options.minP === undefined ? {} : { min_p: options.minP }),
+          ...(options.repeatPenalty === undefined ? {} : { repeat_penalty: options.repeatPenalty }),
+          ...(options.seed === undefined ? {} : { seed: options.seed }),
+          ...(options.cachePrompt === undefined ? {} : { cache_prompt: options.cachePrompt }),
           stream_options: { include_usage: true },
         },
         controller.signal,
@@ -208,7 +229,11 @@ export class LlamaSidecar {
   }
 
   /** Token count of `text` for the loaded model. */
-  async tokenize(text: string, signal?: CancelSignal): Promise<number> {
+  async tokenize(
+    text: string,
+    signal?: CancelSignal,
+    options: TokenizeOptions = {},
+  ): Promise<number> {
     const running = await this.acquire();
     const controller = new AbortController();
     const removeCancel = signal?.onCancel(() => controller.abort());
@@ -216,7 +241,11 @@ export class LlamaSidecar {
       const response = await this.request(
         running,
         '/tokenize',
-        { content: text },
+        {
+          content: text,
+          ...(options.addSpecial === undefined ? {} : { add_special: options.addSpecial }),
+          ...(options.parseSpecial === undefined ? {} : { parse_special: options.parseSpecial }),
+        },
         controller.signal,
       );
       const body = (await response.json()) as { tokens?: unknown[] };

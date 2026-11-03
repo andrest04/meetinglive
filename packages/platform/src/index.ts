@@ -43,3 +43,5 @@ export * from './llama/backend-choice';
 export * from './llama/process-guard';
 export * from './llama/llama-sidecar';
 export * from './fakes/fake-process-job';
+export * from './llama/local-llm-host';
+export * from './llama/local-llm-provider';

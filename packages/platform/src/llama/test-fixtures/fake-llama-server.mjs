@@ -2,6 +2,8 @@
 // same auth rule as the real one. Behaviour flags come in as extra args:
 //   --fake-load-ms N   answer /health with 503 for N ms
 //   --fake-exit-early  print a line and exit 3 before listening
+//   --fake-empty / --fake-finish-length / --fake-reply-tokens N   shape the chat reply
+// /__info also returns the request bodies it saw.
 import http from 'node:http';
 
 const argv = process.argv.slice(2);
@@ -20,6 +22,10 @@ if (argv.includes('--fake-exit-early')) {
 
 const readyAt = Date.now() + loadMs;
 const stats = { chatStarted: 0, chatAborted: 0 };
+const bodies = { chat: [], tokenize: [] };
+const finishReason = argv.includes('--fake-finish-length') ? 'length' : 'stop';
+const emptyReply = argv.includes('--fake-empty');
+const replyTokens = Number(arg('--fake-reply-tokens') ?? 1000);
 
 const server = http.createServer((req, res) => {
   const url = req.url ?? '';
@@ -29,7 +35,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url === '/__info') {
-    res.end(JSON.stringify({ argv, cwd: process.cwd(), pid: process.pid, stats }));
+    res.end(JSON.stringify({ argv, cwd: process.cwd(), pid: process.pid, stats, bodies }));
     return;
   }
   if (req.headers.authorization !== `Bearer ${key}`) {
@@ -42,13 +48,22 @@ const server = http.createServer((req, res) => {
   req.on('end', () => {
     const json = body ? JSON.parse(body) : {};
     if (url === '/tokenize') {
-      res.end(JSON.stringify({ tokens: String(json.content ?? '').split(/\s+/).filter(Boolean).map((_, i) => i) }));
+      bodies.tokenize.push(json);
+      res.end(
+        JSON.stringify({
+          tokens: String(json.content ?? '')
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((_, i) => i),
+        }),
+      );
       return;
     }
     if (url === '/v1/chat/completions') {
       stats.chatStarted += 1;
+      bodies.chat.push(json);
       res.writeHead(200, { 'content-type': 'text/event-stream' });
-      const total = Math.min(json.max_tokens ?? 5, 1000);
+      const total = emptyReply ? 0 : Math.min(json.max_tokens ?? 5, replyTokens);
       let sent = 0;
       let closed = false;
       res.on('close', () => {
@@ -58,13 +73,19 @@ const server = http.createServer((req, res) => {
       const tick = setInterval(() => {
         if (closed) return clearInterval(tick);
         if (sent < total) {
-          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: `t${sent} ` }, finish_reason: null }] })}\n\n`);
+          res.write(
+            `data: ${JSON.stringify({ choices: [{ delta: { content: `t${sent} ` }, finish_reason: null }] })}\n\n`,
+          );
           sent += 1;
           return;
         }
         clearInterval(tick);
-        res.write(`data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] })}\n\n`);
-        res.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 7, completion_tokens: total } })}\n\n`);
+        res.write(
+          `data: ${JSON.stringify({ choices: [{ delta: {}, finish_reason: finishReason }] })}\n\n`,
+        );
+        res.write(
+          `data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 7, completion_tokens: total } })}\n\n`,
+        );
         res.write('data: [DONE]\n\n');
         closed = true;
         res.end();

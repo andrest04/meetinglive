@@ -8,6 +8,7 @@ export const SUMMARY_ERROR_CODES = [
   'NotesTooLong',
   'TranscriptTooLong',
   'CannotCondense',
+  'PromptTooLong',
   'Cancelled',
 ] as const;
 export type SummaryErrorCode = (typeof SUMMARY_ERROR_CODES)[number];
@@ -51,6 +52,7 @@ export const SUMMARY_ERROR_KEYS: Readonly<Record<SummaryErrorCode, string>> = {
   NotesTooLong: 'Ui_SummaryNotesTooLong',
   TranscriptTooLong: 'Ui_SummaryTranscriptTooLong',
   CannotCondense: 'Ui_SummaryCannotCondense',
+  PromptTooLong: 'Ui_SummaryPromptTooLong',
   Cancelled: 'Status_ProcessingCancelled',
 };
 
