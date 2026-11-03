@@ -1,4 +1,5 @@
 export * from './audio/audio-runtime';
+export * from './audio/recover-recordings';
 export * from './audio/system-pump-clock';
 export * from './audio/wav-file-decoder';
 export * from './audio/wav-files';

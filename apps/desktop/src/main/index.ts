@@ -19,6 +19,7 @@ import {
   FileXaiAccount,
   ForbiddenDataRootError,
   LibraryRuntime,
+  recoverCrashedRecordings,
   RotatingFileLogger,
   SettingsRuntime,
   SystemClock,
@@ -329,6 +330,21 @@ function main(): void {
       if (mode !== 'test') dialog.showErrorBox('Vozella cannot open its library', message);
     }
     bridgeWorkspace(workspace, broadcast);
+
+    // A crash or a kill leaves a recording with an unwritten header. Fix those now, in the
+    // background, so every later reader (duration, playback, transcription) can open them.
+    void recoverCrashedRecordings(paths.meetings)
+      .then((report) => {
+        if (report.repaired.length > 0 || report.failed.length > 0) {
+          logger.info('recovered crashed recordings', {
+            repaired: report.repaired.length,
+            failed: report.failed.length,
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        logger.warn('could not scan for crashed recordings', { error: String(error) });
+      });
 
     // The language of the app is applied before any window exists (spec 2.1, 4.5).
     const locale = new LocaleState(
