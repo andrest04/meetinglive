@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
+import * as library from './library';
 
 /** No input. An object keeps room to add optional fields without breaking callers. */
 const empty = z.object({}).strict();
@@ -66,10 +67,34 @@ export const requestChannels = {
   [appReportRendererError.name]: appReportRendererError,
   [diagnosticsNativeSelfTest.name]: diagnosticsNativeSelfTest,
   [appSetThemePreference.name]: appSetThemePreference,
+  [library.libraryLoad.name]: library.libraryLoad,
+  [library.libraryGetMeeting.name]: library.libraryGetMeeting,
+  [library.libraryCreateFolder.name]: library.libraryCreateFolder,
+  [library.libraryRenameFolder.name]: library.libraryRenameFolder,
+  [library.libraryUpdateFolderPersonality.name]: library.libraryUpdateFolderPersonality,
+  [library.librarySetFolderNote.name]: library.librarySetFolderNote,
+  [library.libraryDeleteFolder.name]: library.libraryDeleteFolder,
+  [library.libraryMoveMeeting.name]: library.libraryMoveMeeting,
+  [library.libraryDeleteMeeting.name]: library.libraryDeleteMeeting,
+  [library.libraryIsMeetingBusy.name]: library.libraryIsMeetingBusy,
+  [library.libraryGetLocation.name]: library.libraryGetLocation,
+  [library.libraryOpenFolder.name]: library.libraryOpenFolder,
+  [library.libraryChooseLocation.name]: library.libraryChooseLocation,
+  [library.librarySetLocation.name]: library.librarySetLocation,
+  [library.settingsGet.name]: library.settingsGet,
+  [library.settingsUpdate.name]: library.settingsUpdate,
+  [library.workspaceGetState.name]: library.workspaceGetState,
+  [library.workspaceDispatch.name]: library.workspaceDispatch,
 } as const;
 
 export const eventChannels = {
   [appFocusChanged.name]: appFocusChanged,
+  [library.libraryChanged.name]: library.libraryChanged,
+  [library.workspaceChanged.name]: library.workspaceChanged,
+  [library.workspaceNavigationRequested.name]: library.workspaceNavigationRequested,
+  [library.workspaceMeetingDeleted.name]: library.workspaceMeetingDeleted,
+  [library.workspaceMeetingChanged.name]: library.workspaceMeetingChanged,
+  [library.workspaceTakeNotesRequested.name]: library.workspaceTakeNotesRequested,
 } as const;
 
 export type RequestChannels = typeof requestChannels;
