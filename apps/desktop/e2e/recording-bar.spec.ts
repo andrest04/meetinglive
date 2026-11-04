@@ -139,10 +139,14 @@ test('screens in light and dark, with no serious accessibility violations', asyn
     timeout: 30_000,
   });
   for (const theme of ['light', 'dark'] as const) {
+    // Switch like a user does (stored preference, then a fresh load) so no colour transition is
+    // still running when axe measures the contrast.
     await page.evaluate((value) => {
-      document.documentElement.dataset.theme = value;
+      window.localStorage.setItem('vozella.theme', value);
     }, theme);
-    await page.waitForTimeout(200);
+    await page.reload();
+    await expect(page.getByTestId('recording-bar')).toBeVisible();
+    await expect(page.getByTestId('canvas-lines').locator('li').nth(2)).toBeVisible();
     expect(await serious()).toEqual([]);
     await shot(`recording-bar-${theme}.png`);
   }
