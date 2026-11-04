@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { popupBounds, topRight } from './popup-placement';
+import { clamp, popupBounds, topRight } from './popup-placement';
 
 describe('MeetingPromptPlacementTests', () => {
   it('places the popup at the top right with the margin', () => {
@@ -39,5 +39,41 @@ describe('MeetingPromptPlacementTests', () => {
       height: 83,
       y: 27,
     });
+  });
+});
+
+describe('LiveCopilotPillPlacementTests', () => {
+  const area = { x: 0, y: 0, width: 1920, height: 1040 };
+
+  it('leaves a window that is fully inside unchanged', () => {
+    expect(clamp(100, 200, 240, 48, area)).toEqual({ x: 100, y: 200 });
+  });
+
+  it.each([
+    [-50, 100, 0, 100],
+    [100, -30, 100, 0],
+    [5000, 100, 1680, 100],
+    [100, 5000, 100, 992],
+    [5000, 5000, 1680, 992],
+  ])('pulls (%s,%s) fully inside to (%s,%s)', (x, y, expectedX, expectedY) => {
+    expect(clamp(x, y, 240, 48, area)).toEqual({ x: expectedX, y: expectedY });
+  });
+
+  it('stays inside an area with a non-zero origin', () => {
+    expect(clamp(-5000, 5000, 240, 48, { x: -1920, y: 0, width: 1920, height: 1040 })).toEqual({
+      x: -1920,
+      y: 992,
+    });
+  });
+
+  it('pins a window larger than the area to the area origin', () => {
+    expect(clamp(300, 300, 800, 600, { x: 10, y: 20, width: 400, height: 300 })).toEqual({
+      x: 10,
+      y: 20,
+    });
+  });
+
+  it('returns the origin when the window exactly fills the area', () => {
+    expect(clamp(50, 50, 1920, 1040, area)).toEqual({ x: 0, y: 0 });
   });
 });
