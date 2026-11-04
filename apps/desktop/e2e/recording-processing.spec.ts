@@ -215,7 +215,10 @@ test('closing the window while recording asks first, and Keep recording keeps th
   try {
     await startTake(page, 'Close check');
     await launched.app.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.close();
+      // The pill window exists during a take and may be listed first: close the main window.
+      BrowserWindow.getAllWindows()
+        .find((w) => w.webContents.getURL().includes('/index.html'))
+        ?.close();
     });
     const dialog = page.getByRole('dialog', { name: 'Stop recording before closing?' });
     await expect(dialog).toBeVisible({ timeout: 15_000 });

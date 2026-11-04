@@ -87,8 +87,8 @@ const readProbe = (app: ElectronApplication): Promise<Probe> =>
 
 const mainState = (app: ElectronApplication) =>
   app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getAllWindows().find(
-      (w) => !w.webContents.getURL().includes('meeting-prompt.html'),
+    const win = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().includes('/index.html'),
     );
     if (!win) throw new Error('no main window');
     return { minimized: win.isMinimized(), visible: win.isVisible(), bounds: win.getBounds() };
@@ -126,7 +126,7 @@ function markdownFiles(dir: string): string[] {
 const closeMain = (app: ElectronApplication) =>
   app.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()
-      .find((w) => !w.isDestroyed())
+      .find((w) => w.webContents.getURL().includes('/index.html'))
       ?.close();
   });
 
@@ -326,8 +326,8 @@ test('starting a take minimizes the main window once, dismisses the popup and te
 
     // Pause and resume leave the window alone: bring it back and see it stay.
     await app.evaluate(({ BrowserWindow }) => {
-      const win = BrowserWindow.getAllWindows().find(
-        (w) => !w.webContents.getURL().includes('meeting-prompt.html'),
+      const win = BrowserWindow.getAllWindows().find((w) =>
+        w.webContents.getURL().includes('/index.html'),
       );
       win?.restore();
       win?.show();
