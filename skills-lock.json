@@ -49,6 +49,18 @@
       "skillPath": "plugins/dotnet-diag/skills/dump-collect/SKILL.md",
       "computedHash": "8ebf8877ca6f36f6580109334b2c9f166be5b12db95fdf367c551986156f87c7"
     },
+    "electron-best-practices": {
+      "source": "jwynia/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/tech/development/tooling/electron-best-practices/SKILL.md",
+      "computedHash": "744549070132b3bc0602fd7121d42278ba74694b9d0943358093bde3543cbe97"
+    },
+    "electron-builder": {
+      "source": "pedronauck/skills",
+      "sourceType": "github",
+      "skillPath": "skills/curated/electron-builder/SKILL.md",
+      "computedHash": "ecc23906ac23271fd9b20020b4d29bb6d5440abfa9d474787ae79c595ef18caa"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
