@@ -31,10 +31,10 @@ Strategy: `ask-on-risk`. Forecast: about 300 authored changed lines, on `feat/re
 ## Tasks
 
 - [x] T1 Name the setup rows by what they do. Route: inline, one mechanical string change. Commit: see Progress.
-- [ ] T2 Meeting title as the document heading, destination as a quiet line under it. Route: delegated, 2+ non-trivial files.
-- [ ] T3 Action row that stays visible while the page scrolls, shared by `Record` and `Set up to record`. Route: delegated.
-- [ ] T4 Setup rows that do not look selectable, plus plainer copy. Route: delegated.
-- [ ] T5 Remove the repeated summary and idle status lines from the idle view. Route: delegated.
+- [x] T2 Meeting title as the document heading, destination as a quiet line under it. Route: delegated, 2+ non-trivial files.
+- [x] T3 Action row that stays visible while the page scrolls, shared by `Record` and `Set up to record`. Route: delegated.
+- [x] T4 Setup rows that do not look selectable, plus plainer copy. Route: delegated.
+- [x] T5 Remove the repeated summary and idle status lines from the idle view. Route: delegated.
 
 ## Acceptance criteria
 
@@ -52,7 +52,16 @@ Strategy: `ask-on-risk`. Forecast: about 300 authored changed lines, on `feat/re
 
 - T1: focused i18n and Record tests passed, 281 of 281. The full desktop suite was not run for this commit.
 - T1 repair: 8da467b edited `en.json` and `es.json` directly, so `scripts/convert-strings.mjs --check` and `src/main/i18n-catalogs.test.ts` failed (observed: both files reported stale). Those catalogs are regenerated from the WinUI resources again, and the new copy lives in `ui.{en,es}.json` as `Ui_Setup*`, mapped from the WinUI keys in `SetupCards.tsx`. RED: the row-name test failed once the catalogs were restored. GREEN: Record, i18n and catalog tests passed, 283 of 283.
+- T2: RED, the idle document test failed on the visible heading and label. GREEN in `RecordRoute.test.tsx`. Title focus and a long title checked by screenshot; hover has no screenshot.
+- T3: RED, four action row tests failed. GREEN. `record-idle.spec.ts` measured the row flush with the bottom of the scroll container and above the chat bar in a 480 px tall window. A keyboard focus test failed at 340 px tall, with the radio behind the row; a scroll margin on the idle page fixed it.
+- T4: RED, heading and glyph tests failed. GREEN. No meaningful RED for the visual layout, checked by screenshot. The Check first pulled the status word 2 px off the row's baseline; fixed.
+- T5: RED, `withoutSetupRepeat` tests and the summary test failed. GREEN. `Status_ReadyToRecord` is kept, because it does not repeat the setup panel.
+- Width: the idle page is now 640 px, the text column of the 720 px document layout. At the old 960 px column the 1196x768 screenshot left the status words about 500 px from the row text, so the eye could not connect them.
+- Accessory removed: the setup list's bottom rule, which doubled the action row's rule. The dialog that shares the rows loses it too and still reads correctly.
+- Checks: typecheck exit 0. Unit tests 1872 passed, 6 skipped. Axe found no serious or critical issue on Record in light and dark, with setup missing and ready.
+- E2E: 48 of 51 passed against the running dev server's renderer (`ELECTRON_RENDERER_URL=http://localhost:5173`), since `out/renderer` is from before this work and a build would disturb the dev server. Two close-dialog tests failed and one did not run after them: those specs find the main window by `/index.html` in its URL, which a dev server URL lacks. All three passed in throwaway copies with a dev-aware lookup, and the unchanged close test passed on the older built renderer.
+- Not verified: the specs on a production bundle of this code, the error notice inside the action row by screenshot (covered by unit tests only), the hover state, forced colors.
 
 ## Next step
 
-T2 to T5 in one delegated writer pass.
+Owner review. Then run the Record e2e specs on a real build when the dev server is stopped.
