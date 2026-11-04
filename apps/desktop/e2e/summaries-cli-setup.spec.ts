@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import axe from 'axe-core';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, type LaunchedApp } from './launch';
+import { launchApp, type LaunchedApp, NO_GALLERY, packaged } from './launch';
 import { writeMeeting } from './library-data';
 
 // The CLI setup dialog, the wizard CLI check and the generation gate in the real app with the
@@ -206,6 +206,7 @@ test('a settings file that selects Grok gets a notice with a link to Settings', 
 });
 
 test.describe('the wizard CLI path', () => {
+  test.skip(packaged, NO_GALLERY);
   const openChooser = async (page: Page): Promise<void> => {
     await page.evaluate(() => {
       window.location.hash = '#/gallery';
@@ -279,6 +280,7 @@ test('the dialog and the panel speak Spanish', async () => {
 });
 
 test.describe('screenshots', () => {
+  test.skip(packaged, NO_GALLERY);
   test.skip(process.env.VOZELLA_SCREENSHOTS !== '1', 'set VOZELLA_SCREENSHOTS=1 to capture');
 
   for (const theme of ['light', 'dark'] as const) {

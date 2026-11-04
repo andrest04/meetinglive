@@ -2,7 +2,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
+import {
+  installEngine,
+  launchApp,
+  readyEnv,
+  seedReadySettings,
+  type LaunchedApp,
+  NO_TEST_HOOKS,
+  packaged,
+} from './launch';
 
 // The in-app call bar, the Take notes path into a fake recording on Record, and the popup toggle
 // in Settings, on the fake native build. No real call window exists: VOZELLA_FAKE_CALL_FLAG makes
@@ -41,6 +49,7 @@ async function useTheme(page: Page, value: 'light' | 'dark'): Promise<void> {
 }
 
 test.describe('call bar and take notes', () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   let launched: LaunchedApp;
   let page: Page;
 

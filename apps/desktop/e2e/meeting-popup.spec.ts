@@ -2,7 +2,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
+import {
+  installEngine,
+  launchApp,
+  readyEnv,
+  seedReadySettings,
+  type LaunchedApp,
+  NO_TEST_HOOKS,
+  packaged,
+} from './launch';
 
 // The floating call popup in the real app on the fake native build. No real call window exists:
 // the test-only VOZELLA_FAKE_CALL_FLAG makes the scanner report a call while a flag file exists.
@@ -16,6 +24,7 @@ const TICK_WAIT = 20_000;
 let launched: LaunchedApp;
 let main: Page;
 
+test.skip(packaged, NO_TEST_HOOKS);
 test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
 test.beforeAll(async () => {

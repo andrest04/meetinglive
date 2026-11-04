@@ -3,7 +3,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
-import { installEngine, launchAppInRoot, readyEnv, seedReadySettings } from './launch';
+import {
+  installEngine,
+  launchAppInRoot,
+  readyEnv,
+  seedReadySettings,
+  NO_TEST_HOOKS,
+  packaged,
+} from './launch';
 
 // sp-5: the shell end to end on the fake native build. Single instance, window state, tray,
 // recording handoff, close gate and menu, each on its own throwaway data root that survives the
@@ -244,6 +251,7 @@ test('bounds saved off every screen fall back to the default window on a visible
 // Tray (7.3b) through the probe of test mode
 
 test('the tray has Open and Quit, Open restores a minimized window, Quit still asks first', async () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   const root = newRoot();
   seedReady(root);
   const app = await launchAppInRoot(root, { ...readyEnv, VOZELLA_E2E_TRAY: '1' });
@@ -294,6 +302,7 @@ test('the tray has Open and Quit, Open restores a minimized window, Quit still a
 // Recording handoff (items 76 to 78, 62, 77)
 
 test('starting a take minimizes the main window once, dismisses the popup and tells the pill seam', async () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   const root = newRoot();
   seedReady(root);
   fs.rmSync(flag, { force: true });
@@ -392,6 +401,13 @@ test('closing right after Record never loses the take', async () => {
     const page = await readyOnRecord(app);
     await page.getByRole('textbox', { name: 'Title' }).fill('Gate preparing');
     await page.getByRole('button', { name: 'Record', exact: true }).click();
+    // The click only sends the start request. Close once main has taken it (the gate is no longer
+    // Idle); before that there is nothing to save, and a packaged build is slower to deliver it.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => (await window.vozella.invoke('recording.getState', {})).phase),
+      )
+      .not.toBe('Idle');
     await closeMain(app);
     const dialog = page.getByRole('dialog', { name: 'Stop recording before closing?' });
     // Preparing saves without a question (sp2-D1); if the start won the race the usual question
@@ -476,6 +492,7 @@ async function setTheme(page: Page, theme: 'light' | 'dark'): Promise<void> {
 }
 
 test('screenshots: the shell, the tray menu model and the startup notice, light and dark', async () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   test.skip(!shots, 'set VOZELLA_SCREENSHOTS=1 to capture');
   fs.mkdirSync(outDir, { recursive: true });
   const root = newRoot();

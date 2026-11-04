@@ -18,6 +18,9 @@ const settingsFile = (): Record<string, unknown> =>
 async function choose(select: string | RegExp, option: string | RegExp): Promise<void> {
   await page.getByRole('combobox', { name: select }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
+  // The closing list stays in the page until its exit animation ends; the next choice must not
+  // see it, or an option name such as English matches in two lists.
+  await expect(page.getByRole('listbox')).toHaveCount(0);
 }
 
 test.describe.configure({ mode: 'serial' });

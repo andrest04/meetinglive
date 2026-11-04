@@ -2,13 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import axe from 'axe-core';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, type LaunchedApp } from './launch';
+import { launchApp, type LaunchedApp, NO_GALLERY, packaged } from './launch';
 
 // The summary setup wizard in the real app with the fake native build: the fake hardware probe,
 // the scripted fake model folder (no network, no file) and a settings file on disk that is the
 // truth. The wizard opens from the component gallery, which is the dev entry for the chooser.
 // Screenshots (docs/port/screens/summaries) are rewritten only with VOZELLA_SCREENSHOTS=1.
 
+test.skip(packaged, NO_GALLERY);
 test.describe.configure({ timeout: 150_000 });
 
 const SMALL = 'Llama-3.2-1B-Instruct-Q4_K_M.gguf';

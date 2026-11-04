@@ -3,7 +3,15 @@ import os from 'node:os';
 import path from 'node:path';
 import axe from 'axe-core';
 import { expect, test, type Page } from '@playwright/test';
-import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
+import {
+  installEngine,
+  launchApp,
+  readyEnv,
+  seedReadySettings,
+  type LaunchedApp,
+  NO_TEST_HOOKS,
+  packaged,
+} from './launch';
 import { writeMeeting } from './library-data';
 
 // Shell chrome (sp-4): the startup migration notice, the rail, the call bar closing by itself,
@@ -200,6 +208,7 @@ test('a navigation request from elsewhere moves the rail and the page together (
 });
 
 test('the call bar closes by itself when the call ends, and is offered again for the next call (bug 5, items 35 to 38)', async () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   await page.locator('#NavItemSettings').click();
   fs.writeFileSync(flag, '');
   const bar = page.locator('#InfoCallPrompt');
@@ -226,6 +235,7 @@ test('the call bar closes by itself when the call ends, and is offered again for
 });
 
 test('the call bar closes when a recording starts (item 38)', async () => {
+  test.skip(packaged, NO_TEST_HOOKS);
   await page.locator('#NavItemRecording').click();
   await installEngine(page);
   fs.writeFileSync(flag, '');
@@ -238,6 +248,8 @@ test('the call bar closes when a recording starts (item 38)', async () => {
 });
 
 test('Ctrl+P pauses, Ctrl+R stops, and the tooltips show key caps (items 138, 139)', async () => {
+  // It continues the take that the previous test starts from a detected call.
+  test.skip(packaged, NO_TEST_HOOKS);
   await expect(page.getByTestId('recording-bar')).toBeVisible();
   const caps = async (button: string): Promise<string[]> => {
     await page.getByRole('button', { name: button }).hover();

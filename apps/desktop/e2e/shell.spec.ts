@@ -1,6 +1,6 @@
 import axe from 'axe-core';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, type LaunchedApp } from './launch';
+import { launchApp, type LaunchedApp, NO_GALLERY, packaged } from './launch';
 
 let launched: LaunchedApp;
 let page: Page;
@@ -66,6 +66,7 @@ test('the navigation pane has no resize handle (owner decision 2026-11-03)', asy
 
 for (const theme of ['light', 'dark'] as const) {
   test(`gallery has no serious accessibility violations in ${theme}`, async () => {
+    test.skip(packaged, NO_GALLERY);
     await page.evaluate((value) => {
       window.localStorage.setItem('vozella.theme', value);
     }, theme);
