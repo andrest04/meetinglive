@@ -1,13 +1,19 @@
-"""Draw every file in MeetingLive.App/Assets and docs/brand from the Vozella mark.
+"""Draw the Vozella icons from the mark: MeetingLive.App/Assets and docs/brand, or the Electron app.
 
 The mark is five flat bars hung from one line. Their lengths trace a V, so it
 reads as the initial and as a sound level at once. It sits on a 24-unit grid,
 which keeps it sharp at taskbar size. Needs Pillow, which the app does not:
 
-    python scripts/make_icons.py
+    python scripts/make_icons.py                           # MeetingLive.App/Assets and docs/brand
+    python scripts/make_icons.py --electron-out DIR        # only DIR/icon.ico and DIR/tray.ico
+    python scripts/make_icons.py --check-brand             # fail if docs/brand differs from the geometry
+
+With --electron-out nothing else is written: the WinUI assets and docs/brand stay untouched.
 """
 from __future__ import annotations
 
+import argparse
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,7 +110,47 @@ def svg(background: str | None, foreground: str) -> str:
     return "\n".join(parts)
 
 
-def main() -> None:
+BRAND_VARIANTS = {
+    "vozella-tile-dark.svg": (INK, PAPER),
+    "vozella-tile-light.svg": (PAPER, INK),
+    "vozella-mark-ink.svg": (None, INK),
+    "vozella-mark-paper.svg": (None, PAPER),
+}
+# The window and installer icon, and the smaller set the tray picks from.
+ICON_SIZES = [16, 24, 32, 48, 64, 256]
+TRAY_SIZES = [16, 20, 24, 32, 48]
+
+
+def save_ico(path: Path, sizes: list[int]) -> None:
+    """Write a multi-frame ICO of the ink tile with the paper mark."""
+    frames = [render(size, INK, PAPER) for size in sizes]
+    frames[-1].save(
+        path,
+        format="ICO",
+        sizes=[(size, size) for size in sizes],
+        append_images=frames[:-1],
+    )
+
+
+def write_electron(out: Path) -> None:
+    """The Electron app icons. Writes nothing outside `out`."""
+    out.mkdir(parents=True, exist_ok=True)
+    save_ico(out / "icon.ico", ICON_SIZES)
+    save_ico(out / "tray.ico", TRAY_SIZES)
+
+
+def check_brand() -> bool:
+    """True when the committed brand SVGs are exactly what the geometry draws."""
+    ok = True
+    for name, (background, foreground) in BRAND_VARIANTS.items():
+        path = BRAND / name
+        same = path.exists() and path.read_text(encoding="utf-8") == svg(background, foreground)
+        print(f"{name}: {'same' if same else 'DIFFERENT'}")
+        ok = ok and same
+    return ok
+
+
+def write_winui() -> None:
     tiled = {
         "Square150x150Logo.scale-200.png": 300,
         "Square44x44Logo.scale-200.png": 88,
@@ -119,26 +165,26 @@ def main() -> None:
     render(48, None, PAPER).save(ASSETS / "LockScreenLogo.scale-200.png")
     on_canvas(620, 300, 200).save(ASSETS / "Wide310x150Logo.scale-200.png")
     on_canvas(1240, 600, 300).save(ASSETS / "SplashScreen.scale-200.png")
-
-    sizes = [16, 24, 32, 48, 64, 256]
-    frames = [render(size, INK, PAPER) for size in sizes]
-    frames[-1].save(
-        ASSETS / "AppIcon.ico",
-        format="ICO",
-        sizes=[(size, size) for size in sizes],
-        append_images=frames[:-1],
-    )
+    save_ico(ASSETS / "AppIcon.ico", ICON_SIZES)
 
     BRAND.mkdir(parents=True, exist_ok=True)
-    variants = {
-        "vozella-tile-dark.svg": (INK, PAPER),
-        "vozella-tile-light.svg": (PAPER, INK),
-        "vozella-mark-ink.svg": (None, INK),
-        "vozella-mark-paper.svg": (None, PAPER),
-    }
-    for name, (background, foreground) in variants.items():
+    for name, (background, foreground) in BRAND_VARIANTS.items():
         (BRAND / name).write_text(svg(background, foreground), encoding="utf-8")
 
 
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--electron-out", type=Path, help="write only the Electron icons here")
+    parser.add_argument("--check-brand", action="store_true", help="compare docs/brand, write nothing")
+    args = parser.parse_args()
+    if args.check_brand:
+        return 0 if check_brand() else 1
+    if args.electron_out is not None:
+        write_electron(args.electron_out)
+        return 0
+    write_winui()
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
