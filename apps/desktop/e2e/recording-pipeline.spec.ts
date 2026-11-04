@@ -168,7 +168,7 @@ test('a full take: sources, live text, notes, highlight, pause, stop, statuses a
     expect(await serious(page)).toEqual([]);
     await shot(page, 'pipeline-result-light.png');
     await setTheme(page, 'dark');
-    await shot(page, 'pipeline-idle-dark.png');
+    await shot(page, 'pipeline-result-dark.png');
 
     const md = await savedMarkdown(launched, 'Quarter planning');
     expect(md).toMatch(/Recorded/);

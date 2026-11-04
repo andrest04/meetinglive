@@ -37,7 +37,8 @@ const REPLY = [
 ].join('\n');
 
 const wanted = process.env.VOZELLA_REAL_ASR === '1' && process.env.VOZELLA_REAL_AUDIO === '1';
-const present = fs.existsSync(path.join(dl, 'models', 'nemotron.q8_0.gguf')) && fs.existsSync(sampleWav);
+const present =
+  fs.existsSync(path.join(dl, 'models', 'nemotron.q8_0.gguf')) && fs.existsSync(sampleWav);
 test.skip(!wanted, 'set VOZELLA_REAL_ASR=1 and VOZELLA_REAL_AUDIO=1 to run the real recording');
 test.skip(wanted && !present, `the model or speech sample is missing under ${dl}`);
 
@@ -140,8 +141,8 @@ test.afterAll(async () => {
   if (player?.pid) {
     spawnSync('taskkill', ['/PID', String(player.pid), '/T', '/F'], { stdio: 'ignore' });
   }
-  await page?.evaluate(() => window.vozella.invoke('recording.discard', {})).catch(() => undefined);
-  await launched?.close();
+  await page.evaluate(() => window.vozella.invoke('recording.discard', {})).catch(() => undefined);
+  await launched.close();
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
