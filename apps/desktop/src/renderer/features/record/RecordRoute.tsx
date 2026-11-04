@@ -19,6 +19,7 @@ import {
   type StatusMessage,
 } from './record-layout';
 import { RecordingSession, useCanvasCopy } from './RecordingSession';
+import { useRecordShortcuts, type RecordShortcutHandlers } from './use-record-shortcuts';
 import { ResultCard } from './ResultCard';
 import { SetupChecklist } from './SetupChecklist';
 import { StatusBars, useStatusText } from './StatusBars';
@@ -128,6 +129,20 @@ export function RecordRoute() {
     if (!(await ensureReady())) return;
     await importRecording(title);
   };
+
+  // Ctrl+R starts a take from the idle page (2.5); once recording, the session binds it to Stop.
+  const idleShortcuts = useMemo<RecordShortcutHandlers | null>(
+    () =>
+      active
+        ? null
+        : {
+            stop: { enabled: idle && flags.showRecordHero, run: () => void record() },
+            pause: { enabled: false, run: () => undefined },
+            discard: { enabled: false, run: () => undefined },
+          },
+    [active, idle, flags.showRecordHero, record],
+  );
+  useRecordShortcuts(idleShortcuts);
 
   useTakeNotesRequest(idle, () => {
     void record();

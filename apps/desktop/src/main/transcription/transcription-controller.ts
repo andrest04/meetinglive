@@ -466,7 +466,7 @@ export class TranscriptionController {
   ): Promise<boolean> {
     const { t } = this.deps;
     if (!this.deps.runtime.installer.isReady()) {
-      callbacks.onFinished(t('Error_EngineNotReady'));
+      callbacks.onFinished(t('Ui_RetranscriptionEngineNotInstalled'));
       return false;
     }
     const recordedAt = parseOffsetDate(request.recordedAt)?.ms ?? null;

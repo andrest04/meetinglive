@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { SourcePickerStateDto } from '@vozella/contracts';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Providers } from '../library/library-test-kit';
@@ -256,6 +256,26 @@ describe('SourcesPanel microphone', () => {
   });
 });
 
+describe('SourcesPanel microphone preview on the Record page', () => {
+  it('item 28: choosing a device restarts the preview on that device', async () => {
+    const api = installApi();
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    await waitFor(() => {
+      expect(names(api.calls)).toContain('audio.preview.start');
+    });
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Microphone' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Test headset' }));
+    await waitFor(() => {
+      const starts = api.calls.filter((c) => c.name === 'audio.preview.start');
+      expect(starts.at(-1)?.input).toEqual({ deviceId: 'mic-2', owner: 'record' });
+    });
+  });
+});
+
 describe('SourcesPanel meeting audio', () => {
   const playing = pickerState({
     cards: [
@@ -297,6 +317,29 @@ describe('SourcesPanel meeting audio', () => {
       processId: 10,
     });
     expect(screen.getByTestId('sources-summary')).toHaveTextContent('Audio: Zoom');
+  });
+
+  it('items 31 and 33: the system card has a tooltip and no meter, an unavailable app card is dimmed to 0.55', async () => {
+    installApi({ state: playing });
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    const group = await screen.findByRole('radiogroup', { name: 'Meeting audio' });
+    await waitFor(() => {
+      expect(screen.getAllByRole('radio')).toHaveLength(4);
+    });
+    expect(within(group).getAllByRole('meter')).toHaveLength(3);
+    await userEvent.hover(within(group).getByText('All system audio'));
+    expect(
+      await screen.findByText('Records everything playing on this PC, including other apps.'),
+    ).toBeVisible();
+    await userEvent.unhover(within(group).getByText('All system audio'));
+    await userEvent.hover(within(group).getByText('Zoom'));
+    expect(await screen.findByText(/^Records this app and the helper processes/)).toBeVisible();
+    const dimmed = within(group).getByText('Not playing').parentElement;
+    expect(dimmed?.className).toContain('opacity-[0.55]');
   });
 
   it('draws the icon of each app executable and keeps the glyph where there is none (item 131)', async () => {

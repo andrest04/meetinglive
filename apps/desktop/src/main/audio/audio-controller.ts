@@ -153,8 +153,20 @@ export class AudioController {
     return this.picker.state;
   }
 
-  async startSources(): Promise<SourcePickerStateDto> {
-    this.stopSources();
+  /** A second start while polling runs, or while the first is loading, changes nothing (3.4). */
+  startSources(): Promise<SourcePickerStateDto> {
+    if (this.starting !== null) return this.starting;
+    if (this.stopPolling !== undefined) return Promise.resolve(this.picker.state);
+    const starting = this.beginSources().finally(() => {
+      if (this.starting === starting) this.starting = null;
+    });
+    this.starting = starting;
+    return starting;
+  }
+
+  private starting: Promise<SourcePickerStateDto> | null = null;
+
+  private async beginSources(): Promise<SourcePickerStateDto> {
     const generation = ++this.generation;
     this.tick = 0;
     this.firstRefreshDone = false;
@@ -170,6 +182,7 @@ export class AudioController {
 
   stopSources(): void {
     this.generation += 1;
+    this.starting = null;
     this.stopPolling?.();
     this.stopPolling = undefined;
     this.picker.endPolling();

@@ -325,6 +325,37 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
   });
 });
 
+describe('RecordRoute accelerator and missing steps', () => {
+  it('item 62: Ctrl+R starts a take on the idle page', async () => {
+    const api = installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    await userEvent.keyboard('{Control>}r{/Control}');
+    await waitFor(() => {
+      expect(api.named('recording.start')).toHaveLength(1);
+    });
+  });
+
+  it('item 17: with the engine ready, the summary chooser is the next step and cancelling it loops back to the checklist', async () => {
+    const needsSummary: RecordingSetupDto = {
+      ...readySetup,
+      canRecord: false,
+      summary: card('RecordingSetup_Summary.Header', false),
+      idleStatus: { key: 'Status_NeedsSetup', args: [] },
+    };
+    const api = installApi({ 'recording.getSetup': () => needsSummary });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Set up to record' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Set up recording' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Set up' }));
+    const wizard = await screen.findByRole('dialog', { name: 'Set up summary generation' });
+    expect(api.named('transcription.ensureEngine')).toHaveLength(0);
+    await userEvent.click(within(wizard).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('dialog', { name: 'Set up recording' })).toBeInTheDocument();
+    expect(api.named('recording.start')).toHaveLength(0);
+  });
+});
+
 describe('RecordRoute status bars (spec 2.18, B-12)', () => {
   it('shows the start refusal as an error bar by its typed severity', async () => {
     installApi({

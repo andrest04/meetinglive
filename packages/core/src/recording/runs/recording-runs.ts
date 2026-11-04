@@ -155,6 +155,7 @@ export class RecordingRuns implements RunOwner {
   clearLastMeetingIf(meetingId: string): void {
     if (this.last?.id !== meetingId) return;
     this.last = null;
+    this.liveText = '';
     this.emit();
   }
 

@@ -511,6 +511,7 @@ describe('RecordingService stop', () => {
     expect(t.service.getState().lastMeeting).not.toBeNull();
     t.service.forgetMeeting('meeting-1');
     expect(t.service.getState().lastMeeting).toBeNull();
+    expect(t.service.getState().liveText).toBe('');
   });
 
   it('190: a destination folder deleted during the take files the meeting in the Inbox', async () => {
@@ -733,6 +734,17 @@ describe('RecordingService import (2.12)', () => {
     expect(Date.parse(saved?.recordedAt ?? '')).toBe(2_000_000 - 30_000);
     expect(Date.parse(saved?.endedAt ?? '')).toBe(2_000_000);
     expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('173: the idle preview stops for the import and comes back after a failure', async () => {
+    const t = build();
+    t.controller.startPreview('mic-1', 'record');
+    t.host.failImport = new Error('unsupported codec');
+    await t.service.importAudio(picked);
+    const methods = t.host.methods();
+    expect(methods.indexOf('previewStop')).toBeGreaterThanOrEqual(0);
+    expect(methods.indexOf('previewStop')).toBeLessThan(methods.indexOf('importAudio'));
+    expect(t.controller.previewState).toEqual({ owner: 'record', deviceId: 'mic-1' });
   });
 
   it('172: no live draft, no highlights and no paused time reach the pipeline', async () => {

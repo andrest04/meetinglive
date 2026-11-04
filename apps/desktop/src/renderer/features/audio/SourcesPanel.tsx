@@ -204,7 +204,7 @@ function cardOption(card: SourceCardDto, tr: Translate, locked: boolean): RadioO
         className={
           card.isAvailable
             ? 'inline-flex flex-wrap items-center gap-2'
-            : 'inline-flex flex-wrap items-center gap-2 opacity-60'
+            : 'inline-flex flex-wrap items-center gap-2 opacity-[0.55]'
         }
       >
         <Tooltip content={tr('RecordPage_AppCardTooltip')} side="top">

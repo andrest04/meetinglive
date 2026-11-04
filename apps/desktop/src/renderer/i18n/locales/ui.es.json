@@ -82,5 +82,6 @@
   "Ui_SummaryNothingToCopy": "No hay nada que copiar.",
   "Ui_SummaryCopyFailed": "No se pudo copiar al portapapeles: {0}",
   "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella.",
-  "Ui_TranscriptionEngineUnavailable": "El motor de transcripción no está listo, así que el audio se guardó sin transcripción. Instala el motor en Ajustes y vuelve a transcribir la reunión."
+  "Ui_TranscriptionEngineUnavailable": "El motor de transcripción no está listo, así que el audio se guardó sin transcripción. Instala el motor en Ajustes y vuelve a transcribir la reunión.",
+  "Ui_RetranscriptionEngineNotInstalled": "El motor de transcripción no está instalado. Instálalo en Ajustes y vuelve a intentarlo."
 }

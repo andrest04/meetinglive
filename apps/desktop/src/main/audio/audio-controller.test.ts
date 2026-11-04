@@ -229,6 +229,31 @@ describe('source polling', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('a second start while polling is a no-op (item 36)', async () => {
+    const r = rig();
+    await r.controller.startSources();
+    const before = r.host.methods().length;
+    await r.controller.startSources();
+    expect(r.host.methods().length).toBe(before);
+  });
+
+  it('a second start while the first loads shares it (item 36)', async () => {
+    const r = rig();
+    const first = r.controller.startSources();
+    const second = r.controller.startSources();
+    await Promise.all([first, second]);
+    expect(r.host.methods().filter((m) => m === 'appsRefresh')).toHaveLength(1);
+  });
+
+  it('a stop while the first refresh is in flight drops its result (item 36)', async () => {
+    const r = rig();
+    const start = r.controller.startSources();
+    r.controller.stopSources();
+    await start;
+    expect(r.scheduler.task).toBeUndefined();
+    expect(r.controller.pickerState.cards.every((c) => c.level === 0)).toBe(true);
+  });
+
   it('stopping zeroes the meters and ignores a refresh still in flight', async () => {
     const r = rig();
     await r.controller.startSources();
