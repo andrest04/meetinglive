@@ -161,10 +161,19 @@ function expectedDock(edge: 'Left' | 'Right' | 'Top' | 'Bottom'): Partial<Rect> 
   }
 }
 
+/**
+ * A point on the capsule surface that is not a button, so a real mouse press starts a window drag
+ * (the buttons are no-drag): beside the middle button when vertical, in the left cap when horizontal.
+ */
+function grabPoint(b: Rect): { x: number; y: number } {
+  const c = center(b);
+  return b.width < 200 ? { x: c.x - 18, y: c.y - 28 } : { x: b.x + GUTTER + 7, y: c.y };
+}
+
 /** A real mouse drag from the window center, so the window moves by (dx, dy) DIP. */
 async function dragBy(dx: number, dy: number, from?: { x: number; y: number }): Promise<void> {
   const info = await mustPill();
-  from ??= center(info.bounds);
+  from ??= grabPoint(info.bounds);
   const [a, b] = await physical([from, { x: from.x + dx, y: from.y + dy }]);
   if (!a || !b) throw new Error('no physical points');
   os('drag2', Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y));
@@ -288,14 +297,16 @@ test('a take starts: the main window is minimized and the pill appears docked ri
 });
 
 test('transparent gutter shows the backdrop, the capsule is drawn, the corners are round', async () => {
-  await sleep(700);
+  // The started hint covers the middle of the capsule for 2.5 s: wait for it to go.
+  await expect((await pillPage()).getByRole('status')).toHaveCount(0, { timeout: 6_000 });
+  await sleep(300);
   const info = await mustPill();
   const b = info.bounds;
   const points = await physical([
     { x: b.x + 1, y: b.y + 1 }, // gutter, top left
     { x: b.x + b.width - 2, y: b.y + b.height - 2 }, // gutter, bottom right
     { x: b.x + GUTTER + 3, y: b.y + GUTTER + 3 }, // capsule box corner: outside the round end
-    { x: b.x + Math.trunc(b.width / 2), y: b.y + Math.trunc(b.height / 2) }, // capsule center
+    grabPoint(b), // capsule surface beside the buttons
   ]);
   const [gutterA, gutterB, corner, inside] = pixels(points);
   await snapScreenshot('pill-right.png');
@@ -404,10 +415,10 @@ test('dragging with the panel open closes it and the capsule follows the cursor'
   await page.evaluate(() => window.vozella.invoke('pill.setExpanded', { expanded: true }));
   const opened = await mustPill();
   expect(Math.abs(opened.bounds.width - (452 + 2 * GUTTER))).toBeLessThanOrEqual(1);
-  // Grab the capsule, which sits at the right end of the window, centered on its height.
+  // Grab the capsule, which sits at the right end of the window, beside the buttons.
   const grab = {
-    x: opened.bounds.x + opened.bounds.width - GUTTER - CAPSULE_SHORT / 2,
-    y: opened.bounds.y + Math.trunc(opened.bounds.height / 2),
+    x: opened.bounds.x + opened.bounds.width - GUTTER - CAPSULE_SHORT / 2 - 18,
+    y: opened.bounds.y + Math.trunc(opened.bounds.height / 2) - 28,
   };
   await dragBy(-300, 0, grab);
   await waitForPill(
@@ -431,7 +442,7 @@ test('the pill stays above a normal window that takes focus', async () => {
   await focusWork();
   await sleep(700);
   const [inside] = pixels(
-    await physical([{ x: info.bounds.x + GUTTER + 20, y: info.bounds.y + 80 }]),
+    await physical([{ x: info.bounds.x + GUTTER + 6, y: info.bounds.y + 80 }]),
   );
   // The capsule is dark; the work window is white.
   expect(inside?.[0]).toBeLessThan(120);
@@ -460,7 +471,7 @@ test('clicking the pill activates it so typing works', async () => {
   await focusWork();
   await sleep(300);
   const info = await mustPill();
-  const [point] = await physical([center(info.bounds)]);
+  const [point] = await physical([grabPoint(info.bounds)]);
   if (!point) throw new Error('no point');
   os('click', Math.round(point.x), Math.round(point.y));
   await expect.poll(async () => (await mustPill()).focused, { timeout: 4_000 }).toBe(true);

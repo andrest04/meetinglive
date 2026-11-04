@@ -1,7 +1,7 @@
 /*
- * Placeholder page of the live copilot pill window (package P2). The window is transparent and
- * frameless: the page paints only the capsule, inset by the 8 DIP gutter the window adds. The
- * capsule package replaces this file and the script next to it.
+ * The pill window is transparent and frameless: the page paints only the capsule (and the panel
+ * when open), inset by the 8 DIP gutter the window adds for the soft shadow. The capsule is the
+ * drag area; every clickable element opts out with pill-no-drag.
  */
 html,
 body {
@@ -12,11 +12,10 @@ body {
   user-select: none;
 }
 
-#pill-capsule {
-  position: absolute;
-  inset: 8px;
-  border-radius: 9999px;
-  background: #1f1f1f;
-  /* The whole capsule drags the window; the real buttons opt out with no-drag. */
+.pill-drag {
   -webkit-app-region: drag;
+}
+
+.pill-no-drag {
+  -webkit-app-region: no-drag;
 }
