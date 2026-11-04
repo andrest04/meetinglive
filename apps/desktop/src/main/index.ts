@@ -291,6 +291,7 @@ function main(): void {
 
   app.on('render-process-gone', (_event, contents, details) => {
     logger.error('renderer process gone', { reason: details.reason, exitCode: details.exitCode });
+    abandonCloseDialogs();
     if (details.reason !== 'clean-exit' && !contents.isDestroyed()) contents.reload();
   });
   app.on('child-process-gone', (_event, details) => {
@@ -306,6 +307,8 @@ function main(): void {
   let quitting = false;
   // Close protection (165): the exit gates (recording first) decide before anything shuts down.
   let mayExit: () => Promise<boolean> = () => Promise.resolve(true);
+  // Settles close dialogs nobody can answer any more (renderer reload or crash).
+  let abandonCloseDialogs: () => void = () => undefined;
   const exitFlow = new ExitFlow({
     mayExit: () => mayExit(),
     quit: () => {
@@ -932,6 +935,9 @@ function main(): void {
         windowAvailable: () => mainWindow !== undefined && !mainWindow.isDestroyed(),
         newId: () => randomUUID(),
       });
+      abandonCloseDialogs = () => {
+        closeDialogs.abandonPending();
+      };
       const closeGuard = new CloseGuard({
         service: recording,
         dialogs: closeDialogs,
@@ -1049,6 +1055,9 @@ function main(): void {
       });
       mainWindow.on('close', (event) => {
         exitFlow.windowClose(event);
+      });
+      mainWindow.webContents.on('did-start-loading', () => {
+        abandonCloseDialogs();
       });
       mainWindow.on('closed', () => {
         // The call watcher goes with the window (item 12).

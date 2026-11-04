@@ -173,6 +173,44 @@ describe('MeetingDetectionController', () => {
     expect(t.popup.events).toContain('notify-hide-animated');
   });
 
+  it('54: each show restarts the 30 s auto-hide and cancels the earlier timer', async () => {
+    const t = setup();
+    await t.detect(true);
+    const first = t.timeouts.find((x) => x.ms === 30_000);
+    await t.detect(false);
+    await t.detect(true);
+    const second = t.timeouts.filter((x) => x.ms === 30_000).at(-1);
+    expect(second).not.toBe(first);
+    expect(first?.cleared).toBe(true);
+    expect(second?.cleared).toBe(false);
+    expect(t.timeouts.filter((x) => x.ms === 30_000 && !x.cleared)).toHaveLength(1);
+  });
+
+  it('57: a cancelled exit never hides a popup that was shown again', async () => {
+    const t = setup();
+    await t.detect(true);
+    await t.detect(false);
+    const hidesBefore = t.popup.hides;
+    await t.detect(true);
+    t.fire(150);
+    expect(t.popup.hides).toBe(hidesBefore);
+    expect(t.controller.isShown).toBe(true);
+  });
+
+  it('58: a second dismiss during the fade-out, or on a hidden popup, does nothing more', async () => {
+    const t = setup();
+    await t.detect(true);
+    t.controller.dismiss();
+    const events = [...t.popup.events];
+    t.controller.dismiss();
+    expect(t.popup.events).toEqual(events);
+    t.fire(150);
+    expect(t.popup.hides).toBe(1);
+    t.controller.dismiss();
+    expect(t.popup.events.at(-1)).toBe('hide');
+    expect(t.popup.hides).toBe(1);
+  });
+
   it('reports whether the popup is showing', async () => {
     const t = setup();
     expect(t.controller.isShown).toBe(false);

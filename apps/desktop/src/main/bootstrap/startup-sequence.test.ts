@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import type { Logger } from '@vozella/core';
 import { describe, expect, it, vi } from 'vitest';
 import { STARTUP_ORDER, StartupSequence } from './startup-sequence';
@@ -22,6 +24,18 @@ describe('StartupSequence', () => {
     expect(STARTUP_ORDER.at(-1)).toBe('startup-notice');
     expect(STARTUP_ORDER.indexOf('watchers')).toBeGreaterThan(STARTUP_ORDER.indexOf('events'));
     expect(STARTUP_ORDER.indexOf('watchers')).toBeGreaterThan(STARTUP_ORDER.indexOf('window'));
+  });
+
+  it('index.ts runs the named steps in the order of STARTUP_ORDER (spec 8 item 2)', () => {
+    const source = readFileSync(path.resolve(__dirname, '../index.ts'), 'utf8');
+    const used = [...source.matchAll(/startup\.run\(\s*'([a-z-]+)'/g)].map((m) => m[1]);
+    // The window is created outside a named step; the notice runs last, after the window shows.
+    const expected = STARTUP_ORDER.filter((step) => step !== 'window' && used.includes(step));
+    expect(used.filter((step, i) => step !== 'window' && used.indexOf(step) === i)).toEqual(
+      expected,
+    );
+    expect(used.indexOf('events')).toBeLessThan(used.indexOf('language'));
+    expect(used.indexOf('migrations')).toBeLessThan(used.indexOf('events'));
   });
 
   it('runs steps in the order given and returns their value', async () => {

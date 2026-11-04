@@ -92,7 +92,11 @@ describe('palette (item 161)', () => {
   it('maps every token to a system color in forced colors mode (high contrast)', () => {
     const forced = block(tokens, '@media (forced-colors: active)');
     for (const name of expected.keys()) expect(forced.get(name)).toMatch(/^[A-Z][A-Za-z]+$/);
-    expect(forced.get('--accent-blue')).toBe('CanvasText');
+    // Spec 4.9: every folder accent is the system highlight, except Neutral, which is window text.
+    for (const n of ['blue', 'teal', 'green', 'amber', 'orange', 'red', 'purple']) {
+      expect(forced.get(`--accent-${n}`)).toBe('Highlight');
+    }
+    expect(forced.get('--accent-neutral')).toBe('CanvasText');
   });
 });
 

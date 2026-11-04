@@ -520,3 +520,26 @@ None new in sp-5. The audit of earlier packages found no row left open.
 | Not covered in C#: resource key parity en/es | sp-3 | done (sp-3) | `translate.test.ts`, `shell-strings.test.ts`, `i18n-catalog-checks.test.ts`. |
 | Not covered in C#: AppDialogFactory | sp-4 | done | `features/shell/dialog-service.test.tsx` (6 cases: confirm true and false, Escape, default button, error, controls, queue). |
 | New in the port: window geometry options, window state rule and store, activation helper, tray menu model, recording handoff wiring | sp-1         | done                  | `window-state.test.ts` (core 27, store 6, adapter), `main-window-options.test.ts`, `app-icon-path.test.ts`, `activate-main-window.test.ts`, `app-tray.test.ts`, `recording-handoff.test.ts`, e2e `shell-window.spec.ts` (6 tests). |
+
+## Audit round 1: verified findings and decisions
+
+Fixed with tests:
+
+- Item 2, startup order: `STARTUP_ORDER` now lists the real order (error hooks, migrations, events, language, window, watchers, notice). `startup-sequence.test.ts` reads `index.ts` and asserts the named `startup.run` calls follow it. Deviation sp5-D1: events run before the language, like migrations (sp2-D3), because the IPC handlers read the library; a failure in those two steps is shown in English because the language is not known yet. The window is created outside a named step.
+- Items 54, 57, 58: three controller tests in `meeting-detection-controller.test.ts` (second show restarts the 30 s timer, a cancelled exit never hides a re-shown popup, second dismiss and dismiss on a hidden popup do nothing more).
+- Items 55 and 56: `popup-timing.test.ts` ties `popup.css` (280 ms ease-out, 150 ms ease-in, 24 px slide) to the core constants.
+- Items 96 and 98: `RendererCloseDialogs.abandonPending()` settles an unanswered dialog as "no" when the renderer reloads (`did-start-loading`) or crashes (`render-process-gone`), so the guard is never stuck in `deciding`. Test in `close-guard.test.ts`.
+- Item 109: blank and whitespace input tests added to `workspace.test.ts`.
+- Item 166: forced-colors accents are the system highlight, Neutral is window text, as in spec 4.9. `tokens.test.ts` checks all eight.
+
+Rejected or recorded as decisions:
+
+- Items 79 to 89 and the pill half of 167: no pill window is built here. The live-copilot module owns it; the shell side is the `showPill` and `showStartedHint` seam and `registerSecondary` (items 89, tested with fakes). Still pending-real-validation until live-copilot merges.
+- Item 19 and bug 13: needs two monitors with different scale factors; the machine has one. Stays pending-real-validation. Electron sizes minimum bounds in DIP.
+- Item 29: decision sp5-D2, the rail stays a fixed 232 px. The minimum window width is 960 DIP, so the rail never has less than 728 DIP of content. Compact and minimal modes are not ported (owner cut of the nav pane grip leaves no width control); may return later.
+- Item 91: decision sp5-D3, Keep recording takes the initial focus and Stop and save is the primary button. Enter on a dialog that appears over a running take should not end it by accident. Deviation from spec 2.9.
+- Items 133 and 134: the factory is the construction point for new confirm and error dialogs. Close, discard and Library dialogs keep their own state because they carry progress and custom content; the close dialogs are driven by one request at a time from main. Not merged now.
+- Item 168: the in-app theme switch existed before the audit and is kept as an improvement; the OS setting is the default.
+- Bug 11: a Teams chat titled "Weekly meeting" has the same window title as a call, so the title alone cannot tell them apart. Word boundaries stay; kept limitation.
+- Bug 18 and 7.3g: the popup stays non-focusable (it must not steal focus from the call); the in-app bar is the keyboard path. No Tab test added.
+- Items 148, 151, 152 to 160, 169, 170 and the rest of the minor design notes: noted, not changed in this round; no behavior is wrong.

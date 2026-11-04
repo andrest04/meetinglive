@@ -142,6 +142,29 @@ describe('CloseGuard per phase (90 to 101)', () => {
 });
 
 describe('RendererCloseDialogs', () => {
+  it('a dialog nobody answers settles on abandon and the next close is not refused (96)', async () => {
+    const dialogs = new RendererCloseDialogs({
+      send: () => undefined,
+      windowAvailable: () => true,
+      newId: () => 'x',
+    });
+    const t = build({ recording: true });
+    const guard = new CloseGuard({
+      service: t.service,
+      dialogs,
+      restoreWindow: () => undefined,
+      logger,
+    });
+    const first = guard.mayClose();
+    dialogs.abandonPending();
+    expect(await first).toBe(false);
+    expect(t.service.shutdown).not.toHaveBeenCalled();
+    const second = guard.mayClose();
+    dialogs.answer('x', false);
+    expect(await second).toBe(false);
+    expect(t.service.shutdown).not.toHaveBeenCalled();
+  });
+
   it('sends a request and resolves with the shell answer, once', async () => {
     const sent: { requestId: string; dialog: string }[] = [];
     let n = 0;

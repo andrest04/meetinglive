@@ -110,6 +110,17 @@ export class RendererCloseDialogs implements CloseDialogs {
     return true;
   }
 
+  /**
+   * The renderer that showed a dialog is gone (reload, crash, destroyed window): every unanswered
+   * dialog counts as "no", so the guard settles, stays open and the next close is not refused.
+   */
+  abandonPending(): void {
+    const waiting = [...this.pending.values()];
+    this.pending.clear();
+    this.savingId = null;
+    for (const resolve of waiting) resolve(false);
+  }
+
   private ask(dialog: 'confirm-stop' | 'save-failed'): Promise<boolean> {
     if (!this.deps.windowAvailable()) return Promise.reject(new Error('no window for the dialog'));
     const requestId = this.deps.newId();

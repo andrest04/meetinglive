@@ -2,15 +2,16 @@ import type { Logger } from '@vozella/core';
 
 /**
  * The startup order of the shell (spec 2.1). The global error hooks come before everything. The
- * library migrations run before the window is created here, because the IPC handlers read the
- * library; their error is only shown after the window is visible, as in the WinUI app.
+ * library migrations and the workspace events run before the language and the window, because the
+ * IPC handlers read the library (a failure in those two steps is shown in English, the language is
+ * not known yet); their error is only shown after the window is visible, as in the WinUI app.
  */
 export const STARTUP_ORDER = [
   'error-hooks',
-  'language',
   'migrations',
-  'window',
   'events',
+  'language',
+  'window',
   'watchers',
   'startup-notice',
 ] as const;
