@@ -480,3 +480,8 @@ Rejected or recorded, with reason:
 - pnpm check platform failures were load-sensitive tests outside this module.
 
 - Audit round, rejected: no test asserts the absence of the Suggest-title button (absence by construction, checked by search of src and e2e). Possible stale tab event after two quick clicks: setSessionTab is one ordered dispatch and each event carries the latest tab; not reproduced.
+## Wave 2 integration notes
+
+- Spec 113 wins over the earlier summaries mapping: a summary provider whose gate says needs-setup (for example the local model is not downloaded) ends a re-transcription as TranscriptOnly, so the session page shows the no-summary outcome. The `transcription-ui` e2e now expects that text instead of the summary failure notice.
+- The session page keeps the fixed-width sidebar (owner decision 2026-11-03) with the chat bar and close dialogs mounted in the same shell.
+- A summary run that starts while the Summary tab's first load is in flight is now picked up: the tab loads again after the first answer (race found by the `summaries-generate` e2e once the session page loaded more slowly).

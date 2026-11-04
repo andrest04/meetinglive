@@ -109,6 +109,12 @@ export function useSummaryTab(
     const flags = { alive: true };
     setLoading(true);
     setLoadError(null);
+    // A run can start while this load is in flight, and its answer may predate the run. The
+    // page does not know the meeting yet, so it cannot react to the event; load again after.
+    let progressedDuringLoad = false;
+    const stopListening = window.vozella.on('summaries.progress', (event) => {
+      if (event.meetingId === meetingId) progressedDuringLoad = true;
+    });
     void (async () => {
       try {
         const answer = await window.vozella.invoke('summaries.loadTab', { meetingId });
@@ -131,16 +137,19 @@ export function useSummaryTab(
       } catch (error) {
         if (flags.alive) setLoadError(errorText(error));
       } finally {
+        stopListening();
         if (flags.alive) setLoading(false);
       }
+      if (flags.alive && progressedDuringLoad) await refresh();
     })();
     return () => {
+      stopListening();
       flags.alive = false;
       // Leaving the page or the meeting saves what was typed (item 101).
       flushNotes();
       idRef.current = null;
     };
-  }, [meetingId, flushNotes]);
+  }, [meetingId, flushNotes, refresh]);
 
   useEffect(() => {
     const onUnload = (): void => {

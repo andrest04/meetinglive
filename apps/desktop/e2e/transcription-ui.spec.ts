@@ -227,9 +227,9 @@ test('Session: re-transcribe a saved meeting after a confirmation', async () => 
       .getByRole('button', { name: 'Re-transcribe', exact: true })
       .click();
     await expect(
-      page.getByText(
-        /Transcript saved\. Summary failed: The selected local summary model has not been downloaded/,
-      ),
+      // With no summary model downloaded the gate is not satisfied and the run ends with the
+      // transcript only (spec 113), so the session page shows the no-summary outcome.
+      page.getByText('Re-transcribed. The transcript was updated, but no summary was generated.'),
     ).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => fs.readFileSync(file, 'utf8')).toContain('Buenos días a todos');
     expect(fs.readFileSync(file, 'utf8')).not.toContain('texto viejo');

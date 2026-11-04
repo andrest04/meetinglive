@@ -357,6 +357,28 @@ describe('generating', () => {
     expect(calls(api, 'summaries.loadTab')).toHaveLength(3);
   });
 
+  it('follows a run that starts while the first load is still in flight', async () => {
+    const firstLoad = gate<unknown>();
+    let loads = 0;
+    const api = installSummariesApi({
+      'summaries.loadTab': () => {
+        loads += 1;
+        // The first answer was read before the run began, so it says nothing is running.
+        return loads === 1
+          ? firstLoad.promise
+          : { status: 'loaded', state: done(), generating: true };
+      },
+    });
+    mount();
+    await waitFor(() => {
+      expect(calls(api, 'summaries.loadTab')).toHaveLength(1);
+    });
+    api.emit('summaries.progress', { meetingId: 'm1', running: true });
+    firstLoad.resolve({ status: 'loaded', state: done(), generating: false });
+    expect(await screen.findByText('Generating summary...')).toBeVisible();
+    expect(screen.getByTestId('BtnRegenerateSummary')).toBeDisabled();
+  });
+
   it('keeps the status of a finished run when its late progress event arrives', async () => {
     const api = installSummariesApi({
       ...loadWith(fresh()),
