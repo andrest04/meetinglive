@@ -82,12 +82,89 @@ describe('CloseGuard (165)', () => {
     const t = build({ recording: true, saved: new Error('boom') });
     expect(await t.guard.mayClose()).toBe(false);
     expect(t.calls).toContain('hide');
+    expect(logger.error).toHaveBeenCalledWith('close failed', { error: 'boom' });
     // The guard is usable again afterwards.
     expect(await t.guard.mayClose()).toBe(false);
   });
 });
 
+describe('CloseGuard per phase (90 to 101)', () => {
+  it('Preparing (101): no confirmation, the progress shows while the start settles', async () => {
+    const t = build({ pending: true });
+    expect(await t.guard.mayClose()).toBe(true);
+    expect(t.calls).toEqual(['restore', 'saving', 'shutdown', 'hide']);
+  });
+
+  it('Stopping and Processing: pending saves, progress, no confirmation', async () => {
+    const t = build({ pending: true });
+    await t.guard.mayClose();
+    expect(t.calls).not.toContain('confirm');
+  });
+
+  it('the window is restored before any dialog (92)', async () => {
+    const t = build({ recording: true });
+    await t.guard.mayClose();
+    expect(t.calls.indexOf('restore')).toBeLessThan(t.calls.indexOf('confirm'));
+  });
+
+  it('a failed save never closes unless the user says Close anyway (95)', async () => {
+    const t = build({ pending: true, saved: false });
+    expect(await t.guard.mayClose()).toBe(false);
+    expect(t.calls).toEqual(['restore', 'saving', 'shutdown', 'hide', 'failed']);
+  });
+
+  it('a refused second request does not touch the dialogs (96)', async () => {
+    const t = build({ recording: true });
+    const first = t.guard.mayClose();
+    expect(await t.guard.mayClose()).toBe(false);
+    await first;
+    expect(t.calls.filter((c) => c === 'confirm')).toHaveLength(1);
+    expect(t.service.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('a dialog that cannot be shown keeps the app open (98)', async () => {
+    const t = build({ recording: true });
+    t.service.shutdown.mockClear();
+    const guard = new CloseGuard({
+      service: t.service,
+      dialogs: {
+        confirmStop: () => Promise.reject(new Error('no window for the dialog')),
+        showSaving: () => undefined,
+        hideSaving: () => undefined,
+        saveFailed: () => Promise.resolve(false),
+      },
+      restoreWindow: () => undefined,
+      logger,
+    });
+    expect(await guard.mayClose()).toBe(false);
+    expect(t.service.shutdown).not.toHaveBeenCalled();
+  });
+});
+
 describe('RendererCloseDialogs', () => {
+  it('a dialog nobody answers settles on abandon and the next close is not refused (96)', async () => {
+    const dialogs = new RendererCloseDialogs({
+      send: () => undefined,
+      windowAvailable: () => true,
+      newId: () => 'x',
+    });
+    const t = build({ recording: true });
+    const guard = new CloseGuard({
+      service: t.service,
+      dialogs,
+      restoreWindow: () => undefined,
+      logger,
+    });
+    const first = guard.mayClose();
+    dialogs.abandonPending();
+    expect(await first).toBe(false);
+    expect(t.service.shutdown).not.toHaveBeenCalled();
+    const second = guard.mayClose();
+    dialogs.answer('x', false);
+    expect(await second).toBe(false);
+    expect(t.service.shutdown).not.toHaveBeenCalled();
+  });
+
   it('sends a request and resolves with the shell answer, once', async () => {
     const sent: { requestId: string; dialog: string }[] = [];
     let n = 0;

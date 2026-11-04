@@ -54,12 +54,14 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
     show: vi.fn(),
     focus: vi.fn(),
     isMinimized: () => main.minimized,
+    isVisible: () => true,
     isDestroyed: () => false,
   };
 
   const intervals: FakeTimer[] = [];
   const timeouts: FakeTimer[] = [];
   const broadcast = vi.fn();
+  const closed = vi.fn();
 
   const controller = new MeetingDetectionController({
     scanner,
@@ -84,6 +86,7 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
       };
     },
     broadcastPopupSetting: broadcast,
+    broadcastCallPromptClosed: closed,
     logger: logger(),
   });
   controller.start();
@@ -114,10 +117,49 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
     intervals,
     timeouts,
     broadcast,
+    closed,
   };
 }
 
 describe('MeetingDetectionController', () => {
+  describe('the in-app call bar closes by itself (bug 5, item 38)', () => {
+    it('tells the windows when the call ends, even if the popup never showed', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(1);
+      expect(t.closed).not.toHaveBeenCalled();
+      await t.detect(false);
+      expect(t.closed).toHaveBeenCalledExactlyOnceWith('callEnded');
+    });
+
+    it('tells the windows when a recording starts', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      t.workspace.setCaptureActive(true);
+      expect(t.closed).toHaveBeenCalledExactlyOnceWith('recordingStarted');
+      t.workspace.setCaptureActive(false);
+      t.workspace.setCaptureActive(true);
+      expect(t.closed).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not close the bar for a call that is still going', async () => {
+      const t = setup();
+      await t.detect(true);
+      await t.detect(true);
+      expect(t.closed).not.toHaveBeenCalled();
+    });
+
+    it('offers the bar once per call and again for the next call', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(1);
+      await t.detect(false);
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('pauses the auto-hide while the pointer is over the card and restarts it on leave (W8)', async () => {
     const t = setup();
     await t.detect(true);
@@ -129,6 +171,44 @@ describe('MeetingDetectionController', () => {
     expect(restarted).toHaveLength(1);
     t.fire(30_000);
     expect(t.popup.events).toContain('notify-hide-animated');
+  });
+
+  it('54: each show restarts the 30 s auto-hide and cancels the earlier timer', async () => {
+    const t = setup();
+    await t.detect(true);
+    const first = t.timeouts.find((x) => x.ms === 30_000);
+    await t.detect(false);
+    await t.detect(true);
+    const second = t.timeouts.filter((x) => x.ms === 30_000).at(-1);
+    expect(second).not.toBe(first);
+    expect(first?.cleared).toBe(true);
+    expect(second?.cleared).toBe(false);
+    expect(t.timeouts.filter((x) => x.ms === 30_000 && !x.cleared)).toHaveLength(1);
+  });
+
+  it('57: a cancelled exit never hides a popup that was shown again', async () => {
+    const t = setup();
+    await t.detect(true);
+    await t.detect(false);
+    const hidesBefore = t.popup.hides;
+    await t.detect(true);
+    t.fire(150);
+    expect(t.popup.hides).toBe(hidesBefore);
+    expect(t.controller.isShown).toBe(true);
+  });
+
+  it('58: a second dismiss during the fade-out, or on a hidden popup, does nothing more', async () => {
+    const t = setup();
+    await t.detect(true);
+    t.controller.dismiss();
+    const events = [...t.popup.events];
+    t.controller.dismiss();
+    expect(t.popup.events).toEqual(events);
+    t.fire(150);
+    expect(t.popup.hides).toBe(1);
+    t.controller.dismiss();
+    expect(t.popup.events.at(-1)).toBe('hide');
+    expect(t.popup.hides).toBe(1);
   });
 
   it('reports whether the popup is showing', async () => {
@@ -231,6 +311,7 @@ describe('MeetingDetectionController', () => {
       scheduler: { setInterval: () => () => undefined },
       setTimeout: () => () => undefined,
       broadcastPopupSetting: vi.fn(),
+      broadcastCallPromptClosed: vi.fn(),
       logger: logger(),
     });
     controller.startTakingNotes();
@@ -287,5 +368,23 @@ describe('MeetingDetectionController', () => {
     const before = t.popup.events.length;
     t.workspace.setCaptureActive(true);
     expect(t.popup.events).toHaveLength(before);
+  });
+
+  it('12, 169: dispose is safe to call twice and leaves no timer running', async () => {
+    const t = setup();
+    await t.detect(true);
+    t.controller.dispose();
+    t.controller.dispose();
+    expect(t.popupDispose).toHaveBeenCalledOnce();
+    expect(t.intervals.every((timer) => timer.cleared)).toBe(true);
+    expect(t.timeouts.every((timer) => timer.cleared)).toBe(true);
+    expect(t.controller.isShown).toBe(false);
+  });
+
+  it('150: a call found after dispose offers nothing, because the poll is gone', () => {
+    const t = setup();
+    t.controller.dispose();
+    expect(t.intervals[0]?.cleared).toBe(true);
+    expect(t.offered).not.toHaveBeenCalled();
   });
 });

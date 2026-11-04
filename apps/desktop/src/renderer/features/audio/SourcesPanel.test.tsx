@@ -25,7 +25,6 @@ function pickerState(extra: Partial<SourcePickerStateDto> = {}): SourcePickerSta
     cards: [system],
     selectedProcessId: null,
     noAppsPlaying: true,
-    suggestion: null,
     fallbackAppName: null,
     ...extra,
   };
@@ -78,9 +77,6 @@ function installApi(options: FakeOptions = {}) {
         state = { ...state, selectedProcessId: processId, fallbackAppName: null };
         return Promise.resolve(state);
       }
-      case 'audio.sources.dismissSuggestion':
-        state = { ...state, suggestion: null };
-        return Promise.resolve(state);
       case 'audio.sources.closeFallback':
         state = { ...state, fallbackAppName: null };
         return Promise.resolve(state);

@@ -1,42 +1,15 @@
-import type { ShellTag } from '@vozella/core';
-import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { Library, Mic, Settings, type LucideIcon } from 'lucide-react';
 import { useT } from '../../i18n/I18nProvider';
-import type { StringKey } from '../../i18n/translate';
 import { CloseDialogs } from '../record/CloseDialogs';
 import { connectLiveAsk } from '../record/use-live-ask';
 import { ChatBar } from '../chat/ChatBar';
 import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
-import { Icon, Mark, cn } from '../../ui';
-
-// Fixed width: the resizable navigation pane was dropped (owner decision 2026-11-03).
-interface NavEntry {
-  readonly to: '/record' | '/library' | '/settings';
-  readonly label: StringKey;
-  readonly icon: LucideIcon;
-}
-
-const NAV: readonly NavEntry[] = [
-  { to: '/record', label: 'Nav_Record.Content', icon: Mic },
-  { to: '/library', label: 'Nav_History.Content', icon: Library },
-  { to: '/settings', label: 'Nav_Settings', icon: Settings },
-];
-
-const ROUTE_OF_TAG: Readonly<Record<ShellTag, NavEntry['to'] | '/session'>> = {
-  Recording: '/record',
-  History: '/library',
-  Settings: '/settings',
-  Session: '/session',
-};
-
-function tagOfPath(pathname: string): ShellTag | null {
-  const match = (Object.entries(ROUTE_OF_TAG) as [ShellTag, string][]).find(
-    ([, route]) => route === pathname,
-  );
-  return match ? match[0] : null;
-}
+import { Mark, cn } from '../../ui';
+import { NavRail } from './NavRail';
+import { StartupNotice } from './StartupNotice';
+import { routeOfTag, tagOfPath } from './navigation';
 
 /** The shell is the only listener of navigation requests, and tells the workspace where it is. */
 function useWorkspaceNavigation(): void {
@@ -46,7 +19,7 @@ function useWorkspaceNavigation(): void {
   useEffect(
     () =>
       window.vozella.on('workspace.navigationRequested', ({ tag }) => {
-        void navigate({ to: ROUTE_OF_TAG[tag] });
+        void navigate({ to: routeOfTag(tag) });
       }),
     [navigate],
   );
@@ -104,6 +77,7 @@ export function AppShell() {
         </div>
       </div>
       <CloseDialogs />
+      <StartupNotice />
     </div>
   );
 }
@@ -118,23 +92,7 @@ function Sidebar() {
           {t('AppTitleBar.Title')}
         </span>
       </div>
-      <nav aria-label={t('Ui_NavMain')} className="app-no-drag flex flex-col gap-px px-2 pt-2">
-        {NAV.map((entry) => (
-          <Link
-            key={entry.to}
-            to={entry.to}
-            className={cn(
-              'flex h-8 items-center gap-2.5 rounded-control px-2.5 text-ui-lg text-ink-muted',
-              'transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink',
-              'aria-[current=page]:bg-pressed aria-[current=page]:font-medium aria-[current=page]:text-ink',
-              'forced-colors:aria-[current=page]:bg-[Highlight] forced-colors:aria-[current=page]:text-[HighlightText]',
-            )}
-          >
-            <Icon icon={entry.icon} />
-            {t(entry.label)}
-          </Link>
-        ))}
-      </nav>
+      <NavRail />
     </aside>
   );
 }

@@ -7,12 +7,11 @@ describe('settings sections', () => {
       'appearance',
       'language',
       'summaryProvider',
-      'typeSafe',
       'microphone',
       'meetingLanguage',
       'transcription',
       'recording',
-      'calendar',
+      'callDetection',
       'data',
       'about',
     ]);
@@ -26,10 +25,7 @@ describe('settings sections', () => {
 
   it('blocks that wait for a module are slots with a named owner', () => {
     const slots = SETTINGS_SECTIONS.filter((s) => s.status === 'slot');
-    expect(slots.map((s) => [s.id, s.owner])).toEqual([
-      ['typeSafe', 'jev-typesafe'],
-      ['recording', 'recording'],
-    ]);
+    expect(slots.map((s) => [s.id, s.owner])).toEqual([['recording', 'recording']]);
   });
 
   it('every id and message key is unique', () => {

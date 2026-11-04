@@ -124,8 +124,9 @@ export class CallWatcher {
 
   private safeLog(message: string, error: unknown): void {
     try {
+      // Item 150: the type only. A message can carry a window title or a path.
       this.ports.logger.warn(message, {
-        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : typeof error,
       });
     } catch {
       // logging must not break the watcher

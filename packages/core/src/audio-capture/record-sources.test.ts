@@ -16,7 +16,6 @@ import {
   rememberSystemAudioPatch,
   restoreApp,
   restoreMicrophone,
-  suggestMeetingApp,
   SYSTEM_DEFAULT_MICROPHONE,
 } from './source-picker';
 
@@ -96,30 +95,6 @@ describe('isAppStillRunning', () => {
     expect(
       isAppStillRunning({ ...a, exePath: null }, processes({ 5: { exePath: 'C:\\x.exe' } })),
     ).toBe(true);
-  });
-});
-
-describe('suggestMeetingApp', () => {
-  const zoom = app(1, 'Zoom', { isKnownMeetingApp: true, peak: 0.2 });
-  const teams = app(2, 'Teams', { isKnownMeetingApp: true, peak: 0.5 });
-  it('suggests a playing meeting app', () => {
-    expect(suggestMeetingApp([zoom], true, new Set())).toBe(zoom);
-  });
-  it('suggests nothing when an app is already selected', () => {
-    expect(suggestMeetingApp([zoom], false, new Set())).toBeNull();
-  });
-  it('suggests nothing without a meeting app or with an empty list', () => {
-    expect(suggestMeetingApp([app(3, 'Notepad')], true, new Set())).toBeNull();
-    expect(suggestMeetingApp([], true, new Set())).toBeNull();
-  });
-  it('skips a dismissed pid without hiding another app', () => {
-    expect(suggestMeetingApp([zoom, teams], true, new Set([2]))).toBe(zoom);
-  });
-  it('the loudest wins, equal loudness goes by name', () => {
-    expect(suggestMeetingApp([zoom, teams], true, new Set())).toBe(teams);
-    const a = { ...zoom, peak: 0.4 };
-    const b = { ...teams, peak: 0.4 };
-    expect(suggestMeetingApp([b, a], true, new Set())).toBe(b);
   });
 });
 
@@ -305,26 +280,6 @@ describe('RecordSourcePicker', () => {
     expect(state.cards[2]?.level).toBeGreaterThan(50);
     picker.applyPeaks(new Map([[1, 0]]));
     expect(picker.state.cards.find((c) => c.processId === 1)?.level).toBe(0);
-  });
-
-  it('suggests the meeting app only while all system audio is selected', () => {
-    const picker = new RecordSourcePicker();
-    picker.applyRefresh([zoom]);
-    expect(picker.state.suggestion?.processId).toBe(1);
-    picker.dismissSuggestion(1);
-    expect(picker.state.suggestion).toBeNull();
-    const other = new RecordSourcePicker();
-    other.applyRefresh([zoom]);
-    other.select(1);
-    expect(other.state.suggestion).toBeNull();
-  });
-
-  it('cd-1 A5: no suggestion is offered for an app the restore just selected', () => {
-    const picker = new RecordSourcePicker();
-    picker.beginPolling();
-    picker.applyRefresh([zoom], () => zoom);
-    expect(picker.state.selectedProcessId).toBe(1);
-    expect(picker.state.suggestion).toBeNull();
   });
 
   it('keeps a selected app that stops playing as an unavailable card at level 0', () => {

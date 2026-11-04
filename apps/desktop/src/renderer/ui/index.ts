@@ -8,6 +8,7 @@ export { Field, type FieldProps } from './Field';
 export { Icon, ICON_STROKE, type IconProps } from './Icon';
 export { Input, Textarea } from './Input';
 export { Kbd } from './Kbd';
+export { ShortcutHint, type ShortcutHintProps } from './ShortcutHint';
 export { Mark } from './Mark';
 export { Meter, type MeterProps } from './Meter';
 export { ContextMenu, Menu, type MenuEntry } from './Menu';

@@ -48,6 +48,30 @@ export async function launchApp(
   };
 }
 
+/**
+ * Like `launchApp`, but on a data root the caller owns: closing the app leaves the folder, so a
+ * second launch can read what the first one wrote (window state, single instance).
+ */
+export async function launchAppInRoot(
+  dataRoot: string,
+  extraEnv: Record<string, string> = {},
+): Promise<ElectronApplication> {
+  const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
+  return electron.launch({
+    ...(executablePath
+      ? { executablePath, args: [] }
+      : { args: [path.join(desktopDir, 'out', 'main', 'index.js')] }),
+    cwd: desktopDir,
+    env: {
+      ...process.env,
+      VOZELLA_E2E: '1',
+      VOZELLA_FAKE_NATIVE: '1',
+      VOZELLA_DATA_ROOT: dataRoot,
+      ...extraEnv,
+    },
+  });
+}
+
 /** A summary model that counts as downloaded on the fake build, so only the engine is missing. */
 export const READY_MODEL = 'Llama-3.2-1B-Instruct-Q4_K_M.gguf';
 

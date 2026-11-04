@@ -56,6 +56,14 @@ export const workspaceCallPromptOffered = defineEvent('workspace.callPromptOffer
   payload: empty,
 });
 
+/**
+ * The call that raised the in-app bar is over, or a recording started: the bar has nothing left
+ * to offer and closes (parity 38). Sent whether or not the floating popup was showing.
+ */
+export const workspaceCallPromptClosed = defineEvent('workspace.callPromptClosed', {
+  payload: z.object({ reason: z.enum(['callEnded', 'recordingStarted']) }),
+});
+
 /** The call popup setting changed outside the Settings page (Never again). */
 export const settingsMeetingPopupChanged = defineEvent('settings.meetingPopupChanged', {
   payload: z.object({ enabled: z.boolean() }),

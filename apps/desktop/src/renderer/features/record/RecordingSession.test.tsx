@@ -150,7 +150,12 @@ describe('the recording bar content (items 50, 62)', () => {
     await userEvent.hover(screen.getByRole('button', { name: 'Highlight' }));
     expect(await screen.findByText('Star this moment in the transcript')).toBeVisible();
     await userEvent.hover(screen.getByRole('button', { name: 'Stop' }));
-    expect(await screen.findByText('Stop (Ctrl+R)')).toBeVisible();
+    const tooltip = (await screen.findByText('Ctrl')).closest('span.gap-2');
+    expect(tooltip?.textContent).toBe('StopCtrl+R');
+    expect([...(tooltip?.querySelectorAll('kbd') ?? [])].map((k) => k.textContent)).toEqual([
+      'Ctrl',
+      'R',
+    ]);
   });
 });
 

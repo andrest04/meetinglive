@@ -9,6 +9,7 @@ import {
   recordingCloseRequest,
   recordingStateChanged,
   settingsMeetingPopupChanged,
+  workspaceCallPromptClosed,
   type AppInfo,
   type EventChannel,
   type PayloadInputOf,
@@ -34,6 +35,7 @@ import {
   FakeHardwareProbe,
   FakeSpeechEngine,
   FakeSummaryProvider,
+  JsonWindowStateStore,
   fakeSummaryOptionsFromEnv,
   FileLocalModelStore,
   PathCliProbe,
@@ -57,11 +59,15 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  Menu,
+  nativeImage,
   nativeTheme,
   net,
   protocol,
+  screen,
   session,
   shell,
+  Tray,
 } from 'electron';
 import { resolveAppVersion } from './bootstrap/app-version';
 import {
@@ -105,6 +111,8 @@ import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
 import { composeRecording } from './recording/compose-recording';
 import { CloseGuard, RendererCloseDialogs } from './recording/close-guard';
+import { ExitFlow } from './bootstrap/exit-flow';
+import { StartupSequence } from './bootstrap/startup-sequence';
 import {
   createRecordingEntryPoints,
   registerRecordingBusyProbe,
@@ -125,7 +133,13 @@ import {
   type IpcEventLike,
   type TrustedOrigins,
 } from './security/trusted-origin';
+import { RecordingHandoff } from './recording/recording-handoff';
+import { AppTray } from './tray/app-tray';
+import { installShellProbe } from './bootstrap/shell-probe';
+import { activateMainWindow } from './windows/activate-main-window';
+import { resolveIconPath } from './windows/app-icon-path';
 import { createMainWindow } from './windows/main-window';
+import { loadWindowPlacement, trackWindowState } from './windows/window-state';
 import { createMeetingPromptWindow } from './windows/meeting-prompt-window';
 import {
   titleBarOverlayFor,
@@ -175,6 +189,24 @@ function main(): void {
     showFatal: (title, detail) => {
       if (mode !== 'test') dialog.showErrorBox(title, detail);
     },
+    exit: (code) => app.exit(code),
+  });
+
+  // Startup steps are named, logged and shown once when one fails (bug 21). The language is only
+  // known after its own step, so a failure before that is worded in English.
+  let startupLocale: { t: (key: string, ...args: string[]) => string } | undefined;
+  const startup = new StartupSequence({
+    logger,
+    automated: mode === 'test',
+    showError: (message) => {
+      dialog.showErrorBox(message.title, message.content);
+    },
+    describeFailure: (_step, detail) => ({
+      title: startupLocale?.t('Ui_StartupFailedTitle') ?? 'Vozella could not finish starting',
+      content:
+        startupLocale?.t('Ui_StartupFailedContent', detail) ??
+        `Something went wrong while starting: ${detail}. Some features may not work. The details are in the log file.`,
+    }),
     exit: (code) => app.exit(code),
   });
 
@@ -244,10 +276,10 @@ function main(): void {
       }),
   });
 
+  // A second launch brings the first window forward. Its arguments are accepted and ignored
+  // (item 10): nothing in the app acts on a command line.
   app.on('second-instance', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+    activateMainWindow(mainWindow);
   });
 
   app.on('web-contents-created', (_event, contents) => {
@@ -266,6 +298,7 @@ function main(): void {
 
   app.on('render-process-gone', (_event, contents, details) => {
     logger.error('renderer process gone', { reason: details.reason, exitCode: details.exitCode });
+    abandonCloseDialogs();
     if (details.reason !== 'clean-exit' && !contents.isDestroyed()) contents.reload();
   });
   app.on('child-process-gone', (_event, details) => {
@@ -281,20 +314,36 @@ function main(): void {
   let quitting = false;
   // Close protection (165): the exit gates (recording first) decide before anything shuts down.
   let mayExit: () => Promise<boolean> = () => Promise.resolve(true);
-  let exitApproved = false;
+  // Settles close dialogs nobody can answer any more (renderer reload or crash).
+  let abandonCloseDialogs: () => void = () => undefined;
+  const exitFlow = new ExitFlow({
+    mayExit: () => mayExit(),
+    quit: () => {
+      app.quit();
+    },
+    closeWindow: () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    },
+    logger: logger.child('recording'),
+  });
+  // Things that must stop on a real quit. `before-quit` also fires when the gate then says keep
+  // open, so nothing that a recording needs may be stopped from a bare listener.
+  const onExit: (() => void)[] = [];
+  const stopOnExit = (stop: () => void): void => {
+    onExit.push(stop);
+  };
   app.on('before-quit', (event) => {
     if (quitting) return;
-    if (!exitApproved) {
-      event.preventDefault();
-      void mayExit().then((ok) => {
-        if (!ok) return;
-        exitApproved = true;
-        app.quit();
-      });
-      return;
-    }
+    if (!exitFlow.beforeQuit(event)) return;
     quitting = true;
     event.preventDefault();
+    for (const stop of onExit) {
+      try {
+        stop();
+      } catch (error) {
+        logger.error('stop on quit failed', { error: String(error) });
+      }
+    }
     void Promise.race([
       libraryWrites?.settled() ?? Promise.resolve(),
       new Promise<void>((resolve) => setTimeout(resolve, 3000)),
@@ -394,6 +443,8 @@ function main(): void {
           app.relaunch(options);
         },
         quit: () => {
+          // The restart already asked the exit gates: its quit does not ask again (99).
+          exitFlow.approve();
           app.quit();
         },
         defer: (run) => {
@@ -434,62 +485,59 @@ function main(): void {
   }
 
   let detection: MeetingDetectionController | undefined;
-  function startMeetingDetection(): MeetingDetectionController | undefined {
-    try {
-      const ports = fakeNative
-        ? createNativePorts({ fake: true })
-        : createNativePorts({
-            fake: false,
-            addonPath: nativeAddonPath,
-            // A real require, so rolldown leaves the .node load to runtime.
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            load: (addon) => require(addon) as unknown,
-            onError: (error) => {
-              logger.warn('window scan failed', { error: error.message });
-            },
-          });
-      const callFlag = fakeCallFlagPath(process.env, mode === 'test');
-      const controller = new MeetingDetectionController({
-        scanner: callFlag ? createFlagFileScanner(callFlag) : ports.windowScan,
-        workspace,
-        settings: library.settings,
-        popup: createPopupHandle(
-          createMeetingPromptWindow(
-            () => mainWindow ?? null,
-            devServerUrl ? new URL('/meeting-prompt.html', devServerUrl).toString() : undefined,
-          ),
-          (webContentsId) => windowIds.add(webContentsId),
-        ),
-        getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
-        scheduler: {
-          setInterval: (callback, ms) => {
-            const timer = setInterval(callback, ms);
-            return () => {
-              clearInterval(timer);
-            };
+  function startMeetingDetection(): MeetingDetectionController {
+    const ports = fakeNative
+      ? createNativePorts({ fake: true })
+      : createNativePorts({
+          fake: false,
+          addonPath: nativeAddonPath,
+          // A real require, so rolldown leaves the .node load to runtime.
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          load: (addon) => require(addon) as unknown,
+          onError: (error) => {
+            logger.warn('window scan failed', { error: error.message });
           },
-        },
-        setTimeout: (callback, ms) => {
-          const timer = setTimeout(callback, ms);
+        });
+    const callFlag = fakeCallFlagPath(process.env, mode === 'test');
+    const controller = new MeetingDetectionController({
+      scanner: callFlag ? createFlagFileScanner(callFlag) : ports.windowScan,
+      workspace,
+      settings: library.settings,
+      popup: createPopupHandle(
+        createMeetingPromptWindow(
+          () => mainWindow ?? null,
+          devServerUrl ? new URL('/meeting-prompt.html', devServerUrl).toString() : undefined,
+        ),
+        (webContentsId) => windowIds.add(webContentsId),
+      ),
+      getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+      scheduler: {
+        setInterval: (callback, ms) => {
+          const timer = setInterval(callback, ms);
           return () => {
-            clearTimeout(timer);
+            clearInterval(timer);
           };
         },
-        broadcastPopupSetting: (enabled) => {
-          broadcast(settingsMeetingPopupChanged, { enabled });
-        },
-        logger: logger.child('detection'),
-      });
-      controller.start();
-      app.on('before-quit', () => {
-        controller.dispose();
-      });
-      return controller;
-    } catch (error) {
-      // Detection is a convenience: a missing addon must not stop the app.
-      logger.error('meeting detection could not start', { error: String(error) });
-      return undefined;
-    }
+      },
+      setTimeout: (callback, ms) => {
+        const timer = setTimeout(callback, ms);
+        return () => {
+          clearTimeout(timer);
+        };
+      },
+      broadcastPopupSetting: (enabled) => {
+        broadcast(settingsMeetingPopupChanged, { enabled });
+      },
+      broadcastCallPromptClosed: (reason) => {
+        broadcast(workspaceCallPromptClosed, { reason });
+      },
+      logger: logger.child('detection'),
+    });
+    controller.start();
+    stopOnExit(() => {
+      controller.dispose();
+    });
+    return controller;
   }
 
   const resolvedTheme = (): ResolvedTheme => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
@@ -508,504 +556,617 @@ function main(): void {
     }
   });
 
-  void app.whenReady().then(async () => {
-    serveRendererFromAppScheme(async (id) => {
-      // The audio path comes only from the repository record of the meeting.
-      try {
-        return (await library.meetings.get(id))?.audioFilePath ?? null;
-      } catch {
-        return null;
-      }
-    });
-    settings.warmUp();
-    hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
-
-    try {
-      await library.start();
-    } catch (error) {
-      logger.error('library failed to start', { error });
-      const message = error instanceof Error ? error.message : String(error);
-      if (mode !== 'test') dialog.showErrorBox('Vozella cannot open its library', message);
-    }
-    bridgeWorkspace(workspace, broadcast);
-
-    // A crash or a kill leaves a recording with an unwritten header. Fix those now, in the
-    // background, so every later reader (duration, playback, transcription) can open them.
-    void recoverCrashedRecordings(paths.meetings)
-      .then((report) => {
-        if (report.repaired.length > 0 || report.failed.length > 0) {
-          logger.info('recovered crashed recordings', {
-            repaired: report.repaired.length,
-            failed: report.failed.length,
-          });
+  void app
+    .whenReady()
+    .then(async () => {
+      // No menu bar (spec 2.14, item 140). The default menu would bind Ctrl+R to a page reload and
+      // open the dev tools, which collides with Ctrl+R on the Record page.
+      Menu.setApplicationMenu(null);
+      serveRendererFromAppScheme(async (id) => {
+        // The audio path comes only from the repository record of the meeting.
+        try {
+          return (await library.meetings.get(id))?.audioFilePath ?? null;
+        } catch {
+          return null;
         }
-      })
-      .catch((error: unknown) => {
-        logger.warn('could not scan for crashed recordings', { error: String(error) });
+      });
+      settings.warmUp();
+      hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
+
+      // The library runtime runs the migrations. A throw is a failed step; a migration error it
+      // survived is `startupError`, shown after the window is visible.
+      await startup.run('migrations', () => library.start());
+      await startup.run('events', () => {
+        bridgeWorkspace(workspace, broadcast);
       });
 
-    // The language of the app is applied before any window exists (spec 2.1, 4.5).
-    const locale = new LocaleState(
-      await resolveStartupLanguage(
-        () => library.settings.load(),
-        app.getPreferredSystemLanguages(),
-        (error) => {
-          logger.warn('could not read the saved app language; using the OS language', { error });
-        },
-      ),
-      mainCatalogs,
-      (key, requested, fallback) => {
-        logger.warn('missing string', { key, locale: requested, fallback });
-      },
-    );
-    logger.info('app language', { tag: locale.tag, saved: locale.saved });
-
-    registerHandlers({
-      logger,
-      info,
-      setThemePreference,
-      nativeSelfTest: () => audio.ping(),
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-    });
-    registerSettingsHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      runtime: settings,
-      locale,
-      broadcast,
-      onSummaryProviderSaved: () => liveAsk.refreshWebSupport(),
-    });
-    libraryWrites = registerLibraryHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      runtime: library,
-      workspace,
-      broadcast,
-    });
-
-    // Audio capture: the recording module takes `audioController` to start and stop recordings.
-    const audioController = new AudioController({
-      host: audio,
-      settings: library.settings,
-      broadcast,
-      logger: logger.child('audio'),
-      scheduler: {
-        every: (ms, task) => {
-          const timer = setInterval(task, ms);
-          return () => {
-            clearInterval(timer);
-          };
-        },
-      },
-    });
-    const recordingTakes = new RecordingTakes({
-      controller: audioController,
-      inboxDirectory: () => library.paths.inboxDirectory,
-      nowMs: () => Date.now(),
-      wavDurationSeconds: readWavDurationSeconds,
-      logger: logger.child('recording'),
-      // The call popup stays away while a take runs (spec 2.6, item 106).
-      onCaptureActive: (active) => {
-        workspace.setCaptureActive(active);
-      },
-      // The transcription controller is built below; the take only calls it later.
-      live: {
-        start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
-        stop: () => transcriptionController.stopLive(),
-      },
-    });
-    registerAudioHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      controller: audioController,
-      takes: recordingTakes,
-      appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
-      pickAudioFile: async (extensions) => {
-        const options = {
-          defaultPath: app.getPath('downloads'),
-          properties: ['openFile' as const],
-          filters: [{ name: 'Audio', extensions: extensions.map((e) => e.replace('.', '')) }],
-        };
-        const result = mainWindow
-          ? await dialog.showOpenDialog(mainWindow, options)
-          : await dialog.showOpenDialog(options);
-        return result.canceled ? null : (result.filePaths[0] ?? null);
-      },
-    });
-    app.on('before-quit', () => {
-      audioController.dispose();
-    });
-
-    // Summaries: one runtime owns the providers and the single local llama-server. The fake
-    // native build answers every engine with a double, so e2e needs no model or CLI.
-    const summaryRuntime = new SummaryRuntime({
-      settings: library.settings,
-      hardware,
-      models: summaryModels,
-      llamaRoot: path.join(paths.appData, 'LlamaRuntime'),
-      cli: summaryCli,
-      ...(fakeNative
-        ? {
-            providerOverride: (kind) =>
-              new FakeSummaryProvider(
-                kind === 'ClaudeCode' ? 'claude-code' : kind === 'Codex' ? 'codex' : 'local',
-                fakeSummaryOptionsFromEnv(process.env),
-              ),
+      // A crash or a kill leaves a recording with an unwritten header. Fix those now, in the
+      // background, so every later reader (duration, playback, transcription) can open them.
+      void recoverCrashedRecordings(paths.meetings)
+        .then((report) => {
+          if (report.repaired.length > 0 || report.failed.length > 0) {
+            logger.info('recovered crashed recordings', {
+              repaired: report.repaired.length,
+              failed: report.failed.length,
+            });
           }
-        : { processJob: loadProcessJob() }),
-    });
-    const summaryPatchQueue = new PatchQueue();
-    const summaryService = new SummaryService({
-      queue: summaryPatchQueue,
-      meetings: library.meetings,
-      settings: library.settings,
-      resolver: summaryRuntime.resolver,
-      clock: new SystemClock(),
-      notifyMeetingChanged: (id) => {
-        workspace.notifyMeetingChanged(id);
-      },
-      busy,
-      placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
-        const format = catalog.MeetingTitleFormat;
-        return format === undefined ? [] : [format];
-      }),
-    });
-    // A meeting being summarized cannot be re-transcribed, deleted or moved from under the run.
-    busy.register({ isBusy: (id) => summaryService.isGenerating(id) });
-    const summaries = new SummariesController({
-      service: summaryService,
-      tab: new SummaryTabService({
+        })
+        .catch((error: unknown) => {
+          logger.warn('could not scan for crashed recordings', { error: String(error) });
+        });
+
+      // The language of the app is applied before any window exists (spec 2.1, 4.5).
+      const language = await startup.run('language', () =>
+        resolveStartupLanguage(
+          () => library.settings.load(),
+          app.getPreferredSystemLanguages(),
+          (error) => {
+            logger.warn('could not read the saved app language; using the OS language', { error });
+          },
+        ),
+      );
+      const locale = new LocaleState(
+        language.ok ? language.value : { tag: 'en-US', saved: false },
+        mainCatalogs,
+        (key, requested, fallback) => {
+          logger.warn('missing string', { key, locale: requested, fallback });
+        },
+      );
+      startupLocale = locale;
+      // A migration error the library survived is shown by the window itself (StartupNotice),
+      // read from library.getLocation once the page is up, so no native dialog duplicates it.
+      logger.info('app language', { tag: locale.tag, saved: locale.saved });
+
+      registerHandlers({
+        logger,
+        info,
+        setThemePreference,
+        nativeSelfTest: () => audio.ping(),
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+      });
+      registerSettingsHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        runtime: settings,
+        locale,
+        broadcast,
+        onSummaryProviderSaved: () => liveAsk.refreshWebSupport(),
+      });
+      libraryWrites = registerLibraryHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        runtime: library,
+        workspace,
+        broadcast,
+      });
+
+      // Audio capture: the recording module takes `audioController` to start and stop recordings.
+      const audioController = new AudioController({
+        host: audio,
+        settings: library.settings,
+        broadcast,
+        logger: logger.child('audio'),
+        scheduler: {
+          every: (ms, task) => {
+            const timer = setInterval(task, ms);
+            return () => {
+              clearInterval(timer);
+            };
+          },
+        },
+      });
+      const recordingTakes = new RecordingTakes({
+        controller: audioController,
+        inboxDirectory: () => library.paths.inboxDirectory,
+        nowMs: () => Date.now(),
+        wavDurationSeconds: readWavDurationSeconds,
+        logger: logger.child('recording'),
+        // The call popup stays away while a take runs (spec 2.6, item 106).
+        onCaptureActive: (active) => {
+          workspace.setCaptureActive(active);
+        },
+        // The transcription controller is built below; the take only calls it later.
+        live: {
+          start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
+          stop: () => transcriptionController.stopLive(),
+        },
+      });
+      registerAudioHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        controller: audioController,
+        takes: recordingTakes,
+        appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
+        pickAudioFile: async (extensions) => {
+          const options = {
+            defaultPath: app.getPath('downloads'),
+            properties: ['openFile' as const],
+            filters: [{ name: 'Audio', extensions: extensions.map((e) => e.replace('.', '')) }],
+          };
+          const result = mainWindow
+            ? await dialog.showOpenDialog(mainWindow, options)
+            : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+      });
+      stopOnExit(() => {
+        audioController.dispose();
+      });
+
+      // Summaries: one runtime owns the providers and the single local llama-server. The fake
+      // native build answers every engine with a double, so e2e needs no model or CLI.
+      const summaryRuntime = new SummaryRuntime({
+        settings: library.settings,
+        hardware,
+        models: summaryModels,
+        llamaRoot: path.join(paths.appData, 'LlamaRuntime'),
+        cli: summaryCli,
+        ...(fakeNative
+          ? {
+              providerOverride: (kind) =>
+                new FakeSummaryProvider(
+                  kind === 'ClaudeCode' ? 'claude-code' : kind === 'Codex' ? 'codex' : 'local',
+                  fakeSummaryOptionsFromEnv(process.env),
+                ),
+            }
+          : { processJob: loadProcessJob() }),
+      });
+      const summaryPatchQueue = new PatchQueue();
+      const summaryService = new SummaryService({
         queue: summaryPatchQueue,
         meetings: library.meetings,
-        translate: (key, ...args) => locale.t(key, ...args),
-        getSelectedMeetingId: () => workspace.state.selectedMeetingId,
-        selectMeeting: (id) => {
-          workspace.selectMeeting(id);
-        },
-      }),
-      resolver: summaryRuntime.resolver,
-      models: settings.models,
-      hardware,
-      cli: summaryCli,
-      settings: library.settings,
-      runtime: summaryRuntime,
-      broadcast,
-      logger: logger.child('summaries'),
-      t: (key, ...args) => locale.t(key, ...args),
-    });
-    registerSummariesHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      controller: summaries,
-      writeClipboard: (text) => {
-        return clipboard.writeText(text);
-      },
-    });
-    // No llama-server may outlive the app: kill it now, then let it end cleanly.
-    app.on('before-quit', () => {
-      void summaries.dispose();
-    });
-    app.on('will-quit', () => {
-      void summaries.dispose();
-    });
-
-    // Chat: one in-memory conversation; the engine is whichever one the summaries resolver picks.
-    const chatReader = new LibraryChatReader({
-      meetings: library.meetings,
-      folders: library.folders,
-    });
-    const chat = new ChatController({
-      service: new ChatService({
-        meetings: chatReader,
-        providers: chatProviderSource(summaryRuntime.resolver),
+        settings: library.settings,
+        resolver: summaryRuntime.resolver,
         clock: new SystemClock(),
-        translate: (key, ...args) => locale.t(key, ...args),
-        newId: () => randomUUID(),
-      }),
-      findMeetingId: (id) => chatReader.findMeetingId(id),
-      writeClipboard: (text) => {
-        return clipboard.writeText(text);
-      },
-      openExternal: (url) => {
-        if (!fakeNative) return shell.openExternal(url);
-        // E2E double: nothing opens; the address is appended to a file the spec can read.
-        const log = process.env.VOZELLA_FAKE_OPENED_LOG;
-        if (log)
-          fs.appendFileSync(
-            log,
-            `${url}
-`,
-          );
-        return Promise.resolve();
-      },
-      broadcast,
-      translate: (key, ...args) => locale.t(key, ...args),
-      logger: logger.child('chat'),
-    });
-    registerChatHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      controller: chat,
-    });
-
-    // Transcription: the engine runs in its own process; the controller serves the pages and
-    // gives the recording module the live pass and the offline pass.
-    const transcription = new TranscriptionRuntime({
-      transcriptionModelsDirectory: library.paths.transcriptionModelsDirectory,
-      nemoSpeechDirectory: library.paths.nemoSpeechDirectory,
-      engine: fakeNative
-        ? new FakeSpeechEngine(
-            Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
-          )
-        : asr,
-      hardware: () => hardware.detect(),
-      logger: logger.child('transcription'),
-      ...(fakeNative
-        ? {
-            stores: (() => {
-              const options = fakeEngineOptionsFromEnv(process.env);
-              return {
-                models: new SteppedModelStore(options),
-                runtimes: new SteppedRuntimeStore(options),
-              };
-            })(),
-          }
-        : {}),
-    });
-    const transcriptionController = new TranscriptionController({
-      runtime: transcription,
-      settings: library.settings,
-      meetings: library.meetings,
-      busy,
-      broadcast,
-      logger: logger.child('transcription'),
-      t: (key, ...args) => locale.t(key, ...args),
-      onRecordingFrames: (listener) =>
-        audio.onPush((event) => {
-          if (event.type === 'recording-frame') listener(event.pcm);
+        notifyMeetingChanged: (id) => {
+          workspace.notifyMeetingChanged(id);
+        },
+        busy,
+        placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
+          const format = catalog.MeetingTitleFormat;
+          return format === undefined ? [] : [format];
         }),
-      // Same rule as the session view: a zero-byte or unreadable recording is no audio (B20).
-      fileExists: (file) => hasAudioBytes(file),
-      queue: summaryPatchQueue,
-      isCaptureActive: () => workspace.state.isCaptureActive,
-      onMeetingChanged: (id) => {
-        workspace.notifyMeetingChanged(id);
-      },
-      // Re-transcription also regenerates the summary (the recording module reuses the same hook).
-      summarize: (request, cancel) => summaries.summarizeForPipeline(request, cancel),
-      templateInstructions: (record) =>
-        Promise.resolve(resolveTemplateInstructions(record.noteTemplateId)),
-      formatFailure: (error) => summaries.formatError(error),
-    });
-    registerTranscriptionHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      controller: transcriptionController,
-    });
-    registerSessionHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      meetings: library.meetings,
-      workspace,
-      runnerState: () => transcriptionController.retranscription,
-      // A zero-byte or unreadable recording counts as no audio (B20).
-      fileExists: (file) => hasAudioBytes(file),
-      // Explorer selects the file; Finder reveals it.
-      reveal: {
-        reveal: (file) => {
-          shell.showItemInFolder(file);
-        },
-      },
-    });
-    app.on('before-quit', () => {
-      transcriptionController.dispose();
-    });
-
-    // Recording: the service owns a take from Record to the saved summary.
-    const liveAsk = new LiveAsk({
-      settings: library.settings,
-      resolver: summaryRuntime.resolver,
-      recording: () => recording.liveAskContext,
-      broadcast,
-      formatFailure: (error) => summaries.formatError(error),
-      nowMs: () => Date.now(),
-    });
-    const recording = composeRecording({
-      liveAsk: liveAsk.hooks,
-      // 182: a take that starts hands the screen to the call. Test runs keep their hidden window.
-      onRecordingStarted: () => {
-        if (mode !== 'test' && mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
-      },
-      library,
-      controller: audioController,
-      takes: recordingTakes,
-      transcription: transcriptionController,
-      summaryService,
-      resolver: summaryRuntime.resolver,
-      summaryModels,
-      cli: summaryCli,
-      settings: library.settings,
-      workspace,
-      broadcast,
-      logger: logger.child('recording'),
-      translate: (key, ...args) => locale.t(key, ...args),
-      locale: () => locale.locale,
-      titleCatalog: (tag) => ({
-        MeetingTitleFormat: mainCatalogs[tag].MeetingTitleFormat ?? '',
-        MeetingTitleDateFormat: mainCatalogs[tag].MeetingTitleDateFormat ?? '',
-      }),
-      formatFailure: (error) => summaries.formatError(error),
-      wavDurationSeconds: readWavDurationSeconds,
-    });
-    // Entry points for the other modules, the busy probe (164), the take-notes request (180) and
-    // close protection (165).
-    const recordingEntry = createRecordingEntryPoints(recording, workspace);
-    registerRecordingBusyProbe(busy, recordingEntry);
-    startTakeNotesRequests(workspace, recordingEntry, logger.child('recording'));
-    const closeDialogs = new RendererCloseDialogs({
-      send: (request) => {
-        broadcast(recordingCloseRequest, request);
-      },
-      windowAvailable: () => mainWindow !== undefined && !mainWindow.isDestroyed(),
-      newId: () => randomUUID(),
-    });
-    const closeGuard = new CloseGuard({
-      service: recording,
-      dialogs: closeDialogs,
-      restoreWindow: () => {
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-      },
-      logger: logger.child('recording'),
-    });
-    settings.exitGates.register(() => closeGuard.mayClose());
-    mayExit = () => settings.exitGates.mayExit();
-    registerRecordingHandlers({
-      server: {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      service: recording,
-      closeDialogs,
-      liveAsk,
-    });
-
-    // Live copilot pill (spec 2.1): created on first need, driven by the main window's focus and
-    // the recording state, closed with the main window.
-    pill = composePill({
-      settings: library.settings,
-      logger: logger.child('pill'),
-      title: () => locale.t('LiveCopilot_Title'),
-      entryUrl: devServerUrl ? new URL('/pill.html', devServerUrl).toString() : undefined,
-      trustSender: (webContentsId) => windowIds.add(webContentsId),
-      getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
-      dismissMeetingPopup: () => detection?.dismiss(),
-    });
-    registerPillHandlers(
-      {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      {
-        togglePause: async () => {
-          if (recording.getState().isPaused) await recording.resume();
-          else await recording.pause();
-        },
-        stop: async () => {
-          await recording.stop();
-        },
-        openApp: () => {
-          if (!mainWindow || mainWindow.isDestroyed()) return;
-          if (mainWindow.isMinimized()) mainWindow.restore();
-          mainWindow.focus();
-        },
-        setExpanded: (expanded) => pill?.setExpanded(expanded) ?? NO_PILL_STATE,
-        state: () => pill?.state ?? NO_PILL_STATE,
-        ready: () => {
-          liveAsk.republish();
-        },
-      },
-    );
-
-    mainWindow = createMainWindow({
-      devServerUrl,
-      showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
-      theme: resolvedTheme(),
-    });
-    const id = mainWindow.webContents.id;
-    windowIds.add(id);
-    mainWindow.on('close', (event) => {
-      if (exitApproved) return;
-      event.preventDefault();
-      void mayExit().then((ok) => {
-        if (!ok) return;
-        exitApproved = true;
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
       });
-    });
-    // Focus, blur, minimize and restore re-evaluate the pill (mainWindowActive starts true).
-    mainWindow.on('focus', () => pill?.setMainWindowActive(true));
-    mainWindow.on('blur', () => pill?.setMainWindowActive(false));
-    mainWindow.on('minimize', () => pill?.setMainWindowActive(false));
-    mainWindow.on('restore', () => pill?.setMainWindowActive(mainWindow?.isFocused() ?? false));
-    mainWindow.on('closed', () => {
-      windowIds.delete(id);
-      mainWindow = undefined;
-      pill?.dispose();
-      pill = undefined;
-    });
-    mainWindow.webContents.once('did-finish-load', () => {
-      logger.info('window ready');
-    });
-
-    // Meeting call detection: polls the open windows and shows the floating popup. Started
-    // once the main window exists, stopped on quit.
-    registerMeetingPromptHandlers(
-      {
-        ipc: ipcMain,
-        logger,
-        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
-      },
-      {
-        startTakingNotes: () => detection?.startTakingNotes(),
-        dismiss: () => detection?.dismiss(),
-        neverAgain: async () => {
-          await detection?.neverAgain();
+      // A meeting being summarized cannot be re-transcribed, deleted or moved from under the run.
+      busy.register({ isBusy: (id) => summaryService.isGenerating(id) });
+      const summaries = new SummariesController({
+        service: summaryService,
+        tab: new SummaryTabService({
+          queue: summaryPatchQueue,
+          meetings: library.meetings,
+          translate: (key, ...args) => locale.t(key, ...args),
+          getSelectedMeetingId: () => workspace.state.selectedMeetingId,
+          selectMeeting: (id) => {
+            workspace.selectMeeting(id);
+          },
+        }),
+        resolver: summaryRuntime.resolver,
+        models: settings.models,
+        hardware,
+        cli: summaryCli,
+        settings: library.settings,
+        runtime: summaryRuntime,
+        broadcast,
+        logger: logger.child('summaries'),
+        t: (key, ...args) => locale.t(key, ...args),
+      });
+      registerSummariesHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
         },
-        hover: (inside) => detection?.hover(inside),
-        isShown: () => detection?.isShown ?? false,
-      },
-    );
-    detection = startMeetingDetection();
-  });
+        controller: summaries,
+        writeClipboard: (text) => {
+          return clipboard.writeText(text);
+        },
+      });
+      // No llama-server may outlive the app: kill it now, then let it end cleanly.
+      stopOnExit(() => {
+        void summaries.dispose();
+      });
+      app.on('will-quit', () => {
+        void summaries.dispose();
+      });
+
+      // Chat: one in-memory conversation; the engine is whichever one the summaries resolver picks.
+      const chatReader = new LibraryChatReader({
+        meetings: library.meetings,
+        folders: library.folders,
+      });
+      const chat = new ChatController({
+        service: new ChatService({
+          meetings: chatReader,
+          providers: chatProviderSource(summaryRuntime.resolver),
+          clock: new SystemClock(),
+          translate: (key, ...args) => locale.t(key, ...args),
+          newId: () => randomUUID(),
+        }),
+        findMeetingId: (id) => chatReader.findMeetingId(id),
+        writeClipboard: (text) => {
+          return clipboard.writeText(text);
+        },
+        openExternal: (url) => {
+          if (!fakeNative) return shell.openExternal(url);
+          // E2E double: nothing opens; the address is appended to a file the spec can read.
+          const log = process.env.VOZELLA_FAKE_OPENED_LOG;
+          if (log)
+            fs.appendFileSync(
+              log,
+              `${url}
+`,
+            );
+          return Promise.resolve();
+        },
+        broadcast,
+        translate: (key, ...args) => locale.t(key, ...args),
+        logger: logger.child('chat'),
+      });
+      registerChatHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        controller: chat,
+      });
+
+      // Transcription: the engine runs in its own process; the controller serves the pages and
+      // gives the recording module the live pass and the offline pass.
+      const transcription = new TranscriptionRuntime({
+        transcriptionModelsDirectory: library.paths.transcriptionModelsDirectory,
+        nemoSpeechDirectory: library.paths.nemoSpeechDirectory,
+        engine: fakeNative
+          ? new FakeSpeechEngine(
+              Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
+            )
+          : asr,
+        hardware: () => hardware.detect(),
+        logger: logger.child('transcription'),
+        ...(fakeNative
+          ? {
+              stores: (() => {
+                const options = fakeEngineOptionsFromEnv(process.env);
+                return {
+                  models: new SteppedModelStore(options),
+                  runtimes: new SteppedRuntimeStore(options),
+                };
+              })(),
+            }
+          : {}),
+      });
+      const transcriptionController = new TranscriptionController({
+        runtime: transcription,
+        settings: library.settings,
+        meetings: library.meetings,
+        busy,
+        broadcast,
+        logger: logger.child('transcription'),
+        t: (key, ...args) => locale.t(key, ...args),
+        onRecordingFrames: (listener) =>
+          audio.onPush((event) => {
+            if (event.type === 'recording-frame') listener(event.pcm);
+          }),
+        // Same rule as the session view: a zero-byte or unreadable recording is no audio (B20).
+        fileExists: (file) => hasAudioBytes(file),
+        queue: summaryPatchQueue,
+        isCaptureActive: () => workspace.state.isCaptureActive,
+        onMeetingChanged: (id) => {
+          workspace.notifyMeetingChanged(id);
+        },
+        // Re-transcription also regenerates the summary (the recording module reuses the same hook).
+        summarize: (request, cancel) => summaries.summarizeForPipeline(request, cancel),
+        templateInstructions: (record) =>
+          Promise.resolve(resolveTemplateInstructions(record.noteTemplateId)),
+        formatFailure: (error) => summaries.formatError(error),
+      });
+      registerTranscriptionHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        controller: transcriptionController,
+      });
+      registerSessionHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        meetings: library.meetings,
+        workspace,
+        runnerState: () => transcriptionController.retranscription,
+        // A zero-byte or unreadable recording counts as no audio (B20).
+        fileExists: (file) => hasAudioBytes(file),
+        // Explorer selects the file; Finder reveals it.
+        reveal: {
+          reveal: (file) => {
+            shell.showItemInFolder(file);
+          },
+        },
+      });
+      stopOnExit(() => {
+        transcriptionController.dispose();
+      });
+
+      // Recording: the service owns a take from Record to the saved summary.
+      const liveAsk = new LiveAsk({
+        settings: library.settings,
+        resolver: summaryRuntime.resolver,
+        recording: () => recording.liveAskContext,
+        broadcast,
+        formatFailure: (error) => summaries.formatError(error),
+        nowMs: () => Date.now(),
+      });
+      const recording = composeRecording({
+        liveAsk: liveAsk.hooks,
+        library,
+        controller: audioController,
+        takes: recordingTakes,
+        transcription: transcriptionController,
+        summaryService,
+        resolver: summaryRuntime.resolver,
+        summaryModels,
+        cli: summaryCli,
+        settings: library.settings,
+        workspace,
+        broadcast,
+        logger: logger.child('recording'),
+        translate: (key, ...args) => locale.t(key, ...args),
+        locale: () => locale.locale,
+        titleCatalog: (tag) => ({
+          MeetingTitleFormat: mainCatalogs[tag].MeetingTitleFormat ?? '',
+          MeetingTitleDateFormat: mainCatalogs[tag].MeetingTitleDateFormat ?? '',
+        }),
+        formatFailure: (error) => summaries.formatError(error),
+        wavDurationSeconds: readWavDurationSeconds,
+      });
+      // Entry points for the other modules, the busy probe (164), the take-notes request (180) and
+      // close protection (165).
+      const recordingEntry = createRecordingEntryPoints(recording, workspace);
+      registerRecordingBusyProbe(busy, recordingEntry);
+      startTakeNotesRequests(workspace, recordingEntry, logger.child('recording'));
+      const closeDialogs = new RendererCloseDialogs({
+        send: (request) => {
+          broadcast(recordingCloseRequest, request);
+        },
+        windowAvailable: () => mainWindow !== undefined && !mainWindow.isDestroyed(),
+        newId: () => randomUUID(),
+      });
+      abandonCloseDialogs = () => {
+        closeDialogs.abandonPending();
+      };
+      const closeGuard = new CloseGuard({
+        service: recording,
+        dialogs: closeDialogs,
+        restoreWindow: () => {
+          activateMainWindow(mainWindow);
+        },
+        logger: logger.child('recording'),
+      });
+      settings.exitGates.register(() => closeGuard.mayClose());
+      mayExit = () => settings.exitGates.mayExit();
+      registerRecordingHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        service: recording,
+        closeDialogs,
+        liveAsk,
+      });
+
+      // Live copilot pill (spec 2.1): created on first need, driven by the main window's focus and
+      // the recording state, closed with the main window. The start handoff itself (dismiss the
+      // popup, minimize the main window) is the shell's RecordingHandoff below; the pill's own
+      // minimize is the same idempotent call.
+      pill = composePill({
+        settings: library.settings,
+        logger: logger.child('pill'),
+        title: () => locale.t('LiveCopilot_Title'),
+        entryUrl: devServerUrl ? new URL('/pill.html', devServerUrl).toString() : undefined,
+        trustSender: (webContentsId) => windowIds.add(webContentsId),
+        getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+        dismissMeetingPopup: () => detection?.dismiss(),
+      });
+      registerPillHandlers(
+        {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        {
+          togglePause: async () => {
+            if (recording.getState().isPaused) await recording.resume();
+            else await recording.pause();
+          },
+          stop: async () => {
+            await recording.stop();
+          },
+          openApp: () => {
+            activateMainWindow(mainWindow);
+          },
+          setExpanded: (expanded) => pill?.setExpanded(expanded) ?? NO_PILL_STATE,
+          state: () => pill?.state ?? NO_PILL_STATE,
+          ready: () => {
+            liveAsk.republish();
+          },
+        },
+      );
+
+      const iconInput = {
+        isPackaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        appPath: app.getAppPath(),
+      };
+      const windowStateStore = new JsonWindowStateStore(
+        path.join(paths.appData, 'window-state.json'),
+        {
+          onError: (error) => {
+            logger.warn('window state was not saved', { error: String(error) });
+          },
+        },
+      );
+      const placement = await loadWindowPlacement(windowStateStore, screen);
+      mainWindow = createMainWindow({
+        devServerUrl,
+        showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
+        theme: resolvedTheme(),
+        placement,
+        iconPath: resolveIconPath(iconInput, 'icon.ico'),
+      });
+      trackWindowState(mainWindow, windowStateStore, placement.bounds);
+      const id = mainWindow.webContents.id;
+      windowIds.add(id);
+
+      // Recording start handoff (items 76 to 78) and the secondary windows that close with the main
+      // window (item 89). The live copilot pill subscribes with `handoff.onHandoff` and registers
+      // itself with `handoff.registerSecondary`.
+      const handoff = new RecordingHandoff({
+        getMainWindow: () => mainWindow ?? null,
+        dismissPopup: () => detection?.dismiss(),
+      });
+      const probe = mode === 'test' ? installShellProbe() : undefined;
+      handoff.onHandoff((event) => probe?.handoffEvents.push(event));
+      mainWindow.on('focus', () => {
+        handoff.setMainWindowActive(true);
+        pill?.setMainWindowActive(true);
+      });
+      mainWindow.on('blur', () => {
+        handoff.setMainWindowActive(false);
+        pill?.setMainWindowActive(false);
+      });
+      // Minimize and restore re-evaluate the pill (mainWindowActive starts true).
+      mainWindow.on('minimize', () => pill?.setMainWindowActive(false));
+      mainWindow.on('restore', () => pill?.setMainWindowActive(mainWindow?.isFocused() ?? false));
+
+      // The tray restores the window after the recording start minimized it. Closing the window
+      // still exits the app, so the tray goes with it. Automated runs skip it unless a test asks.
+      let tray: AppTray | undefined;
+      if (mode !== 'test' || process.env.VOZELLA_E2E_TRAY === '1') {
+        tray = new AppTray({
+          createTray: () => {
+            const real = new Tray(
+              nativeImage.createFromPath(resolveIconPath(iconInput, 'tray.ico')),
+            );
+            if (probe) {
+              const setToolTip = real.setToolTip.bind(real);
+              real.setToolTip = (tip: string) => {
+                probe.trayTooltip = tip;
+                setToolTip(tip);
+              };
+            }
+            return real;
+          },
+          buildMenu: (items, run) => {
+            if (probe) {
+              probe.trayItems = items.map((item) => ({ id: item.id, label: item.label }));
+              probe.trayRun = (id) => {
+                run(id as 'open' | 'quit');
+              };
+            }
+            return Menu.buildFromTemplate(
+              items.map((item) => ({
+                label: item.label,
+                click: () => {
+                  run(item.id);
+                },
+              })),
+            );
+          },
+          t: (key) => locale.t(key),
+          open: () => {
+            activateMainWindow(mainWindow);
+          },
+          // The same path as every other quit: before-quit asks the exit gates first.
+          quit: () => {
+            app.quit();
+          },
+        });
+      }
+      let lastRecording = false;
+      recording.gate.onChange(() => {
+        const phase = recording.gate.phase;
+        const isRecording = phase === 'Recording' || phase === 'Stopping';
+        if (isRecording === lastRecording) return;
+        lastRecording = isRecording;
+        handoff.update(isRecording);
+        tray?.setRecording(isRecording);
+      });
+      mainWindow.on('close', (event) => {
+        exitFlow.windowClose(event);
+      });
+      mainWindow.webContents.on('did-start-loading', () => {
+        abandonCloseDialogs();
+      });
+      mainWindow.on('closed', () => {
+        // The call watcher goes with the window (item 12).
+        detection?.dispose();
+        windowIds.delete(id);
+        mainWindow = undefined;
+        handoff.closeSecondary();
+        pill?.dispose();
+        pill = undefined;
+        tray?.destroy();
+      });
+      mainWindow.webContents.once('did-finish-load', () => {
+        logger.info('window ready');
+      });
+
+      // Meeting call detection: polls the open windows and shows the floating popup. Started
+      // once the main window exists, stopped on quit.
+      registerMeetingPromptHandlers(
+        {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        {
+          startTakingNotes: () => detection?.startTakingNotes(),
+          dismiss: () => detection?.dismiss(),
+          neverAgain: async () => {
+            await detection?.neverAgain();
+          },
+          hover: (inside) => detection?.hover(inside),
+          isShown: () => detection?.isShown ?? false,
+        },
+      );
+      // Detection is a convenience: a missing addon is logged and must not stop the app.
+      const watchers = await startup.run('watchers', () => startMeetingDetection(), {
+        silent: true,
+      });
+      detection = watchers.ok ? watchers.value : undefined;
+
+      // The migration error waits until the window is on screen. Automated runs only log it.
+      const window = mainWindow;
+      if (mode === 'test' || window.isVisible()) startup.flushNotice();
+      else window.once('show', () => startup.flushNotice());
+    })
+    .catch((error: unknown) => {
+      // A step that cannot be wrapped threw: say so once and stop, instead of a half started app.
+      void startup.run(
+        'window',
+        () => {
+          throw error instanceof Error ? error : new Error(String(error));
+        },
+        { fatal: true },
+      );
+    });
 }
 
 /** What `pill.ready` answers in the moment between the pill closing and the app quitting. */

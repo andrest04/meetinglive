@@ -98,7 +98,6 @@ describe('audio page channels', () => {
       cards: [{ processId: null, app: null, isAvailable: true, level: 0 }],
       selectedProcessId: null,
       noAppsPlaying: true,
-      suggestion: null,
       fallbackAppName: null,
     };
     expect(sourcePickerStateSchema.safeParse(state).success).toBe(true);

@@ -22,7 +22,15 @@ export default {
   // A native library cannot be loaded from inside an archive.
   asarUnpack: ['out/native/**/*.node', '**/node_modules/koffi/**/*.node'],
   npmRebuild: false,
+  // The window and tray icons are read from disk at run time (a file inside the archive cannot
+  // be used by the shell), so they are copied next to the exe: resources/icons/*.ico.
+  extraResources: [
+    { from: 'build/icon.ico', to: 'icons/icon.ico' },
+    { from: 'build/tray.ico', to: 'icons/tray.ico' },
+  ],
+  // Packaging subset (items 152 to 155): x64 NSIS only. ARM64 and x86 are not built.
   win: {
+    icon: 'build/icon.ico',
     target: [{ target: 'nsis', arch: ['x64'] }],
     // Unsigned for now. Code signing is configured when a certificate exists.
     signAndEditExecutable: true,
@@ -31,6 +39,9 @@ export default {
     oneClick: false,
     perMachine: false,
     allowToChangeInstallationDirectory: true,
+    installerIcon: 'build/icon.ico',
+    uninstallerIcon: 'build/icon.ico',
+    installerHeaderIcon: 'build/icon.ico',
     deleteAppDataOnUninstall: false,
     artifactName: `Vozella-Setup-\${version}${variant === 'e2e' ? '-e2e' : ''}.\${ext}`,
   },

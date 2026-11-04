@@ -1,4 +1,5 @@
 {
+  "Ui_CallDetection": "Detección de llamadas",
   "Ui_Appearance": "Apariencia",
   "Ui_Theme": "Tema",
   "Ui_ThemeDescription": "Sigue a Windows salvo que elijas uno.",
@@ -93,5 +94,9 @@
   "Ui_SessionAudioPlay": "Reproducir audio",
   "Ui_SessionAudioPause": "Pausar audio",
   "Ui_SessionAudioPosition": "Posición del audio",
-  "Ui_LiveCopilotEmpty": "Escribe una pregunta abajo."
+  "Ui_LiveCopilotEmpty": "Escribe una pregunta abajo.",
+  "Ui_TrayQuit": "Salir de Vozella",
+  "Ui_TrayRecording": "Vozella, grabando",
+  "Ui_StartupFailedTitle": "Vozella no pudo terminar de iniciar",
+  "Ui_StartupFailedContent": "Algo salió mal al iniciar: {0}\r\n\r\nPuede que algunas funciones no funcionen. Los detalles están en el archivo de registro."
 }

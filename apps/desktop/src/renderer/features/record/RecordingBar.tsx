@@ -1,7 +1,8 @@
 import { Copy, Pause, Play, Square, Star, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useT } from '../../i18n/I18nProvider';
-import { Button, IconButton, Pulse, Tooltip } from '../../ui';
+import { SHORTCUTS } from '../../app/shortcuts';
+import { Button, IconButton, Pulse, ShortcutHint, Tooltip } from '../../ui';
 
 export interface RecordingBarProps {
   readonly elapsed: string;
@@ -23,7 +24,9 @@ export interface RecordingBarProps {
   readonly onDiscard: () => void;
 }
 
-const withKeys = (label: string, keys: string): string => `${label} (${keys})`;
+const withKeys = (label: string, id: keyof typeof SHORTCUTS) => (
+  <ShortcutHint label={label} chords={[SHORTCUTS[id].keys]} />
+);
 
 /**
  * The row that stays put during a take (spec 2.6): the live dot, the elapsed time, what is being
@@ -76,7 +79,7 @@ export function RecordingBar({
       {meter}
 
       <div className="flex shrink-0 items-center gap-2">
-        <Tooltip content={withKeys(t('Record_Stop'), 'Ctrl+R')}>
+        <Tooltip content={withKeys(t('Record_Stop'), 'stop')}>
           <Button
             variant="primary"
             icon={Square}
@@ -87,7 +90,7 @@ export function RecordingBar({
             {t('Record_Stop')}
           </Button>
         </Tooltip>
-        <Tooltip content={withKeys(paused ? t('Record_Resume') : t('Record_Pause'), 'Ctrl+P')}>
+        <Tooltip content={withKeys(paused ? t('Record_Resume') : t('Record_Pause'), 'pause')}>
           <Button
             icon={paused ? Play : Pause}
             disabled={busy}
@@ -118,7 +121,7 @@ export function RecordingBar({
           onClick={onCopy}
         />
         <span aria-hidden="true" className="mx-1 h-5 w-px bg-hairline" />
-        <Tooltip content={withKeys(t('Record_Discard'), 'Ctrl+Shift+D')}>
+        <Tooltip content={withKeys(t('Record_Discard'), 'discard')}>
           <IconButton
             label={t('Record_Discard')}
             icon={Trash2}

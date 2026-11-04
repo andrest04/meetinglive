@@ -7,6 +7,7 @@ import {
   type WindowScanPort,
   type Workspace,
 } from '@vozella/core';
+import { activateMainWindow, type ActivatableWindow } from '../windows/activate-main-window';
 
 /** The slice of the popup window the controller drives. Main wires it to Electron. */
 export interface PopupHandle {
@@ -21,13 +22,7 @@ export interface PopupHandle {
   dispose(): void;
 }
 
-export interface MainWindowLike {
-  isMinimized(): boolean;
-  isDestroyed(): boolean;
-  restore(): void;
-  show(): void;
-  focus(): void;
-}
+export type MainWindowLike = ActivatableWindow;
 
 /** The slice of the settings store the controller reads and writes. */
 export interface PopupSettings {
@@ -47,6 +42,8 @@ export interface MeetingDetectionDeps {
   readonly setTimeout: (callback: () => void, ms: number) => () => void;
   /** Tells every window the popup setting changed (so an open Settings page refreshes, S9). */
   readonly broadcastPopupSetting: (enabled: boolean) => void;
+  /** Tells every window the in-app call bar has nothing left to offer (bug 5, item 38). */
+  readonly broadcastCallPromptClosed: (reason: 'callEnded' | 'recordingStarted') => void;
   readonly logger: Logger;
 }
 
@@ -61,6 +58,7 @@ export class MeetingDetectionController {
   private cancelExit: (() => void) | null = null;
   private offs: (() => void)[] = [];
   private wasCapturing: boolean;
+  private disposed = false;
 
   constructor(private readonly deps: MeetingDetectionDeps) {
     this.wasCapturing = deps.workspace.state.isCaptureActive;
@@ -85,19 +83,24 @@ export class MeetingDetectionController {
   /** Starts polling and listening. Call once the main window exists. */
   start(): void {
     if (this.offs.length > 0) return;
+    this.disposed = false;
     this.offs = [
       this.watcher.on('meetingDetected', () => {
         this.show();
       }),
       this.watcher.on('meetingEnded', () => {
         this.hideAnimated();
+        this.deps.broadcastCallPromptClosed('callEnded');
       }),
       // W14: a recording that starts from any path dismisses the popup.
       this.deps.workspace.on('scopeChanged', () => {
         const capturing = this.deps.workspace.state.isCaptureActive;
         const started = capturing && !this.wasCapturing;
         this.wasCapturing = capturing;
-        if (started) this.hideAnimated();
+        if (started) {
+          this.hideAnimated();
+          this.deps.broadcastCallPromptClosed('recordingStarted');
+        }
       }),
     ];
     this.watcher.start();
@@ -106,12 +109,7 @@ export class MeetingDetectionController {
   /** W11: Start. The popup goes away without animation and a blank take is requested. */
   startTakingNotes(): void {
     this.hideNow();
-    const main = this.deps.getMainWindow();
-    if (main && !main.isDestroyed()) {
-      if (main.isMinimized()) main.restore();
-      main.show();
-      main.focus();
-    }
+    activateMainWindow(this.deps.getMainWindow());
     this.deps.workspace.requestTakeNotes();
   }
 
@@ -143,12 +141,15 @@ export class MeetingDetectionController {
       this.deps.broadcastPopupSetting(false);
     } catch (error) {
       this.deps.logger.warn('Could not turn the call popup off', {
-        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : typeof error,
       });
     }
   }
 
+  /** Stops the poll and the popup. Safe to call more than once. */
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     this.watcher.stop();
     for (const off of this.offs) off();
     this.offs = [];

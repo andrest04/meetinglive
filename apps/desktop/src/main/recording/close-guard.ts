@@ -55,7 +55,7 @@ export class CloseGuard {
       }
       return saved ? true : await dialogs.saveFailed();
     } catch (error) {
-      this.deps.logger.error('close protection failed, the app stays open', {
+      this.deps.logger.error('close failed', {
         error: error instanceof Error ? error.message : String(error),
       });
       return false;
@@ -108,6 +108,17 @@ export class RendererCloseDialogs implements CloseDialogs {
     this.pending.delete(requestId);
     resolve(accepted);
     return true;
+  }
+
+  /**
+   * The renderer that showed a dialog is gone (reload, crash, destroyed window): every unanswered
+   * dialog counts as "no", so the guard settles, stays open and the next close is not refused.
+   */
+  abandonPending(): void {
+    const waiting = [...this.pending.values()];
+    this.pending.clear();
+    this.savingId = null;
+    for (const resolve of waiting) resolve(false);
   }
 
   private ask(dialog: 'confirm-stop' | 'save-failed'): Promise<boolean> {

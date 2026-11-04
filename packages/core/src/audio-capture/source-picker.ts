@@ -1,7 +1,7 @@
 import { compareNames, type ActiveAudioApp, type ProcessInfoProvider } from './active-audio-apps';
 import type { AppSettings } from '../library/settings';
 
-/** The meeting-audio picker: merge, still-running check, suggestion, memory (spec 2.4, 2.6). */
+/** The meeting-audio picker: merge, still-running check, memory (spec 2.4, 2.6). */
 
 export interface ActiveAppEntry {
   readonly app: ActiveAudioApp;
@@ -31,21 +31,6 @@ export function isAppStillRunning(app: ActiveAudioApp, processes: ProcessInfoPro
   if (!process) return false;
   if (app.exePath === null || process.exePath === null) return true;
   return app.exePath.toLowerCase() === process.exePath.toLowerCase();
-}
-
-/**
- * The known meeting app to suggest, or null. Only while all system audio is selected; the
- * loudest wins, ties go by name; dismissed pids are skipped.
- */
-export function suggestMeetingApp(
-  apps: readonly ActiveAudioApp[],
-  allSystemSelected: boolean,
-  dismissed: ReadonlySet<number>,
-): ActiveAudioApp | null {
-  if (!allSystemSelected) return null;
-  const candidates = apps.filter((a) => a.isKnownMeetingApp && !dismissed.has(a.processId));
-  candidates.sort((a, b) => b.peak - a.peak || compareNames(a.friendlyName, b.friendlyName));
-  return candidates[0] ?? null;
 }
 
 // Remembered choices (spec 2.6) -----------------------------------------------------------

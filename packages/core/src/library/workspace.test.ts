@@ -69,6 +69,8 @@ describe('Workspace validation', () => {
     expect(() => workspace.navigateTo('Transcript' as never)).toThrow();
     expect(() => workspace.navigateTo('Summary' as never)).toThrow();
     expect(() => workspace.navigateTo('Nope' as never)).toThrow();
+    expect(() => workspace.navigateTo('' as never)).toThrow();
+    expect(() => workspace.navigateTo('   ' as never)).toThrow();
   });
 
   it('SetSessionTab accepts only Transcript and Summary', () => {

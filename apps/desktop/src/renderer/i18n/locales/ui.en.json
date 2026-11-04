@@ -1,4 +1,5 @@
 {
+  "Ui_CallDetection": "Call detection",
   "Ui_Appearance": "Appearance",
   "Ui_Theme": "Theme",
   "Ui_ThemeDescription": "Follows Windows unless you pick one.",
@@ -93,5 +94,9 @@
   "Ui_SessionAudioPlay": "Play audio",
   "Ui_SessionAudioPause": "Pause audio",
   "Ui_SessionAudioPosition": "Audio position",
-  "Ui_LiveCopilotEmpty": "Ask a question below."
+  "Ui_LiveCopilotEmpty": "Ask a question below.",
+  "Ui_TrayQuit": "Quit Vozella",
+  "Ui_TrayRecording": "Vozella, recording",
+  "Ui_StartupFailedTitle": "Vozella could not finish starting",
+  "Ui_StartupFailedContent": "Something went wrong while starting: {0}\r\n\r\nSome features may not work. The details are in the log file."
 }

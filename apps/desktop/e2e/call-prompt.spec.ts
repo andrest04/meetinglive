@@ -135,7 +135,7 @@ test.describe('popup toggle', () => {
       const page = await first.app.firstWindow();
       await page.getByRole('link', { name: 'Settings' }).click();
       const toggle = page.getByRole('switch', { name: 'Show a popup when a call starts' });
-      await expect(page.getByRole('heading', { level: 2, name: 'Calendar' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2, name: 'Call detection' })).toBeVisible();
       await expect(toggle).toHaveAttribute('aria-checked', 'true');
       // Applying the saved value on first paint writes nothing.
       expect(settingKey(settingsFile, 'meetingPopupEnabled')).toBeUndefined();
