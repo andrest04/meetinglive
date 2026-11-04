@@ -543,3 +543,13 @@ Rejected or recorded as decisions:
 - Bug 11: a Teams chat titled "Weekly meeting" has the same window title as a call, so the title alone cannot tell them apart. Word boundaries stay; kept limitation.
 - Bug 18 and 7.3g: the popup stays non-focusable (it must not steal focus from the call); the in-app bar is the keyboard path. No Tab test added.
 - Items 148, 151, 152 to 160, 169, 170 and the rest of the minor design notes: noted, not changed in this round; no behavior is wrong.
+
+## Wave 3 integration (shell-platform, live-copilot, recording-fixes)
+
+Decisions taken while merging the three branches into `feat/electron-port`:
+
+- Start handoff (items 76 to 78, 182): the shell `RecordingHandoff` owns dismissing the call popup and minimizing the main window on the false to true change. The live-copilot `onRecordingStarted` minimize is not wired in `index.ts`, so a take minimizes once. The pill controller keeps its own idempotent minimize call and its own focus tracking (`focus`, `blur`, `minimize`, `restore`), and the pill is disposed when the main window closes, after `handoff.closeSecondary()`.
+- Item 89: the pill is closed by `pill.dispose()` in the `closed` handler instead of `handoff.registerSecondary`, because the controller creates the window lazily and may have none to register.
+- Signal color (item 163): the pill stop button is the one control allowed to use `bg-signal` besides the badge and the pulse. It stops the recording that the dot announces. A new `--on-signal` token (white, `HighlightText` in forced colors) replaces the hard-coded white. The pill shadow moved to a `--pill-shadow` token because the 8 DIP gutter cannot hold the overlay shadow.
+- E2E: tests that picked `BrowserWindow.getAllWindows()[0]` or "not the popup" during a take now pick the window whose page is `index.html`, since the pill window can be listed first.
+- Locale files: both languages keep all keys from both branches (`Ui_LiveCopilotEmpty` and the tray and startup strings).
