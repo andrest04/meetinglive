@@ -1,20 +1,32 @@
 import type { Clock } from '../clock';
-import { LibraryFileCorruptError } from './errors';
+import { LibraryFileCorruptError, MeetingTrashError } from './errors';
 import type { FolderRecord } from './folder';
 import { nextAccentKey, resolveAccentKey, resolveIconKey } from './folder-personality';
 import { folderDirectoryName } from './names';
 import { canDeleteFolder } from './library-view';
 import type { MeetingListItem, SkippedMeetingFile } from './meeting';
 import { formatOffsetDate, offsetDateFromInstant } from './offset-date';
-import type { FolderRepository, MeetingBusyProbe, MeetingRepository } from './ports';
+import type {
+  FolderRepository,
+  MeetingBusyProbe,
+  MeetingDeleteMode,
+  MeetingRepository,
+} from './ports';
 
 export type FailureReason =
-  'empty-name' | 'name-taken' | 'not-found' | 'not-empty' | 'busy' | 'corrupt' | 'io-failed';
+  | 'empty-name'
+  | 'name-taken'
+  | 'not-found'
+  | 'not-empty'
+  | 'busy'
+  | 'corrupt'
+  | 'io-failed'
+  | 'trash-failed';
 
 export interface Failure {
   readonly ok: false;
   readonly reason: FailureReason;
-  /** The error text for `io-failed`, shown to the user next to a localized lead-in. */
+  /** The error text for `io-failed` and `trash-failed`, shown next to a localized lead-in. */
   readonly message?: string;
 }
 
@@ -40,6 +52,9 @@ export interface LibraryDeps {
 function failure(error: unknown): Failure {
   if (error instanceof LibraryFileCorruptError) {
     return { ok: false, reason: 'corrupt', message: error.message };
+  }
+  if (error instanceof MeetingTrashError) {
+    return { ok: false, reason: 'trash-failed', message: error.message };
   }
   return {
     ok: false,
@@ -167,10 +182,10 @@ export class LibraryService {
     }
   }
 
-  async deleteMeeting(id: string): Promise<DoneResult> {
+  async deleteMeeting(id: string, mode: MeetingDeleteMode = 'trash'): Promise<DoneResult> {
     if (this.deps.busy.isBusy(id)) return { ok: false, reason: 'busy' };
     try {
-      await this.deps.meetings.delete(id);
+      await this.deps.meetings.delete(id, mode);
       return { ok: true };
     } catch (error) {
       return failure(error);

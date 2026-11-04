@@ -68,6 +68,8 @@ export interface LibraryRuntimeDeps {
   readonly busy: MeetingBusyProbe;
   /** Electron's `shell.openPath`: resolves to '' on success, otherwise an error message. */
   readonly openPath: (path: string) => Promise<string>;
+  /** Electron's `shell.trashItem`. Without it a deleted meeting's files are unlinked. */
+  readonly discard?: (path: string) => Promise<void>;
   /** Shows a folder picker. Null when the user cancels. */
   readonly pickFolder: (defaultPath: string) => Promise<string | null>;
   readonly version: string;
@@ -284,6 +286,7 @@ export class LibraryRuntime {
       root: paths.userDataDirectory,
       folders,
       logger: this.deps.logger,
+      ...(this.deps.discard ? { discard: this.deps.discard } : {}),
     });
     const service = new LibraryService({
       meetings,

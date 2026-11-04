@@ -217,7 +217,7 @@ test('a meeting is deleted only after confirming, with Cancel focused', async ()
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   const confirm = page.getByRole('dialog', { name: 'Delete this meeting?' });
   await expect(
-    confirm.getByText('This permanently deletes "Retro" and its recording.'),
+    confirm.getByText('This moves "Retro" and its recording to the Recycle Bin.'),
   ).toBeVisible();
   await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await confirm.getByRole('button', { name: 'Delete' }).click();

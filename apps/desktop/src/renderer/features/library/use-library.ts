@@ -13,7 +13,12 @@ import {
   type FolderNode,
   type MoveDestination,
 } from '@vozella/core';
-import type { FailureReasonDto, FolderDto, MeetingListItemDto } from '@vozella/contracts';
+import type {
+  FailureReasonDto,
+  FolderDto,
+  MeetingDeleteModeDto,
+  MeetingListItemDto,
+} from '@vozella/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StringKey } from '../../i18n/translate';
 
@@ -77,7 +82,11 @@ export interface LibraryModel {
   readonly moveMeeting: (meetingId: string, folderId: string | null) => Promise<boolean>;
   /** Refuses a busy meeting before the dialog opens. True when the dialog may open. */
   readonly beginDelete: (meetingId: string) => Promise<boolean>;
-  readonly deleteMeeting: (meetingId: string) => Promise<void>;
+  /** `trash-failed` means nothing was deleted and a permanent delete can be offered. */
+  readonly deleteMeeting: (
+    meetingId: string,
+    mode?: MeetingDeleteModeDto,
+  ) => Promise<'deleted' | 'trash-failed' | 'failed'>;
   readonly openMeeting: (meetingId: string, tab: 'Transcript' | 'Summary') => void;
   readonly goRecord: () => void;
 }
@@ -362,9 +371,9 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
       if (busy) setStatus({ key: 'HistoryDelete_Busy', args: [] });
       return !busy;
     },
-    deleteMeeting: async (meetingId) => {
-      const result = await window.vozella.invoke('library.deleteMeeting', { meetingId });
-      if (!result.ok) {
+    deleteMeeting: async (meetingId, mode = 'trash') => {
+      const result = await window.vozella.invoke('library.deleteMeeting', { meetingId, mode });
+      if (!result.ok && result.reason !== 'trash-failed') {
         setStatus(
           result.reason === 'busy'
             ? { key: 'HistoryDelete_Busy', args: [] }
@@ -372,6 +381,8 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
         );
       }
       await refresh();
+      if (result.ok) return 'deleted';
+      return result.reason === 'trash-failed' ? 'trash-failed' : 'failed';
     },
     openMeeting: (meetingId, tab) => {
       void (async () => {

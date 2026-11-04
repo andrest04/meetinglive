@@ -4,6 +4,7 @@ import nodePath from 'node:path';
 import {
   LibraryFileCorruptError,
   MeetingFormatError,
+  MeetingTrashError,
   fileStem,
   folderChain,
   meetingListItem,
@@ -13,6 +14,7 @@ import {
   siblingWavPath,
   type FolderRecord,
   type Logger,
+  type MeetingDeleteMode,
   type MeetingList,
   type MeetingListItem,
   type MeetingRecord,
@@ -41,6 +43,8 @@ export interface MarkdownMeetingRepositoryOptions {
   /** Test hooks for failures that cannot be provoked with real files. */
   readonly rename?: (from: string, to: string) => Promise<void>;
   readonly unlink?: (path: string) => Promise<void>;
+  /** Where a deleted meeting's files go, such as the Recycle Bin. Without it they are unlinked. */
+  readonly discard?: (path: string) => Promise<void>;
 }
 
 interface IndexEntry {
@@ -119,8 +123,8 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return this.locks.run(this.lockKey(), () => this.saveLocked(record));
   }
 
-  delete(id: string): Promise<void> {
-    return this.locks.run(this.lockKey(), () => this.deleteLocked(id));
+  delete(id: string, mode: MeetingDeleteMode = 'trash'): Promise<void> {
+    return this.locks.run(this.lockKey(), () => this.deleteLocked(id, mode));
   }
 
   private async saveLocked(record: MeetingRecord): Promise<MeetingRecord> {
@@ -150,7 +154,21 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return saved;
   }
 
-  private async deleteLocked(id: string): Promise<void> {
+  /** How a delete removes one file. Only a delete uses this; a move's old file is just unlinked. */
+  private removerFor(mode: MeetingDeleteMode): (path: string) => Promise<void> {
+    const discard = this.options.discard;
+    if (mode === 'permanent' || discard === undefined) return this.unlink;
+    return async (path) => {
+      try {
+        await discard(path);
+      } catch (error) {
+        throw new MeetingTrashError(error instanceof Error ? error.message : String(error));
+      }
+    };
+  }
+
+  private async deleteLocked(id: string, mode: MeetingDeleteMode): Promise<void> {
+    const remove = this.removerFor(mode);
     const entry = await this.pick(id);
     if (!entry || !(await exists(entry.path))) return;
 
@@ -164,12 +182,12 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     // the meeting stays listed and the delete can be retried.
     // B25: a stored path outside the Library is never deleted, only logged.
     if (storedAudio.trim() !== '' && (await exists(storedAudio))) {
-      if (isUnder(storedAudio, this.root)) await this.unlink(storedAudio);
+      if (isUnder(storedAudio, this.root)) await remove(storedAudio);
       else this.options.logger?.warn('left a recording outside the library in place', { id });
     }
     const sibling = siblingWavPath(entry.path);
-    if (await exists(sibling)) await this.unlink(sibling);
-    await this.unlink(entry.path);
+    if (await exists(sibling)) await remove(sibling);
+    await remove(entry.path);
     this.cache.delete(entry.path);
   }
 

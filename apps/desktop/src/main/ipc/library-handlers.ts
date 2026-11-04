@@ -188,8 +188,8 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): LibraryWrites
     return result;
   });
 
-  registerRequest(server, libraryDeleteMeeting, async ({ meetingId }) => {
-    const result = await track(runtime.service.deleteMeeting(meetingId));
+  registerRequest(server, libraryDeleteMeeting, async ({ meetingId, mode }) => {
+    const result = await track(runtime.service.deleteMeeting(meetingId, mode));
     if (result.ok) {
       workspace.notifyDeleted(meetingId);
       broadcast(libraryChanged, { reason: 'meeting' });

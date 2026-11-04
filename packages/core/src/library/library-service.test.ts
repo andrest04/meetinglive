@@ -377,6 +377,25 @@ describe('deleteMeeting', () => {
   it('an unknown id succeeds without error', async () => {
     expect(await setup().service.deleteMeeting('zz')).toEqual({ ok: true });
   });
+
+  it('says so when the Recycle Bin refused, and the meeting stays', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.trashRefusedIds.add('m');
+    expect(await t.service.deleteMeeting('m')).toMatchObject({
+      ok: false,
+      reason: 'trash-failed',
+    });
+    expect(t.meetings.records.size).toBe(1);
+  });
+
+  it('a permanent delete does not depend on the Recycle Bin', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.trashRefusedIds.add('m');
+    expect(await t.service.deleteMeeting('m', 'permanent')).toEqual({ ok: true });
+    expect(t.meetings.records.size).toBe(0);
+  });
 });
 
 describe('load', () => {

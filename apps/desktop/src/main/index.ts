@@ -400,6 +400,8 @@ function main(): void {
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
     version: appVersion,
+    // The fake-native build never touches the real Recycle Bin.
+    ...(fakeNative ? {} : { discard: (path: string) => shell.trashItem(path) }),
     onChanged: (reason) => {
       broadcast(libraryChanged, { reason });
     },

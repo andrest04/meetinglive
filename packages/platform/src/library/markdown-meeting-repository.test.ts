@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderMeetingMarkdown } from '@vozella/core';
+import { MeetingTrashError, renderMeetingMarkdown } from '@vozella/core';
 import {
   FOLDER_1,
   FOLDER_2,
@@ -237,6 +237,84 @@ describe('delete', () => {
     } finally {
       f.cleanup();
     }
+  });
+
+  describe('with a Recycle Bin', () => {
+    const withBin = (discard: (p: string) => Promise<void>) => {
+      const unlinked: string[] = [];
+      const f = createLibraryFixture({
+        discard,
+        unlink: (p) => {
+          unlinked.push(path.basename(p));
+          return fs.promises.unlink(p);
+        },
+      });
+      const save = async () => {
+        const first = await f.meetings.save(meeting());
+        const wav = first.sourcePath?.replace(/\.md$/, '.wav') ?? '';
+        fs.writeFileSync(wav, 'RIFF');
+        return f.meetings.save({ ...first, audioFilePath: wav });
+      };
+      return { f, unlinked, save };
+    };
+
+    it('sends the recording and the markdown there, and nothing is unlinked', async () => {
+      const discarded: string[] = [];
+      const { f, unlinked, save } = withBin((p) => {
+        discarded.push(path.basename(p));
+        return fs.promises.unlink(p);
+      });
+      try {
+        await save();
+        unlinked.length = 0;
+        await f.meetings.delete(ID_A);
+        expect(discarded).toEqual(['2026-09-01 Standup.wav', '2026-09-01 Standup.md']);
+        expect(unlinked).toEqual([]);
+        expect(tree(f.root)).toEqual([]);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('a refusal is reported as a trash failure and the meeting stays listed', async () => {
+      const { f, save } = withBin(() => Promise.reject(new Error('no bin on this volume')));
+      try {
+        await save();
+        await expect(f.meetings.delete(ID_A)).rejects.toBeInstanceOf(MeetingTrashError);
+        expect((await f.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('a permanent delete unlinks and never asks the Recycle Bin', async () => {
+      const discard = vi.fn(() => Promise.reject(new Error('no bin on this volume')));
+      const { f, unlinked, save } = withBin(discard);
+      try {
+        await save();
+        unlinked.length = 0;
+        await f.meetings.delete(ID_A, 'permanent');
+        expect(discard).not.toHaveBeenCalled();
+        expect(unlinked).toEqual(['2026-09-01 Standup.wav', '2026-09-01 Standup.md']);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('moving a meeting still unlinks its old file: that is not a delete', async () => {
+      const discard = vi.fn(() => Promise.resolve());
+      const { f, unlinked, save } = withBin(discard);
+      try {
+        const saved = await save();
+        await f.folders.save(folder(FOLDER_1, 'Universidad'));
+        unlinked.length = 0;
+        await f.meetings.save({ ...saved, folderId: FOLDER_1 });
+        expect(discard).not.toHaveBeenCalled();
+        expect(unlinked).toEqual(['2026-09-01 Standup.md']);
+      } finally {
+        f.cleanup();
+      }
+    });
   });
 
   it('does not rewrite sibling meetings', async () => {

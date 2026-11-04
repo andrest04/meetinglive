@@ -425,7 +425,7 @@ describe('moving and deleting a meeting', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
     expect(
-      within(dialog).getByText('This permanently deletes "Review" and its recording.'),
+      within(dialog).getByText('This moves "Review" and its recording to the Recycle Bin.'),
     ).toBeInTheDocument();
     // The safe choice has the focus.
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
@@ -448,6 +448,46 @@ describe('moving and deleting a meeting', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText(/The meeting was not deleted/)).toBeInTheDocument();
     expect(screen.getByText('Review')).toBeInTheDocument();
+  });
+
+  it('offers a permanent delete only when the Recycle Bin refused, and asks again', async () => {
+    const { api, user } = await mount(seed);
+    api.meetings.trashRefusedIds.add('c');
+    const row = rowOf(/Review/);
+    await user.click(within(row).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const first = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
+    await user.click(within(first).getByRole('button', { name: 'Delete' }));
+
+    const second = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    expect(
+      within(second).getByText(
+        '"Review" could not go to the Recycle Bin. A permanent delete cannot be undone.',
+      ),
+    ).toBeInTheDocument();
+    expect(api.meetings.records.has('c')).toBe(true);
+    expect(within(second).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+
+    await user.click(within(second).getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => {
+      expect(api.meetings.records.has('c')).toBe(false);
+    });
+  });
+
+  it('keeps the meeting when the permanent delete is cancelled', async () => {
+    const { api, user } = await mount(seed);
+    api.meetings.trashRefusedIds.add('c');
+    const row = rowOf(/Review/);
+    await user.click(within(row).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    const first = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
+    await user.click(within(first).getByRole('button', { name: 'Delete' }));
+    const second = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    await user.click(within(second).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(api.meetings.records.has('c')).toBe(true);
   });
 });
 

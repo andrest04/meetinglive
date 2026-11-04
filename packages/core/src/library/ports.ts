@@ -2,6 +2,9 @@ import type { FolderRecord } from './folder';
 import type { MeetingListItem, MeetingRecord, SkippedMeetingFile } from './meeting';
 import type { AppSettings } from './settings';
 
+/** `trash` keeps the files recoverable where the adapter can; `permanent` never does. */
+export type MeetingDeleteMode = 'trash' | 'permanent';
+
 export interface MeetingList {
   readonly items: readonly MeetingListItem[];
   /** Files that could not be read as meetings. They are reported, never silently dropped. */
@@ -15,8 +18,11 @@ export interface MeetingRepository {
   get(id: string): Promise<MeetingRecord | null>;
   /** Writes the record, moving its files as needed. Returns the record as stored. */
   save(record: MeetingRecord): Promise<MeetingRecord>;
-  /** No-op for an unknown id. A locked file throws and leaves the meeting listed. */
-  delete(id: string): Promise<void>;
+  /**
+   * No-op for an unknown id. A locked file throws and leaves the meeting listed. A Recycle Bin that
+   * refuses throws `MeetingTrashError`. The mode defaults to `trash`.
+   */
+  delete(id: string, mode?: MeetingDeleteMode): Promise<void>;
 }
 
 /** Port: the folder tree. Adapter: JsonFolderRepository (platform). */

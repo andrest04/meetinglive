@@ -1,14 +1,23 @@
+import { MeetingTrashError } from './errors';
 import type { FolderRecord } from './folder';
 import type { MeetingRecord } from './meeting';
 import { meetingListItem } from './snippet';
 import { applySettingsPatch, readSettings, type AppSettings, type RawSettings } from './settings';
-import type { FolderRepository, MeetingList, MeetingRepository, SettingsStore } from './ports';
+import type {
+  FolderRepository,
+  MeetingDeleteMode,
+  MeetingList,
+  MeetingRepository,
+  SettingsStore,
+} from './ports';
 
 /** Fake meeting store for tests and the fake-native build. Same contract as the file adapter. */
 export class InMemoryMeetingRepository implements MeetingRepository {
   readonly records = new Map<string, MeetingRecord>();
   /** Ids whose delete throws, to exercise the locked-file path. */
   readonly lockedIds = new Set<string>();
+  /** Ids the Recycle Bin refuses. A permanent delete still works. */
+  readonly trashRefusedIds = new Set<string>();
 
   list(): Promise<MeetingList> {
     const items = [...this.records.values()].map(meetingListItem);
@@ -24,7 +33,10 @@ export class InMemoryMeetingRepository implements MeetingRepository {
     return Promise.resolve(record);
   }
 
-  delete(id: string): Promise<void> {
+  delete(id: string, mode: MeetingDeleteMode = 'trash'): Promise<void> {
+    if (mode === 'trash' && this.trashRefusedIds.has(id)) {
+      return Promise.reject(new MeetingTrashError('The Recycle Bin refused the file.'));
+    }
     if (this.lockedIds.has(id)) {
       return Promise.reject(
         Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' }),

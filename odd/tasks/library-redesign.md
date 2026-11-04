@@ -96,7 +96,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 
 ### Batch 1: data and search (about 900)
 - [x] T1.1 List items carry length and state; All view; folded titles
-- [ ] T1.2 Delete goes to the Recycle Bin
+- [x] T1.2 Delete goes to the Recycle Bin
 - [ ] T1.3 Bulk move and delete
 - [ ] T1.4 Full-text search with timing harness
 
@@ -138,7 +138,8 @@ Each batch writer records its commit hashes and observed check results here. A c
 
 ### Batch 1 (`feat/library-redesign-b1-data`)
 
-- T1.1 `feat(library): list items carry length and state, with an All view and folded titles`. `pnpm check`: passed; contracts 44 tests, core 1654, platform 428 passed and 13 skipped, desktop 1875 passed and 6 skipped. Generation start did not fire `library.changed`: `ObservedSummaryService` in `main/summaries` now broadcasts at the start and end of a run, because `packages/core/src/summaries` is not part of this batch. `emptyFlags` is unchanged, so T2.1 decides the All view's empty copy.
+- T1.1 `faa918e` `feat(library): list items carry length and state, with an All view and folded titles`. `pnpm check`: passed; contracts 44 tests, core 1654, platform 428 passed and 13 skipped, desktop 1875 passed and 6 skipped. Generation start did not fire `library.changed`: `ObservedSummaryService` in `main/summaries` now broadcasts at the start and end of a run, because `packages/core/src/summaries` is not part of this batch. `emptyFlags` is unchanged, so T2.1 decides the All view's empty copy.
+- T1.2 `feat(library): deleting a meeting moves it to the Recycle Bin`. `pnpm check`: passed; contracts 44, core 1656, platform 432 passed and 13 skipped, desktop 1878 passed and 6 skipped. When the bin refuses, the current screen opens a second dialog offering "Delete permanently". Real Recycle Bin restore and a volume with no bin stay manual and pending.
 
 ## Next step
 

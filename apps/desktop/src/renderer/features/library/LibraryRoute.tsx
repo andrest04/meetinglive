@@ -36,7 +36,8 @@ type DialogState =
   | { readonly kind: 'personality'; readonly folderId: string }
   | { readonly kind: 'deleteFolder'; readonly folderId: string; readonly name: string }
   | { readonly kind: 'move'; readonly meeting: MeetingListItemDto }
-  | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto };
+  | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
+  | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto };
 
 function useWideLayout(): { ref: React.RefObject<HTMLDivElement | null>; wide: boolean } {
   const ref = useRef<HTMLDivElement>(null);
@@ -409,13 +410,34 @@ export function LibraryRoute() {
         open={dialog?.kind === 'deleteMeeting'}
         title={t('HistoryDelete_Title')}
         description={t(
-          'HistoryDelete_Content',
+          'Ui_LibraryDeleteContent',
           shown?.kind === 'deleteMeeting' ? shown.meeting.title : '',
         )}
         cancelLabel={t('HistoryDelete_Cancel')}
         primaryLabel={t('HistoryDelete_Primary')}
         onConfirm={() => {
-          if (dialog?.kind === 'deleteMeeting') void library.deleteMeeting(dialog.meeting.id);
+          if (dialog?.kind !== 'deleteMeeting') return;
+          const { meeting } = dialog;
+          void library.deleteMeeting(meeting.id).then((outcome) => {
+            if (outcome === 'trash-failed')
+              setDialog({ kind: 'deleteMeetingPermanently', meeting });
+          });
+        }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteMeetingPermanently'}
+        title={t('Ui_LibraryDeletePermanentTitle')}
+        description={t(
+          'Ui_LibraryDeletePermanentContent',
+          shown?.kind === 'deleteMeetingPermanently' ? shown.meeting.title : '',
+        )}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('Ui_LibraryDeletePermanentPrimary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteMeetingPermanently') {
+            void library.deleteMeeting(dialog.meeting.id, 'permanent');
+          }
         }}
       />
     </section>

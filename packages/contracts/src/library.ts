@@ -86,6 +86,7 @@ export const failureReasonSchema = z.enum([
   'busy',
   'corrupt',
   'io-failed',
+  'trash-failed',
 ]);
 export type FailureReasonDto = z.infer<typeof failureReasonSchema>;
 
@@ -154,8 +155,12 @@ export const libraryMoveMeeting = defineRequest('library.moveMeeting', {
   output: done,
 });
 
+export const meetingDeleteModeSchema = z.enum(['trash', 'permanent']);
+export type MeetingDeleteModeDto = z.infer<typeof meetingDeleteModeSchema>;
+
 export const libraryDeleteMeeting = defineRequest('library.deleteMeeting', {
-  input: z.object({ meetingId: guid }),
+  /** The mode defaults to `trash`, which keeps the files recoverable. */
+  input: z.object({ meetingId: guid, mode: meetingDeleteModeSchema.optional() }),
   output: done,
 });
 

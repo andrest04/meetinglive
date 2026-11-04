@@ -128,7 +128,10 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
         return result;
       }
       case 'library.deleteMeeting': {
-        const result = await service.deleteMeeting(input.meetingId as string);
+        const result = await service.deleteMeeting(
+          input.meetingId as string,
+          input.mode as 'trash' | 'permanent' | undefined,
+        );
         if (result.ok) emit('library.changed', { reason: 'meeting' });
         return result;
       }
