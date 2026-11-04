@@ -136,6 +136,20 @@ describe('first save', () => {
     expect(out).toMatchObject({ previousAudioPath: 'C:/lib/first (previous).wav' });
   });
 
+  it('B-3: when the first save fails with a draft, the later save still keeps the previous WAV', async () => {
+    const store = new ScriptedMeetingStore();
+    store.records.set(
+      TEST_MEETING_ID,
+      makeMeeting({ audioFilePath: 'C:/lib/first.wav', transcript: 't' }),
+    );
+    store.failSaves.add(1);
+    const h = createPipelineHarness({ store, transcriber: { result: OFFLINE } });
+    const out = await h.pipeline.run(makeRequest({ liveDraft: DRAFT }), h.host, h.cancel);
+    expect(out.kind).toBe('transcript-saved');
+    expect(h.keeper?.kept).toEqual(['C:/lib/first.wav']);
+    expect(out).toMatchObject({ previousAudioPath: 'C:/lib/first (previous).wav' });
+  });
+
   it('B-3: without a keeper, or when it fails, the old path is reported and left alone', async () => {
     const store = new ScriptedMeetingStore();
     store.records.set(TEST_MEETING_ID, makeMeeting({ audioFilePath: 'C:/lib/first.wav' }));

@@ -400,6 +400,18 @@ describe('failures', () => {
     expect(r.service.isRecording).toBe(false);
   });
 
+  it('87: an output failure cancels the pump, which writes nothing more', async () => {
+    const r = rig();
+    await r.service.start('a.wav', processTreeSources(true, null, 4242));
+    await r.clock.advance(400);
+    const before = r.writer.bytes;
+    expect(before).toBeGreaterThan(0);
+    r.port.output?.die(new Error('process capture died'));
+    await r.clock.advance(5000);
+    expect(r.writer.bytes).toBe(before);
+    await expect(r.service.stop()).rejects.toThrow('process capture died');
+  });
+
   it('warns and keeps recording when the mic dies during a process capture', async () => {
     const r = rig();
     await r.service.start('a.wav', processTreeSources(true, null, 4242));
