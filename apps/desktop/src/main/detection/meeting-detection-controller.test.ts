@@ -289,4 +289,22 @@ describe('MeetingDetectionController', () => {
     t.workspace.setCaptureActive(true);
     expect(t.popup.events).toHaveLength(before);
   });
+
+  it('12, 169: dispose is safe to call twice and leaves no timer running', async () => {
+    const t = setup();
+    await t.detect(true);
+    t.controller.dispose();
+    t.controller.dispose();
+    expect(t.popupDispose).toHaveBeenCalledOnce();
+    expect(t.intervals.every((timer) => timer.cleared)).toBe(true);
+    expect(t.timeouts.every((timer) => timer.cleared)).toBe(true);
+    expect(t.controller.isShown).toBe(false);
+  });
+
+  it('150: a call found after dispose offers nothing, because the poll is gone', () => {
+    const t = setup();
+    t.controller.dispose();
+    expect(t.intervals[0]?.cleared).toBe(true);
+    expect(t.offered).not.toHaveBeenCalled();
+  });
 });

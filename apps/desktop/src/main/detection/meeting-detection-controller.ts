@@ -56,6 +56,7 @@ export class MeetingDetectionController {
   private cancelExit: (() => void) | null = null;
   private offs: (() => void)[] = [];
   private wasCapturing: boolean;
+  private disposed = false;
 
   constructor(private readonly deps: MeetingDetectionDeps) {
     this.wasCapturing = deps.workspace.state.isCaptureActive;
@@ -80,6 +81,7 @@ export class MeetingDetectionController {
   /** Starts polling and listening. Call once the main window exists. */
   start(): void {
     if (this.offs.length > 0) return;
+    this.disposed = false;
     this.offs = [
       this.watcher.on('meetingDetected', () => {
         this.show();
@@ -133,12 +135,15 @@ export class MeetingDetectionController {
       this.deps.broadcastPopupSetting(false);
     } catch (error) {
       this.deps.logger.warn('Could not turn the call popup off', {
-        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : typeof error,
       });
     }
   }
 
+  /** Stops the poll and the popup. Safe to call more than once. */
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     this.watcher.stop();
     for (const off of this.offs) off();
     this.offs = [];

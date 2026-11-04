@@ -25,6 +25,7 @@ function setup(opts: { popup?: () => Promise<boolean> } = {}) {
   const ws = { isCaptureActive: false, offers: 0, offerThrows: false };
   const events: string[] = [];
   const logs: string[] = [];
+  const metas: unknown[] = [];
   const scheduler = new FakeScheduler();
   const ports: CallWatcherPorts = {
     scanner: {
@@ -48,14 +49,17 @@ function setup(opts: { popup?: () => Promise<boolean> } = {}) {
     logger: {
       debug: (m) => logs.push(m),
       info: (m) => logs.push(m),
-      warn: (m) => logs.push(m),
+      warn: (m, meta) => {
+        logs.push(m);
+        metas.push(meta);
+      },
       error: (m) => logs.push(m),
     },
   };
   const watcher = new CallWatcher(ports);
   watcher.on('meetingDetected', () => events.push('detected'));
   watcher.on('meetingEnded', () => events.push('ended'));
-  return { watcher, scan, ws, events, logs, scheduler };
+  return { watcher, scan, ws, events, logs, metas, scheduler };
 }
 
 describe('CallWatcher', () => {
@@ -210,5 +214,44 @@ describe('CallWatcher', () => {
     scan.found = true;
     await watcher.tick();
     expect(events).toEqual(['detected', 'ended', 'detected']);
+  });
+
+  it('150: a failed tick logs only the error type, never its message', async () => {
+    const { watcher, scan, logs, metas } = setup();
+    scan.fail = true;
+    await watcher.tick();
+    expect(logs).toContain('Call watcher tick failed');
+    expect(metas).toEqual([{ errorType: 'Error' }]);
+    expect(JSON.stringify(metas)).not.toContain('scan failed');
+  });
+
+  it('12, 169: stop clears the timer, and a second start after stop polls again', () => {
+    const { watcher, scheduler } = setup();
+    watcher.start();
+    watcher.start();
+    expect(scheduler.callback).not.toBeNull();
+    watcher.stop();
+    expect(scheduler.cleared).toBe(true);
+    watcher.stop();
+    scheduler.cleared = false;
+    watcher.start();
+    expect(scheduler.callback).not.toBeNull();
+  });
+
+  it('42: the capture flag read as a call is found keeps one call silent for its whole length', async () => {
+    const { watcher, scan, ws, events } = setup();
+    scan.found = true;
+    ws.isCaptureActive = true;
+    await watcher.tick();
+    ws.isCaptureActive = false;
+    await watcher.tick();
+    await watcher.tick();
+    expect(events).toEqual([]);
+    scan.found = false;
+    await watcher.tick();
+    expect(events).toEqual(['ended']);
+    scan.found = true;
+    await watcher.tick();
+    expect(events).toEqual(['ended', 'detected']);
   });
 });
