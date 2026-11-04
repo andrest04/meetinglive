@@ -553,3 +553,25 @@ Decisions taken while merging the three branches into `feat/electron-port`:
 - Signal color (item 163): the pill stop button is the one control allowed to use `bg-signal` besides the badge and the pulse. It stops the recording that the dot announces. A new `--on-signal` token (white, `HighlightText` in forced colors) replaces the hard-coded white. The pill shadow moved to a `--pill-shadow` token because the 8 DIP gutter cannot hold the overlay shadow.
 - E2E: tests that picked `BrowserWindow.getAllWindows()[0]` or "not the popup" during a take now pick the window whose page is `index.html`, since the pill window can be listed first.
 - Locale files: both languages keep all keys from both branches (`Ui_LiveCopilotEmpty` and the tray and startup strings).
+
+## Packaged build verification (2026-11-04)
+
+Run on `feat/electron-port` with `VOZELLA_DATA_ROOT` set to a temp folder. No installer was run; `release/Vozella-Setup-1.0.0.exe` was built and left alone.
+
+Observed:
+
+- `pnpm check`: passed (contracts 44, core 1644, platform 427 with 13 skipped, desktop 1853 with 6 skipped, native 21 Rust tests; typecheck and lint clean).
+- `pnpm test:e2e` (unpackaged, fake native): 256 passed, 55 skipped, 0 failed.
+- `pnpm package`: built `release/win-unpacked` and the NSIS installer. The first attempt failed with `EPERM` renaming a napi-rs `.swp` file while building the native addon; the second attempt, with no change, passed. Not diagnosed further.
+- `pnpm package:e2e` and the smoke script on both variants: release has the inspector fuse off, e2e has it on, all other fuses as configured, window ready, packaged production mode, no uncaught exception.
+- `packaged-flow.spec.ts` against `release-e2e/win-unpacked/Vozella.exe`: the window opens, a take from the fake microphone is recorded, stopped, summarized by the fake provider and saved, then opened from the card; Library and Settings open. Screenshots are in `docs/port/screens/packaged/`.
+- `recording-real.spec.ts` against the packaged e2e build (`VOZELLA_REAL_ASR=1 VOZELLA_REAL_AUDIO=1`): a generated WAV (tone, then the Spanish speech sample) played by PowerShell is captured by the real addon with process loopback, heard by Nemotron, and saved with the summary of a fake `claude` executable. Passed in 35 s. Screenshots `real-recording.png` and `real-result.png`.
+- `pnpm test:e2e:packaged` (whole suite): 230 passed, 82 skipped, 0 failed.
+
+Decisions:
+
+- pk-D1: a packaged build is production mode, so test-only hooks are off by design (`VOZELLA_FAKE_CALL_FLAG`, the tray and handoff probe, the `/gallery` route). Specs that need them skip when `VOZELLA_E2E_EXECUTABLE` is set, with the reason in `launch.ts` (`NO_TEST_HOOKS`, `NO_GALLERY`). They still run unpackaged.
+- pk-D2: starting a take minimizes the main window, and a minimized window paints nothing, so a screenshot taken during or after a take restores it first (`restoreMain`, what the pill's Show button does). This is the intended handoff, not a defect.
+- pk-D3: two races the packaged build exposed were fixed in the specs, not the app. `closing right after Record` closed before main had taken the start request, so there was nothing to save; it now waits for the phase to leave Idle. `settings-ui` picked an option while the previous list was still closing, so `English` matched two lists; `choose` now waits for the list to go.
+
+Not run: the NSIS installer (never against the user's profile), signing (no certificate), a real call, a real CLI or account, two monitors with different scale factors.
