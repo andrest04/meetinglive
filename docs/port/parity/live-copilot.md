@@ -281,3 +281,12 @@ Rows marked `dropped` are not missing. The armed question card, badge and Answer
 - Not mine: the `typeSafe` slot in `packages/core/src/settings/sections.ts` and the unused i18n keys belong to the settings and i18n owners.
 - Screenshots `pill-expanded.png`, `pill-expanded-dark.png`, `pill-right.png` and `pill-top.png` are shape-only OS captures taken before content painted; they are not design evidence. Their content twins (`pill-right-dark.png`, `pill-top-dark.png`, the panel captures) are. Not regenerated: needs a real display session.
 - Item 20 (Alt+Tab) stays pending-real-validation: needs a person to look.
+
+
+## Audit round 3 decisions
+
+- Fixed (items 90, 91, B16): the Re-transcribe availability is asked again on `recording.state` and on `summaries.progress` for the same meeting, so the button leaves Busy when a take or a summary run ends (`use-retranscription.ts`, test in `RetranscribeControl.test.tsx`).
+- Fixed (take notes with setup incomplete): main consumed the request, `start` answered `not-ready` and nothing showed. `startRecording` now returns the refusal reason; `startTakeNotesRequests` hands the request back with `Workspace.restoreTakeNotes()` on `not-ready`, guarded so main does not consume its own handback. `requestTakeNotes` already navigates to the Record page, whose `useTakeNotesRequest` consumes it and runs `ensureReady` (setup dialog). Covered by `entry-points.test.ts`. Not observed in a real window.
+- Rejected, no change: pill closed through the main window `closed` handler instead of `registerSecondary` (same effect, no keep-alive). The shell ledger rows 79 to 89 that read `pending-real-validation (owned by live-copilot)` stay that way until reconciliation.
+- Rejected, no change: two minimize paths on recording start (idempotent, no race found).
+- Not verified: taskbar and Alt+Tab, mixed DPI, high contrast, animation switch, real drag with snap; still `pending-real-validation`.

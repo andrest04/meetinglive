@@ -44,7 +44,11 @@ describe('recording entry points', () => {
       service as unknown as RecordingService,
       new Workspace(),
     );
-    expect(await entry.startRecording()).toEqual({ started: false, meetingId: null });
+    expect(await entry.startRecording()).toEqual({
+      started: false,
+      meetingId: null,
+      reason: 'busy',
+    });
   });
 
   it('delegates stop, capture state, use and processing', async () => {
@@ -102,5 +106,26 @@ describe('take-notes request (180)', () => {
       expect(service.start).toHaveBeenCalled();
     });
     expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  it('a not-ready start hands the request back so the Record page can show the setup', async () => {
+    const service = fakeService({
+      start: vi.fn(() => Promise.resolve({ started: false, reason: 'not-ready', message: null })),
+    });
+    const workspace = new Workspace();
+    startTakeNotesRequests(
+      workspace,
+      createRecordingEntryPoints(service as unknown as RecordingService, workspace),
+      logger,
+    );
+    const seen: string[] = [];
+    workspace.on('takeNotesRequested', () => seen.push('event'));
+    workspace.requestTakeNotes();
+    await vi.waitFor(() => {
+      expect(workspace.consumeTakeNotes().pending).toBe(true);
+    });
+    // One handback event for the page; main did not loop on its own handback.
+    expect(service.start).toHaveBeenCalledTimes(1);
+    expect(seen.length).toBe(2);
   });
 });

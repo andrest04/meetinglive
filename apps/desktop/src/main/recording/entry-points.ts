@@ -27,7 +27,8 @@ export function createRecordingEntryPoints(
         },
         { meetingId: options.meetingId ?? null },
       );
-      return { started: result.started, meetingId: result.started ? result.meetingId : null };
+      if (result.started) return { started: true, meetingId: result.meetingId };
+      return { started: false, meetingId: null, reason: result.reason };
     },
     stopRecording: () => service.stop(),
     isCaptureActive: () => service.isCaptureActive,
@@ -51,17 +52,31 @@ export function registerRecordingBusyProbe(
  * may return later): the request is a blank take either way. Returns the unsubscribe.
  */
 export function startTakeNotesRequests(
-  workspace: Pick<Workspace, 'on' | 'consumeTakeNotes' | 'state'>,
+  workspace: Pick<Workspace, 'on' | 'consumeTakeNotes' | 'restoreTakeNotes' | 'state'>,
   entry: Pick<RecordingEntryPoints, 'startRecording'>,
   logger: Logger,
 ): () => void {
+  let handingBack = false;
   return workspace.on('takeNotesRequested', () => {
-    if (!workspace.consumeTakeNotes().pending) return;
+    if (handingBack || !workspace.consumeTakeNotes().pending) return;
     // A take or a run already holds the session: `start` answers busy and nothing changes.
-    entry.startRecording().catch((error: unknown) => {
-      logger.warn('the take-notes request did not start a recording', {
-        error: error instanceof Error ? error.message : String(error),
+    entry
+      .startRecording()
+      .then((result) => {
+        // Setup is incomplete: the request goes back to the Record page, which is already open,
+        // and its own start shows the setup dialog (main has no words for it).
+        if (result.started || result.reason !== 'not-ready') return;
+        handingBack = true;
+        try {
+          workspace.restoreTakeNotes();
+        } finally {
+          handingBack = false;
+        }
+      })
+      .catch((error: unknown) => {
+        logger.warn('the take-notes request did not start a recording', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
   });
 }

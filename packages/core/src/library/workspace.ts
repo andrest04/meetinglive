@@ -148,6 +148,15 @@ export class Workspace {
     this.navigateTo('Recording');
   }
 
+  /**
+   * Puts a consumed request back when main could not act on it (setup incomplete), so the Record
+   * page picks it up and shows what is missing. The page is already the destination.
+   */
+  restoreTakeNotes(): void {
+    this.takeNotesPending = true;
+    this.emit('takeNotesRequested', undefined);
+  }
+
   consumeTakeNotes(): { pending: boolean; calendarEventId: string | null } {
     const result = { pending: this.takeNotesPending, calendarEventId: this.takeNotesEventId };
     this.takeNotesEventId = null;

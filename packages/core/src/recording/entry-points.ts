@@ -20,9 +20,11 @@ export type ProcessAudioResult =
   | { readonly started: false; readonly reason: 'busy' };
 
 export interface RecordingEntryPoints {
-  startRecording(
-    options?: StartRecordingOptions,
-  ): Promise<{ started: boolean; meetingId: string | null }>;
+  startRecording(options?: StartRecordingOptions): Promise<{
+    started: boolean;
+    meetingId: string | null;
+    reason?: 'busy' | 'not-ready' | 'failed' | 'cancelled';
+  }>;
   stopRecording(): Promise<boolean>;
   isCaptureActive(): boolean;
   isMeetingInUse(meetingId: string): boolean;

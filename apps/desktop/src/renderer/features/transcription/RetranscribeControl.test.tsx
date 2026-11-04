@@ -45,6 +45,24 @@ const available = {
 };
 
 describe('Re-transcribe in the session header', () => {
+  it.each([
+    ['recording.state', { phase: 'Idle' }],
+    ['summaries.progress', { meetingId: 'm1', running: false }],
+  ])('enables again when %s says the busy work ended (B16)', async (event, payload) => {
+    let answer = 'Busy';
+    const api = installTranscriptionApi({
+      'retranscription.availability': () => ({ availability: answer }),
+      'retranscription.getState': () => idle,
+    });
+    mount();
+    expect(await button()).toBeDisabled();
+    answer = 'Available';
+    api.emit(event, payload);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Re-transcribe' })).toBeEnabled();
+    });
+  });
+
   it('is not drawn when the meeting has no saved audio (item 89)', async () => {
     installTranscriptionApi(available);
     mount({ hasAudio: false });

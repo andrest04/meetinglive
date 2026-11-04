@@ -91,6 +91,13 @@ export function useRetranscription(
       setState(next);
       void loadAvailability();
     });
+    // A take or a summary run makes this meeting busy in main; when either ends, ask again (B16).
+    const offRecording = window.vozella.on('recording.state', () => {
+      if (flags.alive) void loadAvailability();
+    });
+    const offSummary = window.vozella.on('summaries.progress', (progress) => {
+      if (flags.alive && progress.meetingId === meetingId) void loadAvailability();
+    });
     const offDone = window.vozella.on('retranscription.finished', (done) => {
       if (!flags.alive || done.meetingId !== meetingId) return;
       setResult(done);
@@ -102,6 +109,8 @@ export function useRetranscription(
     return () => {
       flags.alive = false;
       offState();
+      offRecording();
+      offSummary();
       offDone();
     };
   }, [meetingId, loadAvailability, dismissKept]);
