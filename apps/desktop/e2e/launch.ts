@@ -99,3 +99,45 @@ export async function installEngine(page: Page): Promise<void> {
   await page.reload();
   await page.getByRole('navigation').waitFor();
 }
+
+/** True when the run drives a packaged build (pnpm test:e2e:packaged). */
+export const packaged = Boolean(process.env.VOZELLA_E2E_EXECUTABLE);
+
+/** Why a spec cannot run against a packaged build, which is production mode. */
+export const NO_GALLERY = 'the component gallery route does not exist in a packaged build';
+export const NO_TEST_HOOKS =
+  'a packaged build is production mode, which ignores the test-only hooks';
+
+/**
+ * Screenshots of the packaged app, taken only when the run targets a packaged build
+ * (VOZELLA_E2E_EXECUTABLE) and VOZELLA_PACKAGED_SHOTS=1. They go to docs/port/screens/packaged.
+ */
+export const packagedShots =
+  process.env.VOZELLA_PACKAGED_SHOTS === '1' && Boolean(process.env.VOZELLA_E2E_EXECUTABLE);
+
+/**
+ * Starting a take minimizes the main window (the live copilot pill takes over) and a minimized
+ * window paints nothing, so a screenshot taken during or after a take needs this first. It does
+ * what the pill's Show button does.
+ */
+export async function restoreMain(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ BrowserWindow }) => {
+    const main = BrowserWindow.getAllWindows().find((w) => w.getTitle() === 'Vozella');
+    if (main?.isMinimized()) main.restore();
+    main?.show();
+  });
+}
+
+export async function packagedShot(
+  page: Page,
+  name: string,
+  app?: ElectronApplication,
+): Promise<void> {
+  if (!packagedShots) return;
+  if (app) await restoreMain(app);
+  const dir = path.resolve(__dirname, '../../../docs/port/screens/packaged');
+  fs.mkdirSync(dir, { recursive: true });
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(dir, name) });
+}

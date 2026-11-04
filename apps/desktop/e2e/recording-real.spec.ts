@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApp, type LaunchedApp } from './launch';
+import { launchApp, packagedShot, packagedShots, type LaunchedApp } from './launch';
 
 // R12, the one real run: the real native addon, the real speech engine and the real Record page.
 // A generated WAV (a tone, then a Spanish speech sample made by the Windows synthesizer) is played
@@ -110,6 +110,7 @@ test.beforeAll(async () => {
   launched = await launchApp(
     {
       VOZELLA_FAKE_NATIVE: '0',
+      VOZELLA_E2E_SHOW: packagedShots ? '1' : '0',
       PATH: `${bin};${process.env.PATH ?? ''}`,
     },
     (dataRoot) => {
@@ -183,11 +184,13 @@ test('a played WAV is captured by process loopback, heard by Nemotron and saved 
 
   // Let the whole sample play (about 13 s after the tone), then stop.
   await page.waitForTimeout(20_000);
+  await packagedShot(page, 'real-recording.png', launched.app);
   await page.getByTestId('BtnStop').click();
   await expect(page.getByTestId('result-card')).toBeVisible({ timeout: 240_000 });
   await expect(page.getByTestId('status-text')).not.toContainText('Generating', {
     timeout: 120_000,
   });
+  await packagedShot(page, 'real-result.png', launched.app);
 
   const saved = await (async () => {
     const found: string[] = [];
