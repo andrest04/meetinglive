@@ -95,7 +95,11 @@ describe('RecordingTakes', () => {
   it('names the file after the local date and the title, in the Inbox', async () => {
     const { takes, controller } = setup();
     const result = await takes.start('Weekly sync', mic);
-    expect(result).toEqual({ started: true, recordedAtMs: clock });
+    expect(result).toEqual({
+      started: true,
+      recordedAtMs: clock,
+      path: path.join(inbox, '2026-05-03 Weekly sync.wav'),
+    });
     expect(controller.startRecording).toHaveBeenCalledWith(
       path.join(inbox, '2026-05-03 Weekly sync.wav'),
       mic,

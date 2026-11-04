@@ -15,6 +15,8 @@ export interface FakeAudioCaptureOptions {
   readonly toneHz?: number;
   /** Make start() reject, to test failure paths. */
   readonly failWith?: string;
+  /** Report the source as lost (an error, then no more frames) this long after start. */
+  readonly endWithErrorAfterMs?: number;
 }
 
 /** Fake: a deterministic tone (or silence) on the same 20 ms cadence as the real device. */
@@ -46,6 +48,15 @@ export class FakeAudioCapture implements AudioCapturePort {
       frames += 1;
     }, FRAME_MS);
     let stopped = false;
+    const endAfter = this.options.endWithErrorAfterMs;
+    if (endAfter !== undefined && endAfter > 0) {
+      setTimeout(() => {
+        if (stopped) return;
+        stopped = true;
+        clearInterval(timer);
+        onStopped?.(new Error('The audio device was lost.'));
+      }, endAfter);
+    }
     return Promise.resolve({
       stop(): CaptureStats {
         if (!stopped) {

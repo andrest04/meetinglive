@@ -4,6 +4,7 @@ export * from './channel';
 export * from './channels';
 export * from './library';
 export * from './meeting-prompt';
+export * from './recording';
 export * from './result';
 export * from './settings';
 export * from './summaries';

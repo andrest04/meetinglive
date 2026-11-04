@@ -1,143 +1,342 @@
-import { FileUp, Mic, Pause, Play, Square } from 'lucide-react';
-import { useState } from 'react';
-import { useT } from '../../i18n/I18nProvider';
-import { RecordingStatusLine } from '../audio/RecordingStatusLine';
+import { defaultMeetingTitle } from '@vozella/core';
+import { FileUp, Mic } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useI18n } from '../../i18n/I18nProvider';
+import { Button, SectionHeader } from '../../ui';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
-import { Button, Field, Input, Notice, SectionHeader } from '../../ui';
-import { EngineSetupDialog } from '../transcription/EngineSetupDialog';
-import { LiveTranscript } from '../transcription/LiveTranscript';
 import { useEngineStatus } from '../transcription/use-engine-status';
-import { useTake, useTakeNotesRequest } from './use-take';
+import { AnswerCard } from './AnswerCard';
+import { LiveAskDock } from './LiveAskDock';
+import { LiveCanvas } from './LiveCanvas';
+import { ProcessingBar, RetryAction } from './ProcessingBar';
+import { NotepadPanel } from './notepad/NotepadPanel';
+import { RecordIdle } from './RecordIdle';
+import { buildDestinations } from './destinations';
+import {
+  arrangePanels,
+  deriveRecordLayout,
+  hasStatusError,
+  type StatusMessage,
+} from './record-layout';
+import { RecordingSession, useCanvasCopy } from './RecordingSession';
+import { useRecordShortcuts, type RecordShortcutHandlers } from './use-record-shortcuts';
+import { ResultCard } from './ResultCard';
+import { SetupChecklist } from './SetupChecklist';
+import { StatusBars, useStatusText } from './StatusBars';
+import { useEnsureReady } from './use-ensure-ready';
+import {
+  cancelBackgroundSummary,
+  cancelProcessing,
+  connectRecording,
+  importRecording,
+  retryProcessing,
+  setFolderId,
+  setTitle,
+  startRecording,
+  useRecordingStore,
+} from './use-recording';
+import { useLiveAskStore } from './use-live-ask';
+import { useTakeNotesRequest } from './use-take-notes';
 
-const NO_SELECTION: SourcesSelection = { microphone: null, processId: null, appName: null };
+const NO_SELECTION: SourcesSelection = {
+  microphone: null,
+  processId: null,
+  appName: null,
+  summary: '',
+};
+
+const useWindowWidth = (): number => {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = (): void => {
+      setWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+  return width;
+};
+
+/** Opens the saved meeting in the Session page on the Summary tab if it has one (spec 2.13). */
+async function openMeeting(id: string): Promise<void> {
+  try {
+    const { record } = await window.vozella.invoke('library.getMeeting', { id });
+    const tab = record?.summary != null ? 'Summary' : 'Transcript';
+    await window.vozella.invoke('workspace.dispatch', { action: { type: 'selectMeeting', id } });
+    await window.vozella.invoke('workspace.dispatch', { action: { type: 'openSession', tab } });
+  } catch {
+    // The card stays; the user can open the meeting from the library.
+  }
+}
 
 /**
- * The Record page. The audio-capture module owns the Sources block, the take controls and the
- * status line; the meeting record, the notes and the transcription that follow a take belong to
- * the recording module. The transcription module owns the engine gate before a take starts and the
- * live transcript while it runs.
+ * The Record page: a thin container over the recording store. The idle zone (title, destination,
+ * sources, hero or setup panel), the result card and the status bars are drawn here from main's
+ * state; the recording bar and the processing bar are the next packages' work and keep the
+ * controls the page already had.
  */
 export function RecordRoute() {
-  const t = useT();
-  const take = useTake();
-  const [title, setTitle] = useState('');
+  const { t, locale } = useI18n();
+  const store = useRecordingStore();
+  const { state, setup, busy } = store;
   const [selection, setSelection] = useState<SourcesSelection>(NO_SELECTION);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [setupCancelled, setSetupCancelled] = useState(false);
   const { status: engine } = useEngineStatus();
-  const idle = take.phase === 'idle';
-  const recording = take.phase === 'recording' || take.phase === 'paused';
-  const shown = recording || take.phase === 'stopping';
-  const busy = take.phase === 'starting' || take.phase === 'stopping' || take.phase === 'importing';
-  const micOn = selection.microphone?.kind !== 'None';
+  const { ensureReady, dialogs } = useEnsureReady();
+  const answer = useLiveAskStore((s) => s.answer);
+  const width = useWindowWidth();
 
-  const begin = (): Promise<void> =>
-    take.start(title, selection.microphone ?? { kind: 'SystemDefault', deviceId: null });
+  useEffect(() => connectRecording(), []);
 
-  // Spec 2.1: recording starts only with the engine on disk. Otherwise the setup dialog runs and
-  // a cancel or a failure leaves the page as it was.
-  const record = async (): Promise<void> => {
-    setSetupCancelled(false);
-    let ready = false;
-    try {
-      ready = (await window.vozella.invoke('transcription.getStatus', {})).ready;
-    } catch {
-      // The dialog asks main to install, and shows the failure if main cannot.
-    }
-    if (ready) await begin();
-    else setSetupOpen(true);
+  const phase = state?.phase ?? 'Idle';
+  const active = phase !== 'Idle';
+  const isRecording = state?.isRecording ?? false;
+  const isProcessing = (state?.isProcessing ?? false) || (active && !isRecording);
+  const idle = !active && busy === null;
+  const savedMeeting =
+    !active && state?.lastMeeting && state.lastMeeting.id !== store.clearedMeetingId
+      ? state.lastMeeting
+      : null;
+
+  // After the hand-off the summary runs on its own; main's status says so (B-21).
+  const summarizing =
+    !active && (state?.status ?? []).some((message) => message.key === 'Status_GeneratingSummary');
+
+  const flags = deriveRecordLayout({
+    isRecording,
+    isProcessing,
+    isReadyToRecord: setup?.canRecord ?? true,
+    hasCanvasTranscript: store.liveText !== '',
+  });
+
+  const defaultTitle = useMemo(
+    () =>
+      defaultMeetingTitle(new Date(store.defaultAtMs), locale, {
+        MeetingTitleFormat: t('MeetingTitleFormat'),
+        MeetingTitleDateFormat: t('MeetingTitleDateFormat'),
+      }),
+    [store.defaultAtMs, locale, t],
+  );
+  const title = isRecording ? (state?.title ?? '') : (store.title ?? defaultTitle);
+
+  const record = useCallback(async (): Promise<void> => {
+    if (!(await ensureReady())) return;
+    await startRecording({ title, ...selection });
+  }, [ensureReady, title, selection]);
+
+  const importAudio = async (): Promise<void> => {
+    if (!(await ensureReady())) return;
+    await importRecording(title);
   };
 
-  useTakeNotesRequest(take.phase, () => {
+  // Ctrl+R starts a take from the idle page (2.5); once recording, the session binds it to Stop.
+  const idleShortcuts = useMemo<RecordShortcutHandlers | null>(
+    () =>
+      active
+        ? null
+        : {
+            stop: { enabled: idle && flags.showRecordHero, run: () => void record() },
+            pause: { enabled: false, run: () => undefined },
+            discard: { enabled: false, run: () => undefined },
+          },
+    [active, idle, flags.showRecordHero, record],
+  );
+  useRecordShortcuts(idleShortcuts);
+
+  useTakeNotesRequest(idle, () => {
     void record();
   });
 
+  // The status the page shows: main's list while a take or a run exists, else the idle line.
+  const messages: readonly StatusMessage[] = useMemo(() => {
+    const fromMain = state?.status ?? [];
+    if (fromMain.length > 0) return fromMain;
+    if (store.notice) return [store.notice];
+    if (!active && setup) return [{ ...setup.idleStatus, severity: 'info' as const }];
+    return [];
+  }, [state?.status, store.notice, active, setup]);
+  const statusText = useStatusText(messages);
+  const canvasCopy = useCanvasCopy(store.liveText);
+  const destination = useMemo(() => {
+    const inbox = t('Library_Inbox');
+    return (
+      buildDestinations(store.folders, inbox, locale).find((d) => d.folderId === store.folderId)
+        ?.path ?? inbox
+    );
+  }, [store.folders, store.folderId, locale, t]);
+  const emptyText =
+    engine && !engine.liveEnabled ? t('Ui_LiveSkipped') : t('RecordPage_LiveTranscriptHint.Text');
+  const captionText = hasStatusError(messages) ? '' : statusText;
+  const panels = arrangePanels(width);
+  const scrollSession = flags.isSessionActive;
+
   return (
-    <section className="flex flex-col gap-8">
+    <section
+      className={scrollSession ? 'flex flex-col gap-6' : 'flex flex-col gap-8'}
+      data-testid="record-page"
+      data-session={scrollSession ? 'true' : 'false'}
+    >
       <SectionHeader
         level={1}
         title={t('RecordPage_Title.Text')}
-        description={t('RecordPage_Subtitle.Text')}
+        description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
       />
-      <div className="flex flex-col gap-5">
-        <Field label={t('RecordPage_MeetingTitle.Header')}>
-          <Input
-            value={title}
-            disabled={!idle}
-            onChange={(event) => {
-              setTitle(event.target.value);
+
+      <RecordIdle
+        hidden={isRecording}
+        title={title}
+        onTitleChange={setTitle}
+        titleDisabled={isRecording || busy === 'starting'}
+        folders={store.folders}
+        folderId={store.folderId}
+        onFolderChange={setFolderId}
+        destinationDisabled={isRecording || busy === 'starting'}
+      >
+        <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
+
+        {flags.showSetupPanel && setup ? (
+          <SetupChecklist
+            setup={setup}
+            busy={busy !== null}
+            onSetUp={() => {
+              void ensureReady();
             }}
           />
-        </Field>
-      </div>
-      <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
+        ) : null}
 
-      <RecordingStatusLine
-        recording={shown}
-        listening={shown || take.phase === 'starting'}
-        paused={take.phase === 'paused'}
-        microphone={micOn}
-        appName={selection.appName}
-      />
-      {take.phase === 'starting' ? (
-        <Notice>{t('Ui_TakeStarting')}</Notice>
-      ) : setupCancelled && !shown ? (
-        <Notice>{t('Status_SetupCancelled')}</Notice>
-      ) : !shown && take.notice ? (
-        <Notice tone={take.notice.tone}>
-          {t(take.notice.message.key, ...take.notice.message.args)}
-        </Notice>
-      ) : null}
-
-      <div className="flex flex-wrap items-center gap-3">
-        {shown ? (
-          <>
+        {flags.showRecordHero && !active ? (
+          <div className="flex flex-wrap items-center gap-3" data-testid="record-hero">
             <Button
               variant="primary"
-              icon={Square}
-              disabled={take.phase !== 'recording' && take.phase !== 'paused'}
-              onClick={() => void take.stop()}
+              icon={Mic}
+              disabled={busy !== null}
+              data-testid="BtnRecord"
+              onClick={() => void record()}
             >
-              {t('Record_Stop')}
-            </Button>
-            {take.phase === 'paused' ? (
-              <Button icon={Play} onClick={() => void take.resume()}>
-                {t('Record_Resume')}
-              </Button>
-            ) : (
-              <Button
-                icon={Pause}
-                disabled={take.phase !== 'recording'}
-                onClick={() => void take.pause()}
-              >
-                {t('Record_Pause')}
-              </Button>
-            )}
-          </>
-        ) : (
-          <>
-            <Button variant="primary" icon={Mic} disabled={busy} onClick={() => void record()}>
               {t('Record_Record')}
             </Button>
-            <Button icon={FileUp} disabled={busy} onClick={() => void take.importAudio(title)}>
-              {t('Record_Import')}
-            </Button>
-          </>
-        )}
-      </div>
-      {(shown || take.phase === 'starting') && engine?.liveEnabled ? (
-        <LiveTranscript loading={take.phase === 'starting'} />
-      ) : shown && engine ? (
-        <p className="text-ui-lg text-ink-muted">{t('Ui_LiveSkipped')}</p>
+            {flags.showImportAudio ? (
+              <Button
+                icon={FileUp}
+                disabled={busy !== null}
+                data-testid="BtnImportAudio"
+                onClick={() => void importAudio()}
+              >
+                {t('Record_Import')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {busy === 'starting' ? (
+          <p role="status" className="text-ui text-ink-muted">
+            {t('Ui_TakeStarting')}
+          </p>
+        ) : null}
+
+        {!active ? <StatusBars messages={messages} scope="idle" /> : null}
+        {!active && state?.canRetry ? (
+          <RetryAction
+            onRetry={() => {
+              void retryProcessing();
+            }}
+          />
+        ) : null}
+      </RecordIdle>
+
+      {isRecording && state ? (
+        <>
+          <StatusBars messages={messages} scope="session" />
+          <RecordingSession
+            state={state}
+            liveText={store.liveText}
+            committedText={store.committedText}
+            destination={destination}
+            sources={selection.summary}
+            statusText={captionText}
+            emptyText={emptyText}
+            side={
+              <div className="flex min-w-0 flex-col gap-4">
+                <AnswerCard answer={answer} />
+                <NotepadPanel maxHeight={panels.notesMaxHeight} />
+              </div>
+            }
+            dock={<LiveAskDock enabled={state.phase === 'Recording'} />}
+            sideBySide={panels.sideBySide}
+          />
+        </>
+      ) : active ? (
+        <div
+          className={
+            panels.sideBySide
+              ? 'grid grid-cols-[minmax(0,1fr)_320px] items-start gap-4'
+              : 'flex flex-col gap-4'
+          }
+          data-testid="record-session"
+        >
+          <div className="flex min-w-0 flex-col gap-4">
+            <ProcessingBar
+              statusText={statusText}
+              canCancel={(state?.isProcessing ?? false) || busy === 'importing'}
+              onCancel={() => void cancelProcessing()}
+            />
+            <StatusBars messages={messages} scope="session" />
+            {flags.showTranscriptCanvas ? (
+              <LiveCanvas
+                heading={t(flags.canvasHeadingKey)}
+                live={false}
+                text={store.liveText}
+                committedLines={Number.POSITIVE_INFINITY}
+                emptyText={emptyText}
+                highlightFeedback={null}
+                statusText={null}
+                copied={canvasCopy.copied}
+                onCopy={null}
+                className="h-96"
+              />
+            ) : null}
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <AnswerCard answer={answer} />
+            <NotepadPanel />
+          </div>
+        </div>
       ) : null}
-      <EngineSetupDialog
-        open={setupOpen}
-        onFinished={(ready) => {
-          setSetupOpen(false);
-          if (ready) void begin();
-          else setSetupCancelled(true);
-        }}
-      />
+
+      {savedMeeting ? (
+        <ResultCard
+          title={savedMeeting.title}
+          onOpen={() => {
+            void openMeeting(savedMeeting.id);
+          }}
+          onCancelSummary={
+            summarizing
+              ? () => {
+                  void cancelBackgroundSummary(savedMeeting.id);
+                }
+              : null
+          }
+        />
+      ) : null}
+
+      {!active && flags.showTranscriptCanvas ? (
+        <LiveCanvas
+          heading={t(flags.canvasHeadingKey)}
+          live={false}
+          text={store.liveText}
+          committedLines={Number.POSITIVE_INFINITY}
+          emptyText={emptyText}
+          highlightFeedback={null}
+          statusText={null}
+          copied={canvasCopy.copied}
+          onCopy={canvasCopy.copy}
+          surfaceTestId="saved-transcript"
+          className="h-96"
+        />
+      ) : null}
+
+      {dialogs}
     </section>
   );
 }

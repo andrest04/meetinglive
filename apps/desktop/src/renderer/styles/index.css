@@ -149,3 +149,14 @@
 .app-no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* The recording halo (spec 2.6): opacity 0.15 to 0.45 over 1.2 s, reversing. Reduced motion is
+   handled in Pulse.tsx, which sets a static 0.3 instead of this animation. */
+@keyframes halo-pulse {
+  from {
+    opacity: 0.15;
+  }
+  to {
+    opacity: 0.45;
+  }
+}

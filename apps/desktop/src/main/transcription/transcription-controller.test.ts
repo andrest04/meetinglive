@@ -502,7 +502,7 @@ describe('re-transcription', () => {
     expect(events.find((e) => e.channel === 'retranscription.finished')?.payload).toEqual({
       meetingId: 'm1',
       outcome: 'Failed',
-      message: 'Download finished but the transcription engine is still not ready.',
+      message: 'The transcription engine is not installed. Install it in Settings, then try again.',
     });
     expect((await meetings.get('m1'))?.transcript).toContain('old words');
   });

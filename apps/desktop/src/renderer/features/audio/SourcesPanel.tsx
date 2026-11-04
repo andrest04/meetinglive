@@ -3,7 +3,7 @@ import { AppWindow, Volume2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { Translate } from '../../i18n/translate';
-import { Badge, Button, Field, Icon, Meter, Notice, RadioGroup, Select, Tooltip } from '../../ui';
+import { Badge, Field, Icon, Meter, Notice, RadioGroup, Select, Tooltip } from '../../ui';
 import type { RadioOption } from '../../ui';
 import { sourcesSummaryArgs } from './recording-status';
 import { useMicrophonePreview } from './use-microphone-preview';
@@ -17,6 +17,8 @@ export interface SourcesSelection {
   /** Null means all system audio. */
   readonly processId: number | null;
   readonly appName: string | null;
+  /** "Mic: {0} · Audio: {1}", for the recording bar. */
+  readonly summary: string;
 }
 
 const SYSTEM_VALUE = 'system';
@@ -52,6 +54,7 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   const level = useMicrophonePreview(
     selectedMic?.kind === 'Device' ? selectedMic.deviceId : null,
     active && selectedMic !== null && micKind !== 'None',
+    'record',
   );
 
   const micOptions = useMemo(
@@ -78,10 +81,6 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
   );
   const appName = selectedCard?.app?.friendlyName ?? null;
 
-  useEffect(() => {
-    onSelectionChange?.({ microphone: selectedMic, processId: selectedProcessId, appName });
-  }, [onSelectionChange, selectedMic, selectedProcessId, appName]);
-
   const summary = t(
     'RecordPage_SourcesSummary',
     ...sourcesSummaryArgs(selectedMicLabel, appName, {
@@ -89,6 +88,15 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
       allSystem: t('RecordPage_AllSystemAudio.Text'),
     }),
   );
+
+  useEffect(() => {
+    onSelectionChange?.({
+      microphone: selectedMic,
+      processId: selectedProcessId,
+      appName,
+      summary,
+    });
+  }, [onSelectionChange, selectedMic, selectedProcessId, appName, summary]);
 
   const cards = state?.cards ?? [];
   const options: RadioOption[] = cards.map((card) => cardOption(card, t, locked));
@@ -152,29 +160,6 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
             {t('RecordPage_MeetingAudioHeading.Text')}
           </h3>
 
-          {!locked && state?.suggestion ? (
-            <Notice
-              onDismiss={() => {
-                if (state.suggestion) picker.dismissSuggestion(state.suggestion.processId);
-              }}
-              dismissLabel={t('Ui_Close')}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <p className="font-medium">
-                  {t('RecordPage_SuggestionTitle', state.suggestion.friendlyName)}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (state.suggestion) picker.select(state.suggestion.processId);
-                  }}
-                >
-                  {t('RecordPage_SuggestionAction', state.suggestion.friendlyName)}
-                </Button>
-              </div>
-            </Notice>
-          ) : null}
-
           <RadioGroup
             label={t('ListRecordAudioSource.AutomationProperties.Name')}
             layout="rows"
@@ -219,7 +204,7 @@ function cardOption(card: SourceCardDto, tr: Translate, locked: boolean): RadioO
         className={
           card.isAvailable
             ? 'inline-flex flex-wrap items-center gap-2'
-            : 'inline-flex flex-wrap items-center gap-2 opacity-60'
+            : 'inline-flex flex-wrap items-center gap-2 opacity-[0.55]'
         }
       >
         <Tooltip content={tr('RecordPage_AppCardTooltip')} side="top">

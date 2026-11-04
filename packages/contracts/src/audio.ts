@@ -85,12 +85,16 @@ export const audioSourcesCloseFallback = defineRequest('audio.sources.closeFallb
 });
 
 /** Starts the idle level of a microphone. Never fails; levels arrive on `audio.preview.level`. */
+export const previewOwnerSchema = z.enum(['record', 'settings']);
+
 export const audioPreviewStart = defineRequest('audio.preview.start', {
-  input: z.object({ deviceId: z.string().nullable() }),
+  /** The page that starts the meter owns it; the default is Settings (B-32). */
+  input: z.object({ deviceId: z.string().nullable(), owner: previewOwnerSchema.optional() }),
   output: z.object({ started: z.literal(true) }),
 });
 export const audioPreviewStop = defineRequest('audio.preview.stop', {
-  input: empty,
+  /** A stop from a page that does not own the meter does nothing (B-32). */
+  input: z.object({ owner: previewOwnerSchema.optional() }),
   output: z.object({ stopped: z.literal(true) }),
 });
 

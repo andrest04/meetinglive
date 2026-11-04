@@ -24,3 +24,6 @@ export { Tooltip, TooltipProvider } from './Tooltip';
 export { Tree, type TreeNode, type TreeProps } from './Tree';
 export { EmptyState, SectionHeader, SettingRow } from './layout';
 export { cn } from './cn';
+export { AudioBars, type AudioBarsProps } from './AudioBars';
+export { useReducedMotion } from './use-reduced-motion';
+export { Pulse, type PulseProps } from './Pulse';

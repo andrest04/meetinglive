@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   libraryChanged,
+  recordingCloseRequest,
   settingsMeetingPopupChanged,
   type AppInfo,
   type EventChannel,
@@ -91,6 +92,15 @@ import { TranscriptionController } from './transcription/transcription-controlle
 import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
+import { composeRecording } from './recording/compose-recording';
+import { CloseGuard, RendererCloseDialogs } from './recording/close-guard';
+import {
+  createRecordingEntryPoints,
+  registerRecordingBusyProbe,
+  startTakeNotesRequests,
+} from './recording/entry-points';
+import { registerRecordingHandlers } from './ipc/recording-handlers';
+import { LiveAsk } from './recording/live-ask-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -255,8 +265,20 @@ function main(): void {
   // Set once the handlers exist; a quit waits for the writes they hold (B16).
   let libraryWrites: { settled: () => Promise<void> } | undefined;
   let quitting = false;
+  // Close protection (165): the exit gates (recording first) decide before anything shuts down.
+  let mayExit: () => Promise<boolean> = () => Promise.resolve(true);
+  let exitApproved = false;
   app.on('before-quit', (event) => {
     if (quitting) return;
+    if (!exitApproved) {
+      event.preventDefault();
+      void mayExit().then((ok) => {
+        if (!ok) return;
+        exitApproved = true;
+        app.quit();
+      });
+      return;
+    }
     quitting = true;
     event.preventDefault();
     void Promise.race([
@@ -560,6 +582,22 @@ function main(): void {
         },
       },
     });
+    const recordingTakes = new RecordingTakes({
+      controller: audioController,
+      inboxDirectory: () => library.paths.inboxDirectory,
+      nowMs: () => Date.now(),
+      wavDurationSeconds: readWavDurationSeconds,
+      logger: logger.child('recording'),
+      // The call popup stays away while a take runs (spec 2.6, item 106).
+      onCaptureActive: (active) => {
+        workspace.setCaptureActive(active);
+      },
+      // The transcription controller is built below; the take only calls it later.
+      live: {
+        start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
+        stop: () => transcriptionController.stopLive(),
+      },
+    });
     registerAudioHandlers({
       server: {
         ipc: ipcMain,
@@ -567,22 +605,7 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: audioController,
-      takes: new RecordingTakes({
-        controller: audioController,
-        inboxDirectory: () => library.paths.inboxDirectory,
-        nowMs: () => Date.now(),
-        wavDurationSeconds: readWavDurationSeconds,
-        logger: logger.child('recording'),
-        // The call popup stays away while a take runs (spec 2.6, item 106).
-        onCaptureActive: (active) => {
-          workspace.setCaptureActive(active);
-        },
-        // The transcription controller is built below; the take only calls it later.
-        live: {
-          start: (recordedAtMs) => transcriptionController.startLive(recordedAtMs),
-          stop: () => transcriptionController.stopLive(),
-        },
-      }),
+      takes: recordingTakes,
       appIcon: createAppIconProvider((exePath) => app.getFileIcon(exePath, { size: 'normal' })),
       pickAudioFile: async (extensions) => {
         const options = {
@@ -681,7 +704,11 @@ function main(): void {
     const transcription = new TranscriptionRuntime({
       transcriptionModelsDirectory: library.paths.transcriptionModelsDirectory,
       nemoSpeechDirectory: library.paths.nemoSpeechDirectory,
-      engine: fakeNative ? new FakeSpeechEngine() : asr,
+      engine: fakeNative
+        ? new FakeSpeechEngine(
+            Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
+          )
+        : asr,
       hardware: () => hardware.detect(),
       logger: logger.child('transcription'),
       ...(fakeNative
@@ -730,6 +757,73 @@ function main(): void {
       transcriptionController.dispose();
     });
 
+    // Recording: the service owns a take from Record to the saved summary.
+    const liveAsk = new LiveAsk({
+      settings: library.settings,
+      resolver: summaryRuntime.resolver,
+      recording: () => recording.liveAskContext,
+      broadcast,
+      formatFailure: (error) => summaries.formatError(error),
+      nowMs: () => Date.now(),
+    });
+    const recording = composeRecording({
+      liveAsk: liveAsk.hooks,
+      library,
+      controller: audioController,
+      takes: recordingTakes,
+      transcription: transcriptionController,
+      summaryService,
+      resolver: summaryRuntime.resolver,
+      summaryModels,
+      cli: summaryCli,
+      settings: library.settings,
+      workspace,
+      broadcast,
+      logger: logger.child('recording'),
+      translate: (key, ...args) => locale.t(key, ...args),
+      locale: () => locale.locale,
+      titleCatalog: (tag) => ({
+        MeetingTitleFormat: mainCatalogs[tag].MeetingTitleFormat ?? '',
+        MeetingTitleDateFormat: mainCatalogs[tag].MeetingTitleDateFormat ?? '',
+      }),
+      formatFailure: (error) => summaries.formatError(error),
+      wavDurationSeconds: readWavDurationSeconds,
+    });
+    // Entry points for the other modules, the busy probe (164), the take-notes request (180) and
+    // close protection (165).
+    const recordingEntry = createRecordingEntryPoints(recording, workspace);
+    registerRecordingBusyProbe(busy, recordingEntry);
+    startTakeNotesRequests(workspace, recordingEntry, logger.child('recording'));
+    const closeDialogs = new RendererCloseDialogs({
+      send: (request) => {
+        broadcast(recordingCloseRequest, request);
+      },
+      windowAvailable: () => mainWindow !== undefined && !mainWindow.isDestroyed(),
+      newId: () => randomUUID(),
+    });
+    const closeGuard = new CloseGuard({
+      service: recording,
+      dialogs: closeDialogs,
+      restoreWindow: () => {
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+      },
+      logger: logger.child('recording'),
+    });
+    settings.exitGates.register(() => closeGuard.mayClose());
+    mayExit = () => settings.exitGates.mayExit();
+    registerRecordingHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      service: recording,
+      closeDialogs,
+      liveAsk,
+    });
+
     mainWindow = createMainWindow({
       devServerUrl,
       showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
@@ -737,6 +831,15 @@ function main(): void {
     });
     const id = mainWindow.webContents.id;
     windowIds.add(id);
+    mainWindow.on('close', (event) => {
+      if (exitApproved) return;
+      event.preventDefault();
+      void mayExit().then((ok) => {
+        if (!ok) return;
+        exitApproved = true;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+      });
+    });
     mainWindow.on('closed', () => {
       windowIds.delete(id);
       mainWindow = undefined;

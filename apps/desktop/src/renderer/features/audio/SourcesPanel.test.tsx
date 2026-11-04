@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { SourcePickerStateDto } from '@vozella/contracts';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Providers } from '../library/library-test-kit';
@@ -236,6 +236,7 @@ describe('SourcesPanel microphone', () => {
     });
     expect(api.calls.find((c) => c.name === 'audio.preview.start')?.input).toEqual({
       deviceId: null,
+      owner: 'record',
     });
     api.emit('audio.preview.level', { level: 42 });
     expect(screen.getByRole('meter', { name: 'Microphone level' })).toHaveAttribute(
@@ -252,6 +253,26 @@ describe('SourcesPanel microphone', () => {
       'aria-valuenow',
       '0',
     );
+  });
+});
+
+describe('SourcesPanel microphone preview on the Record page', () => {
+  it('item 28: choosing a device restarts the preview on that device', async () => {
+    const api = installApi();
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    await waitFor(() => {
+      expect(names(api.calls)).toContain('audio.preview.start');
+    });
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Microphone' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Test headset' }));
+    await waitFor(() => {
+      const starts = api.calls.filter((c) => c.name === 'audio.preview.start');
+      expect(starts.at(-1)?.input).toEqual({ deviceId: 'mic-2', owner: 'record' });
+    });
   });
 });
 
@@ -298,6 +319,29 @@ describe('SourcesPanel meeting audio', () => {
     expect(screen.getByTestId('sources-summary')).toHaveTextContent('Audio: Zoom');
   });
 
+  it('items 31 and 33: the system card has a tooltip and no meter, an unavailable app card is dimmed to 0.55', async () => {
+    installApi({ state: playing });
+    render(
+      <Providers>
+        <SourcesPanel active />
+      </Providers>,
+    );
+    const group = await screen.findByRole('radiogroup', { name: 'Meeting audio' });
+    await waitFor(() => {
+      expect(screen.getAllByRole('radio')).toHaveLength(4);
+    });
+    expect(within(group).getAllByRole('meter')).toHaveLength(3);
+    await userEvent.hover(within(group).getByText('All system audio'));
+    expect(
+      await screen.findByText('Records everything playing on this PC, including other apps.'),
+    ).toBeVisible();
+    await userEvent.unhover(within(group).getByText('All system audio'));
+    await userEvent.hover(within(group).getByText('Zoom'));
+    expect(await screen.findByText(/^Records this app and the helper processes/)).toBeVisible();
+    const dimmed = within(group).getByText('Not playing').parentElement;
+    expect(dimmed?.className).toContain('opacity-[0.55]');
+  });
+
   it('draws the icon of each app executable and keeps the glyph where there is none (item 131)', async () => {
     const api = installApi({ state: playing, icons: { Zoom: 'data:image/png;base64,AAAA' } });
     const { container } = render(
@@ -326,23 +370,19 @@ describe('SourcesPanel meeting audio', () => {
     expect(container.querySelector('[inert]')).not.toBeNull();
   });
 
-  it('shows no meter readings and no offers while a take runs', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
+  it('shows no meter readings while a take runs', async () => {
+    installApi({ state: playing });
     const view = (active: boolean, locked: boolean) => (
       <Providers>
         <SourcesPanel active={active} locked={locked} />
       </Providers>
     );
     const { rerender } = render(view(true, false));
-    expect(await screen.findByText('Zoom is in a call')).toBeVisible();
+    expect(await screen.findByRole('radio', { name: /Zoom/ })).toBeVisible();
     rerender(view(false, true));
-    expect(screen.queryByText('Zoom is in a call')).toBeNull();
     const meters = screen.getAllByRole('meter', { hidden: true });
     expect(meters.length).toBeGreaterThan(0);
     for (const meter of meters) expect(meter).toHaveAttribute('aria-valuenow', '0');
-    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
   });
 
   it('shows the empty hint when no app plays', async () => {
@@ -390,45 +430,6 @@ describe('SourcesPanel meeting audio', () => {
     expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
     api.emit('audio.sources.changed', { ...playing, cards: [first, ...rest, extra].reverse() });
     expect(screen.getByRole('radio', { name: /Zoom/ })).toBe(zoom);
-  });
-
-  it('offers the suggested app and remembers dismissal', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
-    render(
-      <Providers>
-        <SourcesPanel active />
-      </Providers>,
-    );
-    expect(await screen.findByText('Zoom is in a call')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Use Zoom' }));
-    await waitFor(() => {
-      expect(screen.getByRole('radio', { name: /Zoom/ })).toBeChecked();
-    });
-    expect(api.calls.find((c) => c.name === 'audio.sources.select')?.input).toEqual({
-      processId: 10,
-    });
-    expect(api.calls.some((c) => c.name === 'audio.sources.dismissSuggestion')).toBe(false);
-  });
-
-  it('dismisses the suggestion with its close button', async () => {
-    const api = installApi({
-      state: { ...playing, suggestion: app(10, 'Zoom', { isKnownMeetingApp: true }) },
-    });
-    render(
-      <Providers>
-        <SourcesPanel active />
-      </Providers>,
-    );
-    await screen.findByText('Zoom is in a call');
-    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    await waitFor(() => {
-      expect(screen.queryByText('Zoom is in a call')).toBeNull();
-    });
-    expect(api.calls.find((c) => c.name === 'audio.sources.dismissSuggestion')?.input).toEqual({
-      processId: 10,
-    });
   });
 
   it('explains a fallback to all system audio and closes it', async () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useTakeNotesRequest, type TakePhase } from './use-take';
+import { useTakeNotesRequest } from './use-take-notes';
 
 type Listener = (payload: unknown) => void;
 
@@ -24,8 +24,8 @@ function install(options: {
         takeNotes: { pending: wasPending, calendarEventId: options.calendarEventId ?? null },
       });
     }
-    if (name === 'audio.recording.state') {
-      return Promise.resolve({ phase: options.recordingPhase ?? 'idle', notices: [] });
+    if (name === 'recording.getState') {
+      return Promise.resolve({ phase: options.recordingPhase ?? 'Idle' });
     }
     return Promise.resolve({});
   });
@@ -71,7 +71,7 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
   it('R17: a request remembered before the page opened starts a take on mount', async () => {
     install({ pending: true });
     const start = vi.fn();
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     expect(start).toHaveBeenCalledTimes(1);
   });
@@ -79,7 +79,7 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
   it('nothing pending starts nothing', async () => {
     install({ pending: false });
     const start = vi.fn();
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     expect(start).not.toHaveBeenCalled();
   });
@@ -88,7 +88,7 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
     const api = install({ pending: true });
     const start = vi.fn();
     visibility('hidden');
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     const afterMount = api.consumed.mock.calls.length;
     start.mockClear();
@@ -110,7 +110,7 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
   it('R18: the live event on a visible page consumes and starts', async () => {
     const api = install({ pending: true });
     const start = vi.fn();
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     start.mockClear();
     api.request();
@@ -121,12 +121,12 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
     expect(start).toHaveBeenCalledTimes(1);
   });
 
-  it.each<TakePhase>(['starting', 'recording', 'paused', 'stopping', 'importing'])(
-    'R20: no take starts while the page is %s, and the request is still consumed',
-    async (phase) => {
+  it.each(['starting or recording', 'processing'])(
+    'R20: no take starts while the page is busy (%s), and the request is still consumed',
+    async () => {
       const api = install({ pending: true });
       const start = vi.fn();
-      renderHook(() => useTakeNotesRequest(phase, start));
+      renderHook(() => useTakeNotesRequest(false, start));
       await flush();
       expect(api.consumed).toHaveBeenCalled();
       expect(start).not.toHaveBeenCalled();
@@ -134,9 +134,9 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
   );
 
   it('R20: no take starts when main says one is already running', async () => {
-    install({ pending: true, recordingPhase: 'recording' });
+    install({ pending: true, recordingPhase: 'Recording' });
     const start = vi.fn();
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     expect(start).not.toHaveBeenCalled();
   });
@@ -144,7 +144,7 @@ describe('useTakeNotesRequest (items 93, 94, 96)', () => {
   it('R19 stays dropped: a request that carries an event id is ignored', async () => {
     install({ pending: true, calendarEventId: 'evt-1' });
     const start = vi.fn();
-    renderHook(() => useTakeNotesRequest('idle', start));
+    renderHook(() => useTakeNotesRequest(true, start));
     await flush();
     expect(start).not.toHaveBeenCalled();
   });

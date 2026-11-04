@@ -41,6 +41,9 @@ export interface Scheduler {
   every(ms: number, task: () => void): () => void;
 }
 
+/** Who started the idle microphone preview. Only the owner (or a take) can stop it (B-32). */
+export type PreviewOwner = 'record' | 'settings';
+
 /** A mixed recording frame as the transcription module receives it. */
 export interface RecordingFrame {
   readonly samples: Float32Array;
@@ -75,6 +78,9 @@ export class AudioController {
   private takeNotices: RecordingNoticeDto[] = [];
   private collecting = false;
   private readonly frameListeners = new Set<(frame: RecordingFrame) => void>();
+  private readonly noticeListeners = new Set<(notice: RecordingNoticeDto) => void>();
+  private readonly levelListeners = new Set<(level: number) => void>();
+  private preview: { owner: PreviewOwner; deviceId: string | null } | null = null;
   private readonly off: () => void;
 
   constructor(private readonly deps: AudioControllerDeps) {
@@ -116,13 +122,28 @@ export class AudioController {
     return this.save(rememberMicrophonePatch(choice));
   }
 
-  startPreview(deviceId: string | null): void {
+  /** The running idle preview, or null. */
+  get previewState(): { owner: PreviewOwner; deviceId: string | null } | null {
+    return this.preview;
+  }
+
+  /**
+   * The idle level meter is one singleton. The page that started it owns it, so a Settings stop
+   * that arrives late cannot end a preview the Record page started a moment before (B-32), and a
+   * Settings start never takes the meter from Record.
+   */
+  startPreview(deviceId: string | null, owner: PreviewOwner = 'settings'): void {
+    if (this.preview !== null && this.preview.owner === 'record' && owner !== 'record') return;
+    this.preview = { owner, deviceId };
     void this.deps.host.call({ method: 'previewStart', deviceId }).catch((error: unknown) => {
       this.deps.logger.warn('microphone preview did not start', { error: String(error) });
     });
   }
 
-  stopPreview(): void {
+  /** A stop from a page that does not own the preview does nothing. Without an owner it forces. */
+  stopPreview(owner?: PreviewOwner): void {
+    if (owner !== undefined && this.preview !== null && this.preview.owner !== owner) return;
+    this.preview = null;
     void this.deps.host.call({ method: 'previewStop' }).catch(() => undefined);
   }
 
@@ -132,8 +153,20 @@ export class AudioController {
     return this.picker.state;
   }
 
-  async startSources(): Promise<SourcePickerStateDto> {
-    this.stopSources();
+  /** A second start while polling runs, or while the first is loading, changes nothing (3.4). */
+  startSources(): Promise<SourcePickerStateDto> {
+    if (this.starting !== null) return this.starting;
+    if (this.stopPolling !== undefined) return Promise.resolve(this.picker.state);
+    const starting = this.beginSources().finally(() => {
+      if (this.starting === starting) this.starting = null;
+    });
+    this.starting = starting;
+    return starting;
+  }
+
+  private starting: Promise<SourcePickerStateDto> | null = null;
+
+  private async beginSources(): Promise<SourcePickerStateDto> {
     const generation = ++this.generation;
     this.tick = 0;
     this.firstRefreshDone = false;
@@ -149,6 +182,7 @@ export class AudioController {
 
   stopSources(): void {
     this.generation += 1;
+    this.starting = null;
     this.stopPolling?.();
     this.stopPolling = undefined;
     this.picker.endPolling();
@@ -176,6 +210,22 @@ export class AudioController {
   }
 
   // Recording ---------------------------------------------------------------------------
+
+  /** Capture notices of the running take (source lost, output failed, faulted). */
+  onNotice(listener: (notice: RecordingNoticeDto) => void): () => void {
+    this.noticeListeners.add(listener);
+    return () => {
+      this.noticeListeners.delete(listener);
+    };
+  }
+
+  /** The level of the running take, 0..100. */
+  onRecordingLevel(listener: (level: number) => void): () => void {
+    this.levelListeners.add(listener);
+    return () => {
+      this.levelListeners.delete(listener);
+    };
+  }
 
   /** Subscribes to the mixed stream (16 kHz mono float32, 200 ms). Returns the unsubscribe. */
   onRecordingFrame(listener: (frame: RecordingFrame) => void): () => void {
@@ -305,6 +355,7 @@ export class AudioController {
   private notice(notice: RecordingNoticeDto): void {
     if (this.collecting) this.takeNotices.push(notice);
     this.deps.broadcast(audioRecordingNotice, notice);
+    for (const listener of [...this.noticeListeners]) listener(notice);
   }
 
   private publish(): void {
@@ -328,6 +379,7 @@ export class AudioController {
         break;
       case 'recording-level':
         this.deps.broadcast(audioRecordingLevel, { level: clampPercent(event.level) });
+        for (const listener of [...this.levelListeners]) listener(clampPercent(event.level));
         break;
       case 'recording-frame': {
         if (this.frameListeners.size === 0) break;

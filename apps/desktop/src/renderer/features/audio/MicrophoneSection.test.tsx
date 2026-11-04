@@ -72,6 +72,7 @@ describe('MicrophoneSection', () => {
     await waitFor(() => {
       expect(api.calls.filter((c) => c.name === 'audio.preview.start').at(-1)?.input).toEqual({
         deviceId: 'mic-2',
+        owner: 'settings',
       });
     });
     api.level(61);
@@ -98,7 +99,7 @@ describe('MicrophoneSection', () => {
       expect(api.calls.some((c) => c.name === 'audio.preview.start')).toBe(true);
     });
     const starts = api.calls.filter((c) => c.name === 'audio.preview.start');
-    expect(starts.map((c) => c.input)).toEqual([{ deviceId: 'mic-2' }]);
+    expect(starts.map((c) => c.input)).toEqual([{ deviceId: 'mic-2', owner: 'settings' }]);
   });
 
   it('97: shows nothing and saves nothing until both answers arrive', async () => {
@@ -172,6 +173,7 @@ describe('MicrophoneSection', () => {
     await waitFor(() => {
       expect(api.calls.filter((c) => c.name === 'audio.preview.start').at(-1)?.input).toEqual({
         deviceId: 'mic-2',
+        owner: 'settings',
       });
     });
     const updates = api.calls.filter((c) => c.name === 'settings.update').length;

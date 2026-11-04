@@ -229,6 +229,31 @@ describe('source polling', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('a second start while polling is a no-op (item 36)', async () => {
+    const r = rig();
+    await r.controller.startSources();
+    const before = r.host.methods().length;
+    await r.controller.startSources();
+    expect(r.host.methods().length).toBe(before);
+  });
+
+  it('a second start while the first loads shares it (item 36)', async () => {
+    const r = rig();
+    const first = r.controller.startSources();
+    const second = r.controller.startSources();
+    await Promise.all([first, second]);
+    expect(r.host.methods().filter((m) => m === 'appsRefresh')).toHaveLength(1);
+  });
+
+  it('a stop while the first refresh is in flight drops its result (item 36)', async () => {
+    const r = rig();
+    const start = r.controller.startSources();
+    r.controller.stopSources();
+    await start;
+    expect(r.scheduler.task).toBeUndefined();
+    expect(r.controller.pickerState.cards.every((c) => c.level === 0)).toBe(true);
+  });
+
   it('stopping zeroes the meters and ignores a refresh still in flight', async () => {
     const r = rig();
     await r.controller.startSources();
@@ -363,5 +388,45 @@ describe('import and preview', () => {
       { method: 'previewStart', deviceId: 'd1' },
       { method: 'previewStop' },
     ]);
+  });
+});
+
+describe('preview ownership (B-32)', () => {
+  const previewCalls = (r: ReturnType<typeof rig>, method: string) =>
+    r.host.calls.filter((c) => c.method === method).length;
+
+  it('a Settings stop cannot end a preview the Record page owns', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview('settings');
+    expect(previewCalls(r, 'previewStop')).toBe(0);
+    expect(r.controller.previewState).toEqual({ owner: 'record', deviceId: 'd1' });
+  });
+
+  it('a Settings start does not take the meter from Record', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.startPreview('d2', 'settings');
+    expect(previewCalls(r, 'previewStart')).toBe(1);
+    expect(r.controller.previewState?.deviceId).toBe('d1');
+  });
+
+  it('the owner stops its own preview, and a stop without an owner forces it', () => {
+    const r = rig();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview('record');
+    expect(previewCalls(r, 'previewStop')).toBe(1);
+    expect(r.controller.previewState).toBeNull();
+    r.controller.startPreview('d1', 'record');
+    r.controller.stopPreview();
+    expect(previewCalls(r, 'previewStop')).toBe(2);
+  });
+
+  it('Settings can start and stop its own preview', () => {
+    const r = rig();
+    r.controller.startPreview('d1');
+    r.controller.stopPreview('settings');
+    expect(previewCalls(r, 'previewStart')).toBe(1);
+    expect(previewCalls(r, 'previewStop')).toBe(1);
   });
 });

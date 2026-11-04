@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { FAKE_APPS } from './fake-audio-apps';
-import { launchApp, type LaunchedApp } from './launch';
+import { installEngine, launchApp, readyEnv, seedReadySettings, type LaunchedApp } from './launch';
 
 // Regenerates docs/port/screens/audio-capture/*.png. Opt in with VOZELLA_SCREENSHOTS=1.
 test.skip(process.env.VOZELLA_SCREENSHOTS !== '1', 'set VOZELLA_SCREENSHOTS=1 to capture');
@@ -14,9 +14,13 @@ let page: Page;
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 test.beforeAll(async () => {
-  launched = await launchApp({ VOZELLA_E2E_SHOW: '1', VOZELLA_FAKE_AUDIO_APPS: FAKE_APPS });
+  launched = await launchApp(
+    { VOZELLA_E2E_SHOW: '1', VOZELLA_FAKE_AUDIO_APPS: FAKE_APPS, ...readyEnv },
+    seedReadySettings,
+  );
   page = await launched.app.firstWindow();
   await expect(page.getByRole('navigation')).toBeVisible();
+  await installEngine(page);
   await launched.app.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 1100);
   });
@@ -60,7 +64,7 @@ for (const theme of ['light', 'dark'] as const) {
     await shot(`record-microphone-menu-${theme}`);
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: 'Use Zoom Workplace' }).click();
+    await page.getByRole('radio', { name: /Zoom Workplace/ }).click();
     await expect(page.getByRole('radio', { name: /Zoom Workplace/ })).toBeChecked();
     await shot(`record-app-selected-${theme}`);
     await page.getByRole('radio', { name: /All system audio/ }).click();

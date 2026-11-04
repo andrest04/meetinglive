@@ -42,8 +42,10 @@
   "Ui_ProcessLoopbackUnsupported": "Grabar una sola aplicación no está disponible en esta versión de Windows. Graba todo el audio del sistema.",
   "Ui_MicDefaultTitle": "Micrófono predeterminado",
   "Ui_MicDefaultDescription": "Se usa en las grabaciones, salvo que elijas otro en la página Grabar.",
-  "Ui_TakeSaved": "Guardado como {0} en la Bandeja de entrada.",
   "Ui_TakeStarting": "Iniciando la grabación. Puede tardar unos segundos.",
+  "Ui_CancelSummary": "Cancelar resumen",
+  "Ui_RetryProcessing": "Intentar guardar de nuevo",
+  "Ui_SearchedWeb": "Búsqueda en la web",
   "Ui_EngineStageRuntimeCuda": "Descargando el tiempo de ejecución NVIDIA CUDA",
   "Ui_EngineStageRuntimeCpu": "Descargando el tiempo de ejecución NVIDIA CPU",
   "Ui_EngineStageRuntimeCpuFallback": "Descargando el tiempo de ejecución NVIDIA CPU como respaldo",
@@ -55,7 +57,7 @@
   "Ui_EngineNotInstalled": "No instalado",
   "Ui_SwitchOn": "Activado",
   "Ui_SwitchOff": "Desactivado",
-  "Ui_LiveWaiting": "Escuchando. El texto aparece aquí mientras se habla.",
+  "Ui_RecordingLevel": "Nivel de la grabación",
   "Ui_LiveSkipped": "La vista previa en vivo está desactivada. La transcripción se hace al detener.",
   "Ui_RetranscribeNoAudio": "Esta reunión no tiene audio guardado, así que no se puede volver a transcribir.",
   "Ui_RetranscribeBusy": "Espera a que termine la grabación o la nueva transcripción en curso.",
@@ -79,5 +81,7 @@
   "Ui_SummaryCancelled": "Resumen cancelado.",
   "Ui_SummaryNothingToCopy": "No hay nada que copiar.",
   "Ui_SummaryCopyFailed": "No se pudo copiar al portapapeles: {0}",
-  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella."
+  "Ui_SummaryReadyToGenerate": "Esta reunión tiene una transcripción. Genera un resumen a partir de ella.",
+  "Ui_TranscriptionEngineUnavailable": "El motor de transcripción no está listo, así que el audio se guardó sin transcripción. Instala el motor en Ajustes y vuelve a transcribir la reunión.",
+  "Ui_RetranscriptionEngineNotInstalled": "El motor de transcripción no está instalado. Instálalo en Ajustes y vuelve a intentarlo."
 }

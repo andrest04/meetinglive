@@ -42,8 +42,10 @@
   "Ui_ProcessLoopbackUnsupported": "Recording one app is not available on this version of Windows. Record all system audio instead.",
   "Ui_MicDefaultTitle": "Default microphone",
   "Ui_MicDefaultDescription": "Used for recordings unless you pick another one on the Record page.",
-  "Ui_TakeSaved": "Saved as {0} in the Inbox.",
   "Ui_TakeStarting": "Starting the recording. This can take a few seconds.",
+  "Ui_CancelSummary": "Cancel summary",
+  "Ui_RetryProcessing": "Try saving again",
+  "Ui_SearchedWeb": "Searched the web",
   "Ui_EngineStageRuntimeCuda": "Downloading the NVIDIA CUDA runtime",
   "Ui_EngineStageRuntimeCpu": "Downloading the NVIDIA CPU runtime",
   "Ui_EngineStageRuntimeCpuFallback": "Downloading the NVIDIA CPU runtime as a fallback",
@@ -55,7 +57,7 @@
   "Ui_EngineNotInstalled": "Not installed",
   "Ui_SwitchOn": "On",
   "Ui_SwitchOff": "Off",
-  "Ui_LiveWaiting": "Listening. Text appears here as people speak.",
+  "Ui_RecordingLevel": "Recording level",
   "Ui_LiveSkipped": "The live preview is off. The transcript is made after you stop.",
   "Ui_RetranscribeNoAudio": "This meeting has no saved audio, so it cannot be re-transcribed.",
   "Ui_RetranscribeBusy": "Wait for the current recording or re-transcription to finish.",
@@ -79,5 +81,7 @@
   "Ui_SummaryCancelled": "Summary cancelled.",
   "Ui_SummaryNothingToCopy": "There is nothing to copy.",
   "Ui_SummaryCopyFailed": "Could not copy to the clipboard: {0}",
-  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it."
+  "Ui_SummaryReadyToGenerate": "This meeting has a transcript. Generate a summary from it.",
+  "Ui_TranscriptionEngineUnavailable": "The transcription engine is not ready, so the audio was kept without a transcript. Install the engine in Settings, then retranscribe the meeting.",
+  "Ui_RetranscriptionEngineNotInstalled": "The transcription engine is not installed. Install it in Settings, then try again."
 }

@@ -97,6 +97,7 @@ export class TranscriptionController {
   private unsubscribeFrames: (() => void) | null = null;
   private unsubscribeUpdates: (() => void) | null = null;
   private lastDisplayText = '';
+  private readonly liveListeners = new Set<(displayText: string, committedText: string) => void>();
   private readonly runner: MeetingRetranscriptionRunner;
   private readonly disposers: (() => void)[] = [];
 
@@ -322,6 +323,14 @@ export class TranscriptionController {
 
   // -------------------------------------------------------------- live and offline
 
+  /** The live transcript text as it changes, for the recording module. Returns the unsubscribe. */
+  onLiveUpdate(listener: (displayText: string, committedText: string) => void): () => void {
+    this.liveListeners.add(listener);
+    return () => {
+      this.liveListeners.delete(listener);
+    };
+  }
+
   /**
    * Starts the live pass for a take when Settings allows it and feeds it the mixed recording
    * frames. The recording module calls this after the capture has started.
@@ -335,6 +344,8 @@ export class TranscriptionController {
     this.unsubscribeUpdates = live.onTranscriptUpdated((update) => {
       this.lastDisplayText = update.displayText;
       this.deps.broadcast(transcriptionLiveUpdate, update);
+      for (const listener of [...this.liveListeners])
+        listener(update.displayText, update.committedText);
     });
     try {
       await live.start({
@@ -455,7 +466,7 @@ export class TranscriptionController {
   ): Promise<boolean> {
     const { t } = this.deps;
     if (!this.deps.runtime.installer.isReady()) {
-      callbacks.onFinished(t('Error_EngineNotReady'));
+      callbacks.onFinished(t('Ui_RetranscriptionEngineNotInstalled'));
       return false;
     }
     const recordedAt = parseOffsetDate(request.recordedAt)?.ms ?? null;

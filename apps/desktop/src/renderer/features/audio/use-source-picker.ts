@@ -6,12 +6,11 @@ export interface SourcePickerModel {
   readonly state: SourcePickerStateDto | null;
   /** Null selects all system audio. A user pick: it is remembered. */
   readonly select: (processId: number | null) => void;
-  readonly dismissSuggestion: (processId: number) => void;
   readonly closeFallback: () => void;
 }
 
 /**
- * Main owns the picker (apps, meters, remembered app, suggestion). This hook starts the
+ * Main owns the picker (apps, meters, remembered app). This hook starts the
  * poller while `active` (page visible, not recording, not processing), shows each state that
  * arrives and sends the user's picks back.
  */
@@ -57,15 +56,9 @@ export function useSourcePicker(active: boolean): SourcePickerModel {
     },
     [apply],
   );
-  const dismissSuggestion = useCallback(
-    (processId: number) => {
-      apply(window.vozella.invoke('audio.sources.dismissSuggestion', { processId }));
-    },
-    [apply],
-  );
   const closeFallback = useCallback(() => {
     apply(window.vozella.invoke('audio.sources.closeFallback', {}));
   }, [apply]);
 
-  return { state, select, dismissSuggestion, closeFallback };
+  return { state, select, closeFallback };
 }

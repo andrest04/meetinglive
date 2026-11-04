@@ -11,3 +11,5 @@ export * from './settings';
 export * from './transcription';
 export * from './summaries';
 export * from './meeting-detection';
+export * from './recording';
+export * from './live-ask';

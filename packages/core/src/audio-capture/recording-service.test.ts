@@ -553,6 +553,18 @@ describe('level window and teardown proof', () => {
     expect(levels).toEqual([0, 0]);
   });
 
+  it('stops feeding the writer once an output fails (item 87)', async () => {
+    const r = rig();
+    await r.service.start('a.wav', processTreeSources(true, null, 4242));
+    await r.clock.advance(1000);
+    r.port.output?.die(new Error('process capture died'));
+    await r.clock.advance(100);
+    const afterFailure = r.writer.chunks.length;
+    await r.clock.advance(5000);
+    expect(r.writer.chunks.length).toBe(afterFailure);
+    await expect(r.service.stop()).rejects.toThrow('process capture died');
+  });
+
   it('lets a device that fails during start cancel the pump (item 36)', async () => {
     const r = rig();
     const original = r.port.start.bind(r.port);
