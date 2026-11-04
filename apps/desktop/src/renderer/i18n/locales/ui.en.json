@@ -98,5 +98,8 @@
   "Ui_TrayQuit": "Quit Vozella",
   "Ui_TrayRecording": "Vozella, recording",
   "Ui_StartupFailedTitle": "Vozella could not finish starting",
-  "Ui_StartupFailedContent": "Something went wrong while starting: {0}\r\n\r\nSome features may not work. The details are in the log file."
+  "Ui_StartupFailedContent": "Something went wrong while starting: {0}\r\n\r\nSome features may not work. The details are in the log file.",
+  "Ui_SetupLiveCaptions": "Live captions",
+  "Ui_SetupTranscript": "Transcript",
+  "Ui_SetupLiveCaptionsOff": "Live captions are off. The transcript is still created after you stop."
 }

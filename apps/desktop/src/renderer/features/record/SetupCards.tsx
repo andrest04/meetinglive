@@ -6,6 +6,18 @@ import { Icon, Notice } from '../../ui';
 
 type Card = RecordingSetupDto['live'];
 
+/**
+ * Main sends the WinUI keys, whose values name the engines and come from the generated catalogs.
+ * The rows name what each step does instead, so those keys read from the hand-written ones here.
+ */
+const ROW_COPY: Readonly<Partial<Record<string, StringKey>>> = {
+  'RecordingSetup_Live.Header': 'Ui_SetupLiveCaptions',
+  'RecordingSetup_Engine.Header': 'Ui_SetupTranscript',
+  RecordingSetup_LiveNotNeededDetail: 'Ui_SetupLiveCaptionsOff',
+};
+
+const rowKey = (key: string): StringKey => ROW_COPY[key] ?? (key as StringKey);
+
 function SetupCard({ card }: { readonly card: Card }) {
   const t = useT();
   const status = t(card.status.key as StringKey, ...card.status.args);
@@ -16,9 +28,9 @@ function SetupCard({ card }: { readonly card: Card }) {
         className={card.ready ? 'mt-0.5 text-ink' : 'mt-0.5 text-ink-faint'}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-ui-lg font-medium text-ink">{t(card.headerKey as StringKey)}</p>
+        <p className="text-ui-lg font-medium text-ink">{t(rowKey(card.headerKey))}</p>
         <p className="text-ui text-ink-muted">
-          {t(card.detail.key as StringKey, ...card.detail.args)}
+          {t(rowKey(card.detail.key), ...card.detail.args)}
         </p>
       </div>
       <span className="shrink-0 text-ui text-ink-muted">{status}</span>

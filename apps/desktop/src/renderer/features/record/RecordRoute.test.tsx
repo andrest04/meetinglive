@@ -291,6 +291,27 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
     expect(screen.getByText('Set up recording before you start.')).toBeInTheDocument();
   });
 
+  it('names the rows by what they do', async () => {
+    installApi({
+      'recording.getSetup': () => ({
+        ...needsSetup,
+        live: {
+          ...card('RecordingSetup_Live.Header', false),
+          detail: { key: 'RecordingSetup_LiveNotNeededDetail', args: [] },
+        },
+      }),
+    });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const [live, engine] = within(panel).getAllByTestId('setup-card');
+    expect(live).toHaveTextContent('Live captions');
+    expect(live).toHaveTextContent(
+      'Live captions are off. The transcript is still created after you stop.',
+    );
+    expect(engine).toHaveTextContent('Transcript');
+    expect(panel).not.toHaveTextContent('Nemo');
+  });
+
   it('asks the removed provider to be replaced', async () => {
     installApi({
       'recording.getSetup': () => ({
