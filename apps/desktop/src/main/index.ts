@@ -130,6 +130,7 @@ import {
 } from './security/trusted-origin';
 import { RecordingHandoff } from './recording/recording-handoff';
 import { AppTray } from './tray/app-tray';
+import { installShellProbe } from './bootstrap/shell-probe';
 import { activateMainWindow } from './windows/activate-main-window';
 import { resolveIconPath } from './windows/app-icon-path';
 import { createMainWindow } from './windows/main-window';
@@ -984,6 +985,8 @@ function main(): void {
         getMainWindow: () => mainWindow ?? null,
         dismissPopup: () => detection?.dismiss(),
       });
+      const probe = mode === 'test' ? installShellProbe() : undefined;
+      handoff.onHandoff((event) => probe?.handoffEvents.push(event));
       mainWindow.on('focus', () => {
         handoff.setMainWindowActive(true);
       });
@@ -996,17 +999,35 @@ function main(): void {
       let tray: AppTray | undefined;
       if (mode !== 'test' || process.env.VOZELLA_E2E_TRAY === '1') {
         tray = new AppTray({
-          createTray: () =>
-            new Tray(nativeImage.createFromPath(resolveIconPath(iconInput, 'tray.ico'))),
-          buildMenu: (items, run) =>
-            Menu.buildFromTemplate(
+          createTray: () => {
+            const real = new Tray(
+              nativeImage.createFromPath(resolveIconPath(iconInput, 'tray.ico')),
+            );
+            if (probe) {
+              const setToolTip = real.setToolTip.bind(real);
+              real.setToolTip = (tip: string) => {
+                probe.trayTooltip = tip;
+                setToolTip(tip);
+              };
+            }
+            return real;
+          },
+          buildMenu: (items, run) => {
+            if (probe) {
+              probe.trayItems = items.map((item) => ({ id: item.id, label: item.label }));
+              probe.trayRun = (id) => {
+                run(id as 'open' | 'quit');
+              };
+            }
+            return Menu.buildFromTemplate(
               items.map((item) => ({
                 label: item.label,
                 click: () => {
                   run(item.id);
                 },
               })),
-            ),
+            );
+          },
           t: (key) => locale.t(key),
           open: () => {
             activateMainWindow(mainWindow);
