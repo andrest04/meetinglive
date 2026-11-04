@@ -395,7 +395,7 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
     expect(screen.getByRole('button', { name: 'Set up to record' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Record' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import audio' })).toBeNull();
-    expect(screen.getByText('Set up recording before you start.')).toBeInTheDocument();
+    expect(screen.queryByText('Set up recording before you start.')).toBeNull();
   });
 
   it('heads the panel with what to do and keeps the download fact in one line', async () => {
@@ -495,6 +495,62 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
       expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument();
     });
     expect(screen.queryByTestId('setup-checklist')).toBeNull();
+  });
+});
+
+describe('RecordRoute idle repeats', () => {
+  it('does not draw the sources summary while idle, and still reports it for the take', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    await waitFor(() => {
+      expect(screen.getByTestId('sources-summary')).toHaveTextContent('Mic: System default');
+    });
+    expect(screen.getByTestId('sources-summary')).not.toBeVisible();
+  });
+
+  it('keeps the sources heading for assistive tech while idle', async () => {
+    installApi();
+    mount();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Sources' })).toBeInTheDocument();
+  });
+
+  it('draws the summary while processing, as before', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.getByTestId('sources-summary')).toBeVisible();
+  });
+
+  it('keeps a cancelled setup notice with the setup panel showing', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Set up to record' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Set up recording' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('Setup cancelled.')).toBeInTheDocument();
+  });
+
+  it('keeps an error and its retry with the setup panel showing', async () => {
+    installApi({
+      'recording.getSetup': () => needsSetup,
+      'recording.getState': () => ({
+        ...idleState,
+        canRetry: true,
+        status: [{ key: 'Error_ProcessRecording', args: ['disk full'], severity: 'error' }],
+        liveText: '',
+      }),
+    });
+    mount();
+    expect(await screen.findByRole('alert')).toHaveTextContent('disk full');
+    expect(screen.getByRole('button', { name: 'Try saving again' })).toBeInTheDocument();
   });
 });
 

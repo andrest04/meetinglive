@@ -28,8 +28,8 @@ function SetupCard({ card }: { readonly card: Card }) {
     >
       <p className="text-ui-lg font-medium text-ink">{t(rowKey(card.headerKey))}</p>
       <p className="text-ui text-ink-muted">{t(rowKey(card.detail.key), ...card.detail.args)}</p>
-      <span className="inline-flex items-center gap-1.5 text-ui text-ink-muted">
-        {card.ready ? <Icon icon={Check} size={14} className="text-ink" /> : null}
+      <span className="inline-flex items-baseline gap-1.5 text-ui text-ink-muted">
+        {card.ready ? <Icon icon={Check} size={14} className="self-center text-ink" /> : null}
         {status}
       </span>
     </li>
@@ -45,7 +45,7 @@ export function SetupCards({ setup }: { readonly setup: RecordingSetupDto }) {
   return (
     <div className="flex flex-col gap-3">
       <ul
-        className="flex flex-col divide-y divide-hairline border-y border-hairline"
+        className="flex flex-col divide-y divide-hairline border-t border-hairline"
         data-testid="setup-cards"
       >
         <SetupCard card={setup.live} />

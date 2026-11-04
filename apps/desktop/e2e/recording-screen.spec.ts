@@ -80,7 +80,7 @@ test('without the engine the checklist replaces the Record button', async () => 
   await expect(panel.getByTestId('setup-card')).toHaveCount(3);
   await expect(panel.getByTestId('setup-card').nth(1)).toContainText('Needs setup');
   await expect(panel.getByTestId('setup-card').nth(2)).toContainText('Ready');
-  await expect(page.getByText('Set up recording before you start.')).toBeVisible();
+  await expect(page.getByText('Set up recording before you start.')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Record', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Import audio' })).toHaveCount(0);
   for (const theme of ['light', 'dark'] as const) {

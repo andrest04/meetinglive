@@ -2,7 +2,7 @@ import { defaultMeetingTitle } from '@vozella/core';
 import { FileUp, Mic } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
-import { Button, SectionHeader } from '../../ui';
+import { Button, SectionHeader, cn } from '../../ui';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
 import { useEngineStatus } from '../transcription/use-engine-status';
 import { AnswerCard } from './AnswerCard';
@@ -16,6 +16,7 @@ import {
   arrangePanels,
   deriveRecordLayout,
   hasStatusError,
+  withoutSetupRepeat,
   type StatusMessage,
 } from './record-layout';
 import { RecordingSession, useCanvasCopy } from './RecordingSession';
@@ -173,7 +174,13 @@ export function RecordRoute() {
 
   return (
     <section
-      className={scrollSession ? 'flex flex-col gap-6' : 'flex flex-col gap-8'}
+      className={
+        scrollSession
+          ? 'flex flex-col gap-6'
+          : // Before a take the page is a document: the 640 px text column of the 720 px layout. The
+            // scroll margin keeps a control that takes focus clear of the sticky action row.
+            'mx-auto flex w-full max-w-[640px] flex-col gap-8 [&_*]:scroll-mb-28'
+      }
       data-testid="record-page"
       data-session={scrollSession ? 'true' : 'false'}
     >
@@ -198,7 +205,12 @@ export function RecordRoute() {
         onFolderChange={setFolderId}
         destinationDisabled={isRecording || busy === 'starting'}
       >
-        <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
+        <SourcesPanel
+          active={idle}
+          locked={!idle}
+          quiet={!active}
+          onSelectionChange={setSelection}
+        />
 
         {flags.showSetupPanel && setup ? <SetupChecklist setup={setup} /> : null}
       </RecordIdle>
@@ -296,9 +308,14 @@ export function RecordRoute() {
 
       {!active ? (
         // Last in the page and sticky, so the next step stays in view however long the page gets. The
-        // offset cancels the scroll container's bottom padding: nothing shows under the row.
+        // offset cancels the scroll container's bottom padding: nothing shows under the row. The
+        // status caption is centered for the old hero; here it lines up with the buttons under it.
         <div
-          className="sticky -bottom-8 z-10 flex flex-col gap-3 border-t border-hairline bg-paper py-3"
+          className={cn(
+            'sticky -bottom-8 z-10 flex flex-col gap-3 border-t border-hairline bg-paper py-3',
+            '[&_[data-testid=status-text]]:mx-0 [&_[data-testid=status-text]]:text-left',
+            flags.showSetupPanel && '-mt-6',
+          )}
           data-testid="record-actions"
         >
           {busy === 'starting' ? (
@@ -306,7 +323,7 @@ export function RecordRoute() {
               {t('Ui_TakeStarting')}
             </p>
           ) : null}
-          <StatusBars messages={messages} scope="idle" />
+          <StatusBars messages={withoutSetupRepeat(messages, flags.showSetupPanel)} scope="idle" />
           {state?.canRetry ? (
             <RetryAction
               onRetry={() => {
