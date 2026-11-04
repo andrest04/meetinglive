@@ -56,6 +56,34 @@ describe('LiveAskDock', () => {
     ]);
   });
 
+  it('Ctrl+Enter here is handled here: nothing above the box (chat, page) sees it (item 139)', async () => {
+    const seen: string[] = [];
+    render(
+      <Providers>
+        <div
+          onKeyDown={(event) => {
+            seen.push(event.key);
+          }}
+        >
+          <LiveAskDock enabled />
+        </div>
+      </Providers>,
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Type a question' }), 'x');
+    seen.length = 0;
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    expect(seen).not.toContain('Enter');
+    expect(calls.map((c) => c.name)).toEqual(['recording.ask']);
+  });
+
+  it('a disabled box asks nothing', async () => {
+    mount(false);
+    const box = screen.getByRole('textbox', { name: 'Type a question' });
+    expect(box).toBeDisabled();
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    expect(calls).toHaveLength(0);
+  });
+
   it('does not ask for a blank question', async () => {
     mount();
     await userEvent.type(screen.getByRole('textbox', { name: 'Type a question' }), '   ');

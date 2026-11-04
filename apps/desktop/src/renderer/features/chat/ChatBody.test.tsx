@@ -488,12 +488,18 @@ describe('language (B8)', () => {
 });
 
 describe('audit fixes', () => {
-  it('Send has the tooltip text Send (Enter) (item 30)', async () => {
+  it('the Send tooltip names both chords, Enter and Ctrl+Enter (item 30, bug 23)', async () => {
     install({});
     mount();
     await userEvent.type(box(), 'x');
     await userEvent.hover(sendButton());
-    expect(await screen.findByText('Send (Enter)')).toBeTruthy();
+    const tooltip = (await screen.findByText('Ctrl')).closest('span.gap-2');
+    expect(tooltip?.textContent).toBe('SendEnter/Ctrl+Enter');
+    expect([...(tooltip?.querySelectorAll('kbd') ?? [])].map((k) => k.textContent)).toEqual([
+      'Enter',
+      'Ctrl',
+      'Enter',
+    ]);
   });
 
   it('a rejected chat.send rolls back, shows a mapped sentence and unlocks sending (items 39, 43)', async () => {

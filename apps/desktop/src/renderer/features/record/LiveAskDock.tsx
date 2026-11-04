@@ -1,6 +1,7 @@
 import type { RecordingAnswerDto } from '@vozella/contracts';
 import { Globe } from 'lucide-react';
 import { useState, type KeyboardEvent } from 'react';
+import { isCtrlEnter } from '../../app/shortcuts';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { IconButton, Input, Notice, cn } from '../../ui';
@@ -29,8 +30,9 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
     if (canAsk) void askLive(text);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    if (isCtrlEnter(event)) {
       event.preventDefault();
+      event.stopPropagation();
       submit();
     }
   };

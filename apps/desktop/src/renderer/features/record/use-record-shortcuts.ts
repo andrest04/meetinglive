@@ -1,22 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { matchRecordShortcut, type RecordShortcut } from '../../app/shortcuts';
 
-export type RecordShortcut = 'stop' | 'pause' | 'discard';
-
-/** Ctrl+R stops, Ctrl+P pauses or resumes, Ctrl+Shift+D discards (spec 2.6). */
-export function matchShortcut(event: {
-  readonly key: string;
-  readonly ctrlKey: boolean;
-  readonly shiftKey: boolean;
-  readonly altKey: boolean;
-  readonly metaKey: boolean;
-}): RecordShortcut | null {
-  if (!event.ctrlKey || event.altKey || event.metaKey) return null;
-  const key = event.key.toLowerCase();
-  if (key === 'r' && !event.shiftKey) return 'stop';
-  if (key === 'p' && !event.shiftKey) return 'pause';
-  if (key === 'd' && event.shiftKey) return 'discard';
-  return null;
-}
+export type { RecordShortcut };
+/** Ctrl+R, Ctrl+P and Ctrl+Shift+D (spec 2.6); the chords live in app/shortcuts.ts. */
+export const matchShortcut = matchRecordShortcut;
 
 export interface ShortcutAction {
   readonly enabled: boolean;
@@ -39,7 +26,7 @@ export function useRecordShortcuts(handlers: RecordShortcutHandlers | null): voi
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent): void => {
-      const shortcut = matchShortcut(event);
+      const shortcut = matchRecordShortcut(event);
       const current = latest.current;
       if (shortcut === null || current === null) return;
       event.preventDefault();

@@ -1,4 +1,5 @@
 import type { ChatMessageDto } from '@vozella/contracts';
+import { composerIntent, type ComposerIntent, type ComposerKeyInput } from '../../app/shortcuts';
 
 /** One row of the transcript. `pending` is the assistant row that waits for its first text. */
 export interface ChatRow {
@@ -128,30 +129,10 @@ export function restoreDraft(current: string, original: string): string {
   return current.trim() === '' ? original : current;
 }
 
-/** What Enter and Ctrl+Enter do in the composer (spec 2.3, S1). */
-export type KeyIntent = 'send' | 'newline' | 'ignore' | 'swallow';
-
-export interface KeyInput {
-  readonly key: string;
-  readonly shiftKey: boolean;
-  readonly ctrlKey: boolean;
-  readonly isComposing: boolean;
-  readonly draft: string;
-  readonly sending: boolean;
-}
-
-/**
- * Enter sends, Shift+Enter inserts a line, Ctrl+Enter sends. Enter on an empty draft or while an
- * answer runs does nothing and inserts no line (`swallow`); Enter during IME composition is left
- * to the IME (`ignore`).
- */
-export function keyIntent(input: KeyInput): KeyIntent {
-  if (input.key !== 'Enter') return 'ignore';
-  if (input.isComposing) return 'ignore';
-  if (input.shiftKey && !input.ctrlKey) return 'newline';
-  if (input.sending || input.draft.trim() === '') return 'swallow';
-  return 'send';
-}
+// The composer key rules live in the shortcut table (app/shortcuts.ts).
+export type KeyIntent = ComposerIntent;
+export type KeyInput = ComposerKeyInput;
+export const keyIntent = composerIntent;
 
 /** The text a screen reader reads for a message (parity 126). */
 export const accessibleMessageText = (role: string, text: string): string => `${role}: ${text}`;

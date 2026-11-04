@@ -2,7 +2,8 @@ import type { ChatRecipe } from '@vozella/core';
 import { ArrowUp, BookOpenText, Square } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useT } from '../../i18n/I18nProvider';
-import { Button, IconButton, Tooltip, cn } from '../../ui';
+import { SHORTCUTS } from '../../app/shortcuts';
+import { Button, IconButton, ShortcutHint, Tooltip, cn } from '../../ui';
 import { keyIntent } from './chat-view-model';
 import { RECIPES_LIST_ID, RecipesMenu, recipeOptionId } from './RecipesMenu';
 import { useRecipesMenu } from './use-recipes-menu';
@@ -128,7 +129,14 @@ export function Composer({
           className="mb-0.5"
         />
       ) : (
-        <Tooltip content={t('Chat_Send.ToolTipService.ToolTip')}>
+        <Tooltip
+          content={
+            <ShortcutHint
+              label={t('Chat_Send.AutomationProperties.Name')}
+              chords={[['Enter'], SHORTCUTS.chatSend.keys]}
+            />
+          }
+        >
           <Button
             id="BtnMeetingChatSend"
             data-testid="BtnMeetingChatSend"
