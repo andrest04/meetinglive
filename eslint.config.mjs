@@ -19,6 +19,7 @@ export default tseslint.config(
       'website/**',
       'docs/**',
       'scripts/**',
+      '.claude/**',
     ],
   },
   js.configs.recommended,

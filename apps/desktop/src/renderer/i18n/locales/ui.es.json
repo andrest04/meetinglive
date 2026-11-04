@@ -98,5 +98,11 @@
   "Ui_TrayQuit": "Salir de Vozella",
   "Ui_TrayRecording": "Vozella, grabando",
   "Ui_StartupFailedTitle": "Vozella no pudo terminar de iniciar",
-  "Ui_StartupFailedContent": "Algo salió mal al iniciar: {0}\r\n\r\nPuede que algunas funciones no funcionen. Los detalles están en el archivo de registro."
+  "Ui_StartupFailedContent": "Algo salió mal al iniciar: {0}\r\n\r\nPuede que algunas funciones no funcionen. Los detalles están en el archivo de registro.",
+  "Ui_SetupLiveCaptions": "Subtítulos en vivo",
+  "Ui_SetupTranscript": "Transcripción",
+  "Ui_SetupLiveCaptionsOff": "Los subtítulos en vivo están desactivados. La transcripción se sigue generando después de detener la grabación.",
+  "Ui_RecordHelper": "La transcripción y el resumen se crean al detener.",
+  "Ui_SetupHeading": "Termina la configuración para grabar",
+  "Ui_SetupNoDownloads": "Nada se descarga una vez iniciada la grabación."
 }

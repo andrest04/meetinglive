@@ -40,7 +40,6 @@ export function deriveRecordLayout(input: RecordLayoutInput): RecordLayoutFlags 
 
 /** The window width from which the side panel is a right column (spec 2.1). */
 export const SIDE_PANEL_MIN_WIDTH = 1100;
-export const IDLE_COLUMN_MAX_WIDTH = 960;
 export const SIDE_PANEL_WIDTH = 320;
 export const STACKED_NOTES_MAX_HEIGHT = 200;
 
@@ -66,3 +65,20 @@ export interface StatusMessage {
  */
 export const hasStatusError = (messages: readonly StatusMessage[]): boolean =>
   messages.some((message) => message.severity === 'error');
+
+/** Says only what the setup panel shows by being there, so the page does not say it twice. */
+const SETUP_REPEAT_KEY = 'Status_NeedsSetup';
+
+/** Says only what an enabled Record button shows by being there. */
+const READY_REPEAT_KEY = 'Status_ReadyToRecord';
+
+/** The idle status to draw. Everything else stays: errors, warnings and notices are never dropped. */
+export const withoutIdleRepeats = (
+  messages: readonly StatusMessage[],
+  showSetupPanel: boolean,
+): readonly StatusMessage[] =>
+  messages.filter(
+    (message) =>
+      message.severity !== 'info' ||
+      (message.key !== READY_REPEAT_KEY && !(showSetupPanel && message.key === SETUP_REPEAT_KEY)),
+  );

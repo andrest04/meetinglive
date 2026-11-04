@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { arrangePanels, deriveRecordLayout, hasStatusError } from './record-layout';
+import {
+  arrangePanels,
+  deriveRecordLayout,
+  hasStatusError,
+  withoutIdleRepeats,
+} from './record-layout';
 
 const base = {
   isRecording: false,
@@ -64,5 +69,33 @@ describe('status errors (B-12, item 98)', () => {
     expect(hasStatusError([info])).toBe(false);
     expect(hasStatusError([{ ...info, key: 'Error looking text' }])).toBe(false);
     expect(hasStatusError([info, error])).toBe(true);
+  });
+});
+
+describe('withoutIdleRepeats', () => {
+  const needs = { key: 'Status_NeedsSetup', args: [], severity: 'info' as const };
+  const warning = { key: 'Warning_MicrophoneLost', args: [], severity: 'warning' as const };
+  const cancelled = { key: 'Status_SetupCancelled', args: [], severity: 'info' as const };
+
+  it('drops only the line that says what the setup panel already shows', () => {
+    expect(withoutIdleRepeats([needs], true)).toEqual([]);
+    expect(withoutIdleRepeats([needs, warning, cancelled], true)).toEqual([warning, cancelled]);
+  });
+
+  it('drops the ready line, because an enabled Record button already says it', () => {
+    const ready = { key: 'Status_ReadyToRecord', args: [], severity: 'info' as const };
+    expect(withoutIdleRepeats([ready], false)).toEqual([]);
+    expect(withoutIdleRepeats([ready, warning], false)).toEqual([warning]);
+    const raised = { ...ready, severity: 'warning' as const };
+    expect(withoutIdleRepeats([raised], false)).toEqual([raised]);
+  });
+
+  it('keeps the line when no setup panel is drawn', () => {
+    expect(withoutIdleRepeats([needs], false)).toEqual([needs]);
+  });
+
+  it('keeps the line if main ever raises it above info', () => {
+    const raised = { ...needs, severity: 'error' as const };
+    expect(withoutIdleRepeats([raised], true)).toEqual([raised]);
   });
 });

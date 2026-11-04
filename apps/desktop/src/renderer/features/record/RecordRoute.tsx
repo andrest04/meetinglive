@@ -2,7 +2,7 @@ import { defaultMeetingTitle } from '@vozella/core';
 import { FileUp, Mic } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
-import { Button, SectionHeader } from '../../ui';
+import { Button, SectionHeader, cn } from '../../ui';
 import { SourcesPanel, type SourcesSelection } from '../audio/SourcesPanel';
 import { useEngineStatus } from '../transcription/use-engine-status';
 import { AnswerCard } from './AnswerCard';
@@ -16,6 +16,7 @@ import {
   arrangePanels,
   deriveRecordLayout,
   hasStatusError,
+  withoutIdleRepeats,
   type StatusMessage,
 } from './record-layout';
 import { RecordingSession, useCanvasCopy } from './RecordingSession';
@@ -73,7 +74,7 @@ async function openMeeting(id: string): Promise<void> {
 
 /**
  * The Record page: a thin container over the recording store. The idle zone (title, destination,
- * sources, hero or setup panel), the result card and the status bars are drawn here from main's
+ * sources, setup panel), the action row, the result card and the status bars are drawn here from main's
  * state; the recording bar and the processing bar are the next packages' work and keep the
  * controls the page already had.
  */
@@ -173,18 +174,29 @@ export function RecordRoute() {
 
   return (
     <section
-      className={scrollSession ? 'flex flex-col gap-6' : 'flex flex-col gap-8'}
+      className={
+        scrollSession
+          ? 'flex flex-col gap-6'
+          : // Before a take the page is a document: the 640 px text column of the 720 px layout. The
+            // scroll margin keeps a control that takes focus clear of the sticky action row.
+            'mx-auto flex w-full max-w-[640px] flex-col gap-8 [&_*]:scroll-mb-28'
+      }
       data-testid="record-page"
       data-session={scrollSession ? 'true' : 'false'}
     >
-      <SectionHeader
-        level={1}
-        title={t('RecordPage_Title.Text')}
-        description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
-      />
+      {active ? (
+        <SectionHeader
+          level={1}
+          title={t('RecordPage_Title.Text')}
+          description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
+        />
+      ) : (
+        <h1 className="sr-only">{t('RecordPage_Title.Text')}</h1>
+      )}
 
       <RecordIdle
         hidden={isRecording}
+        asDocument={!active}
         title={title}
         onTitleChange={setTitle}
         titleDisabled={isRecording || busy === 'starting'}
@@ -193,56 +205,14 @@ export function RecordRoute() {
         onFolderChange={setFolderId}
         destinationDisabled={isRecording || busy === 'starting'}
       >
-        <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
+        <SourcesPanel
+          active={idle}
+          locked={!idle}
+          quiet={!active}
+          onSelectionChange={setSelection}
+        />
 
-        {flags.showSetupPanel && setup ? (
-          <SetupChecklist
-            setup={setup}
-            busy={busy !== null}
-            onSetUp={() => {
-              void ensureReady();
-            }}
-          />
-        ) : null}
-
-        {flags.showRecordHero && !active ? (
-          <div className="flex flex-wrap items-center gap-3" data-testid="record-hero">
-            <Button
-              variant="primary"
-              icon={Mic}
-              disabled={busy !== null}
-              data-testid="BtnRecord"
-              onClick={() => void record()}
-            >
-              {t('Record_Record')}
-            </Button>
-            {flags.showImportAudio ? (
-              <Button
-                icon={FileUp}
-                disabled={busy !== null}
-                data-testid="BtnImportAudio"
-                onClick={() => void importAudio()}
-              >
-                {t('Record_Import')}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {busy === 'starting' ? (
-          <p role="status" className="text-ui text-ink-muted">
-            {t('Ui_TakeStarting')}
-          </p>
-        ) : null}
-
-        {!active ? <StatusBars messages={messages} scope="idle" /> : null}
-        {!active && state?.canRetry ? (
-          <RetryAction
-            onRetry={() => {
-              void retryProcessing();
-            }}
-          />
-        ) : null}
+        {flags.showSetupPanel && setup ? <SetupChecklist setup={setup} /> : null}
       </RecordIdle>
 
       {isRecording && state ? (
@@ -334,6 +304,73 @@ export function RecordRoute() {
           surfaceTestId="saved-transcript"
           className="h-96"
         />
+      ) : null}
+
+      {!active ? (
+        // Last in the page and sticky, so the next step stays in view however long the page gets. The
+        // offset cancels the scroll container's bottom padding: nothing shows under the row. The
+        // status caption is centered for the old hero; here it lines up with the buttons under it.
+        <div
+          className={cn(
+            'sticky -bottom-8 z-10 flex flex-col gap-3 border-t border-hairline bg-paper py-3',
+            '[&_[data-testid=status-text]]:mx-0 [&_[data-testid=status-text]]:text-left',
+            flags.showSetupPanel && '-mt-6',
+          )}
+          data-testid="record-actions"
+        >
+          {busy === 'starting' ? (
+            <p role="status" className="text-ui text-ink-muted">
+              {t('Ui_TakeStarting')}
+            </p>
+          ) : null}
+          <StatusBars messages={withoutIdleRepeats(messages, flags.showSetupPanel)} scope="idle" />
+          {state?.canRetry ? (
+            <RetryAction
+              onRetry={() => {
+                void retryProcessing();
+              }}
+            />
+          ) : null}
+          {flags.showSetupPanel && setup ? (
+            <div>
+              <Button
+                variant="primary"
+                disabled={busy !== null}
+                onClick={() => {
+                  void ensureReady();
+                }}
+                data-testid="BtnSetUpToRecord"
+              >
+                {t('RecordingSetup_SetUpToRecord.Content')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex flex-wrap items-center gap-3" data-testid="record-hero">
+                <Button
+                  variant="primary"
+                  icon={Mic}
+                  disabled={busy !== null}
+                  data-testid="BtnRecord"
+                  onClick={() => void record()}
+                >
+                  {t('Record_Record')}
+                </Button>
+                {flags.showImportAudio ? (
+                  <Button
+                    icon={FileUp}
+                    disabled={busy !== null}
+                    data-testid="BtnImportAudio"
+                    onClick={() => void importAudio()}
+                  >
+                    {t('Record_Import')}
+                  </Button>
+                ) : null}
+              </div>
+              <p className="text-ui text-ink-muted">{t('Ui_RecordHelper')}</p>
+            </div>
+          )}
+        </div>
       ) : null}
 
       {dialogs}

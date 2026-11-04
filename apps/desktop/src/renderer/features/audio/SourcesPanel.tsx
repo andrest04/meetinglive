@@ -35,6 +35,8 @@ export interface SourcesPanelProps {
   readonly active: boolean;
   /** A take is running: the choices are shown but cannot change. */
   readonly locked?: boolean;
+  /** Before a take the controls say what is chosen, so the heading and the summary are not drawn. */
+  readonly quiet?: boolean;
   readonly onSelectionChange?: (selection: SourcesSelection) => void;
 }
 
@@ -43,7 +45,12 @@ export interface SourcesPanelProps {
  * the summary line, and the two bars that offer a change. Main owns the picker and the remembered
  * choices; this container shows the state and sends the user's picks.
  */
-export function SourcesPanel({ active, locked = false, onSelectionChange }: SourcesPanelProps) {
+export function SourcesPanel({
+  active,
+  locked = false,
+  quiet = false,
+  onSelectionChange,
+}: SourcesPanelProps) {
   const t = useT();
   const microphones = useMicrophones();
   const picker = useSourcePicker(active);
@@ -119,11 +126,14 @@ export function SourcesPanel({ active, locked = false, onSelectionChange }: Sour
         data-testid="sources-panel"
         inert={locked}
       >
-        <div className="flex flex-col gap-1">
-          <h2 id="record-sources-heading" className="text-read-lg font-semibold text-ink">
+        <div className={quiet ? 'contents' : 'flex flex-col gap-1'}>
+          <h2
+            id="record-sources-heading"
+            className={quiet ? 'sr-only' : 'text-read-lg font-semibold text-ink'}
+          >
             {t('RecordPage_SourcesHeading.Text')}
           </h2>
-          <p className="text-ui text-ink-muted" data-testid="sources-summary">
+          <p className="text-ui text-ink-muted" data-testid="sources-summary" hidden={quiet}>
             {summary}
           </p>
         </div>

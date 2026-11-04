@@ -154,7 +154,7 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Title' }).value).toMatch(
       /^Meeting \d{1,2} \w{3}, \d{2}:\d{2}$/,
     );
-    expect(await screen.findByText('Ready to record.')).toBeInTheDocument();
+    expect(screen.queryByText('Ready to record.')).toBeNull();
     await userEvent.click(screen.getByRole('combobox', { name: 'Save to' }));
     const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
     expect(options).toEqual(['Inbox', 'Alpha', 'Alpha / Child', 'beta']);
@@ -278,6 +278,113 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
   });
 });
 
+describe('RecordRoute idle document (the title is the heading)', () => {
+  const subtitle = /Set up your meeting, then record it/;
+
+  it('keeps one h1 for assistive tech, no subtitle and an unlabeled but named title', async () => {
+    installApi();
+    mount();
+    const title = await screen.findByRole('textbox', { name: 'Title' });
+    expect(title).toBeEnabled();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Record meeting' })).toBeInTheDocument();
+    expect(screen.queryByText(subtitle)).toBeNull();
+    expect(screen.queryByText('Title')).toBeNull();
+  });
+
+  it('shows the destination as one visible label and a select', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('combobox', { name: 'Save to' });
+    expect(screen.getAllByText('Save to')).toHaveLength(1);
+  });
+
+  it('keeps the subtitle and the labeled fields while processing', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.getByRole('heading', { level: 1, name: 'Record meeting' })).toBeInTheDocument();
+    expect(screen.getByText(subtitle)).toBeInTheDocument();
+    expect(screen.getByText('Title')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Title' })).toBeEnabled();
+  });
+});
+
+describe('RecordRoute action row', () => {
+  const helper = 'Transcript and summary are created after you stop.';
+
+  it('holds Record, Import and the helper when ready', async () => {
+    installApi();
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    expect(within(row).getByTestId('record-hero')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Record' })).toBeEnabled();
+    expect(within(row).getByRole('button', { name: 'Import audio' })).toBeEnabled();
+    expect(within(row).getByText(helper)).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Set up to record' })).toBeNull();
+  });
+
+  it('holds only Set up to record while setup is missing', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const row = screen.getByTestId('record-actions');
+    expect(within(row).getByRole('button', { name: 'Set up to record' })).toBeEnabled();
+    expect(within(panel).queryByRole('button', { name: 'Set up to record' })).toBeNull();
+    expect(within(row).queryByTestId('record-hero')).toBeNull();
+    expect(screen.queryByText(helper)).toBeNull();
+  });
+
+  it('sits after the result card and the saved transcript, so it stays reachable below them', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        lastMeeting: { id: 'm-9', title: 'Weekly sync' },
+        liveText: 'Hello there',
+      }),
+    });
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    const transcript = await screen.findByTestId('saved-transcript');
+    expect(transcript.compareDocumentPosition(row)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('is not drawn during a take or while processing', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.queryByTestId('record-actions')).toBeNull();
+  });
+
+  it('keeps a refusal next to the button that caused it', async () => {
+    installApi({
+      'recording.start': () => ({
+        started: false,
+        reason: 'failed',
+        message: { key: 'Error_StartRecording', args: ['disk full'], severity: 'error' },
+      }),
+    });
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    await userEvent.click(within(row).getByRole('button', { name: 'Record' }));
+    expect(await within(row).findByRole('alert')).toHaveTextContent('disk full');
+  });
+});
+
 describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
   it('shows the inline panel with the three cards instead of the hero', async () => {
     installApi({ 'recording.getSetup': () => needsSetup });
@@ -285,10 +392,56 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
     const panel = await screen.findByTestId('setup-checklist');
     expect(within(panel).getAllByTestId('setup-card')).toHaveLength(3);
     expect(within(panel).getByText('Needs setup')).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Set up to record' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set up to record' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Record' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import audio' })).toBeNull();
-    expect(screen.getByText('Set up recording before you start.')).toBeInTheDocument();
+    expect(screen.queryByText('Set up recording before you start.')).toBeNull();
+  });
+
+  it('heads the panel with what to do and keeps the download fact in one line', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    expect(
+      within(panel).getByRole('heading', { level: 2, name: 'Finish setup to record' }),
+    ).toBeInTheDocument();
+    expect(panel).toHaveAccessibleName('Finish setup to record');
+    expect(within(panel).getByText('Nothing downloads once a recording starts.')).toBeVisible();
+    expect(panel).not.toHaveTextContent('Install what is needed');
+  });
+
+  it('marks only ready rows with a glyph and always says the state in words', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const [ready, pending] = within(panel).getAllByTestId('setup-card');
+    if (!ready || !pending) throw new Error('expected the setup rows');
+    expect(ready).toHaveTextContent('Ready');
+    expect(ready.querySelectorAll('svg')).toHaveLength(1);
+    expect(pending).toHaveTextContent('Needs setup');
+    expect(pending.querySelector('svg')).toBeNull();
+    expect(within(panel).queryAllByRole('radio')).toHaveLength(0);
+  });
+
+  it('names the rows by what they do', async () => {
+    installApi({
+      'recording.getSetup': () => ({
+        ...needsSetup,
+        live: {
+          ...card('RecordingSetup_Live.Header', false),
+          detail: { key: 'RecordingSetup_LiveNotNeededDetail', args: [] },
+        },
+      }),
+    });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const [live, engine] = within(panel).getAllByTestId('setup-card');
+    expect(live).toHaveTextContent('Live captions');
+    expect(live).toHaveTextContent(
+      'Live captions are off. The transcript is still created after you stop.',
+    );
+    expect(engine).toHaveTextContent('Transcript');
+    expect(panel).not.toHaveTextContent('Nemo');
   });
 
   it('asks the removed provider to be replaced', async () => {
@@ -342,6 +495,62 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
       expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument();
     });
     expect(screen.queryByTestId('setup-checklist')).toBeNull();
+  });
+});
+
+describe('RecordRoute idle repeats', () => {
+  it('does not draw the sources summary while idle, and still reports it for the take', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    await waitFor(() => {
+      expect(screen.getByTestId('sources-summary')).toHaveTextContent('Mic: System default');
+    });
+    expect(screen.getByTestId('sources-summary')).not.toBeVisible();
+  });
+
+  it('keeps the sources heading for assistive tech while idle', async () => {
+    installApi();
+    mount();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Sources' })).toBeInTheDocument();
+  });
+
+  it('draws the summary while processing, as before', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.getByTestId('sources-summary')).toBeVisible();
+  });
+
+  it('keeps a cancelled setup notice with the setup panel showing', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Set up to record' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Set up recording' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('Setup cancelled.')).toBeInTheDocument();
+  });
+
+  it('keeps an error and its retry with the setup panel showing', async () => {
+    installApi({
+      'recording.getSetup': () => needsSetup,
+      'recording.getState': () => ({
+        ...idleState,
+        canRetry: true,
+        status: [{ key: 'Error_ProcessRecording', args: ['disk full'], severity: 'error' }],
+        liveText: '',
+      }),
+    });
+    mount();
+    expect(await screen.findByRole('alert')).toHaveTextContent('disk full');
+    expect(screen.getByRole('button', { name: 'Try saving again' })).toBeInTheDocument();
   });
 });
 
