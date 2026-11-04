@@ -24,6 +24,34 @@ Status words: `pending`, `done`, `improved`, `dropped`, `pending-real-validation
 - `dockPatch` carries only the two current fields, so saving a dock never touches the legacy keys or unknown keys.
 - Surrounding spaces in the edge string are not trimmed (C# `Enum.TryParse` trims; a file written by this app never has them).
 
+## Where things are (P2)
+
+| Concern | Code |
+| --- | --- |
+| Contract: `pill.state`, `pill.hint` events; `pill.togglePause`, `pill.stop`, `pill.openApp`, `pill.setExpanded`, `pill.ready` requests | `packages/contracts/src/live-copilot.ts` |
+| Lifecycle, dock, tween, drag and snap, hint (ports only, no Electron) | `apps/desktop/src/main/live-copilot/pill-controller.ts` |
+| Dock in the settings file | `apps/desktop/src/main/live-copilot/pill-dock-store.ts` |
+| Electron wiring: screen, clock, animation setting, handoff | `apps/desktop/src/main/live-copilot/compose-pill.ts` |
+| Frameless window options and the BrowserWindow adapter | `apps/desktop/src/main/windows/pill-window.ts` |
+| Request handlers | `apps/desktop/src/main/ipc/pill-handlers.ts` |
+| Handoff and focus wiring | `apps/desktop/src/main/index.ts` (pill block, `broadcast`, main window events) |
+| Placeholder page (P4 replaces it) | `apps/desktop/src/renderer/pill.html`, `pill/` |
+| OS pixel and input e2e | `apps/desktop/e2e/pill-window.spec.ts`, helpers in `e2e/os/` |
+| Screens | `docs/port/screens/live-copilot/` |
+
+## Decisions (P2)
+
+- DIP, not physical: Electron window bounds, `screen` work areas and display bounds are all in DIP and the OS converts per monitor. The core runs with `scale = 1`, so the sizes are the DIP constants and nothing is converted twice. At a fractional scale the OS rounds the final position to a physical pixel once; `getBounds` can then read 1 DIP larger (seen at 125%: 80x257, 289x80, 468x517).
+- Gutter: 8 DIP of transparent window around the capsule, as in the spike. It takes input like the rest of the window; there is no click-through (spec section 5) and `setIgnoreMouseEvents` is never called.
+- Frameless transparent replaces the GDI region, the DWM attributes and the frame stripping (items 17, 18, 24, 25, bug 19). The page draws the shape.
+- Drag is the page `-webkit-app-region: drag` plus `will-move` and `moved`. The 4 DIP threshold is the OS drag threshold; `screen.getCursorScreenPoint` is not used. With the panel open, the first `will-move` collapses it and every later OS proposal is shifted by the offset between the expanded and the collapsed window.
+- The dock is written only when the user chose it (a snap). After a failed load the defaults are not the file, so a hide must not write them over it.
+- A late dock load never overwrites a dock the user already chose in this run.
+- The popup is dismissed with `detection.dismiss()`; the detection controller also hides it on any capture start.
+- Re-dock compares the actual rectangle with the rectangle read back after the last dock (spec 2.4). A work-area change that leaves the window where it is (a taskbar resize) does not re-dock. Left as in the spec; noted for the final review.
+- Bug 18 stays as the spec says: presses during the entrance and the snap are ignored.
+- Test input: `e2e/os/os.ps1` has a new `drag2` action. A long drag made of a few big cursor jumps (about 50 DIP per step) is ignored by the OS move loop; steps of 15 px or less drag normally. The spike's `drag` is kept for short drags.
+
 ## Scope cuts (owner decision 2026-11-03)
 
 Rows marked `dropped` are not missing. The armed question card, badge and Answer button, Jev judgment and its failure modes, and the privacy note belong to the TypeSafe cut. `LiveQuestionDetector` is dead code and is not ported.
@@ -32,34 +60,34 @@ Rows marked `dropped` are not missing. The armed question card, badge and Answer
 
 | # | Item | Owner | Status | Notes |
 | --- | --- | --- | --- | --- |
-| 1 | Pill is created lazily on first need and reused; hiding does not destroy it. | P2 | pending | |
-| 2 | Pill closes when the main window closes. | P2 | pending | |
-| 3 | Show rule is `isRecording && (!mainWindowActive \|\| handingOff)`; recording includes the paused state. | P2 | pending | |
-| 4 | `mainWindowActive` starts true; any activation state other than Deactivated sets it true. | P2 | pending | |
-| 5 | Pill visibility is re-evaluated on every main-window activation change and every `IsRecording` change. | P2 | pending | |
-| 6 | Handoff fires only on the false-to-true recording transition, not on pause, resume, import, discard or stop. | P2 | pending | |
-| 7 | Handoff dismisses the "meeting detected" popup. | P2 | pending | |
-| 8 | Handoff minimizes the main window and then forces `mainWindowActive = false`. | P2 | pending | |
-| 9 | Handoff shows the pill immediately without waiting for deactivation, then calls the started hint. | P2 | pending | |
-| 10 | The main window is never auto-restored. | P2 | pending | |
-| 11 | Stop or discard hides the pill and collapses an open panel. | P2 | pending | |
-| 12 | Bringing the main window forward hides the pill without collapsing the panel; the panel state persists across hide and show. | P2 | pending | |
-| 13 | `SetVisibleAsync` show and hide races are resolved by the latest requested visibility. | P2 | pending | |
-| 14 | Showing while already visible and not exiting is a no-op. | P2 | pending | |
-| 15 | Showing during an exit animation cancels the exit and re-enters from the docked rectangle. | P2 | pending | |
-| 16 | Always on top. | P2 | pending | |
-| 17 | No border and no title bar; native caption and thick-frame styles stripped and the frame refreshed. | P2 | pending | |
-| 18 | DWM border suppressed; DWM rounding disabled when the custom shape is applied and enabled as the fallback. | P2 | pending | |
-| 19 | Not resizable, not maximizable, not minimizable. | P2 | pending | |
-| 20 | Hidden from the taskbar and Alt+Tab. | P2 | pending | |
-| 21 | Shown without activation; keyboard focus stays in the previously focused app. | P2 | pending | |
-| 22 | Clicking the pill activates it so typing works; no click-through anywhere. | P2 | pending | |
+| 1 | Pill is created lazily on first need and reused; hiding does not destroy it. | P2 | done | `ensureWindow` in `apps/desktop/src/main/live-copilot/pill-controller.ts` creates the window at the first show request and keeps it. Tests "creates nothing until the pill is needed" and "keeps one window for the whole process". |
+| 2 | Pill closes when the main window closes. | P2 | done | `pill.dispose()` runs on the main window `closed` event (`main/index.ts`). Test "closes the pill with the main window". |
+| 3 | Show rule is `isRecording && (!mainWindowActive \|\| handingOff)`; recording includes the paused state. | P2 | done | `shouldShowRecordingPill` from core, fed by `onRecordingState` and `setMainWindowActive`. Truth table test in `pill-controller.test.ts`; a paused take keeps the pill (only `isRecording` counts). |
+| 4 | `mainWindowActive` starts true; any activation state other than Deactivated sets it true. | P2 | done | `mainWindowActive` starts true; main `focus` and `restore` (when focused) set it true, `blur` and `minimize` set it false. |
+| 5 | Pill visibility is re-evaluated on every main-window activation change and every `IsRecording` change. | P2 | done | Every main focus, blur, minimize and restore, and every `recording.state` broadcast, calls `update()` (`broadcast` in `main/index.ts`). |
+| 6 | Handoff fires only on the false-to-true recording transition, not on pause, resume, import, discard or stop. | P2 | done | The rule is `decideRecordingHandoff` (core `recording/handoff.ts`), covered by the 9 `LiveCopilotRecordingHandoffTests` cases already ported in `packages/core/src/recording/handoff.test.ts` (recording module R6). The controller tests add: no second handoff on pause, resume, stop, discard or import, and a new take hands off again. |
+| 7 | Handoff dismisses the "meeting detected" popup. | P2 | done | The handoff port calls `detection.dismiss()`. The detection controller also hides the popup on any capture start (its W14 rule), so a start from any path is covered. |
+| 8 | Handoff minimizes the main window and then forces `mainWindowActive = false`. | P2 | done | `minimizeMainWindow`, then `mainWindowActive = false` (only when the minimize happened). A main window that is not on screen counts as minimized, because it is not in front. |
+| 9 | Handoff shows the pill immediately without waiting for deactivation, then calls the started hint. | P2 | done | `handingOff` is true around the `update()` and the hint request, so the pill shows without waiting for the blur. Test "on the false to true transition ...". |
+| 10 | The main window is never auto-restored. | P2 | done | The handoff port has no restore. Nothing in the controller restores the main window; only the pill button (`pill.openApp`) does. |
+| 11 | Stop or discard hides the pill and collapses an open panel. | P2 | done | `hide(collapse = !isRecording)`: stop or discard folds the panel first. Test "folds back only when the recording stops". |
+| 12 | Bringing the main window forward hides the pill without collapsing the panel; the panel state persists across hide and show. | P2 | done | A hide caused by the main window coming forward keeps `expanded`; the next show docks with it. Tests "survives hide and show ..." and "keeps the flag when the panel is opened while the pill is hidden". |
+| 13 | `SetVisibleAsync` show and hide races are resolved by the latest requested visibility. | P2 | done | `wantVisible` is re-read after every await (`isWanted`), so the latest request wins. Tests: hide while the dock loads, show-hide-show during the load, show during the save. |
+| 14 | Showing while already visible and not exiting is a no-op. | P2 | done | `show()` returns when the window is visible and not exiting. Test "showing again while visible is a no-op". |
+| 15 | Showing during an exit animation cancels the exit and re-enters from the docked rectangle. | P2 | improved | Showing during an exit cancels it and the entrance resumes from the position and opacity the exit had reached, instead of jumping to the off-screen start, then settles on the docked rectangle. Test "showing during the exit cancels it and the pill stays". |
+| 16 | Always on top. | P2 | done | `alwaysOnTop: true` plus `setAlwaysOnTop(true, "floating")`. E2E: `isAlwaysOnTop`, and the capsule pixel stays dark while a white window takes focus on top of it. |
+| 17 | No border and no title bar; native caption and thick-frame styles stripped and the frame refreshed. | P2 | improved | Replaced by a frameless transparent window (`frame: false`, `thickFrame: false`, `transparent: true`), so there is no caption or frame to strip. E2E: content bounds equal window bounds (no inset). Options unit-tested in `pill-window.test.ts`. |
+| 18 | DWM border suppressed; DWM rounding disabled when the custom shape is applied and enabled as the fallback. | P2 | improved | Replaced by the same frameless transparent window: no DWM border, no DWM rounding and no fallback exist. The page draws the shape (P4). |
+| 19 | Not resizable, not maximizable, not minimizable. | P2 | done | `resizable`, `maximizable`, `minimizable` and `fullscreenable` are false. E2E asserts all four; unit test on the options. |
+| 20 | Hidden from the taskbar and Alt+Tab. | P2 | pending-real-validation | `skipTaskbar: true` is set and unit-tested. Not observed in the real taskbar and Alt+Tab list: needs a person to look. |
+| 21 | Shown without activation; keyboard focus stays in the previously focused app. | P2 | done | `showInactive()` only. E2E: after the start the pill is not focused, and after it comes back from a main-window blur the work window is still focused. |
+| 22 | Clicking the pill activates it so typing works; no click-through anywhere. | P2 | done | `focusable: true`, no `setIgnoreMouseEvents`. E2E: a real mouse click on the pill focuses it. Decision: the 8 DIP gutter takes input too, so a stray click beside the capsule does not reach the app underneath. |
 | 23 | Window shape is a capsule (radius half the short side) when collapsed and a 28 DIP rounded rectangle when expanded. | P2 | pending | |
-| 24 | Shape uses the window pixel size verified against the client size, with the region right and bottom `+1`. | P2 | pending | |
-| 25 | Shape falls back to DWM round corners when the region cannot be applied; stale regions are cleared on failure. | P2 | pending | |
+| 24 | Shape uses the window pixel size verified against the client size, with the region right and bottom `+1`. | P2 | improved | No region exists, so there is nothing to verify against the client size and no `+1` rule. The window is the capsule plus the gutter and the page clips with CSS. |
+| 25 | Shape falls back to DWM round corners when the region cannot be applied; stale regions are cleared on failure. | P2 | improved | No region and no DWM fallback: a transparent frameless window has no failure mode of that kind. |
 | 26 | Exactly one outline when collapsed (1 stroke inset by 1 physical pixel); expanded adds a capsule surface border of 1. | P4 | pending | |
 | 27 | Dark theme always; high-contrast colors honored for the stop button. | P4 | pending | |
-| 28 | Window title is `LiveCopilot_Title`. | P2 | pending | |
+| 28 | Window title is `LiveCopilot_Title`. | P2 | done | The `title` option is the localized `LiveCopilot_Title`; `page-title-updated` is blocked so the page cannot replace it. E2E reads "Live copilot". |
 | 29 | Capsule is 64 DIP on the short side, 240 DIP long when vertical, 272 DIP long when horizontal. | P1 | done | `CAPSULE_*_DIP` and `capsuleSizePx` in `pill-layout.ts`; constants and sizes tested in `pill-layout.test.ts`. |
 | 30 | Pixel sizes use `round(dip * scale)` with a fresh DPI each time. | P1 | done | `roundHalfEven(dip * scale)` in `capsuleSizePx`, `marginPx`, `gapPx`, `panelSizePx`; scale is a parameter, never cached. Tests at 1, 1.25, 1.5 and on midpoints. |
 | 31 | Edge margin is 16 DIP. | P1 | done | `EDGE_MARGIN_DIP = 16` and `marginPx(scale)`. |
@@ -78,42 +106,42 @@ Rows marked `dropped` are not missing. The armed question card, badge and Answer
 | 44 | `ExpandedBounds` result is clamped inside the work area. | P1 | done | `expandedBounds` clamps with `clamp` from `meeting-detection/popup-placement.ts`; near end and oversize panel tests. |
 | 45 | `Clamp` pins an oversize window to the area origin. | P1 | done | `clamp` (not duplicated) pins an oversize window to the area origin; the placement rows were added beside `popup-placement.test.ts`. |
 | 46 | `ParseEdge` is case-insensitive and falls back to Right for unknown values (decide the numeric-string behavior explicitly). | P1 | improved | Decision: `parseEdge` accepts only the four names, case-insensitive. Numeric strings `0` to `3` and comma flags (`Left,Top`) fall back to Right, stricter than C# (bug 5). Surrounding spaces are not trimmed. Unknown, null and empty give Right. |
-| 47 | First placement uses the primary display work area; later placements use the display nearest the window. | P2 | pending | |
-| 48 | On first placement the window is moved to the work-area origin before DPI is read. | P2 | pending | |
-| 49 | DPI and work area are re-read on every `Dock()` and every snap. | P2 | pending | |
+| 47 | First placement uses the primary display work area; later placements use the display nearest the window. | P2 | done | `dock()` uses the primary work area on the first placement and the display nearest the window afterwards (`screen.getDisplayNearestPoint`). Tests "first placement ..." and "later placements ...". |
+| 48 | On first placement the window is moved to the work-area origin before DPI is read. | P2 | done | The first `dock()` moves the hidden window to the work-area origin before the final `setBounds`, so the OS applies the target monitor scale. Test "first placement uses the primary work area, after moving the window to its origin". |
+| 49 | DPI and work area are re-read on every `Dock()` and every snap. | P2 | done | Work area and display are read in every `dock()` and every snap; nothing is cached. Decision: all rectangles stay in DIP (Electron window bounds and `screen` are DIP), the core runs with scale 1, and the OS rounds to physical pixels once. |
 | 50 | Capsule host margin inside the window equals `(capsule - window) / scale`. | P1 | done | `capsuleHostMargin` returns `(capsule - window) / scale` in DIP. |
 | 51 | Panel position and size inside the window follow the per-edge formulas (Left and Top offset by capsule thickness plus gap). | P1 | done | `panelRect` per edge, using the unrounded `8 * scale` gap as `SetBounds` does; never negative. |
-| 52 | The OS may refuse the requested size; the actual size is read back and used for the shape and the expected rectangle. | P2 | pending | |
-| 53 | Re-dock when the system moves or resizes the window by more than 2 px from the expected rectangle, deferred once to the dispatcher and ignored during drag, press, tween or a queued re-dock. | P2 | pending | |
-| 54 | Entrance: start from the off-screen rectangle, 300 ms ease-out quint, opacity follows eased progress. | P2 | pending | |
-| 55 | Exit: 160 ms ease-in cubic, opacity `1 - eased`, then hide, reset opacities, move back to the docked position. | P2 | pending | |
+| 52 | The OS may refuse the requested size; the actual size is read back and used for the shape and the expected rectangle. | P2 | done | `dock()` reads back `getBounds()` after `setBounds`; that rectangle is the expected rectangle and the size sent to the page (`pill.state.window`). Test "item 52". At 125% the OS reads some windows 1 DIP larger (a fractional physical position); the 2 px re-dock tolerance absorbs it. |
+| 53 | Re-dock when the system moves or resizes the window by more than 2 px from the expected rectangle, deferred once to the dispatcher and ignored during drag, press, tween or a queued re-dock. | P2 | done | `onDisplayChanged` (screen `display-removed` and `display-metrics-changed`) re-docks once, deferred with a 0 ms timeout and re-checked when it runs, beyond 2 px, and not during drag, entrance, exit or snap. Tests in "re-dock on system changes". A real monitor removal was not performed on this machine. |
+| 54 | Entrance: start from the off-screen rectangle, 300 ms ease-out quint, opacity follows eased progress. | P2 | done | 300 ms `easeOutQuint` from the off-screen rectangle, opacity = eased progress. Test "slides in over 300 ms ...". |
+| 55 | Exit: 160 ms ease-in cubic, opacity `1 - eased`, then hide, reset opacities, move back to the docked position. | P2 | done | 160 ms `easeInCubic`, opacity `1 - eased`, then hide, reset, move back to the docked rectangle. Test "slides out over 160 ms ...". The dock is saved and awaited before the tween starts. |
 | 56 | The off-screen rectangle shifts the docked rectangle past its edge by its own thickness plus the margin. | P1 | done | `offscreenRect(edge, docked, margin)` for the four edges. The adjacent monitor case is bug 11 and belongs to P2. |
-| 57 | With animations disabled in the OS, show and hide are immediate and no pulse or panel animation plays. | P2 | pending | |
+| 57 | With animations disabled in the OS, show and hide are immediate and no pulse or panel animation plays. | P2 | done | `systemPreferences.getAnimationSettings().shouldRenderRichAnimation` is read at each show, hide and tween. Off: immediate show, hide and snap, and the page gets `animationsEnabled: false` and `pulse: false`. Test "with the OS animations off ...". The real Windows setting was not toggled on this machine. |
 | 58 | Tween timer is 16 ms; rectangle lerp is rounded per component; size changes reapply the shape. | P1 | done | Pure part: `TIMINGS.tickMs = 16`, `lerpRect` rounds each component half to even, `snapFrame`. The timer and the shape reapply on size change belong to P2. |
 | 59 | Audio bars start on show and stop on hide. | P4 | pending | |
-| 60 | The position is saved (awaited) before the exit animation starts. | P2 | pending | |
-| 61 | The hint is requested on the recording start handoff only. | P2 | pending | |
-| 62 | If the pill is not yet visible or is entering, the hint waits for the entrance to finish. | P2 | pending | |
+| 60 | The position is saved (awaited) before the exit animation starts. | P2 | done | `hide()` cancels the debounce and awaits `saveDock()` before `playExit`. Tests "saves before the exit animation starts, and waits for the write" and "a show that arrives during the save keeps the pill". E2E: the settings file holds the edge after a stop. |
+| 61 | The hint is requested on the recording start handoff only. | P2 | done | `startHandoff` is the only caller of `requestStartedHint`. Test "is not requested when the pill returns ...". |
+| 62 | If the pill is not yet visible or is entering, the hint waits for the entrance to finish. | P2 | done | `maybeRunHint` runs only when the window is visible and not entering or exiting; the entrance end calls it. Test "waits for the entrance to finish". |
 | 63 | The pulse scales the capsule content 1 to 1.08 and back in 2 x 180 ms with sine ease-in-out. | P4 | pending | |
-| 64 | Tooltip text `LiveCopilot_StartedMessage` opens on the logo tile for 2500 ms, placed away from the docked edge. | P2 | pending | |
-| 65 | The hint is cancelled on hide, on drag start and on window close. | P2 | pending | |
+| 64 | Tooltip text `LiveCopilot_StartedMessage` opens on the logo tile for 2500 ms, placed away from the docked edge. | P2 | pending | Main side done: `pill.hint { show, durationMs: 2500, edge, pulse }`, where `edge` is the docked edge so the page opens the tip away from it. The tooltip itself is drawn by P4. |
+| 65 | The hint is cancelled on hide, on drag start and on window close. | P2 | done | `cancelHint` on hide, drag start and dispose; it closes a showing hint with `show: false`. Tests "is cancelled by a hide ..." and "is cancelled when a drag starts". |
 | 66 | The hint tooltip is separate from the logo button's own "Open Vozella" tooltip. | P4 | pending | |
-| 67 | A left-button press on the capsule (not on the logo tile) captures the pointer. | P2 | pending | |
-| 68 | Presses are ignored while a tween runs. | P2 | pending | |
-| 69 | Drag starts after the cursor moves 4 DIP (Euclidean, in physical px) from the press point, using global cursor coordinates. | P2 | pending | |
-| 70 | Starting a drag closes the hint and instantly collapses an open panel. | P2 | pending | |
-| 71 | While dragging, the window follows the cursor delta from the origin captured at drag start. | P2 | pending | |
-| 72 | Release or capture loss ends the drag; a press without a drag does nothing. | P2 | pending | |
+| 67 | A left-button press on the capsule (not on the logo tile) captures the pointer. | P2 | improved | Replaced by the page `-webkit-app-region: drag` (the window spike). The OS captures the press, so no pointer capture code exists. P4 must mark the logo tile and the buttons `no-drag`, so a press on them never starts a drag. |
+| 68 | Presses are ignored while a tween runs. | P2 | done | `will-move` while entering, exiting, snapping or hidden is `preventDefault`ed. Test "ignores a press during the entrance (bug 18) and during a snap". |
+| 69 | Drag starts after the cursor moves 4 DIP (Euclidean, in physical px) from the press point, using global cursor coordinates. | P2 | improved | Decision: the 4 DIP threshold is the OS drag threshold of the app-region drag, so `screen.getCursorScreenPoint` is not used and no distance is computed. Observed with real input: the window starts moving after the OS threshold, so a drop lands 10 to 22 DIP short of the cursor path; the snap makes it irrelevant. |
+| 70 | Starting a drag closes the hint and instantly collapses an open panel. | P2 | done | The first `will-move` cancels the hint and, with the panel open, collapses it at once and shifts every later OS proposal by the offset between the expanded and the collapsed window, so the capsule follows the cursor. Unit test "collapses an open panel when the drag starts ..." and an e2e with a real drag on an open panel. |
+| 71 | While dragging, the window follows the cursor delta from the origin captured at drag start. | P2 | done | The window follows the OS move loop (cursor delta from the press); the collapse shift is the only correction. E2E: real drags move the window. |
+| 72 | Release or capture loss ends the drag; a press without a drag does nothing. | P2 | done | `moved` ends the drag and snaps; a `moved` without a preceding `will-move` (a click) does nothing. Test "a click without a drag does not snap or save". |
 | 73 | A drop snaps to the nearest edge based on the window center and the nearest display work area. | P1 | done | `planSnap`: center by truncating division of the dropped window, `nearestEdge` on that center and the work area passed in (the caller supplies the nearest display). |
 | 74 | The new `along` is computed from the center using the new orientation size. | P1 | done | `planSnap` computes `along` with `alongFor` from the center and the new orientation size. |
-| 75 | Snap tween is 240 ms: ease-out cubic without a flip, ease-in-out cubic with a flip. | P2 | pending | |
-| 76 | On a flip the orientation switches at eased progress >= 0.5 and host opacity is `\|2*eased - 1\|`. | P2 | pending | |
-| 77 | After the snap completes: opacity 1, instant `Dock()`, debounced save (500 ms). | P2 | pending | |
+| 75 | Snap tween is 240 ms: ease-out cubic without a flip, ease-in-out cubic with a flip. | P2 | done | 240 ms; `easeOutCubic` without a flip, `easeInOutCubic` with one (`snapFrame`). Tests "snaps to the nearest edge over 240 ms ..." and "flips orientation ...". E2E: real drags snap to all four edges. |
+| 76 | On a flip the orientation switches at eased progress >= 0.5 and host opacity is `\|2*eased - 1\|`. | P2 | done | `pill.state.vertical` flips once at eased >= 0.5 and `contentOpacity = \|2*eased - 1\|` is pushed each tick. Test "flips orientation at half way and crossfades the content". |
+| 77 | After the snap completes: opacity 1, instant `Dock()`, debounced save (500 ms). | P2 | done | The tween end calls `completeSnap` (opacity 1, instant `dock()`) and `scheduleSave` (500 ms debounce). Tests "saves 500 ms after a snap" and "debounces two snaps into one save". |
 | 78 | The chat button toggles the panel; its name and tooltip switch between the Expand and Collapse strings. | P5 | pending | |
-| 79 | Opening grows the window from the capsule toward the screen center, keeping the capsule position. | P5 | pending | |
+| 79 | Opening grows the window from the capsule toward the screen center, keeping the capsule position. | P5 | done | `expandedBounds` with the gutter: the window grows toward the center and the capsule keeps its screen position (the page gets its place in `pill.state.capsule`). E2E: expanded bounds match the worked example within 1 DIP. The panel contents are P5. |
 | 80 | Opening animates panel opacity 0 to 1 and a 16 DIP slide from the docked edge over 220 ms with cubic ease-out. | P5 | pending | |
-| 81 | Closing is instant when initiated by a drag or by `collapse`. | P5 | pending | |
-| 82 | The panel closes on stop or discard. | P5 | pending | |
+| 81 | Closing is instant when initiated by a drag or by `collapse`. | P5 | done | `setExpanded(false)`, a drag start and a stop all resize at once; the 220 ms fade belongs to the page. Tests "closing is instant" and the drag test. |
+| 82 | The panel closes on stop or discard. | P5 | done | Stop or discard hides with `collapse = true` (item 11); the window state is folded before the next take. |
 | 83 | The header shows `LiveCopilot_Title` and an "Open Vozella" button. | P5 | pending | |
 | 84 | The logo button and the header button both restore the main window if minimized and activate it. | P5 | pending | |
 | 85 | The detected-question card is visible only while a question is armed. | P5 | dropped | owner decision 2026-11-03, may return later |
@@ -178,9 +206,9 @@ Rows marked `dropped` are not missing. The armed question card, badge and Answer
 | 144 | The meter maps amplitude with the -60 dBFS floor and 1e-6 minimum amplitude to 0..100. | P4 | pending | |
 | 145 | Elapsed text is `mm:ss` with unbounded minutes, updated each second, with a status tooltip (`REC` or `Paused`). | P4 | pending | |
 | 146 | Edge and along are stored as `liveCopilotPillEdge` and `liveCopilotPillAlong` in the settings JSON. | P1 | done | `resolveDock` and `dockPatch` in `pill-dock-settings.ts`; the settings store test writes and reads `liveCopilotPillEdge` and `liveCopilotPillAlong`. |
-| 147 | Loaded once per process on first show; failure keeps the defaults. | P2 | pending | |
-| 148 | Saved 500 ms after each snap and immediately on hide; the write is skipped if unchanged within 0.0005. | P2 | pending | |
-| 149 | Save errors are swallowed. | P2 | pending | |
+| 147 | Loaded once per process on first show; failure keeps the defaults. | P2 | done | `ensureDockLoaded` reads once per process on the first show and caches only a success (bug 13). Test "reads the dock once per process when it worked". |
+| 148 | Saved 500 ms after each snap and immediately on hide; the write is skipped if unchanged within 0.0005. | P2 | done | `PillDockStore.save` skips the write when the edge is equal and along is within 0.0005; debounce and awaited save as in items 60 and 77. Tests in `pill-dock-store.test.ts`. The controller also saves only a dock the user chose, so a failed load never overwrites the file with defaults. |
+| 149 | Save errors are swallowed. | P2 | done | `PillDockStore.save` and `saveDock` swallow and log. Tests "swallows and logs errors" and "a save that throws is logged and the pill still hides". |
 | 150 | Legacy X and Y fields are tolerated on load and unused. | P1 | done | Legacy `liveCopilotPillX` and `liveCopilotPillY` are tolerated, never read (bug 8, no migration) and round trip untouched through `JsonSettingsStore.update(dockPatch(...))`. |
 | 151 | All AutomationIds in sections 2.6 and 2.8 are preserved (or mapped to equivalent test ids). | P5 | pending | |
 | 152 | Accessible names exist for pause and resume, stop, expand and collapse, open-app, armed badge, web toggle, send, ask box and chips. | P5 | pending | |
@@ -197,30 +225,37 @@ Rows marked `dropped` are not missing. The armed question card, badge and Answer
 | 3 | The armed question is lost on non-setup failures | P3 | dropped | owner decision 2026-11-03, may return later |
 | 4 | `LiveQuestionDetector` is dead code in production; its only reference is a comment (`RecordingPageViewModel.cs:391`) | P3 | dropped | owner decision 2026-11-03, may return later |
 | 5 | `ParseEdge` accepts numeric strings `"0"` to `"3"` and comma-separated names (`LiveCopilotPillDock.cs:318-321`), so a corrupt value can silently select an edge | P1 | improved | Fixed with item 46: strict names only; regression test `bug 5` in `pill-dock.test.ts`. |
-| 6 | The monitor is not persisted | P2 | pending | |
+| 6 | The monitor is not persisted | P2 | done | Kept as designed and recorded: the monitor is not persisted. After a restart the pill docks on the primary display first, as WinUI did. Neither `PillDockStore` nor `PillController` carries a monitor field. |
 | 7 | The `Light` theme resource dictionary in the XAML is unreachable because the root forces `RequestedTheme="Dark"` (`LiveCopilotWindow.xaml:11`, `:20-23`); only the Dark and HighContrast colors apply | P4 | pending | |
 | 8 | Legacy settings fields `LiveCopilotPillX` and `LiveCopilotPillY` are kept but unread (`AppSettings.cs:160-167`); no migration from them to edge and along exists | P1 | done | Kept as designed: no migration. Test `bug 8` in `pill-dock-settings.test.ts` and the store round trip. |
 | 9 | The baseline stalls on judgment errors | P3 | dropped | owner decision 2026-11-03, may return later |
 | 10 | Only the last qualifying new line is armed per judgment batch (`LiveQuestionJevJudge.cs:83-94`); an earlier question in the same batch is dropped and, because the baseline advances, never revisited | P3 | dropped | owner decision 2026-11-03, may return later |
-| 11 | The off-screen slide target can land on an adjacent monitor | P2 | pending | |
-| 12 | Settings read-modify-write race | P2 | pending | |
-| 13 | `SetVisibleAsync` is fire-and-forget from `UpdateLiveCopilotPill` (`App.xaml.cs:399`), so exceptions in the async path are unobserved | P2 | pending | |
-| 14 | If the main window's presenter is not an `OverlappedPresenter`, the handoff does not minimize (`App.xaml.cs:358-360`) but `handingOff` still shows the pill; nothing re-evaluates visibility afterwards, so the pill can stay visible over an active main window until the next activation change | P2 | pending | |
+| 11 | The off-screen slide target can land on an adjacent monitor | P2 | improved | The slide stops at the edge of its own display when the off-screen target would land on a neighbour (the fade does the rest). Test "keeps a hidden window off the neighbouring monitor (bug 11)". With a single monitor the slide is unchanged. |
+| 12 | Settings read-modify-write race | P2 | improved | The save goes through `SettingsStore.update`, the locked read-modify-write, with a patch of only `liveCopilotPillEdge` and `liveCopilotPillAlong`. Test in `pill-dock-store.test.ts`; e2e: another setting written by the seed survives the dock save. |
+| 13 | `SetVisibleAsync` is fire-and-forget from `UpdateLiveCopilotPill` (`App.xaml.cs:399`), so exceptions in the async path are unobserved | P2 | improved | Every fire-and-forget call has a `.catch` that logs (`update()`), and a failed dock load is retried at the next show instead of cached. Tests "bug 13: ..." and "an error in the async path is logged". |
+| 14 | If the main window's presenter is not an `OverlappedPresenter`, the handoff does not minimize (`App.xaml.cs:358-360`) but `handingOff` still shows the pill; nothing re-evaluates visibility afterwards, so the pill can stay visible over an active main window until the next activation change | P2 | improved | `startHandoff` re-evaluates once the handoff is over, so a main window that could not be minimized (it stays active) hides the pill at once; the next focus event still drives it. Test "bug 14". |
 | 15 | `CanUseWebSearch` is refreshed only on recording start and at ask time (`:1236`, `:576`); the toggle can show a stale state if the provider changes mid-recording | P5 | pending | |
 | 16 | `TakeRecent` drops any unstamped line that begins with `Recorded ` or `Ended ` (the header test applies to every line), and its 2500-character fallback and the 1500-character session-context cut can split surrogate pairs (`LiveAnswerWindow.cs:148`, `:186-192`; `LiveAnswerWebPolicy.cs:94`) | P3 | pending | |
 | 17 | Cross-platform newlines | P3 | pending | |
-| 18 | Drag is blocked while a tween runs (`:918`), so a press during the 300 ms entrance or the 240 ms snap does nothing (buttons still work) | P2 | pending | |
-| 19 | `ApplyShape` recreates the HRGN on every size change during a snap tween (`:646`), producing many short-lived GDI regions per second; each is replaced, so not a leak, but wasteful | P2 | pending | |
+| 18 | Drag is blocked while a tween runs (`:918`), so a press during the 300 ms entrance or the 240 ms snap does nothing (buttons still work) | P2 | done | Kept on purpose: presses during the 300 ms entrance and the 240 ms snap are ignored (item 68, the spec behavior). The buttons still work, because the block is only on the window move. Test in "drag and snap". |
+| 19 | `ApplyShape` recreates the HRGN on every size change during a snap tween (`:646`), producing many short-lived GDI regions per second; each is replaced, so not a leak, but wasteful | P2 | improved | No region is created at all: the window is transparent and frameless, so no per-tick shape work exists. |
 | 20 | Privacy | P3 | dropped | owner decision 2026-11-03, may return later |
 
 ## Bugs fixed
 
+- Bug 11 (P2): the hidden window slides no further than its own display when a neighbour would be crossed. Test in `pill-controller.test.ts`.
+- Bug 12 (P2): the dock is saved with the locked `SettingsStore.update` and a two-field patch. Test in `pill-dock-store.test.ts` and an e2e check that another setting survives.
+- Bug 13 (P2): fire-and-forget visibility calls log their failures; a failed dock load is retried at the next show. Tests in `pill-controller.test.ts`.
+- Bug 14 (P2): the pill is re-evaluated after the handoff, so a main window that cannot be minimized does not leave the pill over it. Test in `pill-controller.test.ts`.
+- Bug 6 and bug 18 (P2): kept on purpose, with the reasons in the table.
+- Bug 19 (P2): gone with the region.
 - Bug 5 (P1): `parseEdge` no longer accepts numeric strings or comma flags. Regression tests in `pill-dock.test.ts`.
 - Bug 8 (P1): decided as no migration; legacy X and Y are never read and survive a save. Tests in `pill-dock-settings.test.ts` and `json-settings-store.test.ts`.
 
 ## Left for other modules
 
-- P2: the pill window adapter, lifecycle, drag handling, the 16 ms tween timer, shape application, re-dock on OS changes (use `shouldRedock`), the save debounce and the awaited save on hide (use `shouldSaveDock` and `dockPatch`), first placement on the primary display, bugs 6, 11, 12, 13, 14, 18, 19.
+- P2 is done. What it leaves: the pill page is a placeholder (one drag region, a dark capsule). Still `pending-real-validation` for a person: taskbar and Alt+Tab hiding (item 20), the Windows animation-effects switch, removing or re-arranging a real monitor, and mixed DPI. Only one display at 125% was available.
+- P4 and P5 use: `pill.state` (edge, `vertical`, `opacity`, `contentOpacity`, `window`, `capsule` and `panel` rectangles in DIP relative to the window), `pill.hint`, `pill.ready` at start, and `pill.setExpanded`, `pill.togglePause`, `pill.stop`, `pill.openApp`. The page applies `opacity` to its root and `contentOpacity` to the capsule. The logo tile, buttons, the ask box and everything else that takes a click must be `-webkit-app-region: no-drag`.
 - P3: answer path audit (items 100 to 127), bugs 16 and 17.
 - P4: capsule renderer, audio bars, started hint pulse (`PULSE_SCALE`), shape outline, bug 7.
 - P5: chat panel (use `panelRect`, `PANEL_SLIDE_DIP`, `TIMINGS.panelMs`), bug 15.
