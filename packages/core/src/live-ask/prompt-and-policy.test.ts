@@ -68,6 +68,73 @@ describe('LiveAnswerPromptBuilder', () => {
   });
 });
 
+describe('LiveAnswerPromptBuilder layout', () => {
+  const head = [
+    'You are answering a question that was just asked in a live class or meeting.',
+    '',
+    'Write a short answer in 2 to 5 sentences. Write the answer in English.',
+    '',
+    'Use the transcript window as context for the topic and who asked.',
+    '',
+    'If the transcript does not contain the factual answer, answer from knowledge. Do not refuse just because the meeting did not state the fact. Do not say that you only know what was said.',
+    '',
+  ];
+  const tail = ['Question:', 'Why?', '', 'Transcript window:', 'the window'];
+  const contextLines = [
+    'Session context:',
+    'Meeting: Math',
+    '',
+    'The session context is the topic, course, or meeting brief supplied by the user. Use it to interpret the question.',
+  ];
+  const webLines = [
+    'You may use web search for current or external facts (competitors, prices, recent news) and keep the answer short.',
+    '',
+  ];
+
+  it('plain prompt, byte for byte', () => {
+    expect(buildLiveAnswerPrompt('Why?', 'the window', 'en')).toBe([...head, ...tail].join('\n'));
+  });
+
+  it('context only: no blank line between the block and Question', () => {
+    expect(buildLiveAnswerPrompt('Why?', 'the window', 'en', 'Meeting: Math')).toBe(
+      [...head, ...contextLines, ...tail].join('\n'),
+    );
+  });
+
+  it('web only: the web line, a blank line, then Question', () => {
+    expect(buildLiveAnswerPrompt('Why?', 'the window', 'en', null, true)).toBe(
+      [...head, ...webLines, ...tail].join('\n'),
+    );
+  });
+
+  it('both: context block, then web line, then a blank line', () => {
+    expect(buildLiveAnswerPrompt('Why?', 'the window', 'en', 'Meeting: Math', true)).toBe(
+      [...head, ...contextLines, ...webLines, ...tail].join('\n'),
+    );
+  });
+
+  it('has no trailing newline after the window and no web word without web search', () => {
+    const p = buildLiveAnswerPrompt('Why?', 'the window', 'es', 'Meeting: Math', false);
+    expect(p.endsWith('the window')).toBe(true);
+    expect(/web/i.test(p)).toBe(false);
+  });
+});
+
+/** A high surrogate without a low one after it, or a low one without a high one before it. */
+function hasLoneSurrogate(text: string): boolean {
+  for (let i = 0; i < text.length; i += 1) {
+    const unit = text.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = text.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      i += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 describe('LiveAnswerWebPolicy', () => {
   it('only the CLI providers support web search', () => {
     expect(supportsWebSearch('ClaudeCode')).toBe(true);
@@ -95,6 +162,21 @@ describe('LiveAnswerWebPolicy', () => {
     expect(buildSessionContext(' Math ', '')).toBe('Meeting: Math');
     expect(buildSessionContext('', '  about sets ')).toBe('about sets');
     expect(buildSessionContext('Math', 'sets')).toBe('Meeting: Math\nsets');
+  });
+
+  // Bug 16: the C# cut by code unit could leave half of a surrogate pair in the prompt.
+  it('the 1500 cut never splits a surrogate pair', () => {
+    const text = buildSessionContext('', `${'a'.repeat(1499)}😀tail`);
+    expect(text).toBe('a'.repeat(1499));
+    expect(hasLoneSurrogate(text ?? '')).toBe(false);
+    const fits = `${'a'.repeat(1498)}😀`;
+    expect(buildSessionContext('', fits)).toBe(fits);
+  });
+
+  it('title and brief joined are measured together', () => {
+    const text = buildSessionContext('T', 'b'.repeat(2000));
+    expect(text?.length).toBe(MAX_SESSION_CONTEXT_CHARS);
+    expect(text?.startsWith('Meeting: T\nbbb')).toBe(true);
   });
 
   it('a long brief is cut at 1500 and trimmed at the end', () => {
