@@ -6,7 +6,10 @@ import type { StringKey } from '../../i18n/translate';
 import { IconButton, Input, Notice, cn } from '../../ui';
 import { askLive, setWebSearch, useLiveAskStore } from './use-live-ask';
 
-const errorText = (answer: RecordingAnswerDto, translate: (key: StringKey) => string): string => {
+export const answerErrorMessage = (
+  answer: RecordingAnswerDto,
+  translate: (key: StringKey) => string,
+): string => {
   const { error } = answer;
   if (error === null) return '';
   return error.key === null ? error.text : translate(error.key as StringKey);
@@ -35,7 +38,7 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
     }
   };
 
-  const message = errorText(answer, t);
+  const message = answerErrorMessage(answer, t);
   return (
     <div className="flex flex-col gap-2" data-testid="live-ask-dock">
       {answer.error !== null ? (

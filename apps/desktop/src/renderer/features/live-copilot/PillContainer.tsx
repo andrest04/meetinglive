@@ -1,7 +1,9 @@
 import type { PillStateDto, RecordingStateDto } from '@vozella/contracts';
+import { EXPANDED_RADIUS_DIP } from '@vozella/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { useElapsed } from '../record/use-elapsed';
+import { ChatPanelContainer } from './ChatPanelContainer';
 import { CapsuleView, hintSide, type CapsuleHint } from './CapsuleView';
 
 const clampLevel = (level: number): number =>
@@ -105,14 +107,25 @@ export function PillContainer() {
       {pill.panel ? (
         <div
           data-testid="pill-panel"
-          className="absolute box-border rounded-overlay border border-hairline bg-paper-raised forced-colors:border-[CanvasText]"
+          className="absolute box-border overflow-hidden border border-hairline bg-paper-raised forced-colors:border-[CanvasText]"
           style={{
             left: pill.panel.x,
             top: pill.panel.y,
             width: pill.panel.width,
             height: pill.panel.height,
+            borderRadius: EXPANDED_RADIUS_DIP,
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.32)',
           }}
-        />
+        >
+          <ChatPanelContainer
+            edge={pill.edge}
+            animate={pill.animationsEnabled}
+            recording={recording?.isRecording ?? false}
+            onOpenApp={() => {
+              send('pill.openApp');
+            }}
+          />
+        </div>
       ) : null}
       <CapsuleView
         edge={pill.edge}

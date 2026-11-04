@@ -91,5 +91,6 @@
   "Ui_SessionRenameFailedText": "The title was not changed: {0}",
   "Ui_SessionAudioPlay": "Play audio",
   "Ui_SessionAudioPause": "Pause audio",
-  "Ui_SessionAudioPosition": "Audio position"
+  "Ui_SessionAudioPosition": "Audio position",
+  "Ui_LiveCopilotEmpty": "Ask a question below."
 }
