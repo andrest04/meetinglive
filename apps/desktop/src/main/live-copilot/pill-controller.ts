@@ -434,6 +434,9 @@ export class PillController {
     win.onMoved(() => {
       this.onMoved();
     });
+    win.onBoundsChanged(() => {
+      this.onDisplayChanged();
+    });
     win.onClosed(() => {
       if (this.window !== win) return;
       this.window = null;

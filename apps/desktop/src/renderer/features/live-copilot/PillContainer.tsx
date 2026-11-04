@@ -145,6 +145,7 @@ export function PillContainer() {
           stop: t('LiveCopilot_Stop.AutomationProperties.Name'),
           expand: t('LiveCopilot_Expand.AutomationProperties.Name'),
           collapse: t('LiveCopilot_Collapse.AutomationProperties.Name'),
+          collapseTooltip: t('LiveCopilot_Collapse.ToolTipService.ToolTip'),
           statusRecording: t('LiveCopilot_StatusRecording'),
           statusPaused: t('LiveCopilot_StatusPaused'),
         }}

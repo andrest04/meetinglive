@@ -56,6 +56,23 @@ describe('LiveAskDock', () => {
     ]);
   });
 
+  it('clears an unsent draft when the next take starts', async () => {
+    const view = mount(true);
+    const box = screen.getByRole('textbox', { name: 'Type a question' });
+    await userEvent.type(box, 'left over');
+    view.rerender(
+      <Providers>
+        <LiveAskDock enabled={false} />
+      </Providers>,
+    );
+    view.rerender(
+      <Providers>
+        <LiveAskDock enabled />
+      </Providers>,
+    );
+    expect(screen.getByRole('textbox', { name: 'Type a question' })).toHaveValue('');
+  });
+
   it('does not ask for a blank question', async () => {
     mount();
     await userEvent.type(screen.getByRole('textbox', { name: 'Type a question' }), '   ');

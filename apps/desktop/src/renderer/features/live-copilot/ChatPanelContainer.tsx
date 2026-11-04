@@ -1,5 +1,5 @@
 import type { PillEdgeDto } from '@vozella/contracts';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { askLive, connectLiveAsk, setWebSearch, useLiveAskStore } from '../record/use-live-ask';
 import { answerErrorMessage } from '../record/LiveAskDock';
@@ -36,6 +36,13 @@ export function ChatPanelContainer({
   const [text, setText] = useState('');
 
   useEffect(() => connectLiveAsk(), []);
+
+  // A new take starts with an empty box: a draft left from before it is not carried over.
+  const wasRecording = useRef(recording);
+  useEffect(() => {
+    if (recording && !wasRecording.current) setText('');
+    wasRecording.current = recording;
+  }, [recording]);
 
   const send = useCallback((): void => {
     const question = text.trim();

@@ -71,6 +71,15 @@ const settle = () =>
     await Promise.resolve();
   });
 
+describe('layout', () => {
+  it('pads the panel by 12 DIP and spaces its rows by 8 DIP (p-3, gap-2)', () => {
+    render(<Panel />);
+    const root = screen.getByTestId('LiveCopilotPanel');
+    expect(root.className).toContain('p-3');
+    expect(root.className).toContain('gap-2');
+  });
+});
+
 describe('the answer area', () => {
   it('shows the empty hint only with no answer, no ask in flight and no error', () => {
     render(<Panel />);
@@ -298,6 +307,9 @@ describe('the typed ask', () => {
     fireEvent.keyDown(box, { key: 'Enter', ctrlKey: true });
     expect(asks()).toHaveLength(0);
     view.rerender(<Panel recording />);
+    expect(box).toHaveValue(''); // a new take starts with an empty box
+    expect(send).toBeDisabled();
+    await user.type(box, 'hello');
     expect(send).toBeEnabled();
     await user.clear(box);
     await user.type(box, '  ');
@@ -305,6 +317,18 @@ describe('the typed ask', () => {
     await user.type(box, 'x');
     await user.click(send);
     expect(asks()).toHaveLength(1);
+  });
+
+  it('clears an unsent draft when a new take starts, and keeps it while the take runs', async () => {
+    const view = render(<Panel recording={false} />);
+    const box = screen.getByTestId('TxtLiveCopilotAsk');
+    const user = userEvent.setup();
+    await user.type(box, 'old draft');
+    view.rerender(<Panel recording />);
+    expect(box).toHaveValue('');
+    await user.type(box, 'new draft');
+    view.rerender(<Panel recording />);
+    expect(box).toHaveValue('new draft');
   });
 
   it('names the box, the toggle and the send button', () => {
@@ -389,7 +413,10 @@ describe('opening motion', () => {
       { opacity: 0, translate: from },
       { opacity: 1, translate: '0 0' },
     ]);
-    expect(options).toMatchObject({ duration: 220 });
+    expect(options).toMatchObject({
+      duration: 220,
+      easing: 'cubic-bezier(0.215, 0.61, 0.355, 1)',
+    });
   });
 
   it('plays nothing when animations are off or the user prefers reduced motion', () => {

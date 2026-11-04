@@ -82,6 +82,7 @@ function fakeWindow(id = 5) {
   let willMove: (event: PillMoveEvent) => void = () => undefined;
   let moved: () => void = () => undefined;
   let closed: () => void = () => undefined;
+  let boundsChanged: () => void = () => undefined;
   const sent: { name: string; payload: unknown }[] = [];
   const boundsLog: Rect[] = [];
   const hides = { count: 0 };
@@ -115,6 +116,9 @@ function fakeWindow(id = 5) {
     onMoved: (listener) => {
       moved = listener;
     },
+    onBoundsChanged: (listener) => {
+      boundsChanged = listener;
+    },
     onClosed: (listener) => {
       closed = listener;
     },
@@ -142,6 +146,11 @@ function fakeWindow(id = 5) {
     },
     endDrag: () => {
       moved();
+    },
+    /** The OS moved or resized the window on its own (a snap, a forced size). */
+    osChanged: (next: Rect) => {
+      bounds = next;
+      boundsChanged();
     },
     states: (): PillStateDto[] =>
       sent.filter((m) => m.name === pillStateChanged.name).map((m) => m.payload as PillStateDto),
@@ -729,6 +738,20 @@ describe('started hint', () => {
     ).toHaveLength(1);
   });
 
+  it('is cancelled when the window is closed', async () => {
+    const t = setup({ animations: true });
+    await startRecording(t);
+    t.clock.advance(50);
+    t.win().win.close();
+    t.clock.advance(5000);
+    expect(
+      t
+        .win()
+        .hints()
+        .some((h) => h.show),
+    ).toBe(false);
+  });
+
   it('is not requested when the pill returns after the main window left again', async () => {
     const t = setup();
     await startRecording(t);
@@ -882,6 +905,24 @@ describe('drag and snap', () => {
     expect(t.controller.state.edge).toBe('Left');
   });
 
+  it('snaps inside the work area of the display it was dropped on', async () => {
+    const second: Rect = { x: 1536, y: 0, width: 1536, height: 816 };
+    const t = setup({
+      displays: [
+        { id: 1, workArea: AREA, bounds: AREA },
+        { id: 2, workArea: second, bounds: second },
+      ],
+    });
+    await startRecording(t);
+    t.win().drag({ x: 2900, y: 300, width: 80, height: 256 });
+    t.win().endDrag();
+    const done = t.win().win.getBounds();
+    expect(t.controller.state.edge).toBe('Right');
+    expect(done.x).toBeGreaterThanOrEqual(second.x);
+    expect(done.x + done.width).toBeLessThanOrEqual(second.x + second.width);
+    expect(done.x + done.width).toBeGreaterThan(AREA.width);
+  });
+
   it('flips orientation at half way and crossfades the content', async () => {
     const t = setup({ animations: true });
     await startRecording(t);
@@ -958,6 +999,26 @@ describe('re-dock on system changes', () => {
     t.clock.advance(1);
     expect(t.win().win.getBounds()).toEqual(RIGHT_DOCKED);
     expect(t.win().boundsLog).toHaveLength(calls + 1);
+  });
+
+  it('re-docks after the OS moves or resizes the window with no display event', async () => {
+    const t = setup();
+    await startRecording(t);
+    t.win().osChanged({ ...RIGHT_DOCKED, x: RIGHT_DOCKED.x - 40 });
+    t.clock.advance(1);
+    expect(t.win().win.getBounds()).toEqual(RIGHT_DOCKED);
+    t.win().osChanged({ ...RIGHT_DOCKED, height: RIGHT_DOCKED.height + 30 });
+    t.clock.advance(1);
+    expect(t.win().win.getBounds()).toEqual(RIGHT_DOCKED);
+  });
+
+  it('ignores a change event that leaves the window where it should be', async () => {
+    const t = setup();
+    await startRecording(t);
+    const calls = t.win().boundsLog.length;
+    t.win().osChanged(RIGHT_DOCKED);
+    t.clock.advance(10);
+    expect(t.win().boundsLog).toHaveLength(calls);
   });
 
   it('ignores a difference of 2 px or less', async () => {

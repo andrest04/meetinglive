@@ -1,6 +1,6 @@
 import type { RecordingAnswerDto } from '@vozella/contracts';
 import { Globe } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { IconButton, Input, Notice, cn } from '../../ui';
@@ -25,6 +25,12 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
   const answer = useLiveAskStore((s) => s.answer);
   const webSearch = useLiveAskStore((s) => s.webSearch);
   const [text, setText] = useState('');
+  const wasEnabled = useRef(enabled);
+  useEffect(() => {
+    // A new take starts with an empty box.
+    if (enabled && !wasEnabled.current) setText('');
+    wasEnabled.current = enabled;
+  }, [enabled]);
   const canWeb = answer.canUseWebSearch;
   const canAsk = enabled && text.trim() !== '';
 

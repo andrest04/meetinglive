@@ -12,7 +12,6 @@ import {
   PANEL_WIDTH_DIP,
   PULSE_SCALE,
   TIMINGS,
-  capsuleHostMargin,
   capsuleSizePx,
   dragStarted,
   gapPx,
@@ -100,25 +99,6 @@ describe('pixel sizes (banker rounding at fractional DPI)', () => {
   it('panel size', () => {
     expect(panelSizePx(1.25)).toEqual({ width: 475, height: 625 });
     expect(panelSizePx(1)).toEqual({ width: 380, height: 500 });
-  });
-});
-
-describe('capsuleHostMargin', () => {
-  it('is (capsule - window) / scale', () => {
-    expect(
-      capsuleHostMargin(
-        { x: 1840, y: 400, width: 64, height: 240 },
-        { x: 1452, y: 270, width: 452, height: 500 },
-        1,
-      ),
-    ).toEqual({ left: 388, top: 130 });
-    expect(
-      capsuleHostMargin(
-        { x: 150, y: 100, width: 80, height: 300 },
-        { x: 50, y: 20, width: 600, height: 700 },
-        1.25,
-      ),
-    ).toEqual({ left: 80, top: 64 });
   });
 });
 

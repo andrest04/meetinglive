@@ -49,6 +49,23 @@ describe('LiveAnswerWindow', () => {
     );
   });
 
+  it('uses the maximum end time as the latest, not the end of the last stamped line', () => {
+    const text = [line(0, 80, 'old'), line(100, 200, 'long'), line(150, 160, 'short')].join('\n');
+    // The last stamped end is 160 (cutoff 70, would keep "old"); the maximum is 200 (cutoff 110).
+    expect(takeRecentWindow(text)).toBe(
+      [line(100, 200, 'long'), line(150, 160, 'short')].join('\n'),
+    );
+  });
+
+  it('drops a stamped line outside the span even between two kept lines', () => {
+    const text = [line(100, 200, 'kept a'), line(0, 20, 'stale'), line(190, 200, 'kept b')].join(
+      '\n',
+    );
+    expect(takeRecentWindow(text)).toBe(
+      [line(100, 200, 'kept a'), line(190, 200, 'kept b')].join('\n'),
+    );
+  });
+
   it('without timestamps returns the last 2500 characters', () => {
     const text = 'x'.repeat(2400) + 'y'.repeat(300);
     expect(takeRecentWindow(text)).toBe(text.slice(-2500));

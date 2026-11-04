@@ -36,6 +36,8 @@ export interface CapsuleLabels {
   readonly stop: string;
   readonly expand: string;
   readonly collapse: string;
+  /** The tooltip of the collapse button; the accessible name stays `collapse`. */
+  readonly collapseTooltip: string;
   readonly statusRecording: string;
   readonly statusPaused: string;
 }
@@ -192,7 +194,7 @@ export function CapsuleView(props: CapsuleViewProps) {
           type="button"
           data-item="chat"
           aria-label={props.expanded ? labels.collapse : labels.expand}
-          title={props.expanded ? labels.collapse : labels.expand}
+          title={props.expanded ? labels.collapseTooltip : labels.expand}
           aria-expanded={props.expanded}
           onClick={props.onToggleExpanded}
           className={cn(

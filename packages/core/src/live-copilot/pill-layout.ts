@@ -48,15 +48,6 @@ export const panelSizePx = (scale: number): Size => ({
   height: roundHalfEven(PANEL_HEIGHT_DIP * scale),
 });
 
-/** Capsule host margin inside the window, in DIP: `(capsule - window) / scale`. */
-export function capsuleHostMargin(
-  capsule: Rect,
-  window: Rect,
-  scale: number,
-): { readonly left: number; readonly top: number } {
-  return { left: (capsule.x - window.x) / scale, top: (capsule.y - window.y) / scale };
-}
-
 /**
  * Panel position and size inside the window, in DIP. The gap is the unrounded
  * `8 * scale` (as in SetBounds); Left and Top offset the panel by capsule thickness plus gap.

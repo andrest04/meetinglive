@@ -23,6 +23,7 @@ const labels = {
   stop: 'Stop recording',
   expand: 'Expand live copilot',
   collapse: 'Collapse live copilot',
+  collapseTooltip: 'Collapse',
   statusRecording: 'REC',
   statusPaused: 'Paused',
 };
@@ -155,7 +156,7 @@ describe('CapsuleView', () => {
     rerender(<CapsuleView {...props({ expanded: true })} />);
     const open = screen.getByRole('button', { name: 'Collapse live copilot' });
     expect(open).toHaveAttribute('aria-expanded', 'true');
-    expect(open).toHaveAttribute('title', 'Collapse live copilot');
+    expect(open).toHaveAttribute('title', 'Collapse');
   });
 
   it('each button calls its handler', () => {
@@ -200,6 +201,42 @@ describe('CapsuleView', () => {
     expect(
       screen.getByRole('button', { name: 'Open Vozella' }).querySelector('svg'),
     ).not.toBeNull();
+  });
+
+  it('keeps the stop button on system colors in forced-colors mode', () => {
+    render(<CapsuleView {...props()} />);
+    const { className } = screen.getByRole('button', { name: 'Stop recording' });
+    expect(className).toContain('forced-colors:bg-[Highlight]');
+    expect(className).toContain('forced-colors:text-[HighlightText]');
+  });
+
+  it('spaces the capsule content by 8 DIP (gap-2 on a 4 px scale)', () => {
+    render(<CapsuleView {...props()} />);
+    const row = screen.getByTestId('LiveCopilotCapsule').firstElementChild;
+    expect(row?.className).toContain('gap-2');
+  });
+
+  it('pulses the content from 1 to 1.08 and back, twice, 180 ms each, sine ease in out', () => {
+    const animate = vi.fn(() => ({ cancel: vi.fn() }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+    try {
+      const hint = { id: 1, message: 'Recording started', side: 'left', pulse: true } as const;
+      render(<CapsuleView {...props({ hint })} />);
+      expect(animate).toHaveBeenCalledTimes(1);
+      const [frames, options] = animate.mock.calls[0] as unknown as [
+        Keyframe[],
+        KeyframeAnimationOptions,
+      ];
+      expect(frames).toEqual([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }]);
+      expect(options).toEqual({
+        duration: 180,
+        iterations: 2,
+        direction: 'alternate',
+        easing: 'cubic-bezier(0.37, 0, 0.63, 1)',
+      });
+    } finally {
+      Reflect.deleteProperty(HTMLElement.prototype, 'animate');
+    }
   });
 
   describe('started hint', () => {

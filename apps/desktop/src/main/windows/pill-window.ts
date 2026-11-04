@@ -34,6 +34,8 @@ export interface PillWindowPort {
   onWillMove(listener: (event: PillMoveEvent) => void): void;
   /** The move loop ended. */
   onMoved(listener: () => void): void;
+  /** Any position or size change, whoever made it (the C# AppWindow.Changed). */
+  onBoundsChanged(listener: () => void): void;
   onClosed(listener: () => void): void;
 }
 
@@ -147,6 +149,10 @@ export function createPillBrowserWindow(
     },
     onMoved: (listener) => {
       win.on('moved', listener);
+    },
+    onBoundsChanged: (listener) => {
+      win.on('move', listener);
+      win.on('resize', listener);
     },
     onClosed: (listener) => {
       win.once('closed', listener);
