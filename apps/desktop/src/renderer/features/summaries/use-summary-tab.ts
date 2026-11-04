@@ -106,14 +106,13 @@ export function useSummaryTab(
   }, []);
 
   useEffect(() => {
-    const flags = { alive: true };
+    const flags = { alive: true, progressed: false };
     setLoading(true);
     setLoadError(null);
     // A run can start while this load is in flight, and its answer may predate the run. The
     // page does not know the meeting yet, so it cannot react to the event; load again after.
-    let progressedDuringLoad = false;
     const stopListening = window.vozella.on('summaries.progress', (event) => {
-      if (event.meetingId === meetingId) progressedDuringLoad = true;
+      if (event.meetingId === meetingId) flags.progressed = true;
     });
     void (async () => {
       try {
@@ -140,7 +139,7 @@ export function useSummaryTab(
         stopListening();
         if (flags.alive) setLoading(false);
       }
-      if (flags.alive && progressedDuringLoad) await refresh();
+      if (flags.alive && flags.progressed) await refresh();
     })();
     return () => {
       stopListening();
