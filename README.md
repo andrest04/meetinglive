@@ -7,9 +7,9 @@
 
 Every meeting, written down.
 
-**Status:** pre-release, Windows only, no installer yet. Build from source.
+**Status:** pre-release, Windows only, no published installer. Build from source.
 
-![The Vozella record screen, with the app UI in Spanish](docs/screenshots/record.png)
+![The Vozella record screen in the Electron app](docs/screenshots/record.png)
 
 ## What it does
 
@@ -26,6 +26,15 @@ Every meeting, written down.
 | Transcription language | Auto, English, Spanish, Portuguese, French, German, Italian, Dutch, Japanese, Chinese |
 | UI and summary language | English, Spanish |
 
+## Two apps in this repo
+
+| App | Folders | State |
+| --- | --- | --- |
+| Electron | `apps/desktop`, `packages/*`, `native/*` | The port of every feature to a new interface, and the path that can reach macOS later. Automated tests pass. Not yet validated with real meetings, real accounts or the installer. |
+| WinUI 3 | `MeetingLive.*` | The original app. Kept intact. |
+
+The port's verified and pending items are in [`odd/tasks/electron-port.md`](odd/tasks/electron-port.md), under "Final state".
+
 ## Where your data goes
 
 | Data | Where it goes |
@@ -33,11 +42,39 @@ Every meeting, written down.
 | Transcription | Runs on this PC. The speech model and a small runtime download once during setup. |
 | Summaries and chat | Go to the engine you choose. Local stays on this PC; Claude Code, Codex and Grok send the text to their services. With Claude Code or Codex, live answers can also search the web. |
 | TypeSafe (optional) | Sends the transcript to TypeSafe. Off until you save a key. |
-| Meetings and recordings | Markdown files with their recordings in `Documents\MeetingLive`. This folder follows OneDrive redirection, so a redirected Documents folder puts them in OneDrive too. |
+| Meetings and recordings | Markdown files with their recordings. The Electron app uses `Documents\Vozella` and the WinUI app uses `Documents\MeetingLive`. Both follow OneDrive redirection, so a redirected Documents folder puts them in OneDrive too. |
 
-The folder keeps its old name on purpose. See [Naming](#naming).
+The two apps do not share a folder by default. See [Naming](#naming) for why the WinUI folder keeps its old name.
 
-## Build and run
+## Build and run: Electron
+
+Prerequisites:
+
+- Windows on x64
+- Node.js 24 or later
+- pnpm 12 (`packageManager` pins the version)
+- Rust with `cargo` on PATH, and the Visual C++ build tools, for the native addon
+
+```powershell
+# Install dependencies
+pnpm install
+
+# Run the app in development
+pnpm dev
+
+# Typecheck, lint and run the unit tests
+pnpm check
+
+# Run the end-to-end tests
+pnpm test:e2e
+
+# Build the installer
+pnpm package
+```
+
+`pnpm package` writes an unsigned NSIS installer to `apps/desktop/release/`.
+
+## Build and run: WinUI 3
 
 Prerequisites:
 
@@ -65,21 +102,27 @@ Do not build or test `MeetingLive.sln`. Its `Any CPU` mapping conflicts with the
 
 | Folder | Contents |
 | --- | --- |
+| `apps/desktop/` | Electron app: main process, preload, React renderer, workers |
+| `packages/contracts/` | Typed IPC schemas and channels |
+| `packages/core/` | Pure domain logic by feature, with ports as interfaces |
+| `packages/platform/` | Node adapters for the ports, plus fakes |
+| `native/vozella-native/` | Rust addon: audio, calendar, DPAPI, sessions, windows |
 | `MeetingLive.App/` | WinUI 3 desktop app |
 | `MeetingLive.Core/` | UI-independent logic: audio, transcription, summaries, storage |
 | `MeetingLive.Core.Tests/` | xUnit tests |
 | `website/` | Landing page |
+| `docs/port/` | Electron port: stack, specs, parity ledgers, research, screenshots |
 | `docs/brand/` | Logo files |
 | `docs/screenshots/` | README screenshots |
 | `scripts/` | Icon generation |
 | `odd/tasks/` | Feature task notes |
 | `.agents/`, `.claude/` | Coding agent skills and settings |
 
-Agent and contributor guidance is in [AGENTS.md](AGENTS.md).
+The Electron stack and its conventions are in [`docs/port/stack.md`](docs/port/stack.md). Agent and contributor guidance is in [AGENTS.md](AGENTS.md).
 
 ## Naming
 
-The product is Vozella. Internal names (namespaces, projects, package identity, data folders) remain `MeetingLive` deliberately, because renaming them can orphan user data or Windows consent.
+The product is Vozella. In the WinUI app, internal names (namespaces, projects, package identity, data folders) remain `MeetingLive` deliberately, because renaming them can orphan user data or Windows consent. The Electron app uses the Vozella name throughout.
 
 ## License
 
