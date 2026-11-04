@@ -112,7 +112,7 @@ export function CapsuleView(props: CapsuleViewProps) {
     borderRadius: radius,
     opacity: props.contentOpacity,
     // Only the soft shadow lives in the 8 DIP gutter around the capsule.
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.32)',
+    boxShadow: 'var(--pill-shadow)',
   };
 
   return (
@@ -183,7 +183,7 @@ export function CapsuleView(props: CapsuleViewProps) {
           onClick={props.onStop}
           className={cn(
             BUTTON,
-            'size-9 bg-signal text-[#ffffff] hover:opacity-85 active:opacity-70',
+            'size-9 bg-ink text-on-ink hover:opacity-85 active:opacity-70',
             'forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]',
           )}
         >

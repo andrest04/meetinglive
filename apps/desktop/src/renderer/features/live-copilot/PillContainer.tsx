@@ -114,7 +114,7 @@ export function PillContainer() {
             width: pill.panel.width,
             height: pill.panel.height,
             borderRadius: EXPANDED_RADIUS_DIP,
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.32)',
+            boxShadow: 'var(--pill-shadow)',
           }}
         >
           <ChatPanelContainer

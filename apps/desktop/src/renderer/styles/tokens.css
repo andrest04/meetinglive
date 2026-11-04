@@ -79,6 +79,8 @@
 :root {
   --hover: color-mix(in srgb, var(--ink) 6%, transparent);
   --pressed: color-mix(in srgb, var(--ink) 12%, transparent);
+  /* The live copilot pill sits in an 8 DIP window gutter, so its shadow is smaller than the overlay one. */
+  --pill-shadow: 0 2px 6px color-mix(in srgb, var(--ink) 32%, transparent);
   --scrim: color-mix(in srgb, #0a0a0a 45%, transparent);
 }
 
