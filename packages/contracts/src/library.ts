@@ -22,8 +22,13 @@ export const meetingListItemSchema = z.object({
   title: z.string(),
   /** Round-trip text with offset; the UI formats it in the user's locale. */
   recordedAt: z.string(),
+  endedAt: z.string().nullable(),
   folderId: z.string().nullable(),
   snippet: z.string(),
+  hasSummary: z.boolean(),
+  hasTranscript: z.boolean(),
+  /** A summary is being generated for this meeting. */
+  busy: z.boolean(),
 });
 export type MeetingListItemDto = z.infer<typeof meetingListItemSchema>;
 

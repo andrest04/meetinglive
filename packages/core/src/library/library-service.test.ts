@@ -393,6 +393,36 @@ describe('load', () => {
     });
   });
 
+  it('tells the list how long a meeting ran, what it holds and whether it is busy', async () => {
+    const t = setup();
+    t.meetings.records.set('m', {
+      ...meeting('m'),
+      endedAt: '2026-09-01T12:45:00.0000000+00:00',
+      summary: 'Body',
+      transcript: '  ',
+    });
+    t.meetings.records.set('n', { ...meeting('n'), transcript: 'Spoken' });
+    t.busy.register({ isBusy: (id) => id === 'n' });
+    const result = await t.service.load();
+    if (!result.ok) throw new Error('load failed');
+    expect(result.meetings).toEqual([
+      expect.objectContaining({
+        id: 'm',
+        endedAt: '2026-09-01T12:45:00.0000000+00:00',
+        hasSummary: true,
+        hasTranscript: false,
+        busy: false,
+      }),
+      expect.objectContaining({
+        id: 'n',
+        endedAt: null,
+        hasSummary: false,
+        hasTranscript: true,
+        busy: true,
+      }),
+    ]);
+  });
+
   it('B5: reports a damaged folders file instead of throwing', async () => {
     const t = setup();
     t.folders.getAll = () => Promise.reject(new LibraryFileCorruptError('folders', 'bad'));

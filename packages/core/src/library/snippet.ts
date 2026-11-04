@@ -1,5 +1,6 @@
 import { cutPrefix } from '../chat/text-cut';
 import { extractCommittedBody, isTranscriptHeader } from '../transcription/committed-line';
+import type { MeetingListItem, MeetingRecord } from './meeting';
 
 export const SNIPPET_MAX_LENGTH = 140;
 
@@ -62,4 +63,21 @@ function transcriptBody(transcript: string): string {
 export function meetingSnippet(summary: string | null, transcript: string | null): string {
   if (summary !== null && summary.trim() !== '') return snippetFromMarkdown(summary);
   return snippetFromMarkdown(transcriptBody(transcript ?? ''));
+}
+
+const hasText = (value: string | null): boolean => value !== null && value.trim() !== '';
+
+/** The list's view of a stored meeting. Whether it is busy is not stored, so it starts false. */
+export function meetingListItem(record: MeetingRecord): MeetingListItem {
+  return {
+    id: record.id,
+    title: record.title,
+    recordedAt: record.recordedAt,
+    endedAt: record.endedAt,
+    folderId: record.folderId,
+    snippet: meetingSnippet(record.summary, record.transcript),
+    hasSummary: hasText(record.summary),
+    hasTranscript: hasText(record.transcript),
+    busy: false,
+  };
 }

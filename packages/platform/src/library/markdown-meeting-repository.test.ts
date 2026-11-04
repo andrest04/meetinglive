@@ -275,6 +275,30 @@ describe('list', () => {
     expect(skipped).toEqual([]);
   });
 
+  it('carries the end time and what the meeting holds', async () => {
+    await fx.meetings.save(
+      meeting({
+        endedAt: '2026-09-01T12:30:00.0000000+00:00',
+        summary: 'Body',
+        transcript: 'Spoken',
+      }),
+    );
+    await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+    const { items } = await fx.meetings.list();
+    expect(items.find((i) => i.id === ID_A)).toMatchObject({
+      endedAt: '2026-09-01T12:30:00.0000000+00:00',
+      hasSummary: true,
+      hasTranscript: true,
+      busy: false,
+    });
+    expect(items.find((i) => i.id === ID_B)).toMatchObject({
+      endedAt: null,
+      hasSummary: false,
+      hasTranscript: false,
+      busy: false,
+    });
+  });
+
   it('computes the snippet once per file version and reuses it while mtime and size match (item 142)', async () => {
     await fx.meetings.save(meeting({ summary: '# T\nBody' }));
     const first = (await fx.meetings.list()).items[0];

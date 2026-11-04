@@ -1,6 +1,6 @@
 import type { FolderRecord } from './folder';
-import type { MeetingListItem, MeetingRecord } from './meeting';
-import { meetingSnippet } from './snippet';
+import type { MeetingRecord } from './meeting';
+import { meetingListItem } from './snippet';
 import { applySettingsPatch, readSettings, type AppSettings, type RawSettings } from './settings';
 import type { FolderRepository, MeetingList, MeetingRepository, SettingsStore } from './ports';
 
@@ -11,13 +11,7 @@ export class InMemoryMeetingRepository implements MeetingRepository {
   readonly lockedIds = new Set<string>();
 
   list(): Promise<MeetingList> {
-    const items: MeetingListItem[] = [...this.records.values()].map((r) => ({
-      id: r.id,
-      title: r.title,
-      recordedAt: r.recordedAt,
-      folderId: r.folderId,
-      snippet: meetingSnippet(r.summary, r.transcript),
-    }));
+    const items = [...this.records.values()].map(meetingListItem);
     return Promise.resolve({ items, skipped: [] });
   }
 

@@ -1,0 +1,145 @@
+# Library redesign
+
+Locator: `odd/tasks/library-redesign.md`. Engram mirror: `odd/library-redesign/tasks`.
+
+## Objective
+
+Redo the Library screen as three panes: folders in the app sidebar, a date-grouped logbook list, and a preview beside it. It must look deliberate, be well organized, and carry no generic AI styling.
+
+## Problem and why
+
+- Folders and list share one scrolling column.
+- Rows show only title, date and snippet.
+- Search covers titles in the current folder only.
+- Every click leaves the screen.
+- There is no multi-select, and delete is permanent while local files are the only copy.
+
+## Scope
+
+In: everything in the tasks below. Out: scrolling to the exact line of a transcript hit, a splitter between panes, folder reparenting, tags, trash inside the app, SQLite.
+
+## Constraints
+
+- `docs/port/stack.md`: tokens only; `signal` only for live recording; hairlines over shadows; radius 4-6; no gradients, glass, emoji or purple; no cards inside cards; motion 120-160 ms, opacity and small translate; one quiet line for empty, skeletons of real layout; sentence case; WCAG 2.2 AA; forced colors; flows are not removed (:71); parity recorded (:73); test first where deterministic (:74); i18n en and es (:75); `pnpm check` before each commit (:77).
+- `features/*` talk to IPC, `ui/` is pure, `core` has no Electron or Node I/O, IPC goes through zod in `packages/contracts`.
+- New strings go in `ui.en.json` and its `es` counterpart with the `Ui_` prefix (`translate.test.ts:26-34`). Do not edit generated `en.json` and `es.json`.
+- `cn` in `ui/cn.ts` only joins classes, so use exclusive ternaries instead of overriding Tailwind classes.
+- Playwright loads `out/`: rebuild first and keep `ELECTRON_RENDERER_URL` unset.
+- Conventional Commits with no AI attribution or Co-Authored-By lines.
+- About 400 authored lines per task is a planning heuristic only, not a cap. Never omit tests or split artificially to fit it.
+- Receipt-driven development is off globally: no native review runs. Ordinary checks apply.
+
+## Design
+
+Direction: a meeting logbook, ruled like a ledger and reading like a document.
+
+```
++----------+--------------------------+----------------------------+
+| Vozella  | Clients  12    ...       |                            |
+| Record   | Note about this folder   | Roadmap review             |
+| Library  | [Search meetings]  [x]   | Tuesday 3 November,        |
+|  All 128 | Today               [ ]  | 10:30 to 11:15             |
+|  Inbox 3 | 10:30  Roadmap review    | [Open meeting] Summary     |
+|  ------- | 45 min Agreed to ship... |   Transcript               |
+|  * Client| ======-------------------|                            |
+|  * Studio| 09:00  Standup           | Summary text in reading    |
+|          | 10 min Blockers on...    | width...                   |
+|  New fold| ==-----------------------| Action items               |
+| Settings | Yesterday           [ ]  | Attendees, recording       |
++----------+--------------------------+----------------------------+
+|                 chat bar (scope follows the folder)              |
++------------------------------------------------------------------+
+```
+
+- Memorable element: each row's bottom ruling is the data. It darkens from the left in proportion to duration: square-root scale, capped at 120 min and 64 px. `aria-hidden`; the duration is also in the row text. No `endedAt` means no darkened ruling and no duration. Stroke of 1 or 2 px is decided from real screenshots in batch 4.
+- Color: existing tokens only. `paper` for list and preview, `paper-raised` for sidebar, `hairline` for structure, `pressed` for the cursor row and `<mark>`. Forced colors: `Highlight`, `Mark`, `CanvasText`.
+- Type: `heading` 20/28 semibold for the view name; `ui-lg` medium for row titles; `ui` 13/20 medium for day headers and plain for snippets; Plex Mono `caption` for time, duration and counts; `title` 30/36 semibold -0.02em for the preview title, up to 3 lines (`features/session/SessionHeader.tsx:49`); `read` 15/24 at about 62ch for body. The meta line is a plain sentence: "Tuesday 3 November, 10:30 to 11:15".
+- Rejected as generic: card rows, status pills, all-caps group labels, avatars, colored tags, dotted meta strings, waveform thumbnails, a tinted preview panel, a page-level "Library" title.
+
+## Decisions
+
+**State.** Zustand `features/library/library-store.ts`, connected once from `AppShell` by `connectLibrary()` in the `connectLiveAsk` pattern (`stack.md:14`). Holds folders, meetings, skipped, problem, view, expansion, cursor id, scroll offset. Load deferred to idle, refresh debounced 150 ms, because `library.load` costs about 709 ms at 3,000 meetings and now runs on every route. Route-local: query, checked set, dialogs, preview fetch, and note through `useFolderNote`, which keeps the B16 logic of `use-library.ts:150-179`. Keep the audit tests passing unchanged.
+
+**Views.** `{all} | {inbox} | {folder,id}`. All and Inbox both publish `null` as now (`scope-resolver.ts:47`); the distinction lives in the store. Default is All. Deleting a folder still lands on Inbox (#107).
+
+**Sidebar.** `NavRail` gets a slot after Library: Record, Library, tree (`flex-1`, own scroll), quiet New folder row, Settings pinned at the bottom, DOM order unchanged. One tree, one tab stop: All, Inbox, gap, folders, with mono direct counts. Always visible on all routes; selection highlighted only on `/library` and `/session`. Folder click elsewhere: set the view, then dispatch `navigateTo History` (`AppShell.tsx:21` navigates). Right click elsewhere must not navigate: add `selectOnContextMenu` to `Tree` (`Tree.tsx:161`); choosing a menu entry goes to `/library` and opens the dialog there. Dialogs and notices stay in the route. `Tree` gets `rowProps(id)` for drop targets so `ui/` stays pure.
+
+**Shell.** `paned = pathname === '/library'`. `main` becomes `overflow-hidden flex flex-col` with no `pb-8`; the column becomes `flex min-h-0 flex-1 flex-col`. Same elements, so `Outlet` does not remount. `CallPromptBar` stays above the panes, `ChatBar` under `main`; panes are `min-h-0`.
+
+**Folder header (list pane).** Breadcrumbs for real folders only (#88), `h1` with accent icon, count, `...` menu (rename, personality, delete), borderless note. The old narrow overlay goes away: it was unreachable at the 960 px window minimum.
+
+**Narrow.** Keep the ResizeObserver hook because click behavior changes. Content 760 px or more shows list and preview, list `clamp(340px, 38%, 440px)`. Below that, no preview and a click opens the meeting. Sidebar stays 232 px.
+
+**List.** `role="grid"` with `aria-multiselectable` and `aria-rowcount`, `rowgroup > row[aria-rowindex, aria-selected] > gridcell`, with roving tabindex; headers are `row > rowheader`. Flat `{header|meeting}` items, fixed 32 and 64 px. `rangeExtractor` adds the active header, focused row and dragged rows; the active header is `position: sticky`, others use transforms, with no duplicate node and no `aria-hidden` clone. jsdom needs `offsetHeight` and `offsetWidth` stubs in `library-test-kit.tsx`.
+
+**Click and selection.** Click previews; double-click or Enter opens (default tab Transcript, a search hit opens its own tab, notes hits open Summary). Cursor and checked set are separate: arrows move cursor and preview, Space toggles, Shift+arrow extends, Esc clears checks and then the query. Autoselect newest on wide layouts. Coming back from a meeting restores cursor and scroll. Checked set clears on view or query change; refresh intersects it with live ids. Ctrl+A selects every match and waits for stage 2 search. Ctrl+F and Ctrl+A go in `app/shortcuts.ts`; F2, Delete and the rest in a pure `library-keys.ts`, since `ShortcutDef.ctrl` is always true. F2 reuses `session.rename`: verify it broadcasts `library.changed`.
+
+**Preview.** `MarkdownView` (`features/summaries/MarkdownView.tsx:163`), 120 ms debounce, sequence guard, small record cache refetched on change, skeleton only after 150 ms. No summary: start of transcript. Preview does not dispatch `selectMeeting`, since that emits `scopeChanged` on each arrow key (`workspace.ts:105-109`). Dispatch only on open.
+
+**Delete.** Today `deleteLocked` unlinks audio, sibling WAV and markdown (`markdown-meeting-repository.ts:166-172`). Add `discard` used only at those three calls; line 147 keeps `unlink`, as it removes the old file of a move. Inject through `library-runtime.ts:283` with `shell.trashItem` from `main/index.ts`; under `fakeNative` keep unlink. New key `Ui_LibraryDeleteContent` replaces the "permanently" text. If trash rejects, return reason `trash-failed` and offer an explicit "Delete permanently" with `mode: 'permanent'`. Shift+Delete asks for permanent delete directly.
+
+**Bulk.** `library.moveMeetings {meetingIds, folderId}` and `library.deleteMeetings {meetingIds, mode}` return per-id results, one `library.changed` and `notifyDeleted` per id. Single channels stay (`session-shell.spec.ts:192`). Show a busy bar. Add batch-scoped scanning only if 200 moves measure over 10 s.
+
+**Search.** `library.search {query, scope, requestId}` returns `{requestId, stale, hits:[{meetingId, field, snippet|null}]}`. Pure logic in `packages/core/src/library/meeting-search.ts`, length-preserving folding so offsets map to the original. Port gains `bodies(filter)`; repository keeps an LRU of folded text capped at 64 MB keyed by mtime and size. Originals re-read only for the newest 200 hits; later hits fall back to the index snippet. Superseded requests are abandoned between files. Accent-insensitive, words ANDed, stage 2 needs 2+ characters and a 200 ms debounce, merged results stay date-ordered, and the scope switch appears unless already in All. Gate: at most 800 ms cold and 150 ms warm at 3,000 meetings; report the measurement.
+
+**List items.** Add `endedAt`, `hasSummary`, `hasTranscript`, `busy` in `contracts/library.ts:20`, `core/library/meeting.ts:62`, `in-memory-library.ts:14`, `markdown-meeting-repository.ts:315`. `busy` is mapped in `LibraryService.load` from `isBusy`, which means summarizing only (`main/index.ts:744`): check that generation start fires `library.changed`, and add a broadcast if not. The index is memory-only and `indexFile` already parses the whole file, so no migration.
+
+**Drag.** Native HTML5. Type `application/x-vozella-meetings`, ids held in the store because `getData` is unavailable during `dragover`. Unchecked row drags alone; checked row drags the set. Pin dragged rows in the range. Hovering a collapsed folder 600 ms expands it. All is not a target. Move shows a toast with Undo using prior folder ids. The Move dialog and menu satisfy WCAG 2.5.7.
+
+## Delivery
+
+Strategy `feature-branch-chain`, one branch per batch, each from the previous: `feat/library-redesign-b1-data`, `-b2-shell`, `-b3-interactions`, `-b4-polish`. Base: `feat/library-redesign`. Push, PR and merge stay with the owner. Forecast: about 3,700 authored lines.
+
+Route: delegated direct through a Workflow requested by the owner, one writer at a time. Trigger: 2+ non-trivial files per batch.
+
+## Tasks
+
+### Batch 1: data and search (about 900)
+- [x] T1.1 List items carry length and state; All view; folded titles
+- [ ] T1.2 Delete goes to the Recycle Bin
+- [ ] T1.3 Bulk move and delete
+- [ ] T1.4 Full-text search with timing harness
+
+### Batch 2: shell, sidebar, list (about 1,250)
+- [ ] T2.1 Folders move to the sidebar, with store and counts
+- [ ] T2.2 Paned layout and folder header
+- [ ] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
+
+### Batch 3: preview, search UI, bulk, keyboard, drag (about 1,250)
+- [ ] T3.1 Preview pane
+- [ ] T3.2 Two-stage search UI
+- [ ] T3.3 Multi-select and bulk bar
+- [ ] T3.4 Keyboard
+- [ ] T3.5 Drag to folders, Undo
+
+### Batch 4: visual critique and close-out (about 300)
+- [ ] T4.1 Screenshots and critique: light and dark, en and es, 960 and 1180 wide, empty, loading, search, bulk, forced colors, 3,000 meetings; fix what fails; remove one accessory
+- [ ] T4.2 Axe e2e pass over grid and tree
+- [ ] T4.3 Update `docs/port/parity/library-storage.md` (improved: 82, 84, 94, 96, 98, 100, 109, 111, 113, 114, 119, 120; must stay true: 86, 87, 88, 105, 107, 110/B16, 115, 123; rewrite the "Layout" and "Shell" notes, add search and trash decisions) and regenerate `docs/port/screens/library-storage/`
+
+## Acceptance
+
+- All checks below pass on the final branch.
+- Every existing Library flow still works, and parity is recorded.
+- Search gate is measured and reported.
+
+## Checks
+
+- Per commit: `pnpm check`
+- Focused unit: `pnpm --filter @vozella/desktop exec vitest run src/renderer/features/library`
+- Focused e2e: `pnpm --filter @vozella/desktop build`, then `pnpm --filter @vozella/desktop exec playwright test e2e/library-ui.spec.ts`
+- Per batch: `pnpm --filter @vozella/desktop build`, then `pnpm --filter @vozella/desktop test:e2e`
+- Screenshots: `VOZELLA_SCREENSHOTS=1` with `library-screens.spec.ts`
+- Manual, pending: real Recycle Bin restore; `trashItem` on a volume with no bin; screen reader pass
+
+## Progress
+
+Each batch writer records its commit hashes and observed check results here. A commit cannot name its own hash, so each entry is filled in by the next commit.
+
+### Batch 1 (`feat/library-redesign-b1-data`)
+
+- T1.1 `feat(library): list items carry length and state, with an All view and folded titles`. `pnpm check`: passed; contracts 44 tests, core 1654, platform 428 passed and 13 skipped, desktop 1875 passed and 6 skipped. Generation start did not fire `library.changed`: `ObservedSummaryService` in `main/summaries` now broadcasts at the start and end of a run, because `packages/core/src/summaries` is not part of this batch. `emptyFlags` is unchanged, so T2.1 decides the All view's empty copy.
+
+## Next step
+
+Batch 1.

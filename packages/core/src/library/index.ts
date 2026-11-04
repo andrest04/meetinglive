@@ -11,6 +11,7 @@ export * from './names';
 export * from './offset-date';
 export * from './settings';
 export * from './snippet';
+export * from './text-fold';
 export * from './workspace';
 export * from './app-paths';
 export * from './in-memory-library';

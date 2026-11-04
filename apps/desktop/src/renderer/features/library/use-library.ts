@@ -5,6 +5,8 @@ import {
   emptyFlags,
   expandedAncestors,
   flattenFolderPaths,
+  folderView,
+  INBOX_VIEW,
   selectMeetings,
   type Breadcrumb,
   type EmptyFlags,
@@ -251,7 +253,8 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
 
   const snapshot = useMemo(() => ({ folders, meetings: allMeetings }), [folders, allMeetings]);
   const selection = useMemo(
-    () => selectMeetings(snapshot, selectedId, query),
+    () =>
+      selectMeetings(snapshot, selectedId === null ? INBOX_VIEW : folderView(selectedId), query),
     [snapshot, selectedId, query],
   );
   const flags = useMemo(

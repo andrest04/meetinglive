@@ -1,6 +1,7 @@
 import type { FolderRecord } from './folder';
 import type { MeetingListItem } from './meeting';
 import { parseOffsetDate } from './offset-date';
+import { foldText, foldedWords, hasAllWords } from './text-fold';
 
 /** Everything the Library page shows, as of the last load. */
 export interface LibrarySnapshot {
@@ -12,6 +13,32 @@ function instant(item: MeetingListItem): number {
   return parseOffsetDate(item.recordedAt)?.ms ?? 0;
 }
 
+/** What the Library is showing: every meeting, the Inbox, or one folder's own meetings. */
+export type LibraryView =
+  | { readonly kind: 'all' }
+  | { readonly kind: 'inbox' }
+  | { readonly kind: 'folder'; readonly id: string };
+
+export const ALL_VIEW: LibraryView = { kind: 'all' };
+export const INBOX_VIEW: LibraryView = { kind: 'inbox' };
+export const folderView = (id: string): LibraryView => ({ kind: 'folder', id });
+
+/** The Inbox also holds meetings whose folder id is not in the folder set. */
+export function isInLibraryView(
+  view: LibraryView,
+  knownFolderIds: ReadonlySet<string>,
+  meeting: Pick<MeetingListItem, 'folderId'>,
+): boolean {
+  switch (view.kind) {
+    case 'all':
+      return true;
+    case 'inbox':
+      return meeting.folderId === null || !knownFolderIds.has(meeting.folderId);
+    case 'folder':
+      return meeting.folderId === view.id;
+  }
+}
+
 export interface MeetingSelection {
   readonly meetings: readonly MeetingListItem[];
   /** Meetings in the selected container before the search filter. */
@@ -19,21 +46,21 @@ export interface MeetingSelection {
 }
 
 /**
- * Spec 3.13 `ApplyMeetingFilter`. `folderId` null is Inbox, which also holds meetings whose
- * folder id is not in the folder set. Newest first; the query matches titles only.
+ * Spec 3.13 `ApplyMeetingFilter`. Newest first; the query matches titles only, every word of it
+ * in any order and without regard to case or accents.
  */
 export function selectMeetings(
   snapshot: LibrarySnapshot,
-  folderId: string | null,
+  view: LibraryView,
   query: string,
 ): MeetingSelection {
   const known = new Set(snapshot.folders.map((f) => f.id));
-  const inContainer = snapshot.meetings.filter((m) =>
-    folderId === null ? m.folderId === null || !known.has(m.folderId) : m.folderId === folderId,
-  );
-  const needle = query.trim().toLowerCase();
+  const inContainer = snapshot.meetings.filter((m) => isInLibraryView(view, known, m));
+  const words = foldedWords(query);
   const matching =
-    needle === '' ? inContainer : inContainer.filter((m) => m.title.toLowerCase().includes(needle));
+    words.length === 0
+      ? inContainer
+      : inContainer.filter((m) => hasAllWords(foldText(m.title), words));
   return {
     meetings: [...matching].sort((a, b) => instant(b) - instant(a)),
     inFolderCount: inContainer.length,

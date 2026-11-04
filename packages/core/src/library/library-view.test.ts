@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { FolderRecord } from './folder';
-import { canDeleteFolder, emptyFlags, selectMeetings, type LibrarySnapshot } from './library-view';
+import {
+  ALL_VIEW,
+  INBOX_VIEW,
+  canDeleteFolder,
+  emptyFlags,
+  folderView,
+  selectMeetings,
+  type LibrarySnapshot,
+} from './library-view';
 import type { MeetingListItem } from './meeting';
 
 const folder = (id: string, parentId: string | null = null): FolderRecord => ({
@@ -17,7 +25,17 @@ const item = (
   title: string,
   recordedAt: string,
   folderId: string | null = null,
-): MeetingListItem => ({ id, title, recordedAt, folderId, snippet: '' });
+): MeetingListItem => ({
+  id,
+  title,
+  recordedAt,
+  endedAt: null,
+  folderId,
+  snippet: '',
+  hasSummary: false,
+  hasTranscript: false,
+  busy: false,
+});
 
 const snapshot: LibrarySnapshot = {
   folders: [folder('a'), folder('b', 'a')],
@@ -32,17 +50,21 @@ const snapshot: LibrarySnapshot = {
 
 describe('selectMeetings', () => {
   it('Inbox holds unfiled meetings and those whose folder is unknown, newest first', () => {
-    const { meetings, inFolderCount } = selectMeetings(snapshot, null, '');
+    const { meetings, inFolderCount } = selectMeetings(snapshot, INBOX_VIEW, '');
     expect(meetings.map((m) => m.id)).toEqual(['3', '1']);
     expect(inFolderCount).toBe(2);
   });
 
   it('a folder holds exactly its own meetings, sorted by instant, not by text', () => {
-    expect(selectMeetings(snapshot, 'a', '').meetings.map((m) => m.id)).toEqual(['4', '5', '2']);
+    expect(selectMeetings(snapshot, folderView('a'), '').meetings.map((m) => m.id)).toEqual([
+      '4',
+      '5',
+      '2',
+    ]);
   });
 
   it('searches titles only: trimmed, case-insensitive substring; count ignores the query', () => {
-    const result = selectMeetings(snapshot, 'a', '  STANDUP ');
+    const result = selectMeetings(snapshot, folderView('a'), '  STANDUP ');
     expect(result.meetings.map((m) => m.id)).toEqual(['4']);
     expect(result.inFolderCount).toBe(3);
   });
@@ -52,7 +74,30 @@ describe('selectMeetings', () => {
       ...snapshot,
       meetings: [{ ...item('9', 'Title', '2026-09-01T10:00:00+00:00'), snippet: 'needle' }],
     };
-    expect(selectMeetings(snap, null, 'needle').meetings).toEqual([]);
+    expect(selectMeetings(snap, INBOX_VIEW, 'needle').meetings).toEqual([]);
+  });
+
+  it('All holds every meeting, newest first, whatever its folder', () => {
+    const { meetings, inFolderCount } = selectMeetings(snapshot, ALL_VIEW, '');
+    expect(meetings.map((m) => m.id)).toEqual(['4', '5', '2', '3', '1']);
+    expect(inFolderCount).toBe(5);
+  });
+
+  it('matches titles without regard to accents', () => {
+    const snap = {
+      folders: [],
+      meetings: [item('1', 'Revisión del año', '2026-09-01T10:00:00+00:00')],
+    };
+    expect(selectMeetings(snap, ALL_VIEW, 'REVISION').meetings).toHaveLength(1);
+    expect(selectMeetings(snap, ALL_VIEW, 'año').meetings).toHaveLength(1);
+    expect(selectMeetings(snap, ALL_VIEW, 'ano').meetings).toHaveLength(1);
+  });
+
+  it('needs every word of the query in the title, in any order', () => {
+    expect(selectMeetings(snapshot, ALL_VIEW, 'two standup').meetings.map((m) => m.id)).toEqual([
+      '4',
+    ]);
+    expect(selectMeetings(snapshot, ALL_VIEW, 'standup three').meetings).toEqual([]);
   });
 });
 

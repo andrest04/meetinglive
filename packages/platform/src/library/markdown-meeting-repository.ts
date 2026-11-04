@@ -6,7 +6,7 @@ import {
   MeetingFormatError,
   fileStem,
   folderChain,
-  meetingSnippet,
+  meetingListItem,
   parseMeetingMarkdown,
   renderMeetingMarkdown,
   sanitizeName,
@@ -312,13 +312,7 @@ export class MarkdownMeetingRepository implements MeetingRepository {
         size: stat.size,
         legacy,
         skipReason: null,
-        item: {
-          id: record.id,
-          title: record.title,
-          recordedAt: record.recordedAt,
-          folderId: record.folderId,
-          snippet: meetingSnippet(record.summary, record.transcript),
-        },
+        item: meetingListItem(record),
       };
     } catch (error) {
       if (error instanceof MeetingFormatError) {

@@ -64,7 +64,10 @@ export class LibraryService {
         this.deps.folders.getAll(),
         this.deps.meetings.list(),
       ]);
-      return { ok: true, folders, meetings: list.items, skipped: list.skipped };
+      const meetings = list.items.map((item) =>
+        this.deps.busy.isBusy(item.id) ? { ...item, busy: true } : item,
+      );
+      return { ok: true, folders, meetings, skipped: list.skipped };
     } catch (error) {
       return failure(error);
     }

@@ -63,8 +63,13 @@ export interface MeetingListItem {
   readonly id: string;
   readonly title: string;
   readonly recordedAt: string;
+  readonly endedAt: string | null;
   readonly folderId: string | null;
   readonly snippet: string;
+  readonly hasSummary: boolean;
+  readonly hasTranscript: boolean;
+  /** A summary is being generated. Repositories report false; the Library service fills it in. */
+  readonly busy: boolean;
 }
 
 /** A markdown file that could not be read as a meeting, with the reason. */
