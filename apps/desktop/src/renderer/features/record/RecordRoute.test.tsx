@@ -398,6 +398,31 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
     expect(screen.getByText('Set up recording before you start.')).toBeInTheDocument();
   });
 
+  it('heads the panel with what to do and keeps the download fact in one line', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    expect(
+      within(panel).getByRole('heading', { level: 2, name: 'Finish setup to record' }),
+    ).toBeInTheDocument();
+    expect(panel).toHaveAccessibleName('Finish setup to record');
+    expect(within(panel).getByText('Nothing downloads once a recording starts.')).toBeVisible();
+    expect(panel).not.toHaveTextContent('Install what is needed');
+  });
+
+  it('marks only ready rows with a glyph and always says the state in words', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const [ready, pending] = within(panel).getAllByTestId('setup-card');
+    if (!ready || !pending) throw new Error('expected the setup rows');
+    expect(ready).toHaveTextContent('Ready');
+    expect(ready.querySelectorAll('svg')).toHaveLength(1);
+    expect(pending).toHaveTextContent('Needs setup');
+    expect(pending.querySelector('svg')).toBeNull();
+    expect(within(panel).queryAllByRole('radio')).toHaveLength(0);
+  });
+
   it('names the rows by what they do', async () => {
     installApi({
       'recording.getSetup': () => ({

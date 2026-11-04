@@ -1,5 +1,5 @@
 import type { RecordingSetupDto } from '@vozella/contracts';
-import { Check, Circle } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { Icon, Notice } from '../../ui';
@@ -22,18 +22,16 @@ function SetupCard({ card }: { readonly card: Card }) {
   const t = useT();
   const status = t(card.status.key as StringKey, ...card.status.args);
   return (
-    <li className="flex items-start gap-3 py-2.5" data-testid="setup-card">
-      <Icon
-        icon={card.ready ? Check : Circle}
-        className={card.ready ? 'mt-0.5 text-ink' : 'mt-0.5 text-ink-faint'}
-      />
-      <div className="min-w-0 flex-1">
-        <p className="text-ui-lg font-medium text-ink">{t(rowKey(card.headerKey))}</p>
-        <p className="text-ui text-ink-muted">
-          {t(rowKey(card.detail.key), ...card.detail.args)}
-        </p>
-      </div>
-      <span className="shrink-0 text-ui text-ink-muted">{status}</span>
+    <li
+      className="grid grid-cols-[8.5rem_minmax(0,1fr)_auto] items-baseline gap-x-4 py-2.5"
+      data-testid="setup-card"
+    >
+      <p className="text-ui-lg font-medium text-ink">{t(rowKey(card.headerKey))}</p>
+      <p className="text-ui text-ink-muted">{t(rowKey(card.detail.key), ...card.detail.args)}</p>
+      <span className="inline-flex items-center gap-1.5 text-ui text-ink-muted">
+        {card.ready ? <Icon icon={Check} size={14} className="text-ink" /> : null}
+        {status}
+      </span>
     </li>
   );
 }

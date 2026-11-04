@@ -15,9 +15,12 @@ export function SetupChecklist({ setup }: { readonly setup: RecordingSetupDto })
       aria-labelledby="record-setup-headline"
       data-testid="setup-checklist"
     >
-      <p id="record-setup-headline" className="text-read text-ink">
-        {t('RecordingSetup_Headline.Text')}
-      </p>
+      <div className="flex flex-col gap-0.5">
+        <h2 id="record-setup-headline" className="text-ui-lg font-semibold text-ink">
+          {t('Ui_SetupHeading')}
+        </h2>
+        <p className="text-ui text-ink-muted">{t('Ui_SetupNoDownloads')}</p>
+      </div>
       <SetupCards setup={setup} />
     </section>
   );

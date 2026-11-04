@@ -102,5 +102,7 @@
   "Ui_SetupLiveCaptions": "Live captions",
   "Ui_SetupTranscript": "Transcript",
   "Ui_SetupLiveCaptionsOff": "Live captions are off. The transcript is still created after you stop.",
-  "Ui_RecordHelper": "Transcript and summary are created after you stop."
+  "Ui_RecordHelper": "Transcript and summary are created after you stop.",
+  "Ui_SetupHeading": "Finish setup to record",
+  "Ui_SetupNoDownloads": "Nothing downloads once a recording starts."
 }

@@ -102,5 +102,7 @@
   "Ui_SetupLiveCaptions": "Subtítulos en vivo",
   "Ui_SetupTranscript": "Transcripción",
   "Ui_SetupLiveCaptionsOff": "Los subtítulos en vivo están desactivados. La transcripción se sigue generando después de detener la grabación.",
-  "Ui_RecordHelper": "La transcripción y el resumen se crean al detener."
+  "Ui_RecordHelper": "La transcripción y el resumen se crean al detener.",
+  "Ui_SetupHeading": "Termina la configuración para grabar",
+  "Ui_SetupNoDownloads": "Nada se descarga una vez iniciada la grabación."
 }
