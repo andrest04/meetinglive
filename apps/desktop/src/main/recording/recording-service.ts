@@ -155,6 +155,8 @@ export type StartResult =
       readonly message: RecordingMessageDto | null;
     };
 
+/** How long a close waits for a start or an import in flight, like the 30 s grace of the runs. */
+const CLOSE_PREPARING_GRACE_MS = 30_000;
 const SOURCE_FALLBACK_KEY = 'RecordPage_SourceFallbackMessage';
 
 interface Take {
@@ -195,6 +197,7 @@ export class RecordingService {
   /** The notes of the take whose first save failed: the release clears the live ones (B-11). */
   private retryNotes = '';
   private importCancel: CancelSource | null = null;
+  private preparingSettled: Promise<void> = Promise.resolve();
   private readonly canvas = new HighlightedLiveText();
   private readonly offs: (() => void)[] = [];
   private lastState = '';
@@ -377,6 +380,7 @@ export class RecordingService {
   async start(request: StartRequest, options: StartOptions = {}): Promise<StartResult> {
     const { deps } = this;
     if (!this.gate.tryBeginPreparing()) return { started: false, reason: 'busy', message: null };
+    const preparingDone = this.trackPreparing();
     let previewStopped = false;
     try {
       // 2 to 3. The readiness gate. The page shows the setup; nothing is said here.
@@ -477,6 +481,7 @@ export class RecordingService {
       // A no-op once the recording started.
       this.gate.cancelPreparing();
       this.publish();
+      preparingDone();
     }
   }
 
@@ -712,6 +717,7 @@ export class RecordingService {
   async importAudio(request: ImportRequest, options: StartOptions = {}): Promise<ImportResult> {
     const { deps } = this;
     if (!this.gate.tryBeginPreparing()) return { started: false, reason: 'busy', message: null };
+    const preparingDone = this.trackPreparing();
     let previewStopped = false;
     const cancel = new CancelSource();
     try {
@@ -796,6 +802,7 @@ export class RecordingService {
       // A no-op once processing started.
       this.gate.cancelPreparing();
       this.publish();
+      preparingDone();
     }
   }
 
@@ -857,14 +864,44 @@ export class RecordingService {
 
   /** 2.16: a stop in progress or a run that has not saved and wound down. */
   get hasPendingSaves(): boolean {
-    return this.gate.phase === 'Stopping' || this.runs.hasUnfinishedRuns;
+    return (
+      this.gate.phase === 'Preparing' ||
+      this.gate.phase === 'Stopping' ||
+      this.runs.hasUnfinishedRuns
+    );
+  }
+
+  /**
+   * A start or an import in flight is protected work (101): closing waits for it to reach a stable
+   * phase, so the new WAV or import is never abandoned. Returns the call that marks it settled.
+   */
+  private trackPreparing(): () => void {
+    let done: () => void = () => undefined;
+    this.preparingSettled = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    return done;
+  }
+
+  /** True when the start or import settled within the close grace. */
+  private waitForPreparing(): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => {
+        resolve(false);
+      }, CLOSE_PREPARING_GRACE_MS);
+      void this.preparingSettled.then(() => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
   }
 
   /**
    * Close protection (2.16): ends a capture in progress, then lets every take save its meeting.
    * True when every take was saved.
    */
-  shutdown(): Promise<boolean> {
+  async shutdown(): Promise<boolean> {
+    if (this.gate.phase === 'Preparing' && !(await this.waitForPreparing())) return false;
     return this.runs.saveAndFinishForClose(async () => {
       if (this.gate.phase === 'Recording') await this.stop();
     });

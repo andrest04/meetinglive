@@ -55,7 +55,7 @@ export class CloseGuard {
       }
       return saved ? true : await dialogs.saveFailed();
     } catch (error) {
-      this.deps.logger.error('close protection failed, the app stays open', {
+      this.deps.logger.error('close failed', {
         error: error instanceof Error ? error.message : String(error),
       });
       return false;

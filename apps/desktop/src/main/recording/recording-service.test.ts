@@ -851,4 +851,119 @@ describe('RecordingService entry points and close state', () => {
     expect(t.service.hasPendingSaves).toBe(false);
     expect(t.store.saves.length).toBeGreaterThan(0);
   });
+
+  describe('close gate inputs per phase (RecordingSessionGateTests, 90 to 101)', () => {
+    it('Idle: nothing to confirm and nothing pending', () => {
+      const t = build();
+      expect(t.service.gate.phase).toBe('Idle');
+      expect([t.service.requiresCloseConfirmation, t.service.hasPendingSaves]).toEqual([
+        false,
+        false,
+      ]);
+    });
+
+    it('Preparing: no confirmation, but pending (101)', () => {
+      const t = build();
+      t.service.gate.tryBeginPreparing();
+      expect([t.service.requiresCloseConfirmation, t.service.hasPendingSaves]).toEqual([
+        false,
+        true,
+      ]);
+    });
+
+    it('Recording: confirmation required', () => {
+      const t = build();
+      t.service.gate.tryBeginPreparing();
+      t.service.gate.markRecording();
+      expect(t.service.requiresCloseConfirmation).toBe(true);
+    });
+
+    it('Stopping: pending, no confirmation', () => {
+      const t = build();
+      t.service.gate.tryBeginPreparing();
+      t.service.gate.markRecording();
+      t.service.gate.tryBeginStopping();
+      expect([t.service.requiresCloseConfirmation, t.service.hasPendingSaves]).toEqual([
+        false,
+        true,
+      ]);
+    });
+
+    it('Processing: pending while the run has not saved and wound down', async () => {
+      const t = build();
+      const wav = path.join(root, 'p.wav');
+      fs.writeFileSync(wav, 'RIFF');
+      t.service.processAudioFile(null, wav, request);
+      expect(t.service.gate.phase).toBe('Processing');
+      expect([t.service.requiresCloseConfirmation, t.service.hasPendingSaves]).toEqual([
+        false,
+        true,
+      ]);
+      await t.service.completion;
+      expect(t.service.hasPendingSaves).toBe(false);
+    });
+  });
+
+  describe('101: closing during a start or an import does not abandon the take', () => {
+    function holdCall(t: ReturnType<typeof build>, method: string) {
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const original = t.host.call.bind(t.host);
+      t.host.call = <T>(call: { method: string }): Promise<T> =>
+        call.method === method
+          ? gate.then(() => original<T>(call as never))
+          : original<T>(call as never);
+      return release;
+    }
+
+    it('a start in flight finishes, then the take is stopped and saved', async () => {
+      const t = build();
+      const release = holdCall(t, 'recordStart');
+      const starting = t.service.start(sources);
+      await vi.waitFor(() => {
+        expect(t.service.gate.phase).toBe('Preparing');
+      });
+      expect(t.service.hasPendingSaves).toBe(true);
+      const closing = t.service.shutdown();
+      release();
+      expect(await closing).toBe(true);
+      expect(await starting).toMatchObject({ started: true });
+      expect(t.service.gate.phase).toBe('Idle');
+      expect(t.store.saves.length).toBeGreaterThan(0);
+    });
+
+    it('an import in flight finishes into a saved meeting', async () => {
+      const picked = { title: 'Call', folderId: null, path: 'C:/in/call.mp3' };
+      const t = build();
+      const release = holdCall(t, 'importAudio');
+      const importing = t.service.importAudio(picked);
+      await vi.waitFor(() => {
+        expect(t.service.gate.phase).toBe('Preparing');
+      });
+      const closing = t.service.shutdown();
+      release();
+      expect(await closing).toBe(true);
+      expect(await importing).toMatchObject({ started: true });
+      expect(t.store.saves.length).toBeGreaterThan(0);
+    });
+
+    it('a start that never settles gives up after the 30 s grace and reports not saved', async () => {
+      vi.useFakeTimers();
+      try {
+        const t = build();
+        holdCall(t, 'recordStart');
+        void t.service.start(sources);
+        await vi.waitFor(() => {
+          expect(t.service.gate.phase).toBe('Preparing');
+        });
+        const closing = t.service.shutdown();
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(await closing).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });
