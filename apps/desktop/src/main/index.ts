@@ -8,6 +8,7 @@ import {
   libraryChanged,
   recordingCloseRequest,
   settingsMeetingPopupChanged,
+  workspaceCallPromptClosed,
   type AppInfo,
   type EventChannel,
   type PayloadInputOf,
@@ -512,6 +513,9 @@ function main(): void {
       broadcastPopupSetting: (enabled) => {
         broadcast(settingsMeetingPopupChanged, { enabled });
       },
+      broadcastCallPromptClosed: (reason) => {
+        broadcast(workspaceCallPromptClosed, { reason });
+      },
       logger: logger.child('detection'),
     });
     controller.start();
@@ -556,7 +560,7 @@ function main(): void {
 
       // The library runtime runs the migrations. A throw is a failed step; a migration error it
       // survived is `startupError`, shown after the window is visible.
-      const libraryStep = await startup.run('migrations', () => library.start());
+      await startup.run('migrations', () => library.start());
       await startup.run('events', () => {
         bridgeWorkspace(workspace, broadcast);
       });
@@ -594,15 +598,8 @@ function main(): void {
         },
       );
       startupLocale = locale;
-      if (libraryStep.ok) {
-        const failure = library.location().startupError;
-        if (failure !== null) {
-          startup.queueNotice({
-            title: locale.t('MigrationFailed_Title'),
-            content: locale.t('MigrationFailed_Content', failure),
-          });
-        }
-      }
+      // A migration error the library survived is shown by the window itself (StartupNotice),
+      // read from library.getLocation once the page is up, so no native dialog duplicates it.
       logger.info('app language', { tag: locale.tag, saved: locale.saved });
 
       registerHandlers({

@@ -194,6 +194,7 @@ export const eventChannels = {
   [library.workspaceMeetingChanged.name]: library.workspaceMeetingChanged,
   [library.workspaceTakeNotesRequested.name]: library.workspaceTakeNotesRequested,
   [meetingPrompt.workspaceCallPromptOffered.name]: meetingPrompt.workspaceCallPromptOffered,
+  [meetingPrompt.workspaceCallPromptClosed.name]: meetingPrompt.workspaceCallPromptClosed,
   [meetingPrompt.meetingPromptShow.name]: meetingPrompt.meetingPromptShow,
   [meetingPrompt.meetingPromptHide.name]: meetingPrompt.meetingPromptHide,
   [meetingPrompt.settingsMeetingPopupChanged.name]: meetingPrompt.settingsMeetingPopupChanged,

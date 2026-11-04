@@ -42,6 +42,8 @@ export interface MeetingDetectionDeps {
   readonly setTimeout: (callback: () => void, ms: number) => () => void;
   /** Tells every window the popup setting changed (so an open Settings page refreshes, S9). */
   readonly broadcastPopupSetting: (enabled: boolean) => void;
+  /** Tells every window the in-app call bar has nothing left to offer (bug 5, item 38). */
+  readonly broadcastCallPromptClosed: (reason: 'callEnded' | 'recordingStarted') => void;
   readonly logger: Logger;
 }
 
@@ -88,13 +90,17 @@ export class MeetingDetectionController {
       }),
       this.watcher.on('meetingEnded', () => {
         this.hideAnimated();
+        this.deps.broadcastCallPromptClosed('callEnded');
       }),
       // W14: a recording that starts from any path dismisses the popup.
       this.deps.workspace.on('scopeChanged', () => {
         const capturing = this.deps.workspace.state.isCaptureActive;
         const started = capturing && !this.wasCapturing;
         this.wasCapturing = capturing;
-        if (started) this.hideAnimated();
+        if (started) {
+          this.hideAnimated();
+          this.deps.broadcastCallPromptClosed('recordingStarted');
+        }
       }),
     ];
     this.watcher.start();

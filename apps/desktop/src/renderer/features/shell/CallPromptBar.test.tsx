@@ -9,14 +9,16 @@ type Listener = (payload: unknown) => void;
 
 function install() {
   const listeners = new Set<Listener>();
+  const closers = new Set<Listener>();
   const invoke = vi.fn((_name: string, _input: unknown) => Promise.resolve({}));
   Object.defineProperty(window, 'vozella', {
     value: {
       invoke,
       on: (name: string, listener: Listener) => {
-        if (name === 'workspace.callPromptOffered') listeners.add(listener);
+        const set = name === 'workspace.callPromptOffered' ? listeners : closers;
+        set.add(listener);
         return () => {
-          listeners.delete(listener);
+          set.delete(listener);
         };
       },
     },
@@ -25,6 +27,13 @@ function install() {
   });
   return {
     invoke,
+    close: (reason: 'callEnded' | 'recordingStarted') => {
+      act(() => {
+        closers.forEach((listener) => {
+          listener({ reason });
+        });
+      });
+    },
     offer: () => {
       act(() => {
         listeners.forEach((listener) => {
@@ -79,7 +88,36 @@ describe('CallPromptBar (items 111, 112)', () => {
     expect(api.invoke).not.toHaveBeenCalled();
   });
 
-  it('nothing closes it on its own', () => {
+  it.each(['callEnded', 'recordingStarted'] as const)(
+    'closes itself when main reports %s (bug 5, item 38)',
+    (reason) => {
+      const api = install();
+      const { container } = mount();
+      api.offer();
+      expect(container.querySelector('#InfoCallPrompt')).not.toBeNull();
+      api.close(reason);
+      expect(container.querySelector('#InfoCallPrompt')).toBeNull();
+      expect(api.invoke).not.toHaveBeenCalled();
+    },
+  );
+
+  it('is offered again for the next call after it closed itself (items 35, 37)', () => {
+    const api = install();
+    const { container } = mount();
+    api.offer();
+    api.close('callEnded');
+    api.offer();
+    expect(container.querySelector('#InfoCallPrompt')).not.toBeNull();
+  });
+
+  it('a close with no bar showing does nothing', () => {
+    const api = install();
+    const { container } = mount();
+    api.close('callEnded');
+    expect(container.querySelector('#InfoCallPrompt')).toBeNull();
+  });
+
+  it('nothing else closes it on its own', () => {
     vi.useFakeTimers();
     try {
       const api = install();

@@ -61,6 +61,7 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
   const intervals: FakeTimer[] = [];
   const timeouts: FakeTimer[] = [];
   const broadcast = vi.fn();
+  const closed = vi.fn();
 
   const controller = new MeetingDetectionController({
     scanner,
@@ -85,6 +86,7 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
       };
     },
     broadcastPopupSetting: broadcast,
+    broadcastCallPromptClosed: closed,
     logger: logger(),
   });
   controller.start();
@@ -115,10 +117,49 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
     intervals,
     timeouts,
     broadcast,
+    closed,
   };
 }
 
 describe('MeetingDetectionController', () => {
+  describe('the in-app call bar closes by itself (bug 5, item 38)', () => {
+    it('tells the windows when the call ends, even if the popup never showed', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(1);
+      expect(t.closed).not.toHaveBeenCalled();
+      await t.detect(false);
+      expect(t.closed).toHaveBeenCalledExactlyOnceWith('callEnded');
+    });
+
+    it('tells the windows when a recording starts', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      t.workspace.setCaptureActive(true);
+      expect(t.closed).toHaveBeenCalledExactlyOnceWith('recordingStarted');
+      t.workspace.setCaptureActive(false);
+      t.workspace.setCaptureActive(true);
+      expect(t.closed).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not close the bar for a call that is still going', async () => {
+      const t = setup();
+      await t.detect(true);
+      await t.detect(true);
+      expect(t.closed).not.toHaveBeenCalled();
+    });
+
+    it('offers the bar once per call and again for the next call', async () => {
+      const t = setup({ popupEnabled: false });
+      await t.detect(true);
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(1);
+      await t.detect(false);
+      await t.detect(true);
+      expect(t.offered).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('pauses the auto-hide while the pointer is over the card and restarts it on leave (W8)', async () => {
     const t = setup();
     await t.detect(true);
@@ -232,6 +273,7 @@ describe('MeetingDetectionController', () => {
       scheduler: { setInterval: () => () => undefined },
       setTimeout: () => () => undefined,
       broadcastPopupSetting: vi.fn(),
+      broadcastCallPromptClosed: vi.fn(),
       logger: logger(),
     });
     controller.startTakingNotes();
