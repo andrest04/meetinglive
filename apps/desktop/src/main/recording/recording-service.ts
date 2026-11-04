@@ -192,6 +192,8 @@ export class RecordingService {
   private offNotices: (() => void) | null = null;
   private previewToRestore: { owner: PreviewOwner; deviceId: string | null } | null = null;
   private retry: PipelineRequest | null = null;
+  /** The notes of the take whose first save failed: the release clears the live ones (B-11). */
+  private retryNotes = '';
   private importCancel: CancelSource | null = null;
   private readonly canvas = new HighlightedLiveText();
   private readonly offs: (() => void)[] = [];
@@ -603,7 +605,7 @@ export class RecordingService {
         folderId: folder,
         highlightsMs: highlights,
       };
-      void this.runPipeline(run, request);
+      void this.runPipeline(run, request, this.notes);
       return true;
     } catch (error) {
       deps.logger.error('stopping the recording failed', { error: describe(error) });
@@ -618,10 +620,12 @@ export class RecordingService {
   private async runPipeline(
     run: ReturnType<RecordingRuns['startRun']>,
     request: PipelineRequest,
+    notes = this.notes,
   ): Promise<void> {
     const outcome: PipelineOutcome = await run.start(this.deps.pipeline, request);
     // B-11: a take whose first save failed can be processed again from the same audio.
     this.retry = outcome.kind === 'first-save-failed' ? request : null;
+    this.retryNotes = this.retry === null ? '' : notes;
     this.publish();
   }
 
@@ -823,8 +827,10 @@ export class RecordingService {
     this.retry = null;
     this.runs.beginTake({ meetingId: request.meetingId });
     this.gate.markProcessing();
+    // B-11: the first run released the page and cleared its notes; restore them for the new run.
+    this.notes = this.retryNotes;
     const run = this.runs.startRun({ meetingId: request.meetingId });
-    void this.runPipeline(run, request);
+    void this.runPipeline(run, request, this.retryNotes);
     this.publish();
     return true;
   }
@@ -888,7 +894,9 @@ function typed(message: Message | CaptureNotice): RecordingMessageDto {
   const severity =
     'severity' in message
       ? message.severity
-      : message.key.startsWith('Error_') || message.key === 'Ui_ProcessLoopbackUnsupported'
+      : message.key.startsWith('Error_') ||
+          message.key === 'Ui_ProcessLoopbackUnsupported' ||
+          message.key === 'Ui_TranscriptionEngineUnavailable'
         ? 'error'
         : message.key === 'Ui_SummaryProviderXaiRemoved'
           ? 'warning'

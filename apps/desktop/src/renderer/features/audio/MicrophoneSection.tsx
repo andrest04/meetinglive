@@ -63,7 +63,7 @@ export function MicrophoneSection() {
   // A saved device that is not plugged in reads as System default, as the list shows it.
   const value =
     saved !== null && devices.some((device) => device.deviceId === saved) ? saved : DEFAULT_VALUE;
-  const level = useMicrophonePreview(value === DEFAULT_VALUE ? null : value, ready);
+  const level = useMicrophonePreview(value === DEFAULT_VALUE ? null : value, ready, 'settings');
 
   const options = [
     { value: DEFAULT_VALUE, label: t('Microphone_SystemDefault') },

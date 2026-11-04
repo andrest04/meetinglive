@@ -543,3 +543,13 @@ All are dropped with the reason "owner decision 2026-11-03, may return later". T
 ## Audit result (R12)
 
 195 parity rows and 32 bug rows each have one final status: done 155, improved 34, fixed 21 (bug rows), dropped 17. Section 6 has a row for each class, all `done` or `dropped`. Checks run for the audit: `pnpm check`, the recording e2e specs by path (`recording-pipeline`, `recording-processing`, `recording-bar`, `recording-screen`, `recording-notepad`, `audio-take`, `call-prompt`) and the real run.
+
+## Audit round 4 decisions
+
+Fixed with tests: B-20 live ask now uses parseSummaryProvider (an unchosen provider resolves to nothing, never Local); B-11 retry restores the take's notes; item 139 Ui_TranscriptionEngineUnavailable is an error status; B-32 the Settings microphone meter sends owner "settings" on start and stop.
+
+Ledger corrections: item 27 evidence is SourcesPanel.test.tsx:120 and audio-controller.test.ts:150; item 30 lives in packages/core/src/recording/recording-status.ts with its test in recording-status.test.ts; item 31 has no card or tooltip test (open); the 39/41 roll-up of helper names into a known app is deliberate and goes beyond 3.4 step 4.
+
+Accepted, not fixed this round (test-only or low impact, no behaviour defect found): items 10/11, 17, 31, 33 (opacity-60 kept, close to 0.55), 36, 37, 53 (linked id unreachable until another module passes meetingId), 78 and 132/134 (notes edited after Stop; R4 follow-up), 97/95, 105, 108, 128, B-9 lookup wiring, 190 (inline copy in use-recording), B-3 keeper adapter and its previousAudioPath consumer.
+
+Open for later: Ctrl+R as a Start accelerator on the idle page (item 52/62); item 101/B-13 the "Recording level" bar measures the microphone only, so a system-only take shows zero; item 182 handoff wiring awaits the pill module; B-5 multichannel capture stays pending-real-validation; legacy audio.import.run route is unused by the renderer and kept until its callers are removed; result transcript timestamps, Markdown rendering of live answers and the duplicated setup checklist are design follow-ups.

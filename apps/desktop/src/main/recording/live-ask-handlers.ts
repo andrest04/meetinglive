@@ -8,7 +8,7 @@ import {
 import {
   LiveAskSession,
   resolveSummaryLanguage,
-  resolveSummaryProviderKind,
+  parseSummaryProvider,
   type SettingsStore,
   type SummaryProviderResolver,
 } from '@vozella/core';
@@ -31,17 +31,22 @@ export interface LiveAskDeps {
 export class LiveAsk {
   readonly session: LiveAskSession;
   private committedText = '';
+  private providerChosen = true;
 
   constructor(private readonly deps: LiveAskDeps) {
     this.session = new LiveAskSession({
       loadSettings: async () => {
         const settings = await deps.settings.load();
+        // B-20: the one parse rule. A blank or unparsable provider is "not chosen", never Local.
+        const parsed = parseSummaryProvider(settings.selectedSummaryProvider);
+        this.providerChosen = parsed !== null;
         return {
-          providerKind: resolveSummaryProviderKind(settings),
+          providerKind: parsed ?? 'Local',
           language: resolveSummaryLanguage(settings),
         };
       },
       resolveProvider: async ({ kind, webSearch }) => {
+        if (!this.providerChosen) return { status: 'unresolved' };
         const resolution = await deps.resolver.resolveSummaryProvider({ kind, webSearch });
         return resolution.status === 'ready'
           ? { status: 'ready', provider: resolution.provider }

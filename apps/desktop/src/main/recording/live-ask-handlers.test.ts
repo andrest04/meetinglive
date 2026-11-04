@@ -7,7 +7,7 @@ import { LiveAsk, registerLiveAskHandlers } from './live-ask-handlers';
 const logger = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 const event = { sender: { id: 1 }, senderFrame: { url: 'vozella://app/index.html', parent: null } };
 
-function setup(recording = true) {
+function setup(recording = true, provider: string | null = 'Codex') {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (name, listener) => void handlers.set(name, listener) };
   const sent: { channel: string; payload: unknown }[] = [];
@@ -16,7 +16,7 @@ function setup(recording = true) {
   const liveAsk = new LiveAsk({
     settings: {
       load: () =>
-        Promise.resolve({ selectedSummaryProvider: 'Codex', summaryLanguage: 'en' } as never),
+        Promise.resolve({ selectedSummaryProvider: provider, summaryLanguage: 'en' } as never),
     },
     resolver: {
       resolveSummaryProvider: (request) => {
@@ -79,6 +79,17 @@ describe('live ask handlers', () => {
       isAnswering: false,
     });
   });
+
+  it.each([[''], ['codex'], ['2'], [null]])(
+    'B-20: a blank or unparsable provider (%s) is not chosen and never falls back to Local',
+    async (provider) => {
+      const t = setup(true, provider);
+      await t.call('recording.ask', { question: 'Why?', webSearch: false });
+      await settle();
+      expect(t.resolved).toEqual([]);
+      expect(t.prompts).toEqual([]);
+    },
+  );
 
   it('refuses blank questions and asks outside a recording', async () => {
     const idle = setup(false);

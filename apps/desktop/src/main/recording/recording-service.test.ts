@@ -666,6 +666,31 @@ describe('RecordingService retry', () => {
     expect(t.store.records.get('meeting-1')?.transcript).toContain('hello');
   });
 
+  it('B-11: the retried meeting keeps the notes typed during the take', async () => {
+    const t = build({ liveDraft: null });
+    t.store.failSaves = new Set([1]);
+    t.transcriber.script.ready = false;
+    await t.service.start(sources);
+    t.service.setNotes('decide the date');
+    await t.service.stop();
+    await t.service.completion;
+    t.transcriber.script.ready = true;
+    expect(t.service.retryProcessing()).toBe(true);
+    await t.service.completion;
+    expect(t.store.saves.at(-1)?.notes).toBe('decide the date');
+  });
+
+  it('139: a take that ends because the engine is missing reads as an error', async () => {
+    const t = build({ liveDraft: null });
+    t.transcriber.script.ready = false;
+    await t.service.start(sources);
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.service.getState().status).toContainEqual(
+      expect.objectContaining({ key: 'Ui_TranscriptionEngineUnavailable', severity: 'error' }),
+    );
+  });
+
   it('refuses a retry when there is nothing to retry', () => {
     expect(build().service.retryProcessing()).toBe(false);
   });
