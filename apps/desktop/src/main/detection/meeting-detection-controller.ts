@@ -7,6 +7,7 @@ import {
   type WindowScanPort,
   type Workspace,
 } from '@vozella/core';
+import { activateMainWindow, type ActivatableWindow } from '../windows/activate-main-window';
 
 /** The slice of the popup window the controller drives. Main wires it to Electron. */
 export interface PopupHandle {
@@ -21,13 +22,7 @@ export interface PopupHandle {
   dispose(): void;
 }
 
-export interface MainWindowLike {
-  isMinimized(): boolean;
-  isDestroyed(): boolean;
-  restore(): void;
-  show(): void;
-  focus(): void;
-}
+export type MainWindowLike = ActivatableWindow;
 
 /** The slice of the settings store the controller reads and writes. */
 export interface PopupSettings {
@@ -106,12 +101,7 @@ export class MeetingDetectionController {
   /** W11: Start. The popup goes away without animation and a blank take is requested. */
   startTakingNotes(): void {
     this.hideNow();
-    const main = this.deps.getMainWindow();
-    if (main && !main.isDestroyed()) {
-      if (main.isMinimized()) main.restore();
-      main.show();
-      main.focus();
-    }
+    activateMainWindow(this.deps.getMainWindow());
     this.deps.workspace.requestTakeNotes();
   }
 

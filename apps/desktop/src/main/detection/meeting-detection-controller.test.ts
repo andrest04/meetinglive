@@ -54,6 +54,7 @@ function setup(options: { popupEnabled?: boolean; settingsFail?: boolean } = {})
     show: vi.fn(),
     focus: vi.fn(),
     isMinimized: () => main.minimized,
+    isVisible: () => true,
     isDestroyed: () => false,
   };
 

@@ -32,6 +32,7 @@ import {
   FakeHardwareProbe,
   FakeSpeechEngine,
   FakeSummaryProvider,
+  JsonWindowStateStore,
   fakeSummaryOptionsFromEnv,
   FileLocalModelStore,
   PathCliProbe,
@@ -55,11 +56,15 @@ import {
   clipboard,
   dialog,
   ipcMain,
+  Menu,
+  nativeImage,
   nativeTheme,
   net,
   protocol,
+  screen,
   session,
   shell,
+  Tray,
 } from 'electron';
 import { resolveAppVersion } from './bootstrap/app-version';
 import {
@@ -120,7 +125,12 @@ import {
   type IpcEventLike,
   type TrustedOrigins,
 } from './security/trusted-origin';
+import { RecordingHandoff } from './recording/recording-handoff';
+import { AppTray } from './tray/app-tray';
+import { activateMainWindow } from './windows/activate-main-window';
+import { resolveIconPath } from './windows/app-icon-path';
 import { createMainWindow } from './windows/main-window';
+import { loadWindowPlacement, trackWindowState } from './windows/window-state';
 import { createMeetingPromptWindow } from './windows/meeting-prompt-window';
 import {
   titleBarOverlayFor,
@@ -237,10 +247,10 @@ function main(): void {
       }),
   });
 
+  // A second launch brings the first window forward. Its arguments are accepted and ignored
+  // (item 10): nothing in the app acts on a command line.
   app.on('second-instance', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+    activateMainWindow(mainWindow);
   });
 
   app.on('web-contents-created', (_event, contents) => {
@@ -498,6 +508,9 @@ function main(): void {
   });
 
   void app.whenReady().then(async () => {
+    // No menu bar (spec 2.14, item 140). The default menu would bind Ctrl+R to a page reload and
+    // open the dev tools, which collides with Ctrl+R on the Record page.
+    Menu.setApplicationMenu(null);
     serveRendererFromAppScheme(async (id) => {
       // The audio path comes only from the repository record of the meeting.
       try {
@@ -882,9 +895,7 @@ function main(): void {
       service: recording,
       dialogs: closeDialogs,
       restoreWindow: () => {
-        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
+        activateMainWindow(mainWindow);
       },
       logger: logger.child('recording'),
     });
@@ -901,13 +912,80 @@ function main(): void {
       liveAsk,
     });
 
+    const iconInput = {
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      appPath: app.getAppPath(),
+    };
+    const windowStateStore = new JsonWindowStateStore(
+      path.join(paths.appData, 'window-state.json'),
+      {
+        onError: (error) => {
+          logger.warn('window state was not saved', { error: String(error) });
+        },
+      },
+    );
+    const placement = await loadWindowPlacement(windowStateStore, screen);
     mainWindow = createMainWindow({
       devServerUrl,
       showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
       theme: resolvedTheme(),
+      placement,
+      iconPath: resolveIconPath(iconInput, 'icon.ico'),
     });
+    trackWindowState(mainWindow, windowStateStore, placement.bounds);
     const id = mainWindow.webContents.id;
     windowIds.add(id);
+
+    // Recording start handoff (items 76 to 78) and the secondary windows that close with the main
+    // window (item 89). The live copilot pill subscribes with `handoff.onHandoff` and registers
+    // itself with `handoff.registerSecondary`.
+    const handoff = new RecordingHandoff({
+      getMainWindow: () => mainWindow ?? null,
+      dismissPopup: () => detection?.dismiss(),
+    });
+    mainWindow.on('focus', () => {
+      handoff.setMainWindowActive(true);
+    });
+    mainWindow.on('blur', () => {
+      handoff.setMainWindowActive(false);
+    });
+
+    // The tray restores the window after the recording start minimized it. Closing the window
+    // still exits the app, so the tray goes with it. Automated runs skip it unless a test asks.
+    let tray: AppTray | undefined;
+    if (mode !== 'test' || process.env.VOZELLA_E2E_TRAY === '1') {
+      tray = new AppTray({
+        createTray: () =>
+          new Tray(nativeImage.createFromPath(resolveIconPath(iconInput, 'tray.ico'))),
+        buildMenu: (items, run) =>
+          Menu.buildFromTemplate(
+            items.map((item) => ({
+              label: item.label,
+              click: () => {
+                run(item.id);
+              },
+            })),
+          ),
+        t: (key) => locale.t(key),
+        open: () => {
+          activateMainWindow(mainWindow);
+        },
+        // The same path as every other quit: before-quit asks the exit gates first.
+        quit: () => {
+          app.quit();
+        },
+      });
+    }
+    let lastRecording = false;
+    recording.gate.onChange(() => {
+      const phase = recording.gate.phase;
+      const isRecording = phase === 'Recording' || phase === 'Stopping';
+      if (isRecording === lastRecording) return;
+      lastRecording = isRecording;
+      handoff.update(isRecording);
+      tray?.setRecording(isRecording);
+    });
     mainWindow.on('close', (event) => {
       if (exitApproved) return;
       event.preventDefault();
@@ -920,6 +998,8 @@ function main(): void {
     mainWindow.on('closed', () => {
       windowIds.delete(id);
       mainWindow = undefined;
+      handoff.closeSecondary();
+      tray?.destroy();
     });
     mainWindow.webContents.once('did-finish-load', () => {
       logger.info('window ready');

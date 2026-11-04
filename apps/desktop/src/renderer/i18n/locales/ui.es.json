@@ -91,5 +91,7 @@
   "Ui_SessionRenameFailedText": "No se cambió el título: {0}",
   "Ui_SessionAudioPlay": "Reproducir audio",
   "Ui_SessionAudioPause": "Pausar audio",
-  "Ui_SessionAudioPosition": "Posición del audio"
+  "Ui_SessionAudioPosition": "Posición del audio",
+  "Ui_TrayQuit": "Salir de Vozella",
+  "Ui_TrayRecording": "Vozella, grabando"
 }
