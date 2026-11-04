@@ -169,7 +169,12 @@ describe('no decoration outside overlays (item 163)', () => {
       .filter((f) => /(bg|text|border|ring|fill|stroke)-signal/.test(f.text))
       .map((f) => f.file)
       .sort();
-    expect(users).toEqual(['ui/Badge.tsx', 'ui/Pulse.tsx']);
+    // The pill's stop button is the one live control: it stops the recording the dot announces.
+    expect(users).toEqual([
+      'features/live-copilot/CapsuleView.tsx',
+      'ui/Badge.tsx',
+      'ui/Pulse.tsx',
+    ]);
   });
 
   it('has no hard-coded colors outside the tokens', () => {

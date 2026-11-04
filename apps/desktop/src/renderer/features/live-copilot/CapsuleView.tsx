@@ -183,7 +183,7 @@ export function CapsuleView(props: CapsuleViewProps) {
           onClick={props.onStop}
           className={cn(
             BUTTON,
-            'size-9 bg-ink text-on-ink hover:opacity-85 active:opacity-70',
+            'size-9 bg-signal text-on-signal hover:opacity-85 active:opacity-70',
             'forced-colors:bg-[Highlight] forced-colors:text-[HighlightText]',
           )}
         >

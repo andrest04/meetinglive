@@ -22,6 +22,7 @@
   --color-hairline: var(--hairline);
   --color-hairline-on-ink: var(--hairline-on-ink);
   --color-signal: var(--signal);
+  --color-on-signal: var(--on-signal);
   --color-hover: var(--hover);
   --color-pressed: var(--pressed);
   --color-scrim: var(--scrim);

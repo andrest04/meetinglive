@@ -17,6 +17,7 @@
   --hairline: #e5e5e5;
   --hairline-on-ink: #333333;
   --signal: #d92d20;
+  --on-signal: #ffffff;
   --accent-blue: #3b6bd0;
   --accent-teal: #2f7f78;
   --accent-green: #3f7d4f;
@@ -98,6 +99,7 @@
     --hairline: GrayText;
     --hairline-on-ink: Canvas;
     --signal: Highlight;
+    --on-signal: HighlightText;
     --accent-blue: Highlight;
     --accent-teal: Highlight;
     --accent-green: Highlight;

@@ -195,9 +195,9 @@ describe('CapsuleView', () => {
     expect(screen.getByTestId('LiveCopilotCapsule').style.opacity).toBe('0.25');
   });
 
-  it('puts the stop button on the ink token (the signal color is for live state only) and the logo mark in its tile', () => {
+  it('puts the stop button on the signal token and the logo mark in its tile', () => {
     render(<CapsuleView {...props()} />);
-    expect(screen.getByRole('button', { name: 'Stop recording' }).className).toContain('bg-ink');
+    expect(screen.getByRole('button', { name: 'Stop recording' }).className).toContain('bg-signal');
     expect(
       screen.getByRole('button', { name: 'Open Vozella' }).querySelector('svg'),
     ).not.toBeNull();
