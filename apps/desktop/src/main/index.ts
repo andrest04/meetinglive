@@ -945,6 +945,9 @@ function main(): void {
         },
         setExpanded: (expanded) => pill?.setExpanded(expanded) ?? NO_PILL_STATE,
         state: () => pill?.state ?? NO_PILL_STATE,
+        ready: () => {
+          liveAsk.republish();
+        },
       },
     );
 

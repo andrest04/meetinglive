@@ -32,6 +32,7 @@ function setup(trusted = true) {
     openApp: vi.fn(),
     setExpanded: vi.fn((): PillStateDto => state),
     state: vi.fn((): PillStateDto => state),
+    ready: vi.fn(),
   };
   registerPillHandlers({ ipc, isTrusted: () => trusted, logger: logger() }, actions);
   const call = async (name: string, input: unknown = {}) =>
@@ -40,6 +41,12 @@ function setup(trusted = true) {
 }
 
 describe('pill handlers', () => {
+  it('pill.ready republishes the live answer before answering with the state', async () => {
+    const t = setup();
+    expect(await t.call('pill.ready')).toEqual({ ok: true, value: state });
+    expect(t.actions.ready).toHaveBeenCalledTimes(1);
+  });
+
   it('routes pause, stop and open app to the actions', async () => {
     const t = setup();
     expect(await t.call('pill.togglePause')).toEqual({ ok: true, value: { done: true } });

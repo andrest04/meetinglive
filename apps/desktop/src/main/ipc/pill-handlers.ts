@@ -17,6 +17,8 @@ export interface PillActions {
   openApp(): void;
   setExpanded(expanded: boolean): PillStateDto;
   state(): PillStateDto;
+  /** The page just loaded: it only receives changes, so replay the state it missed. */
+  ready(): void;
 }
 
 export function registerPillHandlers(server: IpcServerDeps, actions: PillActions): void {
@@ -33,5 +35,8 @@ export function registerPillHandlers(server: IpcServerDeps, actions: PillActions
     return { done: true as const };
   });
   registerRequest(server, pillSetExpanded, ({ expanded }) => actions.setExpanded(expanded));
-  registerRequest(server, pillReady, () => actions.state());
+  registerRequest(server, pillReady, () => {
+    actions.ready();
+    return actions.state();
+  });
 }
