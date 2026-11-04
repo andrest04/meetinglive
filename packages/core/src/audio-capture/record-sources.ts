@@ -8,7 +8,6 @@ import { toMeterPercent } from './level-meter';
 import {
   isAppStillRunning,
   mergeActiveApps,
-  suggestMeetingApp,
   SYSTEM_DEFAULT_MICROPHONE,
   type MicrophoneChoice,
 } from './source-picker';
@@ -95,7 +94,6 @@ export interface SourcePickerState {
   readonly selectedProcessId: number | null;
   /** True when no app card is available: the picker shows its hint. */
   readonly noAppsPlaying: boolean;
-  readonly suggestion: ActiveAudioApp | null;
   /** Set when the selected app was gone at Record time. */
   readonly fallbackAppName: string | null;
 }
@@ -109,7 +107,6 @@ export class RecordSourcePicker {
   private userTouched = false;
   private restorePending = false;
   private fallbackAppName: string | null = null;
-  private readonly dismissed = new Set<number>();
 
   /** Called when the poller starts: arms the one-time restore of the remembered app. */
   beginPolling(): void {
@@ -178,10 +175,6 @@ export class RecordSourcePicker {
     return null;
   }
 
-  dismissSuggestion(processId: number): void {
-    this.dismissed.add(processId);
-  }
-
   closeFallback(): void {
     this.fallbackAppName = null;
   }
@@ -205,7 +198,6 @@ export class RecordSourcePicker {
       cards,
       selectedProcessId: this.selected?.processId ?? null,
       noAppsPlaying: !entries.some((e) => e.isAvailable),
-      suggestion: suggestMeetingApp(this.apps, this.selected === null, this.dismissed),
       fallbackAppName: this.fallbackAppName,
     };
   }

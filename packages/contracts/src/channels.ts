@@ -111,7 +111,6 @@ export const requestChannels = {
   [audio.audioSourcesStart.name]: audio.audioSourcesStart,
   [audio.audioSourcesStop.name]: audio.audioSourcesStop,
   [audio.audioSourcesSelect.name]: audio.audioSourcesSelect,
-  [audio.audioSourcesDismissSuggestion.name]: audio.audioSourcesDismissSuggestion,
   [audio.audioSourcesCloseFallback.name]: audio.audioSourcesCloseFallback,
   [audio.audioPreviewStart.name]: audio.audioPreviewStart,
   [audio.audioPreviewStop.name]: audio.audioPreviewStop,

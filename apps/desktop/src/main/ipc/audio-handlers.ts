@@ -13,7 +13,6 @@ import {
   audioRecordingState,
   audioRecordingStop,
   audioSourcesCloseFallback,
-  audioSourcesDismissSuggestion,
   audioSourcesSelect,
   audioSourcesStart,
   audioSourcesStop,
@@ -52,9 +51,6 @@ export function registerAudioHandlers(deps: AudioHandlerDeps): void {
     return { stopped: true as const };
   });
   registerRequest(server, audioSourcesSelect, ({ processId }) => controller.select(processId));
-  registerRequest(server, audioSourcesDismissSuggestion, ({ processId }) =>
-    controller.dismissSuggestion(processId),
-  );
   registerRequest(server, audioSourcesCloseFallback, () => controller.closeFallback());
   registerRequest(server, audioPreviewStart, ({ deviceId, owner }) => {
     // Spec item 92: the preview never competes with a take for the microphone.

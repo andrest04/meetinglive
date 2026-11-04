@@ -28,7 +28,6 @@ const state = {
   cards: [{ processId: null, app: null, isAvailable: true, level: 0 }],
   selectedProcessId: null,
   noAppsPlaying: true,
-  suggestion: null,
   fallbackAppName: null,
 };
 
@@ -47,7 +46,6 @@ function setup(pick: string | null = null) {
     startSources: vi.fn(() => Promise.resolve(state)),
     stopSources: vi.fn(),
     select: vi.fn(() => Promise.resolve(state)),
-    dismissSuggestion: vi.fn(() => state),
     closeFallback: vi.fn(() => state),
     startPreview: vi.fn(),
     stopPreview: vi.fn(),
@@ -113,11 +111,10 @@ describe('audio handlers', () => {
     expect(controller.rememberMicrophone).not.toHaveBeenCalled();
   });
 
-  it('starts, selects, dismisses and stops the picker', async () => {
+  it('starts, selects and stops the picker', async () => {
     const { call, controller } = setup();
     expect(await call('audio.sources.start', {})).toMatchObject({ ok: true });
     await call('audio.sources.select', { processId: 7 });
-    await call('audio.sources.dismissSuggestion', { processId: 7 });
     await call('audio.sources.closeFallback', {});
     expect(await call('audio.sources.stop', {})).toMatchObject({ ok: true });
     expect(controller.select).toHaveBeenCalledWith(7);

@@ -199,11 +199,6 @@ export class AudioController {
     return this.picker.state;
   }
 
-  dismissSuggestion(processId: number): SourcePickerStateDto {
-    this.picker.dismissSuggestion(processId);
-    return this.picker.state;
-  }
-
   closeFallback(): SourcePickerStateDto {
     this.picker.closeFallback();
     return this.picker.state;

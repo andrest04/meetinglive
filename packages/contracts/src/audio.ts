@@ -36,7 +36,6 @@ export const sourcePickerStateSchema = z.object({
   /** Null means all system audio. */
   selectedProcessId: z.number().int().nullable(),
   noAppsPlaying: z.boolean(),
-  suggestion: activeAudioAppSchema.nullable(),
   /** The name of the app that was gone at Record time; the page shows the fallback bar. */
   fallbackAppName: z.string().nullable(),
 });
@@ -73,10 +72,6 @@ export const audioSourcesStop = defineRequest('audio.sources.stop', {
 /** A user pick; it is remembered. Null selects all system audio. */
 export const audioSourcesSelect = defineRequest('audio.sources.select', {
   input: z.object({ processId: z.number().int().nullable() }),
-  output: sourcePickerStateSchema,
-});
-export const audioSourcesDismissSuggestion = defineRequest('audio.sources.dismissSuggestion', {
-  input: z.object({ processId: z.number().int() }),
   output: sourcePickerStateSchema,
 });
 export const audioSourcesCloseFallback = defineRequest('audio.sources.closeFallback', {

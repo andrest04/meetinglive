@@ -16,7 +16,6 @@ const pickerState = {
   cards: [system],
   selectedProcessId: null,
   noAppsPlaying: true,
-  suggestion: null,
   fallbackAppName: null,
 };
 
