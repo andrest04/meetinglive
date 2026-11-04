@@ -73,7 +73,7 @@ describe('one dB scale on every page (B-14)', () => {
     emit('audio.preview.level', { level: speech });
     emit('audio.recording.level', { level: speech });
     const settings = screen.getByRole('meter', { name: 'Microphone level' });
-    const bar = screen.getByRole('meter', { name: 'Recording level' });
+    const bar = screen.getByRole('meter', { name: 'Mic level' });
     expect(settings.getAttribute('aria-valuenow')).toBe(bar.getAttribute('aria-valuenow'));
     expect(bar).toHaveAttribute('aria-valuenow', String(Math.round(speech)));
   });

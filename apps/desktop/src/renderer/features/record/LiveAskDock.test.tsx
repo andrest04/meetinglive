@@ -98,9 +98,11 @@ describe('LiveAskDock', () => {
 
   it('shows the error bar for a catalog key and for ready text', () => {
     mount();
-    answer({ error: { key: 'LiveCopilot_NeedsSetup', text: '' } });
+    answer({ error: { key: 'Ui_LiveAnswerNoProvider', text: '' } });
     expect(screen.getByRole('alert')).toHaveTextContent('Could not answer');
-    expect(screen.getByRole('alert')).toHaveTextContent('Open Vozella to finish provider setup.');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Pick a summary engine in Settings to get answers during a take.',
+    );
     answer({ error: { key: null, text: 'The CLI failed.' } });
     expect(screen.getByRole('alert')).toHaveTextContent('The CLI failed.');
   });

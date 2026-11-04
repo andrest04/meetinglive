@@ -88,8 +88,21 @@ describe('live ask handlers', () => {
       await settle();
       expect(t.resolved).toEqual([]);
       expect(t.prompts).toEqual([]);
+      // 122: the user is told to pick a provider, not to open the app they are in.
+      const last = t.sent[t.sent.length - 1];
+      expect(last?.payload).toMatchObject({
+        isAnswering: false,
+        error: { key: 'Ui_LiveAnswerNoProvider' },
+      });
     },
   );
+
+  it('116: a preset question is routed through the preset path and answered', async () => {
+    const t = setup();
+    await t.call('recording.ask', { question: 'Summarize so far', webSearch: false, preset: true });
+    await settle();
+    expect(t.prompts[0]).toContain('Summarize so far');
+  });
 
   it('refuses blank questions and asks outside a recording', async () => {
     const idle = setup(false);

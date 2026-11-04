@@ -99,6 +99,8 @@ interface Options {
   liveDraft?: string | null;
   providerReady?: boolean;
   fileTimeMs?: number | null;
+  ownsMarkdown?: (meetingId: string, markdownPath: string) => boolean;
+  onRecordingStarted?: () => void;
 }
 
 function build(options: Options = {}) {
@@ -123,6 +125,7 @@ function build(options: Options = {}) {
   });
   const liveListeners = new Set<(text: string, committed: string) => void>();
   const liveAskCalls: string[] = [];
+  const order: string[] = [];
   const live = {
     start: vi.fn((_at: number) => {
       if (options.liveStartFails) return Promise.reject(new Error('model missing'));
@@ -159,8 +162,12 @@ function build(options: Options = {}) {
   const workspace = new Workspace();
   const repaired: string[] = [];
   const service = new RecordingService({
+    onRecordingStarted: options.onRecordingStarted,
     liveAsk: {
-      reset: () => liveAskCalls.push('reset'),
+      reset: () => {
+        order.push('liveAsk.reset');
+        liveAskCalls.push('reset');
+      },
       cancel: () => liveAskCalls.push('cancel'),
       committed: (text) => liveAskCalls.push(`committed:${text}`),
     },
@@ -174,7 +181,7 @@ function build(options: Options = {}) {
             : inbox,
         ),
       folderExists: (id) => Promise.resolve(folders[id] !== undefined),
-      ownsMarkdown: () => Promise.resolve(false),
+      ownsMarkdown: (id, p) => Promise.resolve(options.ownsMarkdown?.(id, p) ?? false),
     },
     files: {
       remove: (file) => {
@@ -217,6 +224,7 @@ function build(options: Options = {}) {
     live,
     liveListeners,
     liveAskCalls,
+    order,
     store,
     transcriber,
     service,
@@ -371,6 +379,132 @@ describe('RecordingService start failure', () => {
     await t.service.start(sources);
     t.host.push({ type: 'faulted', message: 'late' });
     expect(t.service.getState().captureNotices).toEqual([]);
+  });
+
+  it('52: the start steps run in the order of the C# sequence', async () => {
+    const t = build();
+    const spy = <T extends object>(target: T, key: keyof T & string, label: string): void => {
+      const original = (target as Record<string, (...a: unknown[]) => unknown>)[key]!;
+      vi.spyOn(target as Record<string, (...a: unknown[]) => unknown>, key).mockImplementation(
+        (...args: unknown[]) => {
+          t.order.push(label);
+          return original.apply(target, args);
+        },
+      );
+    };
+    spy(t.controller, 'loadMicrophones', 'mic.load');
+    spy(t.controller, 'startSources', 'sources');
+    spy(t.settings, 'load', 'settings.load');
+    spy(t.controller, 'stopPreview', 'preview.stop');
+    t.live.start.mockImplementation(() => {
+      t.order.push(
+        t.service.getState().status[0]?.key === 'Status_LoadingModel'
+          ? 'live.start(loading)'
+          : 'live.start(no status)',
+      );
+      return Promise.resolve(undefined);
+    });
+    t.host.duringStart = () => {
+      t.order.push('capture.start');
+    };
+    await t.service.start({ ...sources, microphone: null, processId: undefined });
+    const steps = t.order;
+    const at = (x: string): number => steps.indexOf(x);
+    expect(at('mic.load')).toBeGreaterThanOrEqual(0);
+    expect(at('mic.load')).toBeLessThan(at('sources'));
+    expect(at('sources')).toBeLessThan(steps.lastIndexOf('settings.load'));
+    expect(steps.lastIndexOf('settings.load')).toBeLessThan(at('liveAsk.reset'));
+    expect(at('liveAsk.reset')).toBeLessThan(at('live.start(loading)'));
+    // The port stops the idle meter before the live model loads (spec step 10 comes after 9).
+    expect(at('live.start(loading)')).toBeGreaterThan(at('preview.stop'));
+    expect(at('live.start(loading)')).toBeLessThan(at('capture.start'));
+  });
+
+  it('53: a linked meeting id is the id of the take and of the saved record', async () => {
+    const t = build();
+    const result = await t.service.start(sources, { meetingId: 'linked' });
+    expect(result).toMatchObject({ started: true, meetingId: 'linked' });
+    expect(t.service.getState().meetingId).toBe('linked');
+    await t.service.stop();
+    await t.service.completion;
+    expect(t.store.saves.length).toBeGreaterThan(0);
+    expect(t.store.saves.every((r) => r.id === 'linked')).toBe(true);
+  });
+
+  it('B-9: the path allocator asks the library about the take own meeting id', async () => {
+    const owned: string[] = [];
+    const t = build({
+      ownsMarkdown: (id, p) => {
+        owned.push(`${id}|${path.basename(p)}`);
+        return id === 'meeting-1';
+      },
+    });
+    fs.mkdirSync(t.inbox, { recursive: true });
+    fs.writeFileSync(path.join(t.inbox, '2026-11-03 Standup.md'), '# x');
+    await t.service.start(sources);
+    expect(owned).toEqual(['meeting-1|2026-11-03 Standup.md']);
+    expect(fs.existsSync(path.join(t.inbox, '2026-11-03 Standup.wav'))).toBe(true);
+  });
+
+  it('58: no capture event reaches the state after a stop or a discard', async () => {
+    const stopped = build();
+    await stopped.service.start(sources);
+    await stopped.service.stop();
+    await stopped.service.completion;
+    const before = stopped.service.getState().captureNotices;
+    stopped.host.push({ type: 'faulted', message: 'late after stop' });
+    expect(stopped.service.getState().captureNotices).toEqual(before);
+
+    const discarded = build();
+    await discarded.service.start(sources);
+    await discarded.service.discard();
+    discarded.host.push({ type: 'faulted', message: 'late after discard' });
+    expect(discarded.service.getState().captureNotices).toEqual([]);
+  });
+
+  it('97, B-24: a soft warning raised during the take is a warning status entry after Done', async () => {
+    const t = build();
+    await t.service.start(sources);
+    t.host.push({ type: 'source-lost', source: 'Microphone', remaining: 1, message: 'gone' });
+    expect(t.service.getState().microphoneActive).toBe(true);
+    await t.service.stop();
+    await t.service.completion;
+    const status = t.service.getState().status;
+    expect(status[status.length - 1]).toMatchObject({
+      key: 'Warning_MicrophoneLost',
+      severity: 'warning',
+    });
+  });
+
+  it('182: the main window is handed off once, when the recording starts, not on pause or stop', async () => {
+    const started = vi.fn();
+    const t = build({ onRecordingStarted: started });
+    await t.service.start(sources);
+    expect(started).toHaveBeenCalledTimes(1);
+    await t.service.pause();
+    await t.service.resume();
+    await t.service.stop();
+    await t.service.completion;
+    expect(started).toHaveBeenCalledTimes(1);
+  });
+
+  it('182: a failed start does not hand the window off', async () => {
+    const started = vi.fn();
+    const t = build({ onRecordingStarted: started });
+    t.host.failStart = new Error('nope');
+    await t.service.start(sources);
+    expect(started).not.toHaveBeenCalled();
+  });
+
+  it('108: a late live update outside a take does not change the transcript text', async () => {
+    const t = build();
+    await t.service.start(sources);
+    await t.service.stop();
+    await t.service.completion;
+    const before = t.service.getState().liveText;
+    for (const listener of t.liveListeners) listener('[00:00.00-00:01.00] too late', 'too late');
+    expect(t.service.getState().liveText).toBe(before);
+    expect(t.liveAskCalls).not.toContain('committed:too late');
   });
 
   it('60: a failure between capture start and the recording mark stops the take at once', async () => {

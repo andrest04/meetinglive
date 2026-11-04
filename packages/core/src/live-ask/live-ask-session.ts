@@ -101,7 +101,7 @@ export class LiveAskSession {
       });
       if (stale()) return;
       if (resolution.status !== 'ready') {
-        const key = this.deps.setupWired ? 'Status_SetupCancelled' : 'LiveCopilot_NeedsSetup';
+        const key = this.deps.setupWired ? 'Status_SetupCancelled' : 'Ui_LiveAnswerNoProvider';
         this.set({ ...this.state, isAnswering: false, error: { key, text: '' } });
         return;
       }

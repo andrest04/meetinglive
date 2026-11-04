@@ -105,6 +105,8 @@ class RunState {
   transcriptSaved = false;
   audioPath: string;
   previousAudioPath: string | null = null;
+  /** True once the replaced WAV was kept or reported (B-3); a failed first save leaves it false. */
+  previousHandled = false;
 
   constructor(
     readonly request: PipelineRequest,
@@ -229,6 +231,7 @@ export class RecordingPipeline {
           summaryProvider: hasDraft ? null : (existing?.summaryProvider ?? null),
         });
         state.durable = true;
+        state.previousHandled = true;
         state.previousAudioPath = await this.keepPreviousAudio(existing, request.audioPath);
       } catch (error) {
         if (isCancelled(error)) throw error;
@@ -357,6 +360,14 @@ export class RecordingPipeline {
     });
     state.durable = true;
     state.transcriptSaved = true;
+    if (!state.previousHandled) {
+      // B-3: the first save failed with a draft; this save repoints the record, so the old WAV is kept now.
+      state.previousHandled = true;
+      state.previousAudioPath = await this.keepPreviousAudio(
+        state.existing,
+        state.request.audioPath,
+      );
+    }
     return record;
   }
 

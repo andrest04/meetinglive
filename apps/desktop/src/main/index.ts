@@ -845,6 +845,10 @@ function main(): void {
     });
     const recording = composeRecording({
       liveAsk: liveAsk.hooks,
+      // 182: a take that starts hands the screen to the call. Test runs keep their hidden window.
+      onRecordingStarted: () => {
+        if (mode !== 'test' && mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+      },
       library,
       controller: audioController,
       takes: recordingTakes,

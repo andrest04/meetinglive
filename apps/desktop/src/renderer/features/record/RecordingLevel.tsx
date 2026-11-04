@@ -7,9 +7,8 @@ import { Meter } from '../../ui';
  * the audio worker applies `toMeterPercent` to both the idle preview and the recording level
  * (B-14). It is zero while paused (B-15) and when the take ends.
  *
- * B-13: the capture engine mixes the microphone and the meeting audio before it measures, so this
- * is the level of what is being recorded, and it is named that way ("Recording level") instead
- * of claiming to be the microphone.
+ * B-13: the capture engine meters the microphone only, so this is the microphone level and is
+ * named that way. The session bar mounts it only when the take records a microphone.
  */
 export function RecordingLevel({ paused }: { readonly paused: boolean }) {
   const t = useT();

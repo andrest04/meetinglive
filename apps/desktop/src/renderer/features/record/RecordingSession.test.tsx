@@ -19,6 +19,7 @@ const recording: RecordingStateDto = {
   isTicking: true,
   status: [],
   micLevel: 0,
+  microphoneActive: true,
   captureNotices: [],
   meetingId: 'm1',
   title: 'Weekly sync',
@@ -154,21 +155,19 @@ describe('the recording bar content (items 50, 62)', () => {
 });
 
 describe('level meter (items 101, 102, B-13, B-14, B-15)', () => {
-  it('is named for what it measures: the recording, not the microphone (B-13)', () => {
+  it('is named for what it measures, the microphone, and hides when the take has none (B-13)', () => {
     installApi();
-    mount();
-    expect(screen.getByRole('meter', { name: 'Recording level' })).toBeVisible();
-    expect(screen.queryByRole('meter', { name: 'Microphone level' })).toBeNull();
+    const view = mount();
+    expect(screen.getByRole('meter', { name: 'Mic level' })).toBeVisible();
+    view.again({ state: { ...recording, microphoneActive: false } });
+    expect(screen.queryByRole('meter')).toBeNull();
   });
 
   it('shows the level from the audio worker as sent, on the one dB scale (B-14)', () => {
     const api = installApi();
     mount();
     api.emit('audio.recording.level', { level: 56 });
-    expect(screen.getByRole('meter', { name: 'Recording level' })).toHaveAttribute(
-      'aria-valuenow',
-      '56',
-    );
+    expect(screen.getByRole('meter', { name: 'Mic level' })).toHaveAttribute('aria-valuenow', '56');
   });
 
   it('drops to zero while paused and does not freeze on the last value (B-15)', () => {
@@ -176,15 +175,9 @@ describe('level meter (items 101, 102, B-13, B-14, B-15)', () => {
     const view = mount();
     api.emit('audio.recording.level', { level: 70 });
     view.again({ state: { ...recording, isPaused: true, isTicking: false } });
-    expect(screen.getByRole('meter', { name: 'Recording level' })).toHaveAttribute(
-      'aria-valuenow',
-      '0',
-    );
+    expect(screen.getByRole('meter', { name: 'Mic level' })).toHaveAttribute('aria-valuenow', '0');
     view.again({ state: recording });
-    expect(screen.getByRole('meter', { name: 'Recording level' })).toHaveAttribute(
-      'aria-valuenow',
-      '70',
-    );
+    expect(screen.getByRole('meter', { name: 'Mic level' })).toHaveAttribute('aria-valuenow', '70');
   });
 });
 
