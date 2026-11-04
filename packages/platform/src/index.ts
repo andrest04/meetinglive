@@ -50,3 +50,4 @@ export * from './llama/local-llm-provider';
 export * from './summaries/summary-runtime';
 export * from './fakes/fake-summary-provider';
 export * from './chat/library-chat-reader';
+export * from './shell/json-window-state-store';
