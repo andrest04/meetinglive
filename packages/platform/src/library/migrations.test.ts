@@ -297,19 +297,17 @@ describe('runStartupMigrations', () => {
     expect((await fx.meetings.list()).items.map((i) => i.id).sort()).toEqual([ID_A, ID_B]);
   });
 
-  it('the first error is returned and later migrations are skipped', async () => {
+  it('bug 7: a failing step is reported and the later steps still run', async () => {
     put(fx.paths.meetingsFilePath, '{oops');
-    put(
-      path.join(fx.paths.legacyMeetingsDirectory, `${ID_A}.md`),
-      renderMeetingMarkdown(meeting()),
-    );
+    put(path.join(fx.paths.meetingsDirectory, `${ID_A}.md`), renderMeetingMarkdown(meeting()));
     const result = await runStartupMigrations(deps());
     expect(result.error).not.toBeNull();
-    // The first two steps ran before the third failed; the file stays for the next launch.
+    // Step 2 ran after step 1 and before step 3 failed; the file stays for the next launch.
     expect(fs.existsSync(fx.paths.meetingsFilePath)).toBe(true);
+    expect((await fx.meetings.list()).items.map((i) => i.id)).toContain(ID_A);
   });
 
-  it('141: a failure in the layout step skips the legacy meetings.json step', async () => {
+  it('141, bug 7: a failure in the layout step does not skip the legacy meetings.json step', async () => {
     put(path.join(fx.paths.meetingsDirectory, `${ID_A}.md`), renderMeetingMarkdown(meeting()));
     put(
       fx.paths.meetingsFilePath,
@@ -318,12 +316,23 @@ describe('runStartupMigrations', () => {
       ]),
     );
     const broken = Object.create(fx.meetings) as typeof fx.meetings;
+    const save = fx.meetings.save.bind(fx.meetings);
+    broken.save = (record) =>
+      record.id === ID_A ? Promise.reject(new Error('disk full')) : save(record);
+    const result = await runStartupMigrations({ ...deps(), meetings: broken });
+    // The error text carries the exception message.
+    expect(result.error).toContain('disk full');
+    expect((await fx.meetings.list()).items.map((i) => i.id)).toContain(ID_B);
+    expect(fs.existsSync(fx.paths.meetingsFilePath)).toBe(false);
+  });
+
+  it('when several steps fail the first error is the one reported', async () => {
+    put(path.join(fx.paths.meetingsDirectory, `${ID_A}.md`), renderMeetingMarkdown(meeting()));
+    put(fx.paths.meetingsFilePath, '{oops');
+    const broken = Object.create(fx.meetings) as typeof fx.meetings;
     broken.save = () => Promise.reject(new Error('disk full'));
     const result = await runStartupMigrations({ ...deps(), meetings: broken });
-    expect(result.error).toBe('disk full');
-    // Step 3 never ran: the json file is still there and was not imported.
-    expect(fs.existsSync(fx.paths.meetingsFilePath)).toBe(true);
-    expect((await fx.meetings.list()).items.map((i) => i.id)).not.toContain(ID_B);
+    expect(result.error).toContain('disk full');
   });
 
   it('149: a user folder named Meetings lives in "Meetings folder" and its meetings are not legacy', async () => {

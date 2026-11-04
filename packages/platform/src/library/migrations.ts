@@ -248,21 +248,30 @@ export async function migrateLegacyMeetingsJson(
 // ---------------------------------------------------------------------------
 
 export interface StartupMigrationResult {
-  /** The first failure. Later migrations were skipped (spec 2.18). */
+  /** The first failure, with the exception message. Later steps still ran (bug 7). */
   readonly error: string | null;
 }
 
-/** Runs the three migrations in order; the first error stops the rest and is returned. */
+/**
+ * Runs the three migrations in order. Each runs on its own: a failure is logged and the next one
+ * still runs, so one damaged file cannot block the others. The first error is returned (bug 7).
+ */
 export async function runStartupMigrations(
   deps: LayoutMigrationDeps,
 ): Promise<StartupMigrationResult> {
-  try {
-    await migrateUserDataLocation(deps.paths, deps.logger);
-    await migrateLibraryLayout(deps);
-    await migrateLegacyMeetingsJson(deps.paths, deps.meetings);
-    return { error: null };
-  } catch (error) {
-    deps.logger?.error('startup migration failed', { error });
-    return { error: error instanceof Error ? error.message : String(error) };
+  const steps: readonly (readonly [string, () => Promise<void>])[] = [
+    ['user data location', () => migrateUserDataLocation(deps.paths, deps.logger)],
+    ['library layout', () => migrateLibraryLayout(deps)],
+    ['meetings.json', () => migrateLegacyMeetingsJson(deps.paths, deps.meetings)],
+  ];
+  let first: string | null = null;
+  for (const [name, run] of steps) {
+    try {
+      await run();
+    } catch (error) {
+      deps.logger?.error('startup migration failed', { step: name, error });
+      first ??= error instanceof Error ? error.message : String(error);
+    }
   }
+  return { error: first };
 }
