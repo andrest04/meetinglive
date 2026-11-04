@@ -81,40 +81,28 @@ export function AppShell() {
       >
         {t('Ui_SkipToContent')}
       </button>
-      <Splitter
-        orientation="horizontal"
-        defaultSize={storedSidebarWidth()}
-        minSize={SIDEBAR_MIN}
-        maxSize={SIDEBAR_MAX}
-        label={t('Nav_ResizePane')}
-        onSizeChange={(size) => {
-          writeStored(SIDEBAR_KEY, String(size));
-        }}
-        className="h-screen"
-        first={<Sidebar />}
-        second={
-          <>
-            {/* Empty chrome: drags the window and sits behind the caption buttons. */}
-            <div className="app-drag h-10 shrink-0" />
-            <main
-              id="content"
-              tabIndex={-1}
-              className="min-h-0 flex-1 overflow-y-auto pb-8 outline-none"
+      <div className="flex h-screen">
+        <div className="w-[232px] shrink-0 border-e border-hairline">
+          <Sidebar />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Empty chrome: drags the window and sits behind the caption buttons. */}
+          <div className="app-drag h-10 shrink-0" />
+          <main
+            id="content"
+            tabIndex={-1}
+            className="min-h-0 flex-1 overflow-y-auto pb-8 outline-none"
+          >
+            <div
+              className={cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')}
             >
-              <div
-                className={cn(
-                  'mx-auto w-full px-10 pt-8',
-                  wide ? 'max-w-[960px]' : 'max-w-[720px]',
-                )}
-              >
-                <CallPromptBar />
-                <Outlet />
-              </div>
-            </main>
-            <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
-          </>
-        }
-      />
+              <CallPromptBar />
+              <Outlet />
+            </div>
+          </main>
+          <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
+        </div>
+      </div>
       <CloseDialogs />
     </div>
   );
