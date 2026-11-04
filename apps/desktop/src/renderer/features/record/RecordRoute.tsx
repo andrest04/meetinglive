@@ -73,7 +73,7 @@ async function openMeeting(id: string): Promise<void> {
 
 /**
  * The Record page: a thin container over the recording store. The idle zone (title, destination,
- * sources, hero or setup panel), the result card and the status bars are drawn here from main's
+ * sources, setup panel), the action row, the result card and the status bars are drawn here from main's
  * state; the recording bar and the processing bar are the next packages' work and keep the
  * controls the page already had.
  */
@@ -200,54 +200,7 @@ export function RecordRoute() {
       >
         <SourcesPanel active={idle} locked={!idle} onSelectionChange={setSelection} />
 
-        {flags.showSetupPanel && setup ? (
-          <SetupChecklist
-            setup={setup}
-            busy={busy !== null}
-            onSetUp={() => {
-              void ensureReady();
-            }}
-          />
-        ) : null}
-
-        {flags.showRecordHero && !active ? (
-          <div className="flex flex-wrap items-center gap-3" data-testid="record-hero">
-            <Button
-              variant="primary"
-              icon={Mic}
-              disabled={busy !== null}
-              data-testid="BtnRecord"
-              onClick={() => void record()}
-            >
-              {t('Record_Record')}
-            </Button>
-            {flags.showImportAudio ? (
-              <Button
-                icon={FileUp}
-                disabled={busy !== null}
-                data-testid="BtnImportAudio"
-                onClick={() => void importAudio()}
-              >
-                {t('Record_Import')}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {busy === 'starting' ? (
-          <p role="status" className="text-ui text-ink-muted">
-            {t('Ui_TakeStarting')}
-          </p>
-        ) : null}
-
-        {!active ? <StatusBars messages={messages} scope="idle" /> : null}
-        {!active && state?.canRetry ? (
-          <RetryAction
-            onRetry={() => {
-              void retryProcessing();
-            }}
-          />
-        ) : null}
+        {flags.showSetupPanel && setup ? <SetupChecklist setup={setup} /> : null}
       </RecordIdle>
 
       {isRecording && state ? (
@@ -339,6 +292,68 @@ export function RecordRoute() {
           surfaceTestId="saved-transcript"
           className="h-96"
         />
+      ) : null}
+
+      {!active ? (
+        // Last in the page and sticky, so the next step stays in view however long the page gets. The
+        // offset cancels the scroll container's bottom padding: nothing shows under the row.
+        <div
+          className="sticky -bottom-8 z-10 flex flex-col gap-3 border-t border-hairline bg-paper py-3"
+          data-testid="record-actions"
+        >
+          {busy === 'starting' ? (
+            <p role="status" className="text-ui text-ink-muted">
+              {t('Ui_TakeStarting')}
+            </p>
+          ) : null}
+          <StatusBars messages={messages} scope="idle" />
+          {state?.canRetry ? (
+            <RetryAction
+              onRetry={() => {
+                void retryProcessing();
+              }}
+            />
+          ) : null}
+          {flags.showSetupPanel && setup ? (
+            <div>
+              <Button
+                variant="primary"
+                disabled={busy !== null}
+                onClick={() => {
+                  void ensureReady();
+                }}
+                data-testid="BtnSetUpToRecord"
+              >
+                {t('RecordingSetup_SetUpToRecord.Content')}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex flex-wrap items-center gap-3" data-testid="record-hero">
+                <Button
+                  variant="primary"
+                  icon={Mic}
+                  disabled={busy !== null}
+                  data-testid="BtnRecord"
+                  onClick={() => void record()}
+                >
+                  {t('Record_Record')}
+                </Button>
+                {flags.showImportAudio ? (
+                  <Button
+                    icon={FileUp}
+                    disabled={busy !== null}
+                    data-testid="BtnImportAudio"
+                    onClick={() => void importAudio()}
+                  >
+                    {t('Record_Import')}
+                  </Button>
+                ) : null}
+              </div>
+              <p className="text-ui text-ink-muted">{t('Ui_RecordHelper')}</p>
+            </div>
+          )}
+        </div>
       ) : null}
 
       {dialogs}

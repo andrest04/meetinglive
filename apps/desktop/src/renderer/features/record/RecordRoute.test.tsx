@@ -317,6 +317,74 @@ describe('RecordRoute idle document (the title is the heading)', () => {
   });
 });
 
+describe('RecordRoute action row', () => {
+  const helper = 'Transcript and summary are created after you stop.';
+
+  it('holds Record, Import and the helper when ready', async () => {
+    installApi();
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    expect(within(row).getByTestId('record-hero')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Record' })).toBeEnabled();
+    expect(within(row).getByRole('button', { name: 'Import audio' })).toBeEnabled();
+    expect(within(row).getByText(helper)).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Set up to record' })).toBeNull();
+  });
+
+  it('holds only Set up to record while setup is missing', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    const panel = await screen.findByTestId('setup-checklist');
+    const row = screen.getByTestId('record-actions');
+    expect(within(row).getByRole('button', { name: 'Set up to record' })).toBeEnabled();
+    expect(within(panel).queryByRole('button', { name: 'Set up to record' })).toBeNull();
+    expect(within(row).queryByTestId('record-hero')).toBeNull();
+    expect(screen.queryByText(helper)).toBeNull();
+  });
+
+  it('sits after the result card and the saved transcript, so it stays reachable below them', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        lastMeeting: { id: 'm-9', title: 'Weekly sync' },
+        liveText: 'Hello there',
+      }),
+    });
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    const transcript = await screen.findByTestId('saved-transcript');
+    expect(transcript.compareDocumentPosition(row)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('is not drawn during a take or while processing', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.queryByTestId('record-actions')).toBeNull();
+  });
+
+  it('keeps a refusal next to the button that caused it', async () => {
+    installApi({
+      'recording.start': () => ({
+        started: false,
+        reason: 'failed',
+        message: { key: 'Error_StartRecording', args: ['disk full'], severity: 'error' },
+      }),
+    });
+    mount();
+    const row = await screen.findByTestId('record-actions');
+    await userEvent.click(within(row).getByRole('button', { name: 'Record' }));
+    expect(await within(row).findByRole('alert')).toHaveTextContent('disk full');
+  });
+});
+
 describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
   it('shows the inline panel with the three cards instead of the hero', async () => {
     installApi({ 'recording.getSetup': () => needsSetup });
@@ -324,7 +392,7 @@ describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
     const panel = await screen.findByTestId('setup-checklist');
     expect(within(panel).getAllByTestId('setup-card')).toHaveLength(3);
     expect(within(panel).getByText('Needs setup')).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Set up to record' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set up to record' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Record' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Import audio' })).toBeNull();
     expect(screen.getByText('Set up recording before you start.')).toBeInTheDocument();
