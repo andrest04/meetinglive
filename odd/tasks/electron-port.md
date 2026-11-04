@@ -41,8 +41,8 @@ The user wants the product on Electron so the brand tokens drive the UI and macO
 - [x] T4 Port the domain and persistence layer. Audit findings stay open, see Closing state
 - [x] T5 Port native capture and ASR. Audit findings stay open, see Closing state
 - [x] T6 Port summaries and chat. JEV/TypeSafe and xAI were cut. Audit findings stay open, see Closing state
-- [ ] T7 Port all screens and windows. Partial: live copilot and shell-platform not ported
-- [ ] T8 Review, end-to-end checks, packaging. Not run
+- [x] T7 Port all screens and windows. Live copilot and shell-platform ran capped at 5 packages and 1 audit round
+- [x] T8 Review, end-to-end checks, packaging. Installer not executed and real-use checks still open, see Final state
 - [x] T9 Closing report: verified, pending, and what the user must validate
 
 ## Acceptance criteria
@@ -74,8 +74,19 @@ Branch created from `main` at 53438c5.
 - Open: the last fix of each re-audited module had no audit after it, so T8 audits them again. Settings and audio capture were converging poorly.
 
 - Closed by the owner on 2026-11-03 at a stopping point after wave 2. Live copilot and shell-platform were not ported, and T8 and the packaged launch were not run.
+- Reopened by the owner the same night, asking to finish. Running: recording findings, live copilot and shell-platform in one wave, then a review of six modules, a final fix, packaging, and a packaged run.
 
-### Closing state (observed 2026-11-03)
+### Final state (observed 2026-11-04)
+
+- Run `wf_62c0c0b5-4ed` finished: 408 agents, no agent error in its final pass. Nothing pushed; `main` untouched.
+- Run by the orchestrator on the final tree: `pnpm check` exit 0 (contracts 44, core 1644, platform 427 with 13 skipped, desktop 1853 with 6 skipped) and `pnpm build` exit 0.
+- Reported by the release agent, not repeated: e2e unpackaged 256 passed, 55 skipped, 0 failed; e2e packaged 230 passed, 82 skipped, 0 failed; packaged flow with a fake provider passed; real capture and Nemotron run on a generated WAV with a fake `claude.cmd` passed. After two later test race fixes only the affected unpackaged files were re-run (29 passed, 2 skipped). The first `pnpm package` failed with EPERM on a napi-rs `.swp` rename and passed on retry, cause unknown.
+- Screenshots read by the orchestrator: packaged `session`, `library`, `real-result`.
+- Final review: 0 blockers, 2 majors, 30 minors. Majors fixed in 6d6b601 (re-transcribe stuck on Busy; take notes silent when setup is incomplete). The 30 minors stay open, listed in the review results and partly in the ledgers.
+- Review coverage is partial: verified items reported were settings-i18n 0 of 126, session views 70 of 160, recording 30 of 227, audio capture 150 of 165. Summaries and chat got no re-audit after their last fix.
+- Not run: NSIS installer `apps/desktop/release/Vozella-Setup-1.0.0.exe` (unsigned), real meetings and calls, real CLIs and accounts, a library written by the WinUI app, Windows 10, two monitors with mixed DPI, a real title-bar close.
+
+### Closing state after wave 2 (observed 2026-11-03, superseded by Final state)
 
 - Integrated on `feat/electron-port`: audio capture, transcription, library and storage, settings, summaries, call detection, recording, chat, session views. Nothing pushed; `main` untouched.
 - Run by the orchestrator on the integrated branch: `pnpm check` exit 0 (contracts 44, core 1454, platform 419 with 13 skipped, desktop 1501 with 6 skipped, native 21) and `pnpm build` exit 0. `cargo` must be on PATH.
@@ -87,4 +98,4 @@ Branch created from `main` at 53438c5.
 
 ## Next step
 
-If the work resumes: process the open recording findings, port live copilot and shell-platform, then run T8. The app has no tray, app icon, global shortcuts, or toast handling until shell-platform is ported.
+The owner validates the installer and a real meeting. Then decide which of the 30 minors to fix, and whether to re-audit summaries, chat, and the review's unverified items, before delivering the branch.
