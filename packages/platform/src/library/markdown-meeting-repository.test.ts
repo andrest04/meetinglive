@@ -342,6 +342,54 @@ describe('delete', () => {
   });
 });
 
+describe('batch', () => {
+  const outsideFile = () =>
+    renderMeetingMarkdown(meeting({ id: ID_B, title: 'Written by another program' }));
+
+  it('scans once: a file that appears during the batch waits for the next scan', async () => {
+    await fx.meetings.save(meeting());
+    const inbox = path.join(fx.root, 'Inbox');
+    await fx.meetings.batch(async () => {
+      expect((await fx.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+      fs.writeFileSync(path.join(inbox, 'outside.md'), outsideFile());
+      expect((await fx.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+    });
+    expect((await fx.meetings.list()).items.map((i) => i.id).sort()).toEqual([ID_A, ID_B]);
+  });
+
+  it('sees its own saves, moves and deletes', async () => {
+    await fx.folders.save(folder(FOLDER_1, 'Universidad'));
+    const saved = await fx.meetings.save(meeting());
+    await fx.meetings.batch(async () => {
+      await fx.meetings.list();
+      await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+      await fx.meetings.save({ ...saved, folderId: FOLDER_1 });
+      expect((await fx.meetings.get(ID_A))?.folderId).toBe(FOLDER_1);
+      expect(await fx.meetings.get(ID_B)).toMatchObject({ title: 'Second' });
+      expect((await fx.meetings.list()).items).toHaveLength(2);
+      await fx.meetings.delete(ID_B);
+      expect(await fx.meetings.get(ID_B)).toBeNull();
+    });
+    expect((await fx.meetings.list()).items.map((i) => i.folderId)).toEqual([FOLDER_1]);
+    expect(tree(fx.root)).toContain('Universidad/2026-09-01 Standup.md');
+    expect(tree(fx.root)).not.toContain('Inbox/2026-09-01 Standup.md');
+  });
+
+  it('goes back to scanning when the batch fails, and nested batches end with the outer one', async () => {
+    await fx.meetings.save(meeting());
+    const inbox = path.join(fx.root, 'Inbox');
+    await expect(
+      fx.meetings.batch(async () => {
+        await fx.meetings.batch(() => fx.meetings.list());
+        fs.writeFileSync(path.join(inbox, 'outside.md'), outsideFile());
+        expect((await fx.meetings.list()).items).toHaveLength(1);
+        throw new Error('stop');
+      }),
+    ).rejects.toThrow('stop');
+    expect((await fx.meetings.list()).items).toHaveLength(2);
+  });
+});
+
 describe('list', () => {
   it('walks every depth and returns the light items', async () => {
     await fx.folders.save(folder(FOLDER_1, 'Universidad'));

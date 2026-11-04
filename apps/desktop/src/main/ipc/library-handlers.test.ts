@@ -92,6 +92,85 @@ async function setup(options: { discard?: (path: string) => Promise<void> } = {}
   return { call, events, workspace, busy, runtime, writes };
 }
 
+describe('bulk meeting handlers', () => {
+  const OTHER = '22222222-2222-2222-2222-222222222222';
+  const count = (t: Awaited<ReturnType<typeof setup>>, name: string): number =>
+    t.events.filter((e) => e.name === name).length;
+
+  it('moves several meetings with one library change and reports each one', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    await t.runtime.meetings.save(record(OTHER, 'Other'));
+    const created = await t.call('library.createFolder', { name: 'Trabajo', parentId: null });
+    const folderId = (created.value as { folder: { id: string } }).folder.id;
+    t.events.length = 0;
+    t.busy.register({ isBusy: (id) => id === OTHER });
+
+    const moved = await t.call('library.moveMeetings', { meetingIds: [ID, OTHER], folderId });
+
+    expect(moved.value).toEqual({
+      results: [
+        { meetingId: ID, ok: true },
+        { meetingId: OTHER, ok: false, reason: 'busy' },
+      ],
+    });
+    expect(count(t, 'library.changed')).toBe(1);
+    expect(t.events.filter((e) => e.name === 'workspace.meetingChanged')).toEqual([
+      { name: 'workspace.meetingChanged', payload: { id: ID } },
+    ]);
+    expect((await t.runtime.meetings.get(ID))?.folderId).toBe(folderId);
+  });
+
+  it('deletes several meetings with one library change and one deleted notice per meeting', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    await t.runtime.meetings.save(record(OTHER, 'Other'));
+    t.workspace.selectMeeting(OTHER);
+    t.events.length = 0;
+
+    const deleted = await t.call('library.deleteMeetings', {
+      meetingIds: [ID, OTHER],
+      mode: 'permanent',
+    });
+
+    expect(deleted.value).toEqual({
+      results: [
+        { meetingId: ID, ok: true },
+        { meetingId: OTHER, ok: true },
+      ],
+    });
+    expect(count(t, 'library.changed')).toBe(1);
+    expect(count(t, 'workspace.meetingDeleted')).toBe(2);
+    expect(t.workspace.state.selectedMeetingId).toBeNull();
+  });
+
+  it('stays quiet when nothing changed', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    t.busy.register({ isBusy: () => true });
+    t.events.length = 0;
+    await t.call('library.deleteMeetings', { meetingIds: [ID], mode: 'trash' });
+    await t.call('library.moveMeetings', { meetingIds: [ID], folderId: null });
+    expect(t.events).toEqual([]);
+  });
+
+  it('refuses an empty list at the boundary', async () => {
+    const t = await setup();
+    expect(await t.call('library.deleteMeetings', { meetingIds: [], mode: 'trash' })).toMatchObject(
+      { ok: false },
+    );
+  });
+
+  it('a quit waits for a bulk write in flight', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    const run = t.call('library.deleteMeetings', { meetingIds: [ID], mode: 'permanent' });
+    await t.writes.settled();
+    expect(await t.runtime.meetings.get(ID)).toBeNull();
+    await run;
+  });
+});
+
 describe('library handlers', () => {
   it('reports a meeting the Recycle Bin refused and leaves it listed', async () => {
     const t = await setup({

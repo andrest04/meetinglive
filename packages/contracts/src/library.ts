@@ -164,6 +164,25 @@ export const libraryDeleteMeeting = defineRequest('library.deleteMeeting', {
   output: done,
 });
 
+const bulkMeetingIds = z.array(guid).min(1).max(10_000).readonly();
+const meetingOutcome = z.discriminatedUnion('ok', [
+  z.object({ meetingId: guid, ok: z.literal(true) }),
+  z.object({ meetingId: guid, ...failureShape }),
+]);
+const bulkResult = z.object({ results: z.array(meetingOutcome).readonly() });
+
+/** One result per meeting; a meeting that cannot move does not stop the others. */
+export const libraryMoveMeetings = defineRequest('library.moveMeetings', {
+  input: z.object({ meetingIds: bulkMeetingIds, folderId: z.string().nullable() }),
+  output: bulkResult,
+});
+
+/** One result per meeting; a meeting that cannot go does not stop the others. */
+export const libraryDeleteMeetings = defineRequest('library.deleteMeetings', {
+  input: z.object({ meetingIds: bulkMeetingIds, mode: meetingDeleteModeSchema }),
+  output: bulkResult,
+});
+
 export const libraryIsMeetingBusy = defineRequest('library.isMeetingBusy', {
   input: z.object({ meetingId: guid }),
   output: z.object({ busy: z.boolean() }),

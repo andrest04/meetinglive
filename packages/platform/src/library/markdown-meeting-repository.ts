@@ -72,6 +72,9 @@ export class MarkdownMeetingRepository implements MeetingRepository {
   private readonly locks: KeyedMutex;
   private readonly rename: (from: string, to: string) => Promise<void>;
   private readonly unlink: (path: string) => Promise<void>;
+  /** Open `batch` calls. While any is open, the first scan stands in for the later ones. */
+  private batches = 0;
+  private batchScanned = false;
 
   constructor(private readonly options: MarkdownMeetingRepositoryOptions) {
     this.locks = options.locks ?? new KeyedMutex();
@@ -127,6 +130,16 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return this.locks.run(this.lockKey(), () => this.deleteLocked(id, mode));
   }
 
+  async batch<T>(run: () => Promise<T>): Promise<T> {
+    this.batches += 1;
+    try {
+      return await run();
+    } finally {
+      this.batches -= 1;
+      if (this.batches === 0) this.batchScanned = false;
+    }
+  }
+
   private async saveLocked(record: MeetingRecord): Promise<MeetingRecord> {
     const folders = await this.folderList();
     const directory = directoryFor(this.root, folders, record.folderId);
@@ -146,6 +159,10 @@ export class MarkdownMeetingRepository implements MeetingRepository {
 
     await writeFileAtomic(markdownPath, renderMeetingMarkdown(saved));
     this.cache.delete(markdownPath);
+    if (this.batchScanned) {
+      const entry = await this.indexFile(markdownPath);
+      if (entry) this.cache.set(markdownPath, entry);
+    }
 
     if (existing && !samePath(existing.path, markdownPath) && (await exists(existing.path))) {
       await this.unlink(existing.path);
@@ -292,6 +309,7 @@ export class MarkdownMeetingRepository implements MeetingRepository {
 
   /** Stats every markdown file and re-reads only those that changed since the last scan. */
   private async scan(): Promise<IndexEntry[]> {
+    if (this.batchScanned) return [...this.cache.values()];
     const files = await listMarkdownFiles(this.root);
     const fresh = new Map<string, IndexEntry>();
     let next = 0;
@@ -306,6 +324,7 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, files.length) }, worker));
     this.cache.clear();
     for (const [path, entry] of fresh) this.cache.set(path, entry);
+    if (this.batches > 0) this.batchScanned = true;
     return [...fresh.values()];
   }
 

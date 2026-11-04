@@ -23,6 +23,11 @@ export interface MeetingRepository {
    * refuses throws `MeetingTrashError`. The mode defaults to `trash`.
    */
   delete(id: string, mode?: MeetingDeleteMode): Promise<void>;
+  /**
+   * Runs many calls against one look at the store, so a bulk action does not pay for a full scan
+   * per meeting. Changes the calls make are seen; changes from outside wait for the next look.
+   */
+  batch<T>(run: () => Promise<T>): Promise<T>;
 }
 
 /** Port: the folder tree. Adapter: JsonFolderRepository (platform). */

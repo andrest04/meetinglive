@@ -21,6 +21,8 @@ describe('library contracts', () => {
       'library.deleteFolder',
       'library.moveMeeting',
       'library.deleteMeeting',
+      'library.moveMeetings',
+      'library.deleteMeetings',
       'library.isMeetingBusy',
       'library.getLocation',
       'library.openFolder',

@@ -4,11 +4,13 @@ import {
   libraryCreateFolder,
   libraryDeleteFolder,
   libraryDeleteMeeting,
+  libraryDeleteMeetings,
   libraryGetLocation,
   libraryGetMeeting,
   libraryIsMeetingBusy,
   libraryLoad,
   libraryMoveMeeting,
+  libraryMoveMeetings,
   libraryOpenFolder,
   libraryRenameFolder,
   librarySetFolderNote,
@@ -195,6 +197,22 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): LibraryWrites
       broadcast(libraryChanged, { reason: 'meeting' });
     }
     return result;
+  });
+
+  registerRequest(server, libraryMoveMeetings, async (input) => {
+    const results = await track(runtime.service.moveMeetings(input));
+    const moved = results.filter((result) => result.ok);
+    for (const { meetingId } of moved) workspace.notifyMeetingChanged(meetingId);
+    if (moved.length > 0) broadcast(libraryChanged, { reason: 'meeting' });
+    return { results };
+  });
+
+  registerRequest(server, libraryDeleteMeetings, async (input) => {
+    const results = await track(runtime.service.deleteMeetings(input));
+    const deleted = results.filter((result) => result.ok);
+    for (const { meetingId } of deleted) workspace.notifyDeleted(meetingId);
+    if (deleted.length > 0) broadcast(libraryChanged, { reason: 'meeting' });
+    return { results };
   });
 
   registerRequest(server, libraryIsMeetingBusy, ({ meetingId }) => ({

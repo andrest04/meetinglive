@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Clock } from '../clock';
 import type { FolderRecord } from './folder';
 import { InMemoryFolderRepository, InMemoryMeetingRepository } from './in-memory-library';
@@ -395,6 +395,80 @@ describe('deleteMeeting', () => {
     t.meetings.trashRefusedIds.add('m');
     expect(await t.service.deleteMeeting('m', 'permanent')).toEqual({ ok: true });
     expect(t.meetings.records.size).toBe(0);
+  });
+});
+
+describe('moveMeetings', () => {
+  it('moves each meeting and reports each one, without stopping at a failure', async () => {
+    const t = setup();
+    t.folders.folders = [folder('a', 'A')];
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.records.set('b', meeting('b'));
+    t.meetings.records.set('n', meeting('n'));
+    t.busy.register({ isBusy: (id) => id === 'b' });
+    expect(
+      await t.service.moveMeetings({ meetingIds: ['m', 'b', 'gone', 'n'], folderId: 'a' }),
+    ).toEqual([
+      { meetingId: 'm', ok: true },
+      { meetingId: 'b', ok: false, reason: 'busy' },
+      { meetingId: 'gone', ok: false, reason: 'not-found' },
+      { meetingId: 'n', ok: true },
+    ]);
+    expect(t.meetings.records.get('m')?.folderId).toBe('a');
+    expect(t.meetings.records.get('b')?.folderId).toBeNull();
+    expect(t.meetings.records.get('n')?.folderId).toBe('a');
+  });
+
+  it('runs the whole batch as one repository batch', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    const batch = vi.spyOn(t.meetings, 'batch');
+    await t.service.moveMeetings({ meetingIds: ['m'], folderId: null });
+    await t.service.deleteMeetings({ meetingIds: ['m'], mode: 'trash' });
+    expect(batch).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports one result for an id named twice', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m', 'a'));
+    expect(await t.service.moveMeetings({ meetingIds: ['m', 'm'], folderId: null })).toEqual([
+      { meetingId: 'm', ok: true },
+    ]);
+  });
+});
+
+describe('deleteMeetings', () => {
+  it('deletes each meeting and reports each one, without stopping at a failure', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.records.set('l', meeting('l'));
+    t.meetings.records.set('t', meeting('t'));
+    t.meetings.records.set('n', meeting('n'));
+    t.meetings.lockedIds.add('l');
+    t.meetings.trashRefusedIds.add('t');
+    expect(
+      await t.service.deleteMeetings({ meetingIds: ['m', 'l', 't', 'n'], mode: 'trash' }),
+    ).toEqual([
+      { meetingId: 'm', ok: true },
+      { meetingId: 'l', ok: false, reason: 'io-failed', message: 'EBUSY: resource busy or locked' },
+      {
+        meetingId: 't',
+        ok: false,
+        reason: 'trash-failed',
+        message: 'The Recycle Bin refused the file.',
+      },
+      { meetingId: 'n', ok: true },
+    ]);
+    expect([...t.meetings.records.keys()]).toEqual(['l', 't']);
+  });
+
+  it('passes the mode on', async () => {
+    const t = setup();
+    t.meetings.records.set('t', meeting('t'));
+    t.meetings.trashRefusedIds.add('t');
+    expect(await t.service.deleteMeetings({ meetingIds: ['t'], mode: 'permanent' })).toEqual([
+      { meetingId: 't', ok: true },
+    ]);
   });
 });
 

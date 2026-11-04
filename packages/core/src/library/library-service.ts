@@ -32,6 +32,8 @@ export interface Failure {
 
 export type FolderResult = { readonly ok: true; readonly folder: FolderRecord } | Failure;
 export type DoneResult = { readonly ok: true } | Failure;
+/** One meeting's result in a bulk action. */
+export type MeetingOutcome = { readonly meetingId: string } & DoneResult;
 export type LoadResult =
   | {
       readonly ok: true;
@@ -190,6 +192,37 @@ export class LibraryService {
     } catch (error) {
       return failure(error);
     }
+  }
+
+  /** Each meeting on its own: one that cannot move stays and the rest still go. */
+  async moveMeetings(input: {
+    meetingIds: readonly string[];
+    folderId: string | null;
+  }): Promise<readonly MeetingOutcome[]> {
+    return this.eachMeeting(input.meetingIds, (meetingId) =>
+      this.moveMeeting({ meetingId, folderId: input.folderId }),
+    );
+  }
+
+  /** Each meeting on its own: one that cannot go stays listed and the rest still go. */
+  async deleteMeetings(input: {
+    meetingIds: readonly string[];
+    mode: MeetingDeleteMode;
+  }): Promise<readonly MeetingOutcome[]> {
+    return this.eachMeeting(input.meetingIds, (id) => this.deleteMeeting(id, input.mode));
+  }
+
+  private async eachMeeting(
+    meetingIds: readonly string[],
+    run: (meetingId: string) => Promise<DoneResult>,
+  ): Promise<readonly MeetingOutcome[]> {
+    return this.deps.meetings.batch(async () => {
+      const outcomes: MeetingOutcome[] = [];
+      for (const meetingId of new Set(meetingIds)) {
+        outcomes.push({ meetingId, ...(await run(meetingId)) });
+      }
+      return outcomes;
+    });
   }
 
   private nameTaken(

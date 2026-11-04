@@ -97,7 +97,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 ### Batch 1: data and search (about 900)
 - [x] T1.1 List items carry length and state; All view; folded titles
 - [x] T1.2 Delete goes to the Recycle Bin
-- [ ] T1.3 Bulk move and delete
+- [x] T1.3 Bulk move and delete
 - [ ] T1.4 Full-text search with timing harness
 
 ### Batch 2: shell, sidebar, list (about 1,250)
@@ -139,7 +139,8 @@ Each batch writer records its commit hashes and observed check results here. A c
 ### Batch 1 (`feat/library-redesign-b1-data`)
 
 - T1.1 `faa918e` `feat(library): list items carry length and state, with an All view and folded titles`. `pnpm check`: passed; contracts 44 tests, core 1654, platform 428 passed and 13 skipped, desktop 1875 passed and 6 skipped. Generation start did not fire `library.changed`: `ObservedSummaryService` in `main/summaries` now broadcasts at the start and end of a run, because `packages/core/src/summaries` is not part of this batch. `emptyFlags` is unchanged, so T2.1 decides the All view's empty copy.
-- T1.2 `feat(library): deleting a meeting moves it to the Recycle Bin`. `pnpm check`: passed; contracts 44, core 1656, platform 432 passed and 13 skipped, desktop 1878 passed and 6 skipped. When the bin refuses, the current screen opens a second dialog offering "Delete permanently". Real Recycle Bin restore and a volume with no bin stay manual and pending.
+- T1.2 `ed6d91c` `feat(library): deleting a meeting moves it to the Recycle Bin`. `pnpm check`: passed; contracts 44, core 1656, platform 432 passed and 13 skipped, desktop 1878 passed and 6 skipped. When the bin refuses, the current screen opens a second dialog offering "Delete permanently". Real Recycle Bin restore and a volume with no bin stay manual and pending.
+- T1.3 `feat(library): move and delete many meetings in one request`. `pnpm check`: passed; contracts 44, core 1661, platform 435 passed and 14 skipped, desktop 1883 passed and 6 skipped. 200 moves at 3,000 meetings measured 29,838 ms, over the 10 s line, so the repository gained `batch`, which reuses one scan: 2,537 ms after it (`library-timing.test.ts`, about 3 KB per meeting).
 
 ## Next step
 

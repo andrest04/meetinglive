@@ -45,6 +45,10 @@ export class InMemoryMeetingRepository implements MeetingRepository {
     this.records.delete(id);
     return Promise.resolve();
   }
+
+  batch<T>(run: () => Promise<T>): Promise<T> {
+    return run();
+  }
 }
 
 export class InMemoryFolderRepository implements FolderRepository {
