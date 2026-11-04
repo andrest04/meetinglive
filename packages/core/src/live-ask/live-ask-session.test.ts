@@ -161,7 +161,7 @@ describe('LiveAskSession', () => {
   });
 
   it.each([
-    [false, 'LiveCopilot_NeedsSetup'],
+    [false, 'Ui_LiveAnswerNoProvider'],
     [true, 'Status_SetupCancelled'],
   ])('unresolved provider with setupWired=%s gives %s', async (setupWired, key) => {
     const t = setup({ resolution: { status: 'unresolved' }, setupWired });

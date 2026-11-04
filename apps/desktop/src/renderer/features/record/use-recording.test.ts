@@ -22,6 +22,7 @@ const idle: RecordingStateDto = {
   isTicking: false,
   status: [],
   micLevel: 0,
+  microphoneActive: true,
   captureNotices: [],
   meetingId: null,
   title: '',

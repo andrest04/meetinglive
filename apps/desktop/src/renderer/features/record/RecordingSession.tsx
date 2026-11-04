@@ -124,7 +124,7 @@ export function RecordingSession({
         paused={paused}
         busy={!controllable}
         hasText={liveText !== ''}
-        meter={<RecordingLevel paused={paused} />}
+        meter={state.microphoneActive ? <RecordingLevel paused={paused} /> : undefined}
         onStop={() => void stopRecording()}
         onTogglePause={togglePause}
         onHighlight={highlight}

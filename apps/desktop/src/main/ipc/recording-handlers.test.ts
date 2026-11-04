@@ -26,6 +26,7 @@ function setup() {
     isTicking: false,
     status: [],
     micLevel: 0,
+    microphoneActive: true,
     captureNotices: [],
     meetingId: null,
     title: '',

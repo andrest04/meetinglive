@@ -44,6 +44,8 @@ export const recordingStateSchema = z.object({
   status: z.array(recordingMessageSchema),
   /** 0..100. Zero while paused (B-15). */
   micLevel: z.number(),
+  /** The take records a microphone; only then does the level meter show anything (B-13). */
+  microphoneActive: z.boolean(),
   /** The hard failure of the take first, then the soft warning. */
   captureNotices: z.array(recordingMessageSchema),
   /** The meeting the take writes to; null while idle. */

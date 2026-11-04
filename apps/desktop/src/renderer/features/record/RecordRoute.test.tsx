@@ -30,6 +30,7 @@ const idleState: RecordingStateDto = {
   isTicking: false,
   status: [],
   micLevel: 0,
+  microphoneActive: true,
   captureNotices: [],
   meetingId: null,
   title: '',
@@ -210,6 +211,26 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
     });
   });
 
+  it.each([
+    [false, 'The live preview is off. The transcript is made after you stop.'],
+    [true, /Live preview only/],
+  ])(
+    '105: with live transcription %s the empty canvas says the matching thing',
+    async (liveEnabled, hint) => {
+      installApi({
+        'transcription.getStatus': () => ({ ready: true, liveEnabled }),
+        'recording.getState': () => ({
+          ...idleState,
+          phase: 'Recording',
+          isRecording: true,
+          liveText: '',
+        }),
+      });
+      mount();
+      expect(await screen.findByText(hint)).toBeInTheDocument();
+    },
+  );
+
   it('shows the title in the bar while recording, with the fields out of the way, and unlocks the title while processing', async () => {
     installApi({
       'recording.getState': () => ({
@@ -382,6 +403,21 @@ describe('RecordRoute status bars (spec 2.18, B-12)', () => {
       status: [{ key: 'Error_ImportAudio', args: ['only a note'], severity: 'info' }],
     });
     expect(await screen.findByText(/only a note/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('97, B-24: the idle column shows the soft warning after a take, as a caption', async () => {
+    const api = installApi();
+    mount();
+    await screen.findByRole('button', { name: 'Record' });
+    api.emit('recording.state', {
+      ...idleState,
+      status: [
+        { key: 'Status_Done', args: [], severity: 'info' },
+        { key: 'Warning_MicrophoneLost', args: [], severity: 'warning' },
+      ],
+    });
+    expect(await screen.findByText(/The microphone stopped working/)).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

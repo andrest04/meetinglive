@@ -67,13 +67,11 @@ test('record, pause, resume and stop leave a readable WAV in the Inbox', async (
 
   const status = page.getByTestId('recording-status');
   await expect(status).toContainText('Recording... mic + system audio.');
-  await expect(page.getByRole('meter', { name: 'Recording level' })).toBeVisible();
+  await expect(page.getByRole('meter', { name: 'Mic level' })).toBeVisible();
   // The tone from the fake microphone moves the level bar.
   await expect
     .poll(async () =>
-      Number(
-        await page.getByRole('meter', { name: 'Recording level' }).getAttribute('aria-valuenow'),
-      ),
+      Number(await page.getByRole('meter', { name: 'Mic level' }).getAttribute('aria-valuenow')),
     )
     .toBeGreaterThan(0);
 

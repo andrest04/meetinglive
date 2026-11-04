@@ -68,7 +68,7 @@ test('a take shows the bar with the clock, the title and the sources, and no can
   const clock = bar.getByRole('timer', { name: 'Elapsed recording time' });
   await expect(clock).toHaveText(/^\d{2,}:\d{2}$/);
   await expect(clock).not.toHaveText('00:00', { timeout: 10_000 });
-  await expect(bar.getByRole('meter', { name: 'Recording level' })).toBeVisible();
+  await expect(bar.getByRole('meter', { name: 'Mic level' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Live transcript' })).toBeVisible();
   await expect(page.getByTestId('live-badge')).toBeVisible();
 });
@@ -110,7 +110,7 @@ test('pause hides the LIVE badge and stops the pulse, resume brings them back', 
   await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
   await expect(page.getByTestId('live-badge')).toHaveCount(0);
   await expect(page.getByTestId('pulse')).toHaveAttribute('data-active', 'false');
-  await expect(page.getByRole('meter', { name: 'Recording level' })).toHaveAttribute(
+  await expect(page.getByRole('meter', { name: 'Mic level' })).toHaveAttribute(
     'aria-valuenow',
     '0',
   );

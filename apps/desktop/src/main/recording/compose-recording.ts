@@ -47,6 +47,7 @@ export interface ComposeRecordingDeps {
   readonly formatFailure: (error: unknown) => string;
   readonly wavDurationSeconds: (file: string) => number;
   readonly liveAsk?: LiveAskHooks;
+  readonly onRecordingStarted?: () => void;
 }
 
 /** Renames the audio a new take replaces to `<stem> (previous).wav` beside it (B-3). */
@@ -101,6 +102,7 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
     summary,
   });
   const service = new RecordingService({
+    onRecordingStarted: deps.onRecordingStarted,
     liveAsk: deps.liveAsk,
     takes: deps.takes,
     controller: deps.controller,

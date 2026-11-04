@@ -17,6 +17,7 @@ import {
   HighlightedLiveText,
   RecordingRuns,
   RecordingSessionGate,
+  decideRecordingHandoff,
   recordingStatusText,
   startFailureMessage,
   type CaptureNotice,
@@ -94,6 +95,8 @@ export interface LiveAskHooks {
 }
 
 export interface RecordingServiceDeps {
+  /** The start handoff (182): called once on the false to true change of `isRecording`. */
+  readonly onRecordingStarted?: () => void;
   readonly liveAsk?: LiveAskHooks;
   readonly takes: CapturePort;
   readonly controller: ControllerPort;
@@ -303,6 +306,7 @@ export class RecordingService {
       isTicking: phase === 'Recording' && take?.pausedAtMs === null,
       status: this.runs.status.map(typed),
       micLevel: phase === 'Recording' ? this.micLevel : 0,
+      microphoneActive: take !== null && take.microphone.kind !== 'None',
       captureNotices: notices.map(typed),
       meetingId: this.runs.currentMeetingId ?? take?.meetingId ?? null,
       title: take?.title ?? this.title,
@@ -454,6 +458,7 @@ export class RecordingService {
         };
       }
       this.gate.markRecording();
+      if (decideRecordingHandoff(false, true).minimizeMainWindow) deps.onRecordingStarted?.();
 
       // 12. A hard failure that arrived before this point is handled now.
       if (this.runs.takeCaptureFailure !== null) {
