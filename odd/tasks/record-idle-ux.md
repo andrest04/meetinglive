@@ -65,4 +65,6 @@ Strategy: `ask-on-risk`. Forecast: about 300 authored changed lines, on `feat/re
 
 ## Next step
 
-Owner review. Then run the Record e2e specs on a real build when the dev server is stopped.
+The owner asked to merge and push on 2026-11-04, with the e2e gap below still open. `pnpm check` exit 0 on the branch: contracts 44, core 1644, platform 427 with 13 skipped, desktop 1873 with 6 skipped, native 21. ESLint now ignores `.claude/**`, because the scripts of an installed skill failed the lint.
+
+Run the Record e2e specs on a real build when the dev server is stopped, including the changed assertion in `recording-screen.spec.ts`.
