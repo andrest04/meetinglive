@@ -166,7 +166,10 @@ export function LiveCanvas({
       className={cn('relative flex min-h-0 flex-col gap-3', className)}
     >
       <div className="flex min-h-7 items-center gap-3">
-        <h2 id={headingId} className="text-read-lg font-semibold text-ink">
+        <h2
+          id={headingId}
+          className="shrink-0 text-read-lg font-semibold whitespace-nowrap text-ink"
+        >
           {heading}
         </h2>
         {live ? (
@@ -179,14 +182,15 @@ export function LiveCanvas({
             role="status"
             aria-live="polite"
             data-testid="highlight-feedback"
-            className="max-w-[360px] truncate font-mono text-ui text-ink"
+            className="max-w-[360px] shrink-0 truncate font-mono text-ui text-ink"
           >
             {highlightFeedback ?? ''}
           </p>
           {statusText ? (
             <p
-              className="max-w-[360px] truncate text-ui text-ink-muted"
+              className="max-w-[360px] min-w-0 truncate text-ui text-ink-muted"
               data-testid="recording-status"
+              title={statusText}
             >
               {statusText}
             </p>
