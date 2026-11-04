@@ -55,7 +55,8 @@ Strategy: `ask-on-risk`. Forecast: about 300 authored changed lines, on `feat/re
 - T2: RED, the idle document test failed on the visible heading and label. GREEN in `RecordRoute.test.tsx`. Title focus and a long title checked by screenshot; hover has no screenshot.
 - T3: RED, four action row tests failed. GREEN. `record-idle.spec.ts` measured the row flush with the bottom of the scroll container and above the chat bar in a 480 px tall window. A keyboard focus test failed at 340 px tall, with the radio behind the row; a scroll margin on the idle page fixed it.
 - T4: RED, heading and glyph tests failed. GREEN. No meaningful RED for the visual layout, checked by screenshot. The Check first pulled the status word 2 px off the row's baseline; fixed.
-- T5: RED, `withoutSetupRepeat` tests and the summary test failed. GREEN. `Status_ReadyToRecord` is kept, because it does not repeat the setup panel.
+- T5: RED, `withoutSetupRepeat` tests and the summary test failed. GREEN. `Status_ReadyToRecord` was kept at first, because it does not repeat the setup panel.
+- T5 follow-up, accepted by the owner: the idle page also drops `Status_ReadyToRecord` at info severity, because an enabled Record button already says it. The filter is now `withoutIdleRepeats`. RED: two tests failed. GREEN: Record tests passed, 270 of 270, and typecheck exit 0. The changed assertion in `recording-screen.spec.ts` was not run.
 - Width: the idle page is now 640 px, the text column of the 720 px document layout. At the old 960 px column the 1196x768 screenshot left the status words about 500 px from the row text, so the eye could not connect them.
 - Accessory removed: the setup list's bottom rule, which doubled the action row's rule. The dialog that shares the rows loses it too and still reads correctly.
 - Checks: typecheck exit 0. Unit tests 1872 passed, 6 skipped. Axe found no serious or critical issue on Record in light and dark, with setup missing and ready.

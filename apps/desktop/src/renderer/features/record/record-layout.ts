@@ -69,13 +69,16 @@ export const hasStatusError = (messages: readonly StatusMessage[]): boolean =>
 /** Says only what the setup panel shows by being there, so the page does not say it twice. */
 const SETUP_REPEAT_KEY = 'Status_NeedsSetup';
 
+/** Says only what an enabled Record button shows by being there. */
+const READY_REPEAT_KEY = 'Status_ReadyToRecord';
+
 /** The idle status to draw. Everything else stays: errors, warnings and notices are never dropped. */
-export const withoutSetupRepeat = (
+export const withoutIdleRepeats = (
   messages: readonly StatusMessage[],
   showSetupPanel: boolean,
 ): readonly StatusMessage[] =>
-  showSetupPanel
-    ? messages.filter(
-        (message) => !(message.key === SETUP_REPEAT_KEY && message.severity === 'info'),
-      )
-    : messages;
+  messages.filter(
+    (message) =>
+      message.severity !== 'info' ||
+      (message.key !== READY_REPEAT_KEY && !(showSetupPanel && message.key === SETUP_REPEAT_KEY)),
+  );

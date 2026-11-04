@@ -16,7 +16,7 @@ import {
   arrangePanels,
   deriveRecordLayout,
   hasStatusError,
-  withoutSetupRepeat,
+  withoutIdleRepeats,
   type StatusMessage,
 } from './record-layout';
 import { RecordingSession, useCanvasCopy } from './RecordingSession';
@@ -323,7 +323,7 @@ export function RecordRoute() {
               {t('Ui_TakeStarting')}
             </p>
           ) : null}
-          <StatusBars messages={withoutSetupRepeat(messages, flags.showSetupPanel)} scope="idle" />
+          <StatusBars messages={withoutIdleRepeats(messages, flags.showSetupPanel)} scope="idle" />
           {state?.canRetry ? (
             <RetryAction
               onRetry={() => {

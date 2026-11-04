@@ -154,7 +154,7 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Title' }).value).toMatch(
       /^Meeting \d{1,2} \w{3}, \d{2}:\d{2}$/,
     );
-    expect(await screen.findByText('Ready to record.')).toBeInTheDocument();
+    expect(screen.queryByText('Ready to record.')).toBeNull();
     await userEvent.click(screen.getByRole('combobox', { name: 'Save to' }));
     const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
     expect(options).toEqual(['Inbox', 'Alpha', 'Alpha / Child', 'beta']);

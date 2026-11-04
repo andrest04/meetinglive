@@ -102,7 +102,7 @@ test('Set up to record asks, installs the engine and shows Record', async () => 
     timeout: 30_000,
   });
   await expect(page.getByTestId('setup-checklist')).toHaveCount(0);
-  await expect(page.getByText('Ready to record.')).toBeVisible();
+  await expect(page.getByText('Ready to record.')).toHaveCount(0);
 });
 
 test('the destination lists the Inbox first, then the folders as paths', async () => {
