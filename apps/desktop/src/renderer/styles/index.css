@@ -17,8 +17,10 @@
   --color-on-ink: var(--on-ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
+  --color-on-ink-muted: var(--on-ink-muted);
   --color-border-control: var(--border-control);
   --color-hairline: var(--hairline);
+  --color-hairline-on-ink: var(--hairline-on-ink);
   --color-signal: var(--signal);
   --color-hover: var(--hover);
   --color-pressed: var(--pressed);

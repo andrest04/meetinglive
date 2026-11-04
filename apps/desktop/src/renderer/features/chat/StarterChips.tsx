@@ -25,7 +25,7 @@ export function StarterChips({ recipes, onPick }: StarterChipsProps) {
               onClick={() => {
                 onPick(recipe.prompt);
               }}
-              className="h-7 rounded-full border border-hairline px-3 text-ui text-ink transition-colors duration-150 ease-out-quick hover:bg-hover active:bg-pressed"
+              className="h-7 rounded-control border border-hairline px-3 text-ui text-ink transition-colors duration-150 ease-out-quick hover:bg-hover active:bg-pressed"
             >
               {recipe.name}
             </button>
