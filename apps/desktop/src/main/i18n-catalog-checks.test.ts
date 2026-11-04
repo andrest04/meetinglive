@@ -283,7 +283,7 @@ describe('references in the code (item 118, B21)', () => {
    */
   const OTHER_MODULES = [
     // Hardware, microphone, transcription engine, recording, calendar and TypeSafe sections.
-    /^Settings_(Acceleration|AsrFallback|CalendarNotifications|Calendars|DeleteEngine|DeleteSpeakers)/,
+    /^Settings_(Acceleration|AsrFallback|Calendar|DeleteEngine|DeleteSpeakers)/,
     /^Settings_(DownloadEngine|DownloadSpeakers|LiveDrops|LiveTranscription|MeetingPopup|MicLevel)/,
     /^Settings_(NemotronCard|RecordingDevice|SpeakerLabels|TypeSafe)/,
     // Used by the setup dialog and by the recording setup summary caption.

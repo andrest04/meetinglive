@@ -8,12 +8,11 @@ export type SettingsSectionId =
   | 'appearance'
   | 'language'
   | 'summaryProvider'
-  | 'typeSafe'
   | 'microphone'
   | 'meetingLanguage'
   | 'transcription'
   | 'recording'
-  | 'calendar'
+  | 'callDetection'
   | 'data'
   | 'about';
 
@@ -37,7 +36,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     owner: 'settings-i18n',
     status: 'built',
   },
-  { id: 'typeSafe', headingKey: 'Settings_TypeSafe.Text', owner: 'jev-typesafe', status: 'slot' },
   {
     id: 'microphone',
     headingKey: 'Settings_Microphone.Text',
@@ -58,8 +56,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   { id: 'recording', headingKey: 'Settings_Recording.Text', owner: 'recording', status: 'slot' },
   {
-    id: 'calendar',
-    headingKey: 'Settings_Calendar.Text',
+    id: 'callDetection',
+    headingKey: 'Ui_CallDetection',
     owner: 'calendar-detection',
     status: 'built',
   },

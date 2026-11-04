@@ -49,7 +49,7 @@ export function CallDetectionSection() {
 
   return (
     <div data-testid="call-detection-section">
-      <SectionHeader level={2} compact title={t('Settings_Calendar.Text')} className="pb-2" />
+      <SectionHeader level={2} compact title={t('Ui_CallDetection')} className="pb-2" />
       <SettingRow
         title={t('Settings_MeetingPopup.Header')}
         description={t('Settings_MeetingPopup.Description')}

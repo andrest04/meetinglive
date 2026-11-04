@@ -70,7 +70,7 @@ export function SettingsRoute() {
         );
       case 'transcription':
         return <TranscriptionSection />;
-      case 'calendar':
+      case 'callDetection':
         return <CallDetectionSection />;
       case 'data':
       case 'about':

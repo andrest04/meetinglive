@@ -57,10 +57,10 @@ const toggle = () => screen.getByRole('switch');
 const checked = () => toggle().getAttribute('aria-checked');
 
 describe('CallDetectionSection (items 135, 136, 140)', () => {
-  it('G1: shows the Calendar heading and only the popup toggle', async () => {
+  it('G1: shows the Call detection heading and only the popup toggle', async () => {
     install(true);
     const { container } = mount();
-    expect(screen.getByRole('heading', { name: 'Calendar' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Call detection' })).toBeTruthy();
     expect(screen.getByText('Show a popup when a call starts')).toBeTruthy();
     expect(container.querySelector('#ToggleMeetingPopup')).not.toBeNull();
     expect(screen.getAllByRole('switch')).toHaveLength(1);
@@ -109,6 +109,6 @@ describe('CallDetectionSection (items 135, 136, 140)', () => {
     install(true);
     mount('es');
     expect(screen.getByText('Mostrar un aviso cuando empieza una llamada')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Calendario' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Detección de llamadas' })).toBeTruthy();
   });
 });
