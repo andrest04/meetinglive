@@ -278,6 +278,45 @@ describe('RecordRoute idle zone (spec 2.1, 2.2)', () => {
   });
 });
 
+describe('RecordRoute idle document (the title is the heading)', () => {
+  const subtitle = /Set up your meeting, then record it/;
+
+  it('keeps one h1 for assistive tech, no subtitle and an unlabeled but named title', async () => {
+    installApi();
+    mount();
+    const title = await screen.findByRole('textbox', { name: 'Title' });
+    expect(title).toBeEnabled();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Record meeting' })).toBeInTheDocument();
+    expect(screen.queryByText(subtitle)).toBeNull();
+    expect(screen.queryByText('Title')).toBeNull();
+  });
+
+  it('shows the destination as one visible label and a select', async () => {
+    installApi();
+    mount();
+    await screen.findByRole('combobox', { name: 'Save to' });
+    expect(screen.getAllByText('Save to')).toHaveLength(1);
+  });
+
+  it('keeps the subtitle and the labeled fields while processing', async () => {
+    installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        phase: 'Processing',
+        isProcessing: true,
+        liveText: '',
+      }),
+    });
+    mount();
+    await screen.findByTestId('record-session');
+    expect(screen.getByRole('heading', { level: 1, name: 'Record meeting' })).toBeInTheDocument();
+    expect(screen.getByText(subtitle)).toBeInTheDocument();
+    expect(screen.getByText('Title')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Title' })).toBeEnabled();
+  });
+});
+
 describe('RecordRoute setup (spec 2.4, items 14 to 18)', () => {
   it('shows the inline panel with the three cards instead of the hero', async () => {
     installApi({ 'recording.getSetup': () => needsSetup });

@@ -177,14 +177,19 @@ export function RecordRoute() {
       data-testid="record-page"
       data-session={scrollSession ? 'true' : 'false'}
     >
-      <SectionHeader
-        level={1}
-        title={t('RecordPage_Title.Text')}
-        description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
-      />
+      {active ? (
+        <SectionHeader
+          level={1}
+          title={t('RecordPage_Title.Text')}
+          description={isRecording ? undefined : t('RecordPage_Subtitle.Text')}
+        />
+      ) : (
+        <h1 className="sr-only">{t('RecordPage_Title.Text')}</h1>
+      )}
 
       <RecordIdle
         hidden={isRecording}
+        asDocument={!active}
         title={title}
         onTitleChange={setTitle}
         titleDisabled={isRecording || busy === 'starting'}

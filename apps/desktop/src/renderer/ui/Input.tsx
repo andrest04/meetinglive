@@ -7,8 +7,20 @@ type InputProps = Omit<ComponentProps<typeof BaseInput>, 'className'> & {
   readonly className?: string;
 };
 
-export function Input({ className, ...rest }: InputProps) {
-  return <BaseInput className={cn(controlSurface, 'h-8 px-2.5', className)} {...rest} />;
+/** A field that reads as the document's title: no box at rest, an edge on hover and focus. */
+const titleSurface =
+  'h-12 min-w-0 truncate rounded-control border border-transparent bg-transparent px-2 ' +
+  'text-title font-semibold tracking-[-0.02em] text-ink placeholder:text-ink-faint ' +
+  'transition-colors duration-150 ease-out-quick hover:not-disabled:border-hairline ' +
+  'focus:border-border-control disabled:cursor-not-allowed disabled:opacity-60';
+
+export function Input({
+  className,
+  appearance = 'control',
+  ...rest
+}: InputProps & { readonly appearance?: 'control' | 'title' }) {
+  const surface = appearance === 'title' ? titleSurface : cn(controlSurface, 'h-8 px-2.5');
+  return <BaseInput className={cn(surface, className)} {...rest} />;
 }
 
 export function Textarea({
