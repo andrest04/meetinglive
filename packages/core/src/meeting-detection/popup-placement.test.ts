@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { popupBounds, topRight } from './popup-placement';
+import { clamp, popupBounds, topRight } from './popup-placement';
 
 describe('MeetingPromptPlacementTests', () => {
   it('places the popup at the top right with the margin', () => {
@@ -39,5 +39,25 @@ describe('MeetingPromptPlacementTests', () => {
       height: 83,
       y: 27,
     });
+  });
+});
+
+describe('LiveCopilotPillPlacementTests (clamp)', () => {
+  const area = { x: 100, y: 50, width: 1000, height: 600 };
+  it('leaves a box that is inside the area where it is', () => {
+    expect(clamp(300, 200, 100, 40, area)).toEqual({ x: 300, y: 200 });
+  });
+  it('pulls a box that is outside back to the nearest edge', () => {
+    expect(clamp(-500, 9000, 100, 40, area)).toEqual({ x: 100, y: 610 });
+    expect(clamp(9000, -500, 100, 40, area)).toEqual({ x: 1000, y: 50 });
+  });
+  it('works from a non-zero origin', () => {
+    expect(clamp(0, 0, 100, 40, area)).toEqual({ x: 100, y: 50 });
+  });
+  it('pins a box larger than the area to the area origin', () => {
+    expect(clamp(400, 300, 2000, 900, area)).toEqual({ x: 100, y: 50 });
+  });
+  it('a box exactly filling the area has only one place to be', () => {
+    expect(clamp(777, 333, 1000, 600, area)).toEqual({ x: 100, y: 50 });
   });
 });
