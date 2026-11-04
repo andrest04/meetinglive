@@ -23,7 +23,11 @@ export function installGlobalErrorHandling(source: ErrorSource, deps: GlobalErro
     deps.logger.error('uncaught exception', { error, origin });
     if (fatalSeen) return;
     fatalSeen = true;
-    deps.showFatal('Vozella stopped unexpectedly', error.message);
+    try {
+      deps.showFatal('Vozella stopped unexpectedly', error.message);
+    } catch (dialogError) {
+      deps.logger.error('could not show the fatal message', { error: dialogError });
+    }
     deps.exit(1);
   });
   source.on('unhandledRejection', (reason) => {
