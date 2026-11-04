@@ -56,6 +56,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           'meeting-prompt': resolve(__dirname, 'src/renderer/meeting-prompt.html'),
+          pill: resolve(__dirname, 'src/renderer/pill.html'),
         },
       },
     },

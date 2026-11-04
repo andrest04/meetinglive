@@ -3,6 +3,7 @@ import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
 import * as chat from './chat';
 import * as library from './library';
+import * as liveCopilot from './live-copilot';
 import * as meetingPrompt from './meeting-prompt';
 import * as recording from './recording';
 import * as session from './session';
@@ -181,6 +182,11 @@ export const requestChannels = {
   [chat.chatMeetingExists.name]: chat.chatMeetingExists,
   [chat.chatCopyText.name]: chat.chatCopyText,
   [chat.chatOpenExternal.name]: chat.chatOpenExternal,
+  [liveCopilot.pillTogglePause.name]: liveCopilot.pillTogglePause,
+  [liveCopilot.pillStop.name]: liveCopilot.pillStop,
+  [liveCopilot.pillOpenApp.name]: liveCopilot.pillOpenApp,
+  [liveCopilot.pillSetExpanded.name]: liveCopilot.pillSetExpanded,
+  [liveCopilot.pillReady.name]: liveCopilot.pillReady,
   [session.sessionGetView.name]: session.sessionGetView,
   [session.sessionRename.name]: session.sessionRename,
   [session.sessionRevealFile.name]: session.sessionRevealFile,
@@ -210,6 +216,8 @@ export const eventChannels = {
   [transcription.retranscriptionStateChanged.name]: transcription.retranscriptionStateChanged,
   [transcription.retranscriptionFinished.name]: transcription.retranscriptionFinished,
   [summaries.summariesProgress.name]: summaries.summariesProgress,
+  [liveCopilot.pillStateChanged.name]: liveCopilot.pillStateChanged,
+  [liveCopilot.pillHint.name]: liveCopilot.pillHint,
   [recording.recordingStateChanged.name]: recording.recordingStateChanged,
   [recording.recordingCloseRequest.name]: recording.recordingCloseRequest,
   [recording.recordingLiveText.name]: recording.recordingLiveText,

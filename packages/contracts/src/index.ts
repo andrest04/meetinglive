@@ -3,6 +3,7 @@ export * from './audio';
 export * from './channel';
 export * from './channels';
 export * from './library';
+export * from './live-copilot';
 export * from './meeting-prompt';
 export * from './recording';
 export * from './result';
