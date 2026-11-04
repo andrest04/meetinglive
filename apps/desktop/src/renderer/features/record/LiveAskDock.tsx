@@ -1,12 +1,15 @@
 import type { RecordingAnswerDto } from '@vozella/contracts';
 import { Globe } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { IconButton, Input, Notice, cn } from '../../ui';
 import { askLive, setWebSearch, useLiveAskStore } from './use-live-ask';
 
-const errorText = (answer: RecordingAnswerDto, translate: (key: StringKey) => string): string => {
+export const answerErrorMessage = (
+  answer: RecordingAnswerDto,
+  translate: (key: StringKey) => string,
+): string => {
   const { error } = answer;
   if (error === null) return '';
   return error.key === null ? error.text : translate(error.key as StringKey);
@@ -22,6 +25,12 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
   const answer = useLiveAskStore((s) => s.answer);
   const webSearch = useLiveAskStore((s) => s.webSearch);
   const [text, setText] = useState('');
+  const wasEnabled = useRef(enabled);
+  useEffect(() => {
+    // A new take starts with an empty box.
+    if (enabled && !wasEnabled.current) setText('');
+    wasEnabled.current = enabled;
+  }, [enabled]);
   const canWeb = answer.canUseWebSearch;
   const canAsk = enabled && text.trim() !== '';
 
@@ -35,7 +44,7 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
     }
   };
 
-  const message = errorText(answer, t);
+  const message = answerErrorMessage(answer, t);
   return (
     <div className="flex flex-col gap-2" data-testid="live-ask-dock">
       {answer.error !== null ? (

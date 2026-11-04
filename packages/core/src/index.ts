@@ -15,3 +15,4 @@ export * from './recording';
 export * from './live-ask';
 export * from './chat';
 export * from './session';
+export * from './live-copilot';

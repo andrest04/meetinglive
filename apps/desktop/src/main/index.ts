@@ -7,10 +7,12 @@ import { pathToFileURL } from 'node:url';
 import {
   libraryChanged,
   recordingCloseRequest,
+  recordingStateChanged,
   settingsMeetingPopupChanged,
   type AppInfo,
   type EventChannel,
   type PayloadInputOf,
+  type PillStateDto,
   type ThemePreference,
 } from '@vozella/contracts';
 import {
@@ -81,6 +83,9 @@ import { registerHandlers } from './ipc/handlers';
 import { createFlagFileScanner, fakeCallFlagPath } from './detection/fake-call-scanner';
 import { MeetingDetectionController } from './detection/meeting-detection-controller';
 import { createPopupHandle } from './detection/popup-handle';
+import { composePill } from './live-copilot/compose-pill';
+import type { PillController } from './live-copilot/pill-controller';
+import { registerPillHandlers } from './ipc/pill-handlers';
 import { registerMeetingPromptHandlers } from './ipc/meeting-prompt-handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
@@ -193,6 +198,8 @@ function main(): void {
   };
   const windowIds = new Set<number>();
   let mainWindow: BrowserWindow | undefined;
+  /** The live copilot pill; made with the main window and closed with it. */
+  let pill: PillController | undefined;
 
   logger.info('starting', {
     version: app.getVersion(),
@@ -420,6 +427,10 @@ function main(): void {
     for (const window of BrowserWindow.getAllWindows()) {
       sendEvent(window.webContents, channel, payload);
     }
+    // The pill follows the recording: its visibility rule and the start handoff.
+    if (channel.name === recordingStateChanged.name) {
+      pill?.onRecordingState((payload as PayloadInputOf<typeof recordingStateChanged>).isRecording);
+    }
   }
 
   let detection: MeetingDetectionController | undefined;
@@ -569,6 +580,7 @@ function main(): void {
       runtime: settings,
       locale,
       broadcast,
+      onSummaryProviderSaved: () => liveAsk.refreshWebSupport(),
     });
     libraryWrites = registerLibraryHandlers({
       server: {
@@ -905,6 +917,44 @@ function main(): void {
       liveAsk,
     });
 
+    // Live copilot pill (spec 2.1): created on first need, driven by the main window's focus and
+    // the recording state, closed with the main window.
+    pill = composePill({
+      settings: library.settings,
+      logger: logger.child('pill'),
+      title: () => locale.t('LiveCopilot_Title'),
+      entryUrl: devServerUrl ? new URL('/pill.html', devServerUrl).toString() : undefined,
+      trustSender: (webContentsId) => windowIds.add(webContentsId),
+      getMainWindow: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+      dismissMeetingPopup: () => detection?.dismiss(),
+    });
+    registerPillHandlers(
+      {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      {
+        togglePause: async () => {
+          if (recording.getState().isPaused) await recording.resume();
+          else await recording.pause();
+        },
+        stop: async () => {
+          await recording.stop();
+        },
+        openApp: () => {
+          if (!mainWindow || mainWindow.isDestroyed()) return;
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.focus();
+        },
+        setExpanded: (expanded) => pill?.setExpanded(expanded) ?? NO_PILL_STATE,
+        state: () => pill?.state ?? NO_PILL_STATE,
+        ready: () => {
+          liveAsk.republish();
+        },
+      },
+    );
+
     mainWindow = createMainWindow({
       devServerUrl,
       showOnReady: mode !== 'test' || process.env.VOZELLA_E2E_SHOW === '1',
@@ -921,9 +971,16 @@ function main(): void {
         if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
       });
     });
+    // Focus, blur, minimize and restore re-evaluate the pill (mainWindowActive starts true).
+    mainWindow.on('focus', () => pill?.setMainWindowActive(true));
+    mainWindow.on('blur', () => pill?.setMainWindowActive(false));
+    mainWindow.on('minimize', () => pill?.setMainWindowActive(false));
+    mainWindow.on('restore', () => pill?.setMainWindowActive(mainWindow?.isFocused() ?? false));
     mainWindow.on('closed', () => {
       windowIds.delete(id);
       mainWindow = undefined;
+      pill?.dispose();
+      pill = undefined;
     });
     mainWindow.webContents.once('did-finish-load', () => {
       logger.info('window ready');
@@ -950,6 +1007,20 @@ function main(): void {
     detection = startMeetingDetection();
   });
 }
+
+/** What `pill.ready` answers in the moment between the pill closing and the app quitting. */
+const NO_PILL_STATE: PillStateDto = {
+  visible: false,
+  expanded: false,
+  edge: 'Right',
+  vertical: true,
+  animationsEnabled: false,
+  opacity: 1,
+  contentOpacity: 1,
+  window: { width: 80, height: 256 },
+  capsule: { x: 8, y: 8, width: 64, height: 240 },
+  panel: null,
+};
 
 function serveRendererFromAppScheme(
   resolveAudio: (meetingId: string) => Promise<string | null>,

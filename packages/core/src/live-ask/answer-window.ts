@@ -1,4 +1,5 @@
 /** The recent part of the committed transcript a live answer reads (recording spec 3.12). */
+import { takeTail } from './utf16';
 
 export const DEFAULT_ANSWER_WINDOW_MS = 90_000;
 export const UNSTAMPED_FALLBACK_CHARS = 2500;
@@ -41,9 +42,8 @@ export function takeRecentWindow(
   let latest: number | null = null;
   for (const end of ends) if (end !== null && (latest === null || end > latest)) latest = end;
   if (latest === null) {
-    return committedText.length > UNSTAMPED_FALLBACK_CHARS
-      ? committedText.slice(committedText.length - UNSTAMPED_FALLBACK_CHARS)
-      : committedText;
+    // Bug 16: the cut keeps whole surrogate pairs. Bug 17: one newline kind, as below.
+    return takeTail(lines.join('\n'), UNSTAMPED_FALLBACK_CHARS);
   }
   const cutoff = latest - windowMs;
   const inSpan = (end: number | null): boolean => end !== null && end >= cutoff && end <= latest;
@@ -61,5 +61,6 @@ export function takeRecentWindow(
     const end = ends[index] ?? null;
     if (end !== null ? inSpan(end) : index >= first && index <= last) kept.push(line);
   });
-  return kept.join(committedText.includes('\r\n') ? '\r\n' : '\n');
+  // Bug 17: the output always uses \n, whatever mix the input had (the prompt is \n joined).
+  return kept.join('\n');
 }

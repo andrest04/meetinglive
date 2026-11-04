@@ -1,0 +1,21 @@
+/*
+ * The pill window is transparent and frameless: the page paints only the capsule (and the panel
+ * when open), inset by the 8 DIP gutter the window adds for the soft shadow. The capsule is the
+ * drag area; every clickable element opts out with pill-no-drag.
+ */
+html,
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+.pill-drag {
+  -webkit-app-region: drag;
+}
+
+.pill-no-drag {
+  -webkit-app-region: no-drag;
+}

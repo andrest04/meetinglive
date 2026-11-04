@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createAppPaths } from '@vozella/core';
+import { createAppPaths, dockPatch, resolveDock } from '@vozella/core';
 import { ensureDirectoriesExist } from './ensure-directories';
 import { JsonSettingsStore } from './json-settings-store';
 
@@ -41,6 +41,19 @@ describe('JsonSettingsStore', () => {
     expect(doc.liveCopilotPillX).toBe(-1200);
     expect(doc.liveCopilotPillY).toBe(340);
     expect(await store().load()).toMatchObject({ liveCopilotPillX: -1200, liveCopilotPillY: 340 });
+  });
+
+  it('live copilot: edge and along round trip while the legacy X and Y stay untouched (bug 8)', async () => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ liveCopilotPillX: -1200, liveCopilotPillY: 340 }));
+    expect(resolveDock(await store().load())).toEqual({ edge: 'Right', along: 0.5 });
+    await store().update(dockPatch({ edge: 'Top', along: 0.25 }));
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
+    expect(doc.liveCopilotPillEdge).toBe('Top');
+    expect(doc.liveCopilotPillAlong).toBe(0.25);
+    expect(doc.liveCopilotPillX).toBe(-1200);
+    expect(doc.liveCopilotPillY).toBe(340);
+    expect(resolveDock(await store().load())).toEqual({ edge: 'Top', along: 0.25 });
   });
 
   it('B17: concurrent updates of different fields both survive', async () => {
