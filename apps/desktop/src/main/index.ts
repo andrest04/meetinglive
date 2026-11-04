@@ -1,4 +1,5 @@
 // Composition root of the main process. Everything is wired here and nowhere else.
+import { hasAudioBytes } from './audio-file';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -84,6 +85,7 @@ import { registerMeetingPromptHandlers } from './ipc/meeting-prompt-handlers';
 import { AudioController } from './audio/audio-controller';
 import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
+import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { SummariesController } from './summaries/summaries-controller';
 import { ChatController, chatProviderSource } from './chat/chat-controller';
@@ -110,6 +112,7 @@ import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
 import { buildCsp } from './security/csp';
 import { mimeTypeFor, resolveAppAssetPath } from './security/app-protocol';
+import { parseMediaId, serveMeetingAudio } from './security/media-route';
 import { hardenSession, hardenWebContents } from './security/harden';
 import {
   APP_SCHEME,
@@ -132,7 +135,7 @@ import { resolveNativeAddonPath } from './workers/native-addon-path';
 protocol.registerSchemesAsPrivileged([
   {
     scheme: APP_SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true },
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
   },
 ]);
 
@@ -495,7 +498,14 @@ function main(): void {
   });
 
   void app.whenReady().then(async () => {
-    serveRendererFromAppScheme();
+    serveRendererFromAppScheme(async (id) => {
+      // The audio path comes only from the repository record of the meeting.
+      try {
+        return (await library.meetings.get(id))?.audioFilePath ?? null;
+      } catch {
+        return null;
+      }
+    });
     settings.warmUp();
     hardenSession(session.defaultSession, { devServerOrigin: trusted.devServerOrigin });
 
@@ -781,7 +791,10 @@ function main(): void {
         audio.onPush((event) => {
           if (event.type === 'recording-frame') listener(event.pcm);
         }),
-      fileExists: (file) => fs.existsSync(file),
+      // Same rule as the session view: a zero-byte or unreadable recording is no audio (B20).
+      fileExists: (file) => hasAudioBytes(file),
+      queue: summaryPatchQueue,
+      isCaptureActive: () => workspace.state.isCaptureActive,
       onMeetingChanged: (id) => {
         workspace.notifyMeetingChanged(id);
       },
@@ -798,6 +811,24 @@ function main(): void {
         isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
       },
       controller: transcriptionController,
+    });
+    registerSessionHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      meetings: library.meetings,
+      workspace,
+      runnerState: () => transcriptionController.retranscription,
+      // A zero-byte or unreadable recording counts as no audio (B20).
+      fileExists: (file) => hasAudioBytes(file),
+      // Explorer selects the file; Finder reveals it.
+      reveal: {
+        reveal: (file) => {
+          shell.showItemInFolder(file);
+        },
+      },
     });
     app.on('before-quit', () => {
       transcriptionController.dispose();
@@ -916,10 +947,13 @@ function main(): void {
   });
 }
 
-function serveRendererFromAppScheme(): void {
+function serveRendererFromAppScheme(
+  resolveAudio: (meetingId: string) => Promise<string | null>,
+): void {
   const rendererRoot = path.join(__dirname, '..', 'renderer');
   const csp = buildCsp({ dev: false });
   protocol.handle(APP_SCHEME, async (request) => {
+    if (parseMediaId(request.url) !== null) return serveMeetingAudio(request, resolveAudio);
     const file = resolveAppAssetPath(rendererRoot, request.url);
     if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return new Response('not found', { status: 404 });

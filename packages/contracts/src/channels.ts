@@ -5,6 +5,7 @@ import * as chat from './chat';
 import * as library from './library';
 import * as meetingPrompt from './meeting-prompt';
 import * as recording from './recording';
+import * as session from './session';
 import * as settings from './settings';
 import * as summaries from './summaries';
 import * as transcription from './transcription';
@@ -141,6 +142,7 @@ export const requestChannels = {
   [transcription.retranscriptionStart.name]: transcription.retranscriptionStart,
   [transcription.retranscriptionCancel.name]: transcription.retranscriptionCancel,
   [transcription.retranscriptionGetState.name]: transcription.retranscriptionGetState,
+  [transcription.retranscriptionDismiss.name]: transcription.retranscriptionDismiss,
   [summaries.summariesLoadTab.name]: summaries.summariesLoadTab,
   [summaries.summariesGenerate.name]: summaries.summariesGenerate,
   [summaries.summariesCancel.name]: summaries.summariesCancel,
@@ -179,6 +181,9 @@ export const requestChannels = {
   [chat.chatMeetingExists.name]: chat.chatMeetingExists,
   [chat.chatCopyText.name]: chat.chatCopyText,
   [chat.chatOpenExternal.name]: chat.chatOpenExternal,
+  [session.sessionGetView.name]: session.sessionGetView,
+  [session.sessionRename.name]: session.sessionRename,
+  [session.sessionRevealFile.name]: session.sessionRevealFile,
 } as const;
 
 export const eventChannels = {

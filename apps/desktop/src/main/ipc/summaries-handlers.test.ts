@@ -409,14 +409,13 @@ describe('summaries pipeline hook', () => {
     expect(ok(await call('summaries.cancel', { meetingId: ID }))).toEqual({ cancelled: false });
   });
 
-  it('reports a missing model as the setup sentence', async () => {
+  it('113: an unsatisfied provider gate skips the stage so the run ends with the transcript only', async () => {
     const { controller } = setup({
       gate: { status: 'needs-setup', kind: 'Local', reason: 'model-missing' },
     });
     const { CancelSource } = await import('@vozella/core');
     expect(await controller.summarizeForPipeline(request(), new CancelSource().signal)).toEqual({
-      status: 'failed',
-      message: 'Ui_SummaryLocalModelMissing',
+      status: 'skipped',
     });
   });
 });

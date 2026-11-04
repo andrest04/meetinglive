@@ -1,6 +1,7 @@
 import {
   retranscriptionAvailability,
   retranscriptionCancel,
+  retranscriptionDismiss,
   retranscriptionGetState,
   retranscriptionStart,
   transcriptionCancelInstall,
@@ -52,5 +53,9 @@ export function registerTranscriptionHandlers(deps: TranscriptionHandlerDeps): v
     controller.cancelRetranscription();
     return { cancelled: true as const };
   });
-  registerRequest(server, retranscriptionGetState, () => controller.retranscription);
+  registerRequest(server, retranscriptionGetState, () => controller.retranscriptionSnapshot());
+  registerRequest(server, retranscriptionDismiss, ({ meetingId }) => {
+    controller.dismissRetranscription(meetingId);
+    return { dismissed: true as const };
+  });
 }

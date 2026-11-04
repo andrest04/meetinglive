@@ -126,6 +126,7 @@ describe('MeetingRetranscriptionRunner', () => {
       pipeline,
       templateInstructions: () => Promise.resolve(null),
       formatFailure: (e) => `formatted: ${e instanceof Error ? e.message : String(e)}`,
+      startStatus: 'Transcribing audio...',
       defer: (task) => {
         task();
       },
@@ -182,6 +183,62 @@ describe('MeetingRetranscriptionRunner', () => {
     expect(results[0]).toMatchObject({ outcome: 'Cancelled', message: null });
   });
 
+  it('126: a cancel before the pipeline starts never runs the pipeline and ends as Cancelled', async () => {
+    const results: RetranscriptionResult[] = [];
+    const pipelineRun = vi.fn(() => Promise.resolve());
+    const runner: MeetingRetranscriptionRunner = new MeetingRetranscriptionRunner({
+      pipeline: { run: pipelineRun },
+      templateInstructions: () => {
+        runner.cancel();
+        return Promise.resolve(null);
+      },
+      formatFailure: String,
+      defer: (t) => {
+        t();
+      },
+      onMeetingChanged: () => undefined,
+    });
+    runner.onFinished((r) => results.push(r));
+    await runner.start(record());
+    expect(pipelineRun).not.toHaveBeenCalled();
+    expect(results[0]).toMatchObject({ outcome: 'Cancelled', message: null });
+  });
+
+  it('129: the terminal step is queued behind progress callbacks that were already queued', async () => {
+    const order: string[] = [];
+    const runner = new MeetingRetranscriptionRunner({
+      pipeline: {
+        run: (_request, cb) => {
+          // Progress that arrives late, queued on the same task queue.
+          void Promise.resolve().then(() => {
+            cb.onStatus('late 99%');
+            order.push('progress');
+          });
+          return Promise.resolve();
+        },
+      },
+      templateInstructions: () => Promise.resolve(null),
+      formatFailure: String,
+      defer: (t) => {
+        void Promise.resolve()
+          .then(() => undefined)
+          .then(t);
+      },
+      onMeetingChanged: () => undefined,
+    });
+    const finished = new Promise<void>((resolve) => {
+      runner.onFinished(() => {
+        order.push('finished');
+        resolve();
+      });
+    });
+    await runner.start(record());
+    expect(runner.current.isRunning).toBe(true);
+    await finished;
+    expect(order).toEqual(['progress', 'finished']);
+    expect(runner.current.isRunning).toBe(false);
+  });
+
   it('an exception becomes a Failed outcome with the formatted message', async () => {
     const out = await run(() => {
       throw new Error('disk full');
@@ -194,7 +251,7 @@ describe('MeetingRetranscriptionRunner', () => {
       cb.onStatus('Transcribing audio... 40%');
       cb.onMeetingSaved('m1');
     });
-    expect(out.states[0]).toBe('');
+    expect(out.states[0]).toBe('Transcribing audio...');
     expect(out.states).toContain('Transcribing audio... 40%');
     expect(out.changed).toEqual(['m1']);
     expect(out.runner.current).toEqual({ isRunning: false, meetingId: null, status: '' });
@@ -229,6 +286,108 @@ describe('MeetingRetranscriptionRunner', () => {
     expect(await runner.start(record())).toBe(false);
     release();
     expect(await first).toBe(true);
+  });
+});
+
+describe('MeetingRetranscriptionRunner last result and cancel precedence', () => {
+  const make = (
+    script: (
+      cb: RetranscriptionPipelineCallbacks,
+      runner: MeetingRetranscriptionRunner,
+    ) => void | Promise<void>,
+  ) => {
+    const events: string[] = [];
+    const runner: MeetingRetranscriptionRunner = new MeetingRetranscriptionRunner({
+      pipeline: { run: async (_r, cb) => script(cb, runner) },
+      templateInstructions: () => Promise.resolve(null),
+      formatFailure: (e) => (e instanceof Error ? e.message : String(e)),
+      defer: (t) => {
+        t();
+      },
+      onMeetingChanged: () => undefined,
+    });
+    runner.onStateChanged(() =>
+      events.push(`state:${runner.current.isRunning ? 'running' : 'idle'}`),
+    );
+    runner.onFinished((r) => events.push(`finished:${r.outcome}`));
+    return { runner, events };
+  };
+
+  it('B7: keeps the last result per meeting until the next run or a dismiss', async () => {
+    let fail = true;
+    const { runner } = make((cb) => {
+      if (fail) cb.onFinished('boom');
+    });
+    await runner.start(record());
+    expect(runner.lastResults).toEqual([
+      { meetingId: record().id, outcome: 'Failed', message: 'boom' },
+    ]);
+    // A different meeting keeps its own entry.
+    await runner.start(record({ id: 'other' }));
+    expect(runner.lastResults.map((r) => r.meetingId).sort()).toEqual(
+      ['other', record().id].sort(),
+    );
+    fail = false;
+    await runner.start(record());
+    expect(runner.lastResults.find((r) => r.meetingId === record().id)?.outcome).toBe(
+      'TranscriptOnly',
+    );
+    runner.dismiss(record().id);
+    expect(runner.lastResults.map((r) => r.meetingId)).toEqual(['other']);
+  });
+
+  it('B7: the old result is cleared as soon as the next run starts', async () => {
+    let first = true;
+    const { runner } = make((cb) => {
+      if (first) cb.onFinished('first');
+    });
+    await runner.start(record());
+    first = false;
+    const seen: number[] = [];
+    runner.onStateChanged(() => {
+      if (runner.current.isRunning) seen.push(runner.lastResults.length);
+    });
+    await runner.start(record());
+    expect(seen[0]).toBe(0);
+  });
+
+  it('B18: a failure recorded before the cancel stays a failure', async () => {
+    const { runner } = make((cb, r) => {
+      cb.onFinished('real failure');
+      r.cancel();
+    });
+    const results: RetranscriptionResult[] = [];
+    runner.onFinished((x) => results.push(x));
+    await runner.start(record());
+    expect(results[0]).toMatchObject({ outcome: 'Failed', message: 'real failure' });
+  });
+
+  it('B18: a failure reported after the cancel is ignored (parity 130 to 132)', async () => {
+    const { runner } = make((cb, r) => {
+      r.cancel();
+      cb.onFinished('late failure');
+    });
+    const results: RetranscriptionResult[] = [];
+    runner.onFinished((x) => results.push(x));
+    await runner.start(record());
+    expect(results[0]).toMatchObject({ outcome: 'Cancelled', message: null });
+  });
+
+  it('a summary failure beats a cancel that came after it', async () => {
+    const { runner } = make((cb, r) => {
+      cb.onSummaryFailedAfterTranscriptSaved('no summary');
+      r.cancel();
+    });
+    const results: RetranscriptionResult[] = [];
+    runner.onFinished((x) => results.push(x));
+    await runner.start(record());
+    expect(results[0]).toMatchObject({ outcome: 'SummaryFailed' });
+  });
+
+  it('B17: the state change to idle is raised before finished', async () => {
+    const { runner, events } = make(() => undefined);
+    await runner.start(record());
+    expect(events).toEqual(['state:running', 'state:idle', 'finished:TranscriptOnly']);
   });
 });
 

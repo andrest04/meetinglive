@@ -3,6 +3,7 @@ import { formatElapsed } from './stamp-format';
 /** Stars the stamped lines at the moments the user marked while recording (spec 3.13). */
 export const HIGHLIGHT_MARKER_PREFIX = '* ';
 
+const MARK_LINE = /^\* (\d+):(\d{2}\.\d{2})\s*$/;
 const LINE_RANGE = /^\[(\d+):(\d{2}\.\d{2})-(\d+):(\d{2}\.\d{2})\]/;
 
 export const formatMarkLine = (elapsedMs: number): string =>
@@ -23,6 +24,10 @@ interface Indexed {
 }
 
 function findLineIndex(indexed: readonly Indexed[], mark: number): number {
+  // Lines abut (previous end == next start): a mark on the boundary belongs to the line that starts there.
+  for (const candidate of indexed) {
+    if (mark === candidate.startMs) return candidate.index;
+  }
   for (const candidate of indexed) {
     if (mark >= candidate.startMs && mark <= candidate.endMs) return candidate.index;
   }
@@ -74,10 +79,23 @@ export function applyHighlights(
   return lines.join(newline);
 }
 
-/** The starred lines of a transcript as elapsed start times, so they can be re-applied (B8). */
+/**
+ * The starred lines of a transcript as elapsed start times, so they can be re-applied (B8).
+ * Marks-only lines (`* mm:ss.ff`, written when nothing was stamped) are recovered too.
+ */
 export function starredLineStarts(transcript: string): number[] {
   const lines = transcript.split(/\r\n|\n/);
-  return stampedLines(lines)
-    .filter((entry) => (lines[entry.index] ?? '').startsWith(HIGHLIGHT_MARKER_PREFIX))
-    .map((entry) => entry.startMs);
+  const starts: number[] = [];
+  const stamped = new Map(stampedLines(lines).map((entry) => [entry.index, entry.startMs]));
+  lines.forEach((line, index) => {
+    if (!line.startsWith(HIGHLIGHT_MARKER_PREFIX)) return;
+    const start = stamped.get(index);
+    if (start !== undefined) {
+      starts.push(start);
+      return;
+    }
+    const mark = MARK_LINE.exec(line);
+    if (mark) starts.push(parseElapsed(mark[1] ?? '0', mark[2] ?? '0'));
+  });
+  return starts;
 }

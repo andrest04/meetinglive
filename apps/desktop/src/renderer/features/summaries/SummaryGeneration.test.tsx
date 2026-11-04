@@ -92,6 +92,41 @@ describe('Copy button (item 104)', () => {
     expect(calls(api, 'summaries.writeClipboard')[1]?.input).toEqual({ text: 'my own notes' });
   });
 
+  it('item 55: registers the real copy source for the session Copy button, per mode, and clears it on unmount', async () => {
+    const user = userEvent.setup();
+    const api = installSummariesApi({
+      ...loadWith(done({ notes: 'my own notes' })),
+      'summaries.copyText': (input) => ({
+        text: input.mode === 'notes' ? 'my own notes' : SUMMARY,
+      }),
+    });
+    const ref: { current: (() => Promise<string | null>) | null } = { current: null };
+    const view = render(
+      <Providers locale="en">
+        <SummaryTab meetingId="m1" copySourceRef={ref} />
+      </Providers>,
+    );
+    await screen.findByRole('radio', { name: 'My notes' });
+    await waitFor(() => {
+      expect(ref.current).not.toBeNull();
+    });
+    expect(await ref.current?.()).toBe(SUMMARY);
+    expect(calls(api, 'summaries.copyText')[0]?.input).toEqual({
+      meetingId: 'm1',
+      mode: 'summary',
+    });
+    await user.click(screen.getByRole('radio', { name: 'My notes' }));
+    await waitFor(async () => {
+      expect(await ref.current?.()).toBe('my own notes');
+    });
+    expect(calls(api, 'summaries.copyText').at(-1)?.input).toEqual({
+      meetingId: 'm1',
+      mode: 'notes',
+    });
+    view.unmount();
+    expect(ref.current).toBeNull();
+  });
+
   it('is absent when there is no summary to copy, and says so when the text went blank', async () => {
     installSummariesApi(loadWith(fresh()));
     mount();

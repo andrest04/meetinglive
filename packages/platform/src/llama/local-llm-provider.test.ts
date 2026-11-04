@@ -1,13 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildSummaryPrompt,
-  buildTitlePrompt,
   CancelSource,
   CONTEXT_TOKENS,
   parseOffsetDate,
   SAFETY_MARGIN,
   SummaryError,
-  TITLE_MAX_OUTPUT,
   type CancelSignal,
 } from '@vozella/core';
 import { LlamaSidecar } from './llama-sidecar';
@@ -88,7 +86,6 @@ describe('LocalLlmSummaryProvider without a model file', () => {
     const { provider, created } = setup(undefined, () => false);
     const calls: (() => Promise<unknown>)[] = [
       () => provider.summarize(request, NEVER),
-      () => provider.suggestTitle({ transcript: 'hola', recordedAt, outputLanguage: 'es' }, NEVER),
       () => provider.completePrompt('hi', NEVER),
       async () => {
         const chunks: string[] = [];
@@ -219,22 +216,6 @@ describe('LocalLlmSummaryProvider requests', () => {
     expect(seen).toEqual([true, false]);
   });
 
-  it('title: truncates a long transcript so the prompt fits and caps the reply at 80', async () => {
-    const { provider, created } = setup();
-    const title = await provider.suggestTitle(
-      { transcript: words(6000), recordedAt, outputLanguage: 'en' },
-      NEVER,
-    );
-    expect(title.length).toBeGreaterThan(0);
-    const body = (await infoOf(created[0]!)).bodies.chat[0]!;
-    expect(body).toMatchObject({ max_tokens: TITLE_MAX_OUTPUT, temperature: 0.3 });
-    const content = (body.messages as { content: string }[])[0]!.content;
-    const tokens = content.split(/\s+/).filter(Boolean).length;
-    expect(tokens).toBeLessThanOrEqual(CONTEXT_TOKENS - SAFETY_MARGIN - TITLE_MAX_OUTPUT);
-    expect(content).toContain('w0 w1 w2');
-    expect(content).not.toContain('w5999');
-  });
-
   it('throws LocalEmpty when the model returns nothing', async () => {
     const { provider } = setup(['--fake-empty']);
     const error = await provider.completePrompt('x', NEVER).catch((e: unknown) => e);
@@ -272,18 +253,6 @@ describe('LocalLlmSummaryProvider requests', () => {
     // The reply goes through the shared splitter, so the result is built from this one response.
     expect(result).toMatchObject({ providerId: 'local' });
     expect(result.summaryMarkdown.length).toBeGreaterThan(0);
-  });
-
-  it('contract: suggestTitle sends exactly buildTitlePrompt', async () => {
-    const { provider, created } = setup();
-    await provider.suggestTitle(
-      { transcript: 'Ana: hello', recordedAt, outputLanguage: 'es' },
-      NEVER,
-    );
-    const content = (
-      (await infoOf(created[0]!)).bodies.chat[0]!.messages as { content: string }[]
-    )[0]!.content;
-    expect(content).toBe(buildTitlePrompt('Ana: hello', recordedAt, 'es'));
   });
 
   it('B8: a streamed prompt that leaves no room fails with PromptTooLong and sends no chat request', async () => {

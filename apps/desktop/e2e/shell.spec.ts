@@ -60,12 +60,8 @@ test('switching the language retranslates the shell', async () => {
   await expect(page.getByRole('link', { name: 'Library' })).toBeVisible();
 });
 
-test('the sidebar handle resizes with the keyboard', async () => {
-  const handle = page.getByRole('separator', { name: 'Resize navigation pane' });
-  const before = Number(await handle.getAttribute('aria-valuenow'));
-  await handle.focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(handle).toHaveAttribute('aria-valuenow', String(before + 16));
+test('the navigation pane has no resize handle (owner decision 2026-11-03)', async () => {
+  await expect(page.getByRole('separator', { name: 'Resize navigation pane' })).toHaveCount(0);
 });
 
 for (const theme of ['light', 'dark'] as const) {

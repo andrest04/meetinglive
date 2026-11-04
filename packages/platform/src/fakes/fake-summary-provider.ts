@@ -5,7 +5,6 @@ import {
   type CancelSignal,
   type CliFailureKind,
   type ProviderId,
-  type SuggestTitleRequest,
   type SummarizeRequest,
   type SummaryProvider,
   type SummaryResult,
@@ -75,11 +74,6 @@ export class FakeSummaryProvider implements SummaryProvider {
   async summarize(request: SummarizeRequest, cancel: CancelSignal): Promise<SummaryResult> {
     this.requests.push(request);
     return summaryResultFromResponse(this.id, await this.reply(cancel));
-  }
-
-  async suggestTitle(_request: SuggestTitleRequest, cancel: CancelSignal): Promise<string> {
-    await this.reply(cancel);
-    return 'Fake planning meeting';
   }
 
   completePrompt(_prompt: string, cancel: CancelSignal): Promise<string> {

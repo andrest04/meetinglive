@@ -238,7 +238,7 @@ test('Session: re-transcribe a saved meeting after a confirmation', async () => 
   }
 });
 
-test('Session: a meeting without audio cannot be re-transcribed', async () => {
+test('Session: a meeting without audio offers no Re-transcribe button', async () => {
   const { launched, page } = await start({ VOZELLA_FAKE_ENGINE_INSTALLED: '1' }, (root) => {
     const inbox = path.join(root, 'meetings', 'Inbox');
     fs.mkdirSync(inbox, { recursive: true });
@@ -262,10 +262,9 @@ test('Session: a meeting without audio cannot be re-transcribed', async () => {
       .getByRole('list', { name: 'Library' })
       .getByRole('button', { name: /Imported/ })
       .click();
-    await expect(page.getByRole('button', { name: 'Re-transcribe', exact: true })).toBeDisabled();
-    await expect(
-      page.getByText('This meeting has no saved audio, so it cannot be re-transcribed.'),
-    ).toBeVisible();
+    // No saved audio: the header does not offer Re-transcribe at all (item 89).
+    await expect(page.getByRole('heading', { level: 1, name: 'Imported' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Re-transcribe', exact: true })).toHaveCount(0);
   } finally {
     await launched.close();
   }

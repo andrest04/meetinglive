@@ -30,6 +30,7 @@ import {
   type RetranscriptionAvailability,
   type RetranscriptionPipeline,
   type RetranscriptionPipelineCallbacks,
+  type RetranscriptionResult,
   type SettingsStore,
   type TranslateFn,
 } from '@vozella/core';
@@ -61,9 +62,17 @@ export interface TranscriptionControllerDeps {
   ) => Promise<
     | { readonly status: 'completed' }
     | { readonly status: 'cancelled' }
+    | { readonly status: 'skipped' }
     | { readonly status: 'failed'; readonly message: string }
   >;
+  /** Serializes record writes per meeting with the summary and tab writes (bug 4). */
+  readonly queue?: { run<T>(key: string, task: () => Promise<T>): Promise<T> };
   readonly defer?: (task: () => void) => void;
+  /**
+   * Port: true while a take is being recorded. The recording module supplies it (it sets
+   * `isCaptureActive` on the workspace); re-transcription is refused meanwhile (parity 91).
+   */
+  readonly isCaptureActive?: () => boolean;
 }
 
 export interface LiveStartResult {
@@ -107,6 +116,7 @@ export class TranscriptionController {
       templateInstructions: (record) =>
         deps.templateInstructions?.(record) ?? Promise.resolve(null),
       formatFailure: deps.formatFailure ?? messageOf,
+      startStatus: deps.t('Status_Transcribing'),
       defer: deps.defer ?? ((task) => setImmediate(task)),
       onMeetingChanged: (id) => {
         deps.onMeetingChanged(id);
@@ -403,11 +413,24 @@ export class TranscriptionController {
     return this.runner.current;
   }
 
+  /** The run state plus the kept results of finished runs (B7). */
+  retranscriptionSnapshot(): MeetingRetranscriptionRunner['current'] & {
+    readonly lastResults: RetranscriptionResult[];
+  } {
+    return { ...this.runner.current, lastResults: [...this.runner.lastResults] };
+  }
+
+  dismissRetranscription(meetingId: string): void {
+    this.runner.dismiss(meetingId);
+  }
+
   async retranscriptionAvailability(meetingId: string): Promise<RetranscriptionAvailability> {
     const record = await this.deps.meetings.get(meetingId);
     return evaluateRetranscription(
       record,
-      this.deps.busy.isBusy(meetingId) || this.runner.current.isRunning,
+      this.deps.busy.isBusy(meetingId) ||
+        this.runner.current.isRunning ||
+        (this.deps.isCaptureActive?.() ?? false),
       this.deps.fileExists,
     );
   }
@@ -424,7 +447,7 @@ export class TranscriptionController {
     if (this.runner.current.isRunning) return { started: false, reason: 'AlreadyRunning' };
     const availability = evaluateRetranscription(
       record,
-      this.deps.busy.isBusy(meetingId),
+      this.deps.busy.isBusy(meetingId) || (this.deps.isCaptureActive?.() ?? false),
       this.deps.fileExists,
     );
     if (availability !== 'Available') return { started: false, reason: availability };
@@ -445,10 +468,30 @@ export class TranscriptionController {
   private pipeline(): RetranscriptionPipeline {
     return {
       run: async (request, callbacks, cancel) => {
-        const saved = await this.replaceTranscript(request, callbacks, cancel);
+        let saved: boolean;
+        try {
+          saved = await this.replaceTranscript(request, callbacks, cancel);
+        } catch (error) {
+          if (error instanceof TranscriptionCancelledError || cancel.cancelled) throw error;
+          // Any other failure before the new transcript is saved (121).
+          callbacks.onFinished(this.deps.t('Error_ProcessRecording', messageOf(error)));
+          return;
+        }
         if (!saved || cancel.cancelled || this.deps.summarize === undefined) return;
+        // No summary provider chosen: the run ends with the transcript only (spec 113).
+        const provider = (await this.deps.settings.load()).selectedSummaryProvider;
+        if (provider === null || provider.trim() === '') return;
         callbacks.onStatus(this.deps.t('Status_GeneratingSummary'));
-        const summary = await this.deps.summarize(request, cancel);
+        let summary: Awaited<ReturnType<NonNullable<typeof this.deps.summarize>>>;
+        try {
+          summary = await this.deps.summarize(request, cancel);
+        } catch (error) {
+          // The new transcript is already saved: a throw here is a failed summary, not a failed run (121).
+          callbacks.onSummaryFailedAfterTranscriptSaved(
+            error instanceof Error ? error.message : String(error),
+          );
+          return;
+        }
         if (summary.status === 'completed') {
           callbacks.onMeetingCompleted();
           this.deps.onMeetingChanged(request.meetingId);
@@ -491,16 +534,24 @@ export class TranscriptionController {
       callbacks.onFinished(t('Error_NoTranscript'));
       return false;
     }
-    const current = await this.deps.meetings.get(request.meetingId);
-    if (current === null) {
-      callbacks.onFinished(t('Error_NoTranscript'));
-      return false;
-    }
     const transcript = applyHighlights(
       ensureEndedHeader(text, recordedAt, endedAt),
       request.highlightsMs,
     );
-    await this.deps.meetings.save({ ...current, transcript });
+    // Read and write inside the per-meeting queue so a notes save cannot slip in between (bug 4).
+    const write = async (): Promise<boolean> => {
+      const current = await this.deps.meetings.get(request.meetingId);
+      if (current === null) return false;
+      await this.deps.meetings.save({ ...current, transcript });
+      return true;
+    };
+    const saved = this.deps.queue
+      ? await this.deps.queue.run(request.meetingId, write)
+      : await write();
+    if (!saved) {
+      callbacks.onFinished(t('Error_NoTranscript'));
+      return false;
+    }
     callbacks.onMeetingSaved(request.meetingId);
     return true;
   }

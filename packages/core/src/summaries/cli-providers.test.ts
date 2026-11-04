@@ -9,7 +9,7 @@ import {
   createClaudeCodeWebSearchProvider,
 } from './claude-code-provider';
 import { createCodexProvider, createCodexWebSearchProvider } from './codex-provider';
-import { buildSummaryPrompt, buildTitlePrompt } from './prompt-builders';
+import { buildSummaryPrompt } from './prompt-builders';
 import { CancelledError, isCancellation, type SummaryProvider } from './provider';
 import { describeSummaryProviderContract } from './provider-contract';
 import { FakeCliProcessRunner } from './test-kit';
@@ -144,15 +144,6 @@ for (const f of flavors) {
       const result = await f.make(new FakeCliProcessRunner(REPLY)).summarize(request, cancel());
       expect(result.suggestedTitle).toBe('Budget review');
       expect(result.providerId).toBe(f.id);
-    });
-
-    it('returns the raw trimmed stdout for a title only request', async () => {
-      const runner = new FakeCliProcessRunner('\n"Budget review"\n');
-      const raw = await f
-        .make(runner)
-        .suggestTitle({ transcript: 'x', recordedAt, outputLanguage: 'es' }, cancel());
-      expect(raw).toBe('"Budget review"');
-      expect(runner.calls[0]?.stdin).toBe(buildTitlePrompt('x', recordedAt, 'es'));
     });
 
     it('is plain by default and adds web search only from the explicit factory', async () => {

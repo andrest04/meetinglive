@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { formatMeetingDate } from '../library/format';
 import { DraftMessage } from './DraftMessage';
@@ -15,8 +15,11 @@ import { useSummaryTab } from './use-summary-tab';
 export function SummaryTab({
   meetingId,
   runSetup,
+  copySourceRef,
 }: {
   readonly meetingId: string | null;
+  /** The session page's Copy button asks this tab for its text (spec 2.6): notes or summary. */
+  readonly copySourceRef?: RefObject<(() => Promise<string | null>) | null>;
   /** Opens the engine or CLI setup when a run needs it (S18 and S19 plug in here). */
   readonly runSetup?: RunSetup;
 }) {
@@ -35,6 +38,20 @@ export function SummaryTab({
   });
   const { flags } = generation;
   const [missingRelated, setMissingRelated] = useState(false);
+  const copyMode = model.mode === 'notes' ? 'notes' : 'summary';
+  useEffect(() => {
+    if (!copySourceRef || meetingId === null) return;
+    copySourceRef.current = async () => {
+      const answer = await window.vozella.invoke('summaries.copyText', {
+        meetingId,
+        mode: copyMode,
+      });
+      return answer.text;
+    };
+    return () => {
+      copySourceRef.current = null;
+    };
+  }, [copySourceRef, meetingId, copyMode]);
 
   const labels = useMemo<SummaryTabLabels>(
     () => ({
@@ -139,7 +156,14 @@ export function SummaryTab({
             onRegenerate={generation.askRegenerate}
             onCancel={generation.cancel}
             onCopyActions={generation.copyActions}
-            canCopy={model.mode === 'notes' ? model.notes.trim() !== '' : flags.hasSummary}
+            // Under the session page the header's Copy button replaces this stand-in.
+            canCopy={
+              copySourceRef
+                ? false
+                : model.mode === 'notes'
+                  ? model.notes.trim() !== ''
+                  : flags.hasSummary
+            }
             onCopy={() => {
               generation.copyText(model.mode === 'notes' ? 'notes' : 'summary');
             }}

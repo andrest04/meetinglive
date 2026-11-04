@@ -17,6 +17,12 @@ describe('buildCsp', () => {
     expect(buildCsp({ dev: false })).not.toContain('localhost');
   });
 
+  it('lets the app play its own audio and nothing else', () => {
+    for (const dev of [false, true]) {
+      expect(buildCsp({ dev })).toContain("media-src 'self';");
+    }
+  });
+
   it('never allows eval', () => {
     expect(buildCsp({ dev: true })).not.toContain('unsafe-eval');
   });

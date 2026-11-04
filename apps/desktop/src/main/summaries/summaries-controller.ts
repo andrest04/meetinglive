@@ -54,10 +54,11 @@ export interface SummariesControllerDeps {
 export type PipelineSummaryResult =
   | { readonly status: 'completed' }
   | { readonly status: 'cancelled' }
+  /** The provider gate is not satisfied: the run ends with the transcript only (spec 113). */
+  | { readonly status: 'skipped' }
   | { readonly status: 'failed'; readonly message: string };
 
 const HINT_KEYS = { ClaudeCode: 'Cli_ClaudeHint', Codex: 'Cli_CodexHint' } as const;
-const DISPLAY_NAMES = { ClaudeCode: 'Claude Code', Codex: 'Codex' } as const;
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -206,19 +207,7 @@ export class SummariesController {
       case 'failed':
         return { status: 'failed', message: describeFailed(outcome, t) };
       case 'needs-setup':
-        return {
-          status: 'failed',
-          message:
-            outcome.reason === 'model-missing'
-              ? t('Ui_SummaryLocalModelMissing')
-              : formatFailure(
-                  new CliToolError(
-                    outcome.kind === 'Codex' ? DISPLAY_NAMES.Codex : DISPLAY_NAMES.ClaudeCode,
-                    'NotInstalled',
-                  ),
-                  t,
-                ),
-        };
+        return { status: 'skipped' };
       case 'unavailable':
         return { status: 'failed', message: t('Ui_SummaryProviderXaiRemoved') };
       case 'busy':

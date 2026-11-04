@@ -7,8 +7,10 @@ export interface ProgressProps {
   readonly label: string;
   /** Shows the percentage next to the label. */
   readonly showValue?: boolean;
-  /** Keeps the label for assistive technology only, where the text is already on the page. */
+  /** Keeps the label for assistive technology only; the caller shows the words itself. */
   readonly labelHidden?: boolean;
+  /** Stable automation id. */
+  readonly testId?: string;
   readonly className?: string;
 }
 
@@ -17,10 +19,15 @@ export function Progress({
   label,
   showValue = false,
   labelHidden = false,
+  testId,
   className,
 }: ProgressProps) {
   return (
-    <BaseProgress.Root value={value} className={cn('flex flex-col gap-1.5', className)}>
+    <BaseProgress.Root
+      value={value}
+      data-testid={testId}
+      className={cn('flex flex-col gap-1.5', className)}
+    >
       <div className={cn('flex justify-between text-ui text-ink-muted', labelHidden && 'sr-only')}>
         <BaseProgress.Label>{label}</BaseProgress.Label>
         {showValue && value !== null ? (

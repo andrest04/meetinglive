@@ -114,6 +114,8 @@ export interface RetranscriptionRunnerDeps {
   /** Resolves the note template text for the record. */
   readonly templateInstructions: (record: MeetingRecord) => Promise<string | null>;
   readonly formatFailure: (error: unknown) => string;
+  /** The status shown as soon as a run starts (Status_Transcribing). */
+  readonly startStatus?: string;
   /** Runs after the pipeline callbacks have been delivered (the UI thread in the old app). */
   readonly defer: (task: () => void) => void;
   readonly onMeetingChanged: (meetingId: string) => void;
@@ -125,6 +127,7 @@ const IDLE: RetranscriptionState = { isRunning: false, meetingId: null, status: 
 export class MeetingRetranscriptionRunner {
   private state: RetranscriptionState = IDLE;
   private cancelSource: CancelSource | null = null;
+  private readonly results = new Map<string, RetranscriptionResult>();
   private readonly stateListeners = new Set<() => void>();
   private readonly finishedListeners = new Set<(result: RetranscriptionResult) => void>();
 
@@ -132,6 +135,15 @@ export class MeetingRetranscriptionRunner {
 
   get current(): RetranscriptionState {
     return this.state;
+  }
+
+  /** The last result of each meeting, kept until its next run starts or the user dismisses it (B7). */
+  get lastResults(): readonly RetranscriptionResult[] {
+    return [...this.results.values()];
+  }
+
+  dismiss(meetingId: string): void {
+    this.results.delete(meetingId);
   }
 
   onStateChanged(listener: () => void): () => void {
@@ -153,7 +165,8 @@ export class MeetingRetranscriptionRunner {
     if (this.state.isRunning) return false;
     const cancel = new CancelSource();
     this.cancelSource = cancel;
-    this.setState({ isRunning: true, meetingId: record.id, status: '' });
+    this.results.delete(record.id);
+    this.setState({ isRunning: true, meetingId: record.id, status: this.deps.startStatus ?? '' });
 
     let completed = false;
     let summaryFailure: string | null = null;
@@ -162,27 +175,29 @@ export class MeetingRetranscriptionRunner {
     try {
       const instructions = await this.deps.templateInstructions(record);
       const request = createRetranscriptionRequest(record, instructions);
-      await this.deps.pipeline.run(
-        request,
-        {
-          onStatus: (status) => {
-            this.setState({ ...this.state, status });
+      // A cancel before the pipeline starts writes nothing (126).
+      if (!cancel.cancelled)
+        await this.deps.pipeline.run(
+          request,
+          {
+            onStatus: (status) => {
+              this.setState({ ...this.state, status });
+            },
+            onMeetingSaved: (id) => {
+              this.deps.onMeetingChanged(id);
+            },
+            onMeetingCompleted: () => {
+              completed = true;
+            },
+            onSummaryFailedAfterTranscriptSaved: (message) => {
+              summaryFailure = message;
+            },
+            onFinished: (status) => {
+              if (!cancel.cancelled) failure = status;
+            },
           },
-          onMeetingSaved: (id) => {
-            this.deps.onMeetingChanged(id);
-          },
-          onMeetingCompleted: () => {
-            completed = true;
-          },
-          onSummaryFailedAfterTranscriptSaved: (message) => {
-            summaryFailure = message;
-          },
-          onFinished: (status) => {
-            if (!cancel.cancelled) failure = status;
-          },
-        },
-        cancel.signal,
-      );
+          cancel.signal,
+        );
     } catch (error) {
       // A cancel before the pipeline took over is not a failure.
       if (!cancel.cancelled) failure = this.deps.formatFailure(error);
@@ -196,6 +211,7 @@ export class MeetingRetranscriptionRunner {
         cancelled: cancel.cancelled,
       });
       this.cancelSource = null;
+      this.results.set(record.id, result);
       this.setState(IDLE);
       for (const listener of [...this.finishedListeners]) listener(result);
     });
