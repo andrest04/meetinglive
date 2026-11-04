@@ -26,6 +26,8 @@ export interface SettingsHandlerDeps {
   readonly runtime: SettingsRuntime;
   readonly locale: LocaleState;
   readonly broadcast: Broadcast;
+  /** Called after the summary provider was saved (the live ask toggle follows it). */
+  readonly onSummaryProviderSaved?: () => void;
 }
 
 /** Forwards model download progress to every window. Pass it to `SettingsRuntime` as `notifyModel`. */
@@ -51,9 +53,11 @@ export function registerSettingsHandlers(deps: SettingsHandlerDeps): void {
     return result;
   });
 
-  registerRequest(server, settingsSetSummaryProvider, ({ kind }) =>
-    runtime.commands.setSummaryProvider(kind),
-  );
+  registerRequest(server, settingsSetSummaryProvider, async ({ kind }) => {
+    const result = await runtime.commands.setSummaryProvider(kind);
+    deps.onSummaryProviderSaved?.();
+    return result;
+  });
   registerRequest(server, settingsSetCliOption, (input) => runtime.commands.setCliOption(input));
   registerRequest(server, settingsSetMeetingLanguage, ({ kind, code }) =>
     runtime.commands.setMeetingLanguage(kind, code),

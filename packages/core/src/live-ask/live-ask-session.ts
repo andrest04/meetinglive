@@ -147,15 +147,27 @@ export class LiveAskSession {
     this.begin();
     this.set({ ...IDLE, canUseWebSearch: this.state.canUseWebSearch });
     // The toggle must know the provider before the first ask.
-    void this.deps.loadSettings().then(
-      (settings) => {
-        const canUse = supportsWebSearch(settings.providerKind);
-        if (!this.state.isAnswering && canUse !== this.state.canUseWebSearch) {
-          this.set({ ...this.state, canUseWebSearch: canUse });
-        }
-      },
-      () => undefined,
-    );
+    void this.refreshWebSupport();
+  }
+
+  /**
+   * Bug 15: re-reads the provider and publishes the toggle state when it changed, so the pill
+   * never shows a stale toggle after the provider changed in Settings mid-take.
+   */
+  async refreshWebSupport(): Promise<void> {
+    try {
+      const settings = await this.deps.loadSettings();
+      const canUse = supportsWebSearch(settings.providerKind);
+      if (canUse !== this.state.canUseWebSearch)
+        this.set({ ...this.state, canUseWebSearch: canUse });
+    } catch {
+      // The next ask reads the settings again.
+    }
+  }
+
+  /** Sends the current state again, for a window that opened after the last change. */
+  republish(): void {
+    this.deps.publish(this.state);
   }
 
   private begin(): number {

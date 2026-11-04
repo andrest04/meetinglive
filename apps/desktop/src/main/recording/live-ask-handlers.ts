@@ -87,6 +87,16 @@ export class LiveAsk {
     return true;
   }
 
+  /** Bug 15: call when the summary provider changed, so the pill toggle follows it. */
+  refreshWebSupport(): void {
+    void this.session.refreshWebSupport();
+  }
+
+  /** The pill asks for the current state when its window opens. */
+  republish(): void {
+    this.session.republish();
+  }
+
   cancel(): boolean {
     const was = this.session.current.isAnswering;
     this.session.cancel();

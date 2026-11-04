@@ -35,6 +35,7 @@ interface Options {
   os?: string[];
   models?: FakeLocalModelStore;
   relaunch?: () => void;
+  onSummaryProviderSaved?: () => void;
 }
 
 async function setup(options: Options = {}) {
@@ -66,6 +67,7 @@ async function setup(options: Options = {}) {
     runtime,
     locale,
     broadcast,
+    onSummaryProviderSaved: options.onSummaryProviderSaved,
   });
   const call = async (name: string, input: unknown = {}) =>
     (await handlers.get(name)?.(event as never, input)) as {
@@ -77,6 +79,13 @@ async function setup(options: Options = {}) {
 }
 
 describe('settings handlers', () => {
+  it('tells the live ask after the summary provider was saved', async () => {
+    const saved = vi.fn();
+    const t = await setup({ onSummaryProviderSaved: saved });
+    await t.call('settings.setSummaryProvider', { kind: 'Codex' });
+    expect(saved).toHaveBeenCalledTimes(1);
+  });
+
   it('serves the page in a shape that satisfies the contract', async () => {
     const t = await setup();
     const page = await t.call('settings.getPage');

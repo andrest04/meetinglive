@@ -580,6 +580,7 @@ function main(): void {
       runtime: settings,
       locale,
       broadcast,
+      onSummaryProviderSaved: () => liveAsk.refreshWebSupport(),
     });
     libraryWrites = registerLibraryHandlers({
       server: {

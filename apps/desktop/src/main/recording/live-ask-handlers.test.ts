@@ -1,4 +1,4 @@
-import { recordingAnswer, requestChannels } from '@vozella/contracts';
+import { recordingAnswer, recordingAnswerSchema, requestChannels } from '@vozella/contracts';
 import type { Logger } from '@vozella/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { IpcMainLike } from '../ipc/ipc-server';
@@ -112,5 +112,66 @@ describe('live ask handlers', () => {
     expect(t.prompts[0]).not.toContain('old take');
     t.liveAsk.hooks.cancel();
     expect(await t.call('recording.cancelAsk', {})).toEqual({ cancelled: false });
+  });
+
+  it('a preset chip is trimmed and asked through the typed path with the toggle', async () => {
+    const t = setup();
+    expect(
+      await t.call('recording.ask', {
+        question: '  What did I miss?  ',
+        webSearch: false,
+        preset: true,
+      }),
+    ).toEqual({ accepted: true });
+    await settle();
+    expect(t.prompts[0]).toContain('Question:\nWhat did I miss?\n');
+    expect(t.resolved).toEqual([{ kind: 'Codex', webSearch: false }]);
+  });
+
+  it('a blank preset and a preset outside a take are no-ops', async () => {
+    const rec = setup();
+    expect(
+      await rec.call('recording.ask', { question: ' \n', webSearch: false, preset: true }),
+    ).toEqual({ accepted: false });
+    const idle = setup(false);
+    expect(
+      await idle.call('recording.ask', { question: 'Explain', webSearch: false, preset: true }),
+    ).toEqual({ accepted: false });
+    expect(idle.sent).toHaveLength(0);
+  });
+
+  it('the web toggle of the last ask persists across a new take', async () => {
+    const t = setup();
+    await t.call('recording.ask', { question: 'a', webSearch: true });
+    await settle();
+    t.liveAsk.hooks.reset();
+    expect(t.liveAsk.session.forceWebSearch).toBe(true);
+    await t.call('recording.ask', { question: 'b', webSearch: true });
+    await settle();
+    expect(t.resolved.map((r) => r.webSearch)).toEqual([true, true]);
+  });
+
+  it('every answer state carries the fields the pill reads', async () => {
+    const t = setup();
+    await t.call('recording.ask', { question: 'Why?', webSearch: false });
+    await settle();
+    for (const sent of t.sent) {
+      expect(recordingAnswerSchema.safeParse(sent.payload).success).toBe(true);
+      expect(sent.channel).toBe('recording.answer');
+    }
+    expect(t.sent[t.sent.length - 1]?.payload).toMatchObject({
+      canUseWebSearch: true,
+      error: null,
+    });
+  });
+
+  it('republish replays the last state for a window that opened late', async () => {
+    const t = setup();
+    await t.call('recording.ask', { question: 'Why?', webSearch: false });
+    await settle();
+    const count = t.sent.length;
+    t.liveAsk.republish();
+    expect(t.sent).toHaveLength(count + 1);
+    expect(t.sent[count]?.payload).toEqual(t.sent[count - 1]?.payload);
   });
 });
