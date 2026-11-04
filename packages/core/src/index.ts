@@ -13,3 +13,4 @@ export * from './summaries';
 export * from './meeting-detection';
 export * from './recording';
 export * from './live-ask';
+export * from './chat';

@@ -13,6 +13,7 @@ import {
   type ThemePreference,
 } from '@vozella/contracts';
 import {
+  ChatService,
   MeetingBusyRegistry,
   PatchQueue,
   resolveTemplateInstructions,
@@ -36,6 +37,7 @@ import {
   createNativePorts,
   SummaryRuntime,
   ForbiddenDataRootError,
+  LibraryChatReader,
   LibraryRuntime,
   readWavDurationSeconds,
   recoverCrashedRecordings,
@@ -84,6 +86,8 @@ import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { SummariesController } from './summaries/summaries-controller';
+import { ChatController, chatProviderSource } from './chat/chat-controller';
+import { registerChatHandlers } from './ipc/chat-handlers';
 import {
   fakeModelScriptFromEnv,
   ScriptedFakeModelStore,
@@ -697,6 +701,48 @@ function main(): void {
     });
     app.on('will-quit', () => {
       void summaries.dispose();
+    });
+
+    // Chat: one in-memory conversation; the engine is whichever one the summaries resolver picks.
+    const chatReader = new LibraryChatReader({
+      meetings: library.meetings,
+      folders: library.folders,
+    });
+    const chat = new ChatController({
+      service: new ChatService({
+        meetings: chatReader,
+        providers: chatProviderSource(summaryRuntime.resolver),
+        clock: new SystemClock(),
+        translate: (key, ...args) => locale.t(key, ...args),
+        newId: () => randomUUID(),
+      }),
+      findMeetingId: (id) => chatReader.findMeetingId(id),
+      writeClipboard: (text) => {
+        return clipboard.writeText(text);
+      },
+      openExternal: (url) => {
+        if (!fakeNative) return shell.openExternal(url);
+        // E2E double: nothing opens; the address is appended to a file the spec can read.
+        const log = process.env.VOZELLA_FAKE_OPENED_LOG;
+        if (log)
+          fs.appendFileSync(
+            log,
+            `${url}
+`,
+          );
+        return Promise.resolve();
+      },
+      broadcast,
+      translate: (key, ...args) => locale.t(key, ...args),
+      logger: logger.child('chat'),
+    });
+    registerChatHandlers({
+      server: {
+        ipc: ipcMain,
+        logger,
+        isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+      },
+      controller: chat,
     });
 
     // Transcription: the engine runs in its own process; the controller serves the pages and

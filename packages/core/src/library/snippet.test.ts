@@ -42,6 +42,35 @@ describe('snippetFromMarkdown', () => {
   });
 });
 
+describe('snippetFromMarkdown, B15 marker rule', () => {
+  it('keeps underscores and asterisks inside words, URLs and file names', () => {
+    expect(snippetFromMarkdown('See snake_case and my_file_name.txt')).toBe(
+      'See snake_case and my_file_name.txt',
+    );
+    expect(snippetFromMarkdown('Open https://example.com/a_b_c?x=1*2 now')).toBe(
+      'Open https://example.com/a_b_c?x=1*2 now',
+    );
+    expect(snippetFromMarkdown('math a*b and 2 * 3 * 4')).toBe('math a*b and 2 * 3 * 4');
+  });
+
+  it('strips emphasis markers that wrap text', () => {
+    expect(snippetFromMarkdown('*one* _two_ **three** __four__ `five` ```six```')).toBe(
+      'one two three four five six',
+    );
+  });
+
+  it('keeps underscores inside backticked code', () => {
+    expect(snippetFromMarkdown('call `do_it_now` please')).toBe('call do_it_now please');
+  });
+});
+
+describe('snippetFromMarkdown, B10 surrogate-safe cut', () => {
+  it('never leaves half of an emoji at the 140 boundary', () => {
+    const result = snippetFromMarkdown(`${'x'.repeat(139)}\u{1F600} tail`);
+    expect(result).toBe(`${'x'.repeat(139)}…`);
+  });
+});
+
 describe('committedLineBody', () => {
   it('drops the stamp and the speaker tag', () => {
     expect(committedLineBody('[00:03.00-00:05.50] [ Speaker-2 ] Hello there')).toBe('Hello there');
@@ -81,8 +110,22 @@ describe('meetingSnippet', () => {
     expect(meetingSnippet('   ', transcript)).toBe('Hello team Second line');
   });
 
+  it('S6: a spoken line starting with "# " is still read as a heading and dropped, on purpose', () => {
+    const transcript = ['[00:00.00-00:03.00] # one', '[00:03.00-00:05.00] kept words'].join('\n');
+    expect(meetingSnippet(null, transcript)).toBe('kept words');
+  });
+
+  it('is empty when the transcript has only headers', () => {
+    expect(meetingSnippet(null, 'Recorded 2026-09-01 12:00\nEnded 2026-09-01 12:30')).toBe('');
+  });
+
   it('is empty when both are empty', () => {
     expect(meetingSnippet(null, null)).toBe('');
     expect(meetingSnippet('', '')).toBe('');
+  });
+
+  it('keeps list bullets, blockquote marks and link syntax, as WinUI does (B15 decision)', () => {
+    expect(snippetFromMarkdown('- foo [x](http://y)')).toBe('- foo [x](http://y)');
+    expect(snippetFromMarkdown('> quoted')).toBe('> quoted');
   });
 });

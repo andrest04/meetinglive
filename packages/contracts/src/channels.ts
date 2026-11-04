@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineEvent, defineRequest } from './channel';
 import * as audio from './audio';
+import * as chat from './chat';
 import * as library from './library';
 import * as meetingPrompt from './meeting-prompt';
 import * as recording from './recording';
@@ -170,6 +171,14 @@ export const requestChannels = {
   [recording.recordingCloseAnswer.name]: recording.recordingCloseAnswer,
   [recording.recordingAsk.name]: recording.recordingAsk,
   [recording.recordingCancelAsk.name]: recording.recordingCancelAsk,
+  [chat.chatSend.name]: chat.chatSend,
+  [chat.chatCancel.name]: chat.chatCancel,
+  [chat.chatNewChat.name]: chat.chatNewChat,
+  [chat.chatState.name]: chat.chatState,
+  [chat.chatSetScope.name]: chat.chatSetScope,
+  [chat.chatMeetingExists.name]: chat.chatMeetingExists,
+  [chat.chatCopyText.name]: chat.chatCopyText,
+  [chat.chatOpenExternal.name]: chat.chatOpenExternal,
 } as const;
 
 export const eventChannels = {
@@ -200,6 +209,8 @@ export const eventChannels = {
   [recording.recordingCloseRequest.name]: recording.recordingCloseRequest,
   [recording.recordingLiveText.name]: recording.recordingLiveText,
   [recording.recordingAnswer.name]: recording.recordingAnswer,
+  [chat.chatChunk.name]: chat.chatChunk,
+  [chat.chatStateChanged.name]: chat.chatStateChanged,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

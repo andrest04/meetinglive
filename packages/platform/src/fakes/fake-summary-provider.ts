@@ -16,6 +16,8 @@ export interface FakeSummaryOptions {
   readonly delayMs: number;
   /** A CLI failure kind (`NotSignedIn`), any other text for `Unknown`, or null for success. */
   readonly failWith: string | null;
+  /** Replaces the reply of chat prompts only (VOZELLA_FAKE_CHAT_REPLY), so e2e can script citations. */
+  readonly chatReply?: string;
 }
 
 const KINDS: readonly CliFailureKind[] = [
@@ -35,6 +37,7 @@ export function fakeSummaryOptionsFromEnv(
   return {
     delayMs: Number.isFinite(delay) && delay > 0 ? delay : 0,
     failWith: env.VOZELLA_FAKE_SUMMARY_FAIL?.trim() ? env.VOZELLA_FAKE_SUMMARY_FAIL.trim() : null,
+    ...(env.VOZELLA_FAKE_CHAT_REPLY ? { chatReply: env.VOZELLA_FAKE_CHAT_REPLY } : {}),
   };
 }
 
@@ -80,14 +83,14 @@ export class FakeSummaryProvider implements SummaryProvider {
   }
 
   completePrompt(_prompt: string, cancel: CancelSignal): Promise<string> {
-    return this.reply(cancel);
+    return this.reply(cancel, this.options.chatReply);
   }
 
   async *streamPrompt(_prompt: string, cancel: CancelSignal): AsyncIterable<string> {
-    yield await this.reply(cancel);
+    yield await this.reply(cancel, this.options.chatReply);
   }
 
-  private async reply(cancel: CancelSignal): Promise<string> {
+  private async reply(cancel: CancelSignal, override?: string): Promise<string> {
     const deadline = Date.now() + this.options.delayMs;
     while (Date.now() < deadline) {
       if (cancel.cancelled) throw new CancelledError();
@@ -99,6 +102,6 @@ export class FakeSummaryProvider implements SummaryProvider {
       const kind = KINDS.find((candidate) => candidate === failure) ?? 'Unknown';
       throw new CliToolError('Fake CLI', kind, kind === 'Unknown' ? failure : null);
     }
-    return FAKE_SUMMARY_REPLY;
+    return override ?? FAKE_SUMMARY_REPLY;
   }
 }

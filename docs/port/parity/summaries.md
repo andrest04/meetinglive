@@ -351,6 +351,7 @@ Decisions (S14):
 - **Where it lives.** `tab-service.ts`, `tab-state.ts`, `related-meetings.ts`, `patch-queue.ts` in `packages/core/src/summaries/`; platform round trip in `packages/platform/src/summaries/tab-service.test.ts` on the winui-library fixture.
 - **Values only.** `loadTab` answers `loaded` or `failed`; `saveNotes`, `toggleActionItem` and `copyActionItems` answer status values. Nothing throws across the boundary.
 - **Related meetings, calendar.** The match rule is title or series id as in `RelatedMeetings.Find`. Coming up, event metadata linking and the brief are dropped (owner decision 2026-11-03, may return later); `brief`, `calendarEventId`, `seriesId` and Jev data pass through every patch untouched (platform test).
+- **Related meetings, blank titles (chat-5, B11).** Two blank titles no longer relate meetings; the test that expected it was replaced.
 - **Template list.** `noteTemplateOptions(null)`: built-ins only, since the custom template is dropped. A stored `custom` id still loads as the selected id.
 - **Date label** for related items is the renderer's job (`recordedAt` is returned as stored).
 - **Out-of-range toggle** answers `out-of-range` and writes nothing.

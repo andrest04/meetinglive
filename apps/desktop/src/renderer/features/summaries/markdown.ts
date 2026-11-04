@@ -26,6 +26,11 @@ export type Block =
   | { readonly type: 'list'; readonly ordered: boolean; readonly items: readonly ListItem[] }
   | { readonly type: 'quote'; readonly children: readonly Block[] }
   | { readonly type: 'code'; readonly text: string }
+  | {
+      readonly type: 'table';
+      readonly header: readonly (readonly Inline[])[];
+      readonly rows: readonly (readonly (readonly Inline[])[])[];
+    }
   | { readonly type: 'rule' };
 
 /** The normalized address when it is http or https; null for any other scheme or a non-URL. */
@@ -142,6 +147,30 @@ const LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
 const FENCE = /^ {0,3}```/;
 const QUOTE = /^ {0,3}>\s?(.*)$/;
 
+const TABLE_DELIMITER = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+
+/** Cells of a pipe row, without the outer pipes. An escaped pipe stays inside its cell. */
+function splitRow(line: string): string[] {
+  const trimmed = line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/(?<!\\)\|$/, '');
+  return trimmed.split(/(?<!\\)\|/).map((cell) => cell.replace(/\\\|/g, '|').trim());
+}
+
+/** A header row followed by a delimiter row with the same number of cells. */
+const startsTable = (lines: readonly string[], at: number): boolean => {
+  const head = lines[at] ?? '';
+  const delimiter = lines[at + 1];
+  return (
+    head.includes('|') &&
+    delimiter !== undefined &&
+    delimiter.includes('-') &&
+    TABLE_DELIMITER.test(delimiter) &&
+    splitRow(delimiter).length === splitRow(head).length
+  );
+};
+
 const startsBlock = (line: string): boolean =>
   HEADING.test(line) ||
   RULE.test(line) ||
@@ -168,6 +197,18 @@ export function parseBlocks(source: string): Block[] {
       }
       i += 1;
       blocks.push({ type: 'code', text: body.join('\n') });
+      continue;
+    }
+    if (startsTable(lines, i)) {
+      const header = splitRow(line);
+      const rows: Inline[][][] = [];
+      i += 2;
+      while (i < lines.length && (lines[i] ?? '').trim() !== '' && (lines[i] ?? '').includes('|')) {
+        const cells = splitRow(lines[i] ?? '');
+        rows.push(header.map((_, column) => parseInline(cells[column] ?? '')));
+        i += 1;
+      }
+      blocks.push({ type: 'table', header: header.map((cell) => parseInline(cell)), rows });
       continue;
     }
     const heading = HEADING.exec(line);

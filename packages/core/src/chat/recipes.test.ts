@@ -1,0 +1,106 @@
+import { describe, expect, it } from 'vitest';
+import {
+  availabilityFor,
+  builtInRecipes,
+  filterRecipes,
+  isBuiltInRecipe,
+  recipesForScope,
+  starterRecipes,
+} from './recipes';
+import en from '../../../../apps/desktop/src/renderer/i18n/locales/en.json';
+import es from '../../../../apps/desktop/src/renderer/i18n/locales/es.json';
+
+const enT = en as Record<string, string>;
+const esT = es as Record<string, string>;
+const t = (key: string): string => enT[key] ?? `?${key}`;
+const suffix = (list: readonly { id: string }[]): string[] => list.map((r) => r.id.slice(-3));
+
+describe('built-in recipe catalog', () => {
+  it('BuiltIns_ListsSingleAndMultipleRecipes', () => {
+    const all = builtInRecipes(t);
+    expect(all.map((r) => r.name)).toEqual([
+      "What's been discussed",
+      'Action items',
+      'Follow-up email',
+      'What should I do next',
+      'Project plan',
+      'Top feature requests',
+      'Recurring themes',
+      'Weekly update',
+    ]);
+    expect(all.map((r) => r.id)).toEqual([
+      ...[1, 2, 3, 4, 5].map((n) => `11111111-1111-4111-8111-11111111110${n}`),
+      ...[1, 2, 3].map((n) => `11111111-1111-4111-8111-11111111120${n}`),
+    ]);
+    expect(new Set(all.map((r) => r.id)).size).toBe(8);
+    expect(all.filter((r) => r.availability === 'single')).toHaveLength(5);
+    expect(all.filter((r) => r.availability === 'multiple')).toHaveLength(3);
+    expect(all.map((r) => r.prompt)).toEqual([
+      'Give a short recap of what has been discussed so far.',
+      'Extract owners and next steps. If the owner is not in the context, say unassigned.',
+      'Draft a concise follow-up email. Do not send it.',
+      'List my next steps from this meeting.',
+      'Draft a short project plan from this meeting: outcome, steps, owners, open questions. Do not invent owners.',
+      'Group product feedback into themes.',
+      'Identify patterns across the packed meetings.',
+      'Write bullets of decisions, blockers, and next steps. Draft only. Do not send it.',
+    ]);
+    expect(all.every((r) => isBuiltInRecipe(r.id))).toBe(true);
+    expect(isBuiltInRecipe('nope')).toBe(false);
+  });
+
+  it('every recipe name key exists in en.json and es.json', () => {
+    const keys = builtInRecipes((k) => k).map((r) => r.name);
+    expect(keys).toHaveLength(8);
+    for (const k of keys) {
+      expect(enT[k]).toBeTruthy();
+      expect(esT[k]).toBeTruthy();
+    }
+  });
+
+  it('B8: names follow the language at call time, not at load time', () => {
+    let table = enT;
+    const live = (k: string): string => table[k] ?? k;
+    expect(builtInRecipes(live)[1]!.name).toBe('Action items');
+    table = esT;
+    expect(builtInRecipes(live)[1]!.name).toBe('Tareas pendientes');
+    expect(recipesForScope('Meeting', live)[0]!.name).toBe('Qué se ha hablado');
+  });
+});
+
+describe('recipe scope lists', () => {
+  it('AvailabilityFor_MatchesScope', () => {
+    expect(availabilityFor('Meeting')).toBe('single');
+    expect(availabilityFor('Live')).toBe('single');
+    expect(availabilityFor('Folder')).toBe('multiple');
+    expect(availabilityFor('AllMeetings')).toBe('multiple');
+    expect(() => availabilityFor('Other' as never)).toThrow();
+  });
+
+  it('ForScope returns built-ins of the scope in catalog order', () => {
+    expect(suffix(recipesForScope('Meeting', t))).toEqual(['101', '102', '103', '104', '105']);
+    expect(recipesForScope('Live', t)).toHaveLength(5);
+    expect(suffix(recipesForScope('Folder', t))).toEqual(['201', '202', '203']);
+    expect(recipesForScope('AllMeetings', t)).toHaveLength(3);
+  });
+
+  it('ForScope_DoesNotMutateBuiltInInstances: each call returns fresh copies', () => {
+    const a = recipesForScope('Meeting', t);
+    (a[0] as { name: string }).name = 'changed';
+    expect(recipesForScope('Meeting', t)[0]!.name).toBe("What's been discussed");
+  });
+
+  it('starterRecipes is the first four of the scope list', () => {
+    expect(suffix(starterRecipes('Meeting', t))).toEqual(['101', '102', '103', '104']);
+    expect(starterRecipes('Folder', t)).toHaveLength(3);
+  });
+
+  it('filterRecipes: case-insensitive substring of draft[1..] trimmed on name or prompt', () => {
+    const list = recipesForScope('Meeting', t);
+    expect(filterRecipes(list, '/')).toHaveLength(5);
+    expect(filterRecipes(list, '/   ')).toHaveLength(5);
+    expect(suffix(filterRecipes(list, '/ACTION'))).toEqual(['102']);
+    expect(suffix(filterRecipes(list, '/ concise follow'))).toEqual(['103']);
+    expect(filterRecipes(list, '/zzz')).toEqual([]);
+  });
+});

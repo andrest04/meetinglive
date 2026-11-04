@@ -232,7 +232,10 @@ describe('SummaryTab related meetings', () => {
   ];
 
   it('lists them and opens the picked one on its Summary tab', async () => {
-    const api = installSummariesApi(loaded(withSummary(SUMMARY, { related })));
+    const api = installSummariesApi({
+      ...loaded(withSummary(SUMMARY, { related })),
+      'chat.meetingExists': (input) => ({ exists: true, meetingId: input.meetingId }),
+    });
     mount();
     const nav = await screen.findByRole('navigation', { name: 'Related meetings' });
     const buttons = within(nav).getAllByRole('button');
@@ -246,6 +249,33 @@ describe('SummaryTab related meetings', () => {
         { type: 'openSession', tab: 'Summary' },
       ]);
     });
+  });
+
+  it('each related row shows the title and the local short date and time (item 133)', async () => {
+    installSummariesApi({ ...loaded(withSummary(SUMMARY, { related })) });
+    mount();
+    const nav = await screen.findByRole('navigation', { name: 'Related meetings' });
+    const first = within(nav).getAllByRole('button')[0];
+    const expected = new Intl.DateTimeFormat('en', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    }).format(new Date('2026-09-01T09:00:00Z'));
+    expect(first?.textContent).toContain('Weekly sync');
+    expect(first?.textContent).toContain(expected);
+  });
+
+  it('B21: a related meeting that no longer exists shows the missing-meeting message and does not navigate', async () => {
+    const api = installSummariesApi({
+      ...loaded(withSummary(SUMMARY, { related })),
+      'chat.meetingExists': () => ({ exists: false, meetingId: null }),
+    });
+    mount();
+    const list = await screen.findByTestId('ListRelatedMeetings');
+    const first = within(list).getAllByRole('button').at(0);
+    if (!first) throw new Error('related meeting missing');
+    await userEvent.click(first);
+    expect(await screen.findByText('That meeting no longer exists.')).toBeInTheDocument();
+    expect(calls(api, 'workspace.dispatch')).toHaveLength(0);
   });
 
   it('shows nothing when there are none', async () => {

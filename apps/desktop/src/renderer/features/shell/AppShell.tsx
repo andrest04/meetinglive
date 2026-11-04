@@ -7,6 +7,8 @@ import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { CloseDialogs } from '../record/CloseDialogs';
 import { connectLiveAsk } from '../record/use-live-ask';
+import { ChatBar } from '../chat/ChatBar';
+import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
 import { Icon, Mark, Splitter, cn } from '../../ui';
 
@@ -109,7 +111,7 @@ export function AppShell() {
             <main
               id="content"
               tabIndex={-1}
-              className="min-h-0 flex-1 overflow-y-auto pb-16 outline-none"
+              className="min-h-0 flex-1 overflow-y-auto pb-8 outline-none"
             >
               <div
                 className={cn(
@@ -121,6 +123,7 @@ export function AppShell() {
                 <Outlet />
               </div>
             </main>
+            <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
           </>
         }
       />
