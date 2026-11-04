@@ -38,12 +38,12 @@ The user wants the product on Electron so the brand tokens drive the UI and macO
 - [x] T3 Scaffold `apps/desktop`: shell, design system, IPC contract, test harness
   - [x] T3.1 Foundation: pnpm workspace, typed IPC, hardened shell, data-root guard, native addon, workers, test harness, NSIS packaging (see progress)
   - [x] T3.2 Design system, i18n (647 keys, en/es parity), shell. Independent verifier: check passes, e2e 9 passed and 3 screenshot specs skipped by default
-- [ ] T4 Port the domain and persistence layer
-- [ ] T5 Port native capture and ASR
-- [ ] T6 Port summaries, chat, and integrations
-- [ ] T7 Port all screens and windows
-- [ ] T8 Review, end-to-end checks, packaging
-- [ ] T9 Morning report: verified, pending, and what the user must validate
+- [x] T4 Port the domain and persistence layer. Audit findings stay open, see Closing state
+- [x] T5 Port native capture and ASR. Audit findings stay open, see Closing state
+- [x] T6 Port summaries and chat. JEV/TypeSafe and xAI were cut. Audit findings stay open, see Closing state
+- [ ] T7 Port all screens and windows. Partial: live copilot and shell-platform not ported
+- [ ] T8 Review, end-to-end checks, packaging. Not run
+- [x] T9 Closing report: verified, pending, and what the user must validate
 
 ## Acceptance criteria
 
@@ -68,11 +68,23 @@ Branch created from `main` at 53438c5.
 
 ### Accepted changes (owner, 2026-11-03)
 
-- Topology: remaining modules run in parallel waves, each module in its own worktree under `C:\Code\vozella-worktrees`, on `port/<module>` branches merged into this branch after each wave. Waves: summaries and call detection; recording and chat; session views and live copilot; shell and platform.
+- Topology: remaining modules run in parallel waves, each module in its own worktree under `C:\Code\vozella-worktrees`, on `port/<module>` branches merged into this branch after each wave. Waves, shortened at the owner's request for speed: summaries and call detection; recording, chat, and session views; live copilot and shell. Packages inside a module stay sequential, because writers in one worktree would break each other's checks.
 - Method: small work packages per module, audit slices of at most 25 items with file:line evidence, and a fix after every audit round. The first four modules were re-audited this way because the earlier audits left findings open.
 - Cut from the port, may return later: JEV/TypeSafe; calendar reading (Coming up, reminders, event linking, calendar settings, pre-meeting brief), while call detection and its popup stay; xAI/Grok; suggest title, custom note template, nav-pane resize grip, meeting-app suggestion bar; chat thread history and user recipes. On-disk keys for these stay readable and are preserved.
 - Open: the last fix of each re-audited module had no audit after it, so T8 audits them again. Settings and audio capture were converging poorly.
 
+- Closed by the owner on 2026-11-03 at a stopping point after wave 2. Live copilot and shell-platform were not ported, and T8 and the packaged launch were not run.
+
+### Closing state (observed 2026-11-03)
+
+- Integrated on `feat/electron-port`: audio capture, transcription, library and storage, settings, summaries, call detection, recording, chat, session views. Nothing pushed; `main` untouched.
+- Run by the orchestrator on the integrated branch: `pnpm check` exit 0 (contracts 44, core 1454, platform 419 with 13 skipped, desktop 1501 with 6 skipped, native 21) and `pnpm build` exit 0. `cargo` must be on PATH.
+- Reported by the integration agent, not repeated: full e2e 199 passed, 53 skipped, 0 failed. The skips were not reviewed one by one. One clipboard copy test failed once in an interrupted run and passed on rerun, cause unproven.
+- Recording: the round 3 fix made no changes, because the agent took the owner's closing message as an order to stop. Open and unverified: 52, 53, 58, B-9, 87, 101, 97, 122, 108, 155, 182, plus a service coverage gap at 163. The ledger still marks 52, 53, and 182 as `done`.
+- Round 3 audit findings, raw counts: session views 15, recording 18, summaries 3, chat 4, calendar detection 0. Only recording's were left unprocessed; the others had a fix pass with no audit after it. Rounds for the first four modules also ended on an unaudited fix.
+- Not run: packaged launch, installer, real end-to-end with synthetic audio, real meetings, real accounts, a library written by the WinUI app, Windows 10.
+- Worktrees remain under `C:\Code\vozella-worktrees`. Their branches are merged.
+
 ## Next step
 
-Run the waves, then T8.
+If the work resumes: process the open recording findings, port live copilot and shell-platform, then run T8. The app has no tray, app icon, global shortcuts, or toast handling until shell-platform is ported.
