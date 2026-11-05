@@ -5,9 +5,8 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { Button, Skeleton, Tabs } from '../../ui';
 import { MarkdownView } from '../summaries/MarkdownView';
 import { formatMeetingSpan } from './format';
+import type { MeetingTab } from './search-results';
 import type { MeetingPreviewState } from './use-meeting-preview';
-
-export type MeetingTab = 'Transcript' | 'Summary';
 
 /** The start of a transcript is enough to recognize a meeting, and stays cheap to lay out. */
 const TRANSCRIPT_START_CHARS = 6000;

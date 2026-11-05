@@ -1,7 +1,7 @@
 import type { FolderDto } from '@vozella/contracts';
-import { Ellipsis, Search } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Icon, IconButton, Input, Menu, Textarea, type MenuEntry } from '../../ui';
+import { Ellipsis, Search, X } from 'lucide-react';
+import { useRef, type ReactNode } from 'react';
+import { Button, Icon, IconButton, Input, Menu, Textarea, type MenuEntry } from '../../ui';
 import { folderAccent, folderIcon } from './folder-visuals';
 
 export interface ListHeaderProps {
@@ -20,7 +20,12 @@ export interface ListHeaderProps {
   readonly onNoteBlur: () => void;
   readonly query: string;
   readonly searchLabel: string;
+  readonly clearSearchLabel: string;
   readonly onQueryChange: (value: string) => void;
+  /** One quiet line about the search under way; empty when there is nothing to say. */
+  readonly searchStatus: string;
+  /** The way to widen the search to everything. Absent where it already covers everything. */
+  readonly searchAll: { readonly label: string; readonly onSelect: () => void } | null;
 }
 
 /** The head of the list pane. There is no page title: the view's own name says where you are. */
@@ -38,8 +43,12 @@ export function ListHeader({
   onNoteBlur,
   query,
   searchLabel,
+  clearSearchLabel,
   onQueryChange,
+  searchStatus,
+  searchAll,
 }: ListHeaderProps) {
+  const searchRef = useRef<HTMLInputElement>(null);
   return (
     <header className="flex shrink-0 flex-col gap-1.5 px-4 pb-3">
       {folder ? breadcrumbs : null}
@@ -84,6 +93,7 @@ export function ListHeader({
           className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
         />
         <Input
+          ref={searchRef}
           type="search"
           aria-label={searchLabel}
           placeholder={searchLabel}
@@ -91,9 +101,33 @@ export function ListHeader({
           onChange={(event) => {
             onQueryChange(event.target.value);
           }}
-          className="w-full pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
         />
+        {query === '' ? null : (
+          <IconButton
+            label={clearSearchLabel}
+            icon={X}
+            size="sm"
+            className="absolute top-1/2 right-0.5 -translate-y-1/2"
+            onClick={() => {
+              onQueryChange('');
+              searchRef.current?.focus();
+            }}
+          />
+        )}
       </div>
+      {query === '' ? null : (
+        <div className="flex min-h-7 items-center justify-between gap-2">
+          <span role="status" className="min-w-0 truncate text-ui text-ink-muted">
+            {searchStatus}
+          </span>
+          {searchAll ? (
+            <Button size="sm" variant="quiet" className="shrink-0" onClick={searchAll.onSelect}>
+              {searchAll.label}
+            </Button>
+          ) : null}
+        </div>
+      )}
     </header>
   );
 }

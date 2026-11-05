@@ -3,6 +3,7 @@ import {
   canDeleteFolder,
   emptyFlags,
   flattenFolderPaths,
+  ALL_VIEW,
   folderView,
   INBOX_VIEW,
   selectMeetings,
@@ -27,7 +28,9 @@ import {
   type LoadProblem,
   type SkippedFile,
 } from './library-store';
+import { mergeMatches, type SearchHits } from './search-results';
 import { useFolderNote } from './use-folder-note';
+import { useMeetingSearch } from './use-meeting-search';
 
 export { NOTE_AUTOSAVE_MS } from './use-folder-note';
 
@@ -57,6 +60,10 @@ export interface LibraryModel {
   readonly viewCount: number;
   readonly flags: EmptyFlags;
   readonly query: string;
+  /** What the second stage found inside meetings, by meeting id. */
+  readonly hits: SearchHits;
+  readonly searching: boolean;
+  readonly searchFailed: boolean;
   readonly noteText: string;
   readonly status: StatusMessage | null;
   readonly destinations: readonly MoveDestination[];
@@ -66,6 +73,8 @@ export interface LibraryModel {
   readonly dismissStatus: () => void;
   readonly showStatus: (message: StatusMessage) => void;
   readonly selectFolder: (id: string | null) => void;
+  /** Widens a search to every meeting. */
+  readonly searchEverything: () => void;
   readonly createFolder: (name: string) => Promise<FolderResult>;
   readonly renameFolder: (id: string, name: string) => Promise<FolderResult>;
   readonly updatePersonality: (
@@ -111,7 +120,15 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
 
   const selectedId = folderIdOfView(view);
   const snapshot = useMemo(() => ({ folders, meetings: allMeetings }), [folders, allMeetings]);
-  const selection = useMemo(() => selectMeetings(snapshot, view, query), [snapshot, view, query]);
+  const search = useMeetingSearch(query, view);
+  const inView = useMemo(() => selectMeetings(snapshot, view, ''), [snapshot, view]);
+  const selection = useMemo(() => {
+    const byTitle = selectMeetings(snapshot, view, query);
+    return {
+      inFolderCount: byTitle.inFolderCount,
+      meetings: mergeMatches(inView.meetings, byTitle.meetings, search.hits),
+    };
+  }, [snapshot, view, query, inView, search.hits]);
   const flags = useMemo(
     () =>
       emptyFlags({
@@ -162,6 +179,9 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
     viewCount: selection.inFolderCount,
     flags,
     query,
+    hits: search.hits,
+    searching: search.searching,
+    searchFailed: search.failed,
     noteText,
     status,
     destinations,
@@ -174,6 +194,9 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
     showStatus: setStatus,
     selectFolder: (id) => {
       selectView(id === null ? INBOX_VIEW : folderView(id));
+    },
+    searchEverything: () => {
+      selectView(ALL_VIEW);
     },
     createFolder: (name) =>
       changeFolder(() =>

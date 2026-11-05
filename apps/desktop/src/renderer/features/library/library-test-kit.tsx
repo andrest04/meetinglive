@@ -138,6 +138,8 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
         if (result.ok) emit('library.changed', { reason: 'meeting' });
         return result;
       }
+      case 'library.search':
+        return service.search(input as never);
       case 'library.isMeetingBusy':
         return { busy: service.isMeetingBusy(input.meetingId as string) };
       case 'library.getMeeting':

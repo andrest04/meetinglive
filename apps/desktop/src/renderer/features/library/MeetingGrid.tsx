@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { ContextMenu, IconButton, Menu, cn, type MenuEntry } from '../../ui';
 import { formatDayHeader, formatMeetingDate, formatMeetingTime } from './format';
+import { highlightParts, type SearchHits } from './search-results';
 import {
   activeHeaderIndex,
   buildGridItems,
@@ -40,6 +41,9 @@ export interface MeetingGridProps {
   readonly meetings: readonly MeetingListItemDto[];
   readonly locale: string;
   readonly labels: MeetingGridLabels;
+  /** The search text, to mark in the rows, and what was found inside each meeting. */
+  readonly query: string;
+  readonly hits: SearchHits;
   readonly cursorId: string | null;
   readonly initialScrollOffset: number;
   /** With no preview beside the list, a click has nothing else to do but open. */
@@ -63,6 +67,8 @@ export function MeetingGrid({
   meetings,
   locale,
   labels,
+  query,
+  hits,
   cursorId,
   initialScrollOffset,
   clickOpens,
@@ -193,6 +199,8 @@ export function MeetingGrid({
               meeting={item.meeting}
               locale={locale}
               labels={labels}
+              query={query}
+              snippet={hits.get(item.meeting.id)?.snippet ?? item.meeting.snippet}
               rowIndex={virtual.index + 1}
               offset={virtual.start}
               isCursor={virtual.index === cursorIndex}
@@ -244,10 +252,29 @@ function DayHeader({
   );
 }
 
+/** The cursor row is already `pressed`, so a mark there is told apart by its underline. */
+function Highlighted({ text, query }: { readonly text: string; readonly query: string }) {
+  if (query.trim() === '') return text;
+  return highlightParts(text, query).map((part, index) =>
+    part.mark ? (
+      <mark
+        key={index}
+        className="rounded-[2px] bg-pressed text-inherit group-data-cursor:bg-transparent group-data-cursor:underline forced-colors:bg-[Mark] forced-colors:text-[MarkText]"
+      >
+        {part.text}
+      </mark>
+    ) : (
+      part.text
+    ),
+  );
+}
+
 interface MeetingRowProps {
   readonly meeting: MeetingListItemDto;
   readonly locale: string;
   readonly labels: MeetingGridLabels;
+  readonly query: string;
+  readonly snippet: string;
   readonly rowIndex: number;
   readonly offset: number;
   readonly isCursor: boolean;
@@ -264,6 +291,8 @@ function MeetingRow({
   meeting,
   locale,
   labels,
+  query,
+  snippet,
   rowIndex,
   offset,
   isCursor,
@@ -351,10 +380,10 @@ function MeetingRow({
       </div>
       <div role="gridcell" className="flex min-w-0 flex-1 flex-col justify-center">
         <span data-title className="truncate text-ui-lg font-medium text-ink">
-          {meeting.title}
+          <Highlighted text={meeting.title} query={query} />
         </span>
         <span className="truncate text-ui text-ink-muted">
-          {meeting.snippet === '' ? labels.noContent : meeting.snippet}
+          {snippet === '' ? labels.noContent : <Highlighted text={snippet} query={query} />}
         </span>
       </div>
       <div role="gridcell" className="flex shrink-0 items-center">

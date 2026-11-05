@@ -20,6 +20,7 @@ import { MeetingGrid } from './MeetingGrid';
 import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
 import { nextCursor } from './logbook';
+import { tabOfHit } from './search-results';
 import { useMeetingPreview } from './use-meeting-preview';
 import { useLibrary, type StatusMessage } from './use-library';
 
@@ -159,15 +160,21 @@ export function LibraryRoute() {
   );
 
   const { flags } = library;
+  // Nothing matched is not known yet while the second stage is still reading.
   const emptyMessage: StringKey | null = flags.showLibraryEmpty
     ? 'HistoryPage_Empty.Text'
     : flags.showInboxEmpty
       ? 'Library_InboxEmpty.Text'
       : flags.showFolderEmpty
         ? 'Library_FolderEmpty.Text'
-        : flags.showNoMatches
+        : flags.showNoMatches && !library.searching
           ? 'Ui_LibrarySearchEmpty'
           : null;
+  const searchStatus = library.searching
+    ? t('Ui_LibrarySearching')
+    : library.searchFailed
+      ? t('Ui_LibrarySearchTitlesOnly')
+      : t('Ui_LibrarySearchMatches', String(library.meetings.length));
 
   return (
     <section ref={layoutRef} className="flex min-h-0 flex-1">
@@ -210,7 +217,14 @@ export function LibraryRoute() {
           }}
           query={library.query}
           searchLabel={t('Library_Search.PlaceholderText')}
+          clearSearchLabel={t('Ui_LibrarySearchClear')}
           onQueryChange={library.setQuery}
+          searchStatus={searchStatus}
+          searchAll={
+            library.view.kind === 'all'
+              ? null
+              : { label: t('Ui_LibrarySearchAll'), onSelect: library.searchEverything }
+          }
         />
 
         <div className="flex shrink-0 flex-col gap-2 px-4 empty:hidden">
@@ -260,13 +274,15 @@ export function LibraryRoute() {
               meetings={library.meetings}
               locale={locale}
               labels={gridLabels}
+              query={library.query}
+              hits={library.hits}
               cursorId={cursorId}
               clickOpens={!wide}
               initialScrollOffset={useLibraryStore.getState().scrollOffset}
               onCursorChange={setCursor}
               onScrollOffsetChange={rememberScroll}
               onOpen={(id) => {
-                library.openMeeting(id, 'Transcript');
+                library.openMeeting(id, tabOfHit(library.hits.get(id)) ?? 'Transcript');
               }}
               onOpenSummary={(id) => {
                 library.openMeeting(id, 'Summary');
@@ -300,7 +316,11 @@ export function LibraryRoute() {
           aria-label={t('Ui_LibraryPreview')}
           className="flex min-w-0 flex-1 flex-col"
         >
-          <MeetingPreview state={preview} preferredTab={null} onOpen={library.openMeeting} />
+          <MeetingPreview
+            state={preview}
+            preferredTab={previewId === null ? null : tabOfHit(library.hits.get(previewId))}
+            onOpen={library.openMeeting}
+          />
         </section>
       ) : null}
 

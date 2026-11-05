@@ -74,6 +74,12 @@ test('browse, search, open a meeting and its summary', async () => {
   await expect(rows).toHaveCount(1);
   await page.getByRole('searchbox').fill('nothing here');
   await expect(page.getByText('No meetings match your search.')).toBeVisible();
+
+  // The second stage finds a word that is only in the transcript, through the real channel.
+  await page.getByRole('searchbox').fill('hola');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Planning');
+  await expect(rows.first().locator('mark')).toHaveText('Hola');
   await page.getByRole('searchbox').fill('');
 
   // A click previews, and leaves the screen alone.

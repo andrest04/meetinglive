@@ -104,7 +104,7 @@ describe('empty states', () => {
     expect(screen.getByText('This folder is empty.')).toBeInTheDocument();
     await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
     await user.type(screen.getByRole('searchbox'), 'zzz');
-    expect(screen.getByText('No meetings match your search.')).toBeInTheDocument();
+    expect(await screen.findByText('No meetings match your search.')).toBeInTheDocument();
   });
 });
 
@@ -131,7 +131,7 @@ describe('the list', () => {
     expect(screen.queryByRole('row', { name: /Review/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
     expect(screen.getByRole('searchbox')).toHaveValue('stand');
-    expect(screen.getByText('No meetings match your search.')).toBeInTheDocument();
+    expect(await screen.findByText('No meetings match your search.')).toBeInTheDocument();
   });
 
   it('opens a meeting on the transcript and the summary through the workspace', async () => {
@@ -844,6 +844,185 @@ describe('the preview', () => {
     const { api } = await mount(seed);
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(reads(api)).toEqual([]);
+  });
+});
+
+describe('searching inside meetings', () => {
+  const searches = (api: ReturnType<typeof installFakeApi>) =>
+    api.calls.filter((c) => c.name === 'library.search');
+  const seedBodies = ({ meetings, folders }: ReturnType<typeof installFakeApi>): void => {
+    folders.folders = [folderRecord(UNI, 'Universidad')];
+    meetings.records.set(
+      'heard',
+      meetingRecord('heard', 'Standup', '2026-09-03T09:00:00.0000000+00:00', {
+        transcript: '[00:01.00-00:02.00] Cerramos el año fiscal',
+      }),
+    );
+    meetings.records.set(
+      'written',
+      meetingRecord('written', 'Planning', '2026-09-02T09:00:00.0000000+00:00', {
+        summary: 'The fiscal plan is ready',
+        transcript: '[00:01.00-00:02.00] Hello',
+      }),
+    );
+    meetings.records.set(
+      'noted',
+      meetingRecord('noted', 'Retro', '2026-09-01T09:00:00.0000000+00:00', {
+        notes: 'Ask about fiscal dates',
+        transcript: '[00:01.00-00:02.00] Hello',
+      }),
+    );
+    meetings.records.set(
+      'named',
+      meetingRecord('named', 'Fiscal review', '2026-08-31T09:00:00.0000000+00:00', {
+        folderId: UNI,
+      }),
+    );
+    meetings.records.set(
+      'other',
+      meetingRecord('other', 'Lunch', '2026-08-30T09:00:00.0000000+00:00'),
+    );
+  };
+
+  it('adds what it finds inside meetings to the title matches, in date order', async () => {
+    const { api, user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    await waitFor(() => {
+      expect(screen.getAllByRole('row').filter((row) => row.dataset.rowId).length).toBe(4);
+    });
+    const ids = screen
+      .getAllByRole('row')
+      .map((row) => row.dataset.rowId)
+      .filter(Boolean);
+    expect(ids).toEqual(['heard', 'written', 'noted', 'named']);
+    // The debounce waits for the typing to stop.
+    expect(searches(api).map((c) => c.input)).toEqual([
+      { query: 'fiscal', scope: { kind: 'all' }, requestId: expect.any(Number) as unknown },
+    ]);
+  });
+
+  it('shows the matching text with the words marked', async () => {
+    const { user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'ano fiscal');
+    const row = await screen.findByRole('row', { name: /Standup/ });
+    const marks = [...row.querySelectorAll('mark')].map((mark) => mark.textContent);
+    expect(marks).toEqual(['año', 'fiscal']);
+  });
+
+  it('does not look inside for a single character', async () => {
+    const { api, user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'f');
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    expect(searches(api)).toEqual([]);
+    expect(rowOf(/Fiscal review/)).toBeInTheDocument();
+  });
+
+  it('says it is still looking before it says nothing matched', async () => {
+    const { api, user } = await mount(seedBodies);
+    let release: () => void = () => undefined;
+    const search = api.service.search.bind(api.service);
+    vi.spyOn(api.service, 'search').mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return search(input);
+    });
+    await user.type(screen.getByRole('searchbox'), 'zzzz');
+    expect(screen.getByText('Searching inside meetings')).toBeInTheDocument();
+    expect(screen.queryByText('No meetings match your search.')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(searches(api)).toHaveLength(1);
+    });
+    release();
+    expect(await screen.findByText('No meetings match your search.')).toBeInTheDocument();
+    expect(screen.queryByText('Searching inside meetings')).not.toBeInTheDocument();
+  });
+
+  it('opens a hit on its own tab, and the preview follows', async () => {
+    const { api, user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    const preview = screen.getByTestId('library-preview');
+    await user.click(await screen.findByRole('row', { name: /Planning/ }));
+    expect(await within(preview).findByRole('tab', { name: 'Summary' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await user.dblClick(rowOf(/Planning/));
+    await waitFor(() => {
+      expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Summary' });
+    });
+    await user.dblClick(rowOf(/Retro/));
+    await waitFor(() => {
+      expect(api.workspace.state.selectedMeetingId).toBe('noted');
+    });
+    expect(api.actions.filter((a) => a.type === 'openSession').at(-1)).toEqual({
+      type: 'openSession',
+      tab: 'Summary',
+    });
+    await user.dblClick(rowOf(/Standup/));
+    await waitFor(() => {
+      expect(api.workspace.state.selectedMeetingId).toBe('heard');
+    });
+    expect(api.actions.filter((a) => a.type === 'openSession').at(-1)).toEqual({
+      type: 'openSession',
+      tab: 'Transcript',
+    });
+  });
+
+  it('offers to search everything from a narrower view, and keeps the query', async () => {
+    const { user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    expect(screen.queryByRole('button', { name: 'Search all meetings' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
+    await screen.findByRole('row', { name: /Standup/ });
+    expect(screen.queryByRole('row', { name: /Fiscal review/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Search all meetings' }));
+    expect(await screen.findByRole('row', { name: /Fiscal review/ })).toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveValue('fiscal');
+    expect(screen.getByRole('heading', { level: 1, name: 'All' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Search all meetings' })).not.toBeInTheDocument();
+  });
+
+  it('a slow answer to an old query does not replace a newer one', async () => {
+    const { api, user } = await mount(seedBodies);
+    let release: () => void = () => undefined;
+    const search = api.service.search.bind(api.service);
+    vi.spyOn(api.service, 'search').mockImplementationOnce(async () => {
+      const old = await search({ query: 'hello', scope: { kind: 'all' }, requestId: 0 });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { ...old, requestId: 1, stale: false };
+    });
+    await user.type(screen.getByRole('searchbox'), 'hello');
+    await waitFor(() => {
+      expect(searches(api)).toHaveLength(1);
+    });
+    await user.clear(screen.getByRole('searchbox'));
+    await user.type(screen.getByRole('searchbox'), 'cerramos');
+    await screen.findByRole('row', { name: /Standup/ });
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByRole('row', { name: /Planning/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the title matches and says so when looking inside fails', async () => {
+    const { api, user } = await mount(seedBodies);
+    vi.spyOn(api.service, 'search').mockRejectedValue(new Error('disk gone'));
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    expect(await screen.findByText('Only titles were searched.')).toBeInTheDocument();
+    expect(rowOf(/Fiscal review/)).toBeInTheDocument();
+  });
+
+  it('clears the search with its button, and the focus stays in the field', async () => {
+    const { user } = await mount(seedBodies);
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(screen.getByRole('searchbox')).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
+    expect(rowOf(/Lunch/)).toBeInTheDocument();
   });
 });
 
