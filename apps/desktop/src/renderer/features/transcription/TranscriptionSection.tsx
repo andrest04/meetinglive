@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { Badge, Button, Notice, Progress, SectionHeader, SettingRow, Switch } from '../../ui';
+import { ConfirmDialog } from '../library/dialogs';
 import { overallPercent } from './live-lines';
 import { useEngineInstall } from './use-engine-install';
 import { useEngineStatus } from './use-engine-status';
@@ -24,6 +25,9 @@ export function TranscriptionSection() {
   const [speakerNote, setSpeakerNote] = useState<string | null>(null);
   const [speakerBusy, setSpeakerBusy] = useState<'download' | 'delete' | null>(null);
   const [speakerPercent, setSpeakerPercent] = useState(0);
+  // Deletes ask first; the outcome is spoken through one polite live region.
+  const [confirming, setConfirming] = useState<'engine' | 'speaker' | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const speakerRunning = useRef(false);
   // The recognizer snapshot only counts while it still matches the current settings.
   const speakerModelMissing =
@@ -62,6 +66,7 @@ export function TranscriptionSection() {
       const { outcome } = await window.vozella.invoke('transcription.deleteEngine', {});
       if (outcome === 'RuntimeInUse') setEngineNote(t('Error_EngineDeleteInUse'));
       else if (outcome === 'Incomplete') setEngineNote(t('Error_EngineDeleteIncomplete'));
+      else if (alive.current) setAnnouncement(t('Ui_EngineDeleted'));
     } catch (error) {
       setEngineNote(t('Error_DownloadFailedCaption', errorText(error)));
     }
@@ -126,8 +131,15 @@ export function TranscriptionSection() {
   const deleteSpeakerModel = (): void => {
     void runSpeakerAction(async () => {
       const result = await window.vozella.invoke('transcription.deleteSpeakerModel', {});
-      return result.status === 'failed' ? result.message : null;
+      if (result.status === 'failed') return result.message;
+      if (alive.current) setAnnouncement(t('Ui_SpeakerDeleted'));
+      return null;
     }, 'delete');
+  };
+
+  const ask = (what: 'engine' | 'speaker'): void => {
+    setAnnouncement('');
+    setConfirming(what);
   };
 
   const installing = install.phase === 'running';
@@ -156,10 +168,11 @@ export function TranscriptionSection() {
           {t('Settings_DownloadEngine.Content')}
         </Button>
         <Button
+          variant="quiet"
           disabled={!anyEngineFile || installing || speakerBusy !== null}
           aria-label={`${t('Settings_DeleteEngine.Content')} ${t('Settings_NemotronCard.Header')}`}
           onClick={() => {
-            void deleteEngine();
+            ask('engine');
           }}
         >
           {t('Settings_DeleteEngine.Content')}
@@ -227,9 +240,12 @@ export function TranscriptionSection() {
           {t('Settings_DownloadSpeakers.Content')}
         </Button>
         <Button
+          variant="quiet"
           disabled={status === null || !status.speakerModelInstalled || speakerBusy !== null}
           aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
-          onClick={deleteSpeakerModel}
+          onClick={() => {
+            ask('speaker');
+          }}
         >
           {t('Settings_DeleteSpeakers.Content')}
         </Button>
@@ -254,6 +270,30 @@ export function TranscriptionSection() {
           ) : null}
         </div>
       ) : null}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirming(null);
+        }}
+        title={t(confirming === 'speaker' ? 'Ui_SpeakerDeleteTitle' : 'Ui_EngineDeleteTitle')}
+        description={t(
+          confirming === 'speaker' ? 'Ui_SpeakerDeleteContent' : 'Ui_EngineDeleteContent',
+        )}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        closeLabel={t('Ui_Close')}
+        primaryLabel={t(
+          confirming === 'speaker'
+            ? 'Settings_DeleteSpeakers.Content'
+            : 'Settings_DeleteEngine.Content',
+        )}
+        onConfirm={() => {
+          if (confirming === 'speaker') deleteSpeakerModel();
+          else if (confirming === 'engine') void deleteEngine();
+        }}
+      />
     </div>
   );
 }

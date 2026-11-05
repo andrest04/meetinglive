@@ -64,6 +64,9 @@ test('a local model downloads, becomes active and is removed', async () => {
   await expect(row.getByText('Active', { exact: true })).toBeVisible();
 
   await row.getByRole('button', { name: 'Delete' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Delete Gemma 4 E2B Instruct?' });
+  await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Gemma 4 E2B Instruct deleted.')).toBeAttached();
   await expect(gemma).toBeDisabled();
   await expect(gemma).not.toBeChecked();
   await expect.poll(() => settingsFile().selectedSummaryModelId).toBeNull();

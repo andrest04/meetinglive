@@ -173,5 +173,14 @@
   "Ui_LibraryFilterResultsLine": "Se muestran {0} de {1} reuniones",
   "Ui_About": "Acerca de",
   "Ui_AboutVersion": "Versión",
-  "Ui_ModelDownloadToUse": "Descárgalo para usarlo"
+  "Ui_ModelDownloadToUse": "Descárgalo para usarlo",
+  "Ui_ModelDeleteTitle": "¿Eliminar {0}?",
+  "Ui_ModelDeleteContent": "El archivo del modelo se elimina de este PC. Puedes volver a descargarlo más tarde.",
+  "Ui_ModelDeleted": "Se eliminó {0}.",
+  "Ui_EngineDeleteTitle": "¿Eliminar el motor de transcripción?",
+  "Ui_EngineDeleteContent": "Los archivos del motor se eliminan de este PC. Las reuniones no se podrán transcribir hasta que vuelvas a descargarlo.",
+  "Ui_EngineDeleted": "Se eliminó el motor de transcripción.",
+  "Ui_SpeakerDeleteTitle": "¿Eliminar el modelo de hablantes?",
+  "Ui_SpeakerDeleteContent": "El archivo se elimina de este PC. Las transcripciones no tendrán etiquetas de hablante hasta que vuelvas a descargarlo.",
+  "Ui_SpeakerDeleted": "Se eliminó el modelo de hablantes."
 }

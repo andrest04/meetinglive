@@ -173,5 +173,14 @@
   "Ui_LibraryFilterResultsLine": "Showing {0} of {1} meetings",
   "Ui_About": "About",
   "Ui_AboutVersion": "Version",
-  "Ui_ModelDownloadToUse": "Download to use"
+  "Ui_ModelDownloadToUse": "Download to use",
+  "Ui_ModelDeleteTitle": "Delete {0}?",
+  "Ui_ModelDeleteContent": "The model file is removed from this PC. You can download it again later.",
+  "Ui_ModelDeleted": "{0} deleted.",
+  "Ui_EngineDeleteTitle": "Delete the transcription engine?",
+  "Ui_EngineDeleteContent": "The engine files are removed from this PC. Meetings cannot be transcribed until you download it again.",
+  "Ui_EngineDeleted": "Transcription engine deleted.",
+  "Ui_SpeakerDeleteTitle": "Delete the speaker model?",
+  "Ui_SpeakerDeleteContent": "The file is removed from this PC. Transcripts have no speaker labels until you download it again.",
+  "Ui_SpeakerDeleted": "Speaker model deleted."
 }

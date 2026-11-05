@@ -35,7 +35,8 @@ export interface SettingsPageModel {
   readonly downloadModel: (fileName: string) => Promise<void>;
   readonly cancelModel: (fileName: string) => void;
   readonly selectModel: (fileName: string) => void;
-  readonly deleteModel: (fileName: string) => Promise<void>;
+  /** Answers true when the file is gone, so the caller can announce it. */
+  readonly deleteModel: (fileName: string) => Promise<boolean>;
   readonly dismissNotice: (id: string) => void;
 }
 
@@ -276,22 +277,25 @@ export function useSettingsPage(): SettingsPageModel {
   );
 
   const deleteModel = useCallback(
-    async (fileName: string): Promise<void> => {
+    async (fileName: string): Promise<boolean> => {
+      let deleted = false;
       try {
         const result = await window.vozella.invoke('settings.models.delete', { fileName });
-        if (!alive.current) return;
+        if (!alive.current) return false;
         if (result.status === 'busy') {
           setProblem(tRef.current('Ui_ModelDeleteBusy', nameOf(fileName)));
         } else if (result.status === 'failed') {
           setProblem(tRef.current('Ui_ModelDeleteFailed', nameOf(fileName), result.message));
         } else {
           setProblem(null);
+          deleted = result.status === 'deleted';
         }
       } catch (error) {
         if (alive.current)
           setProblem(tRef.current('Ui_ModelDeleteFailed', nameOf(fileName), messageOf(error)));
       }
       await load();
+      return deleted;
     },
     [load, nameOf],
   );
