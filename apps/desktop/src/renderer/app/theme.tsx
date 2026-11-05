@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type Context,
   type ReactNode,
 } from 'react';
 import { readStored, writeStored } from './preference-storage';
@@ -37,7 +38,11 @@ interface ThemeValue {
   readonly setPreference: (preference: ThemePreference) => void;
 }
 
-const ThemeContext = createContext<ThemeValue | null>(null);
+// Hot reload re-runs this module; reuse the context so consumers stay bound to the Provider.
+const ThemeContext: Context<ThemeValue | null> =
+  (import.meta.hot?.data.themeContext as Context<ThemeValue | null> | undefined) ??
+  createContext<ThemeValue | null>(null);
+if (import.meta.hot) import.meta.hot.data.themeContext = ThemeContext;
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { Context, ReactNode } from 'react';
 import { reportRendererError } from '../app/error-reporting';
 import { createTranslator, detectLocale, isLocale, type Locale, type Translate } from './translate';
 
@@ -24,7 +24,12 @@ interface I18nValue {
   readonly t: Translate;
 }
 
-const I18nContext = createContext<I18nValue | null>(null);
+// Hot reload re-runs this module. A fresh context would orphan every consumer still
+// bound to the old one, so useI18n would throw and blank the window. Reuse it instead.
+const I18nContext: Context<I18nValue | null> =
+  (import.meta.hot?.data.i18nContext as Context<I18nValue | null> | undefined) ??
+  createContext<I18nValue | null>(null);
+if (import.meta.hot) import.meta.hot.data.i18nContext = I18nContext;
 
 export function I18nProvider({
   children,

@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type Context,
   type ReactNode,
 } from 'react';
 import { useT } from '../../i18n/I18nProvider';
@@ -47,7 +48,11 @@ type Pending =
       readonly done: () => void;
     };
 
-const DialogContext = createContext<DialogService | null>(null);
+// Hot reload re-runs this module; reuse the context so consumers stay bound to the Provider.
+const DialogContext: Context<DialogService | null> =
+  (import.meta.hot?.data.dialogContext as Context<DialogService | null> | undefined) ??
+  createContext<DialogService | null>(null);
+if (import.meta.hot) import.meta.hot.data.dialogContext = DialogContext;
 
 export function useDialogs(): DialogService {
   const service = useContext(DialogContext);
