@@ -7,7 +7,7 @@
 
 Every meeting, written down.
 
-**Status:** pre-release, Windows only, no published installer. Build from source.
+**Status:** beta, Windows only, unsigned installer. [Download the latest build](https://github.com/andrest04/vozella/releases/latest/download/Vozella-Setup.exe) or build from source.
 
 ![The Vozella record screen in the Electron app](docs/screenshots/record.png)
 
@@ -74,7 +74,7 @@ pnpm package
 
 `pnpm package` writes an unsigned NSIS installer to `apps/desktop/release/`.
 
-Pushing a tag that matches the version in `apps/desktop/package.json`, such as `v0.9.0`, builds the installer on GitHub Actions and creates a draft release. It stays private until someone publishes it.
+Every push to `main` that touches the app builds the installer on GitHub Actions and publishes it as the latest release, which is what the landing page links to.
 
 ## Build and run: WinUI 3
 
