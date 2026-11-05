@@ -82,6 +82,7 @@
 
   .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 4px; font: 500 14px/20px var(--sans); text-decoration: none; background: var(--ink); color: var(--on-ink); border: 0; cursor: pointer; transition: opacity 160ms; }
   .btn:hover { opacity: .82; }
+  .btn .win { width: 14px; height: 14px; margin-inline-start: 8px; flex: none; }
   .on-ink .btn { background: var(--on-ink); color: var(--ink); }
   .on-ink :focus-visible { outline-color: var(--on-ink); }
 
@@ -334,8 +335,8 @@
     <div class="hero-foot">
       <p class="lead" data-i18n="hero.lead">Vozella listens to your microphone and your computer's audio, then gives you a transcript, a summary and your action items. No bot joins the call.</p>
       <div class="cta">
-        <a class="btn" href="https://github.com/andrest04/vozella/releases/latest/download/Vozella-Setup.exe" data-i18n="hero.cta">Download for Windows</a>
-        <small data-i18n="hero.soon">Free beta. Windows may warn you the first time: choose More info, then Run anyway.</small>
+        <a class="btn" href="https://github.com/andrest04/vozella/releases/latest/download/Vozella-Setup.exe"><span data-i18n="hero.cta">Download for Windows</span><svg class="win" aria-hidden="true" viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h7.5v7.5H0zM8.5 0H16v7.5H8.5zM0 8.5h7.5V16H0zM8.5 8.5H16V16H8.5z"/></svg></a>
+        <small data-i18n="hero.soon">Beta</small>
       </div>
     </div>
   </section>
@@ -524,7 +525,7 @@ the monthly change until after the launch.
   <div class="wrap">
     <section class="close" id="download">
       <h2 data-i18n="close.title">Download Vozella for Windows.</h2>
-      <a class="btn" href="https://github.com/andrest04/vozella/releases/latest/download/Vozella-Setup.exe" data-i18n="close.cta">Download for Windows</a>
+      <a class="btn" href="https://github.com/andrest04/vozella/releases/latest/download/Vozella-Setup.exe"><span data-i18n="close.cta">Download for Windows</span><svg class="win" aria-hidden="true" viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h7.5v7.5H0zM8.5 0H16v7.5H8.5zM0 8.5h7.5V16H0zM8.5 8.5H16V16H8.5z"/></svg></a>
     </section>
     <footer>
       <span>Vozella</span>
@@ -551,7 +552,7 @@ the monthly change until after the launch.
         "hero.title": "Every meeting, written down.",
         "hero.lead": "Vozella listens to your microphone and your computer's audio, then gives you a transcript, a summary and your action items. No bot joins the call.",
         "hero.cta": "Download for Windows",
-        "hero.soon": "Free beta. Windows may warn you the first time: choose More info, then Run anyway.",
+        "hero.soon": "Beta",
         "demo.section": "Product demo",
         "demo.label": "Vozella on a sample meeting. It records with a live transcript, polishes the transcript after you stop, then shows a summary and action items.",
         "demo.caption": "Sample meeting, redrawn from the app.",
@@ -645,7 +646,7 @@ the monthly change until after the launch.
         "hero.title": "Cada reunión, por escrito.",
         "hero.lead": "Vozella escucha tu micrófono y el audio de tu PC, y te entrega una transcripción, un resumen y tus elementos de acción. Ningún bot se une a la llamada.",
         "hero.cta": "Descargar para Windows",
-        "hero.soon": "Beta gratuita. Windows puede mostrar una advertencia la primera vez: elige Más información y luego Ejecutar de todas formas.",
+        "hero.soon": "Beta",
         "demo.section": "Demostración del producto",
         "demo.label": "Vozella en una reunión de ejemplo. Graba con transcripción en vivo, pule la transcripción después de detener la grabación y luego muestra un resumen y elementos de acción.",
         "demo.caption": "Reunión de ejemplo, recreada a partir de la aplicación.",
