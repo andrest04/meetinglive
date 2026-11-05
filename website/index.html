@@ -71,7 +71,7 @@
   .i18n-pending body { visibility: hidden; }
 
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 84px; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/24px var(--sans); -webkit-font-smoothing: antialiased; }
   h1, h2, h3, p, ul, ol, figure, dl, dd { margin: 0; padding: 0; }
   ul, ol { list-style: none; }
@@ -86,7 +86,39 @@
   .on-ink :focus-visible { outline-color: var(--on-ink); }
 
   /* Header */
-  .top { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  /* The shell keeps its height in the page, so turning into a pill never moves the content. */
+  .top-sentinel { position: absolute; top: 24px; width: 1px; height: 1px; pointer-events: none; }
+  .top-shell { position: sticky; top: 0; z-index: 50; height: 72px; pointer-events: none; }
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 72px; max-width: 100%; margin: 0 auto; padding-inline: 0;
+    pointer-events: auto;
+    border: 1px solid transparent; border-radius: 999px;
+    transition: max-width .42s cubic-bezier(.22, .8, .24, 1), height .42s cubic-bezier(.22, .8, .24, 1), margin-top .42s cubic-bezier(.22, .8, .24, 1), padding .42s cubic-bezier(.22, .8, .24, 1), background-color .28s ease, border-color .28s ease, box-shadow .28s ease;
+  }
+  .top.is-pill {
+    max-width: 780px; height: 54px; margin-top: 10px; padding-inline: 20px 10px;
+    /* Matte glass: enough paper to keep the labels readable, blurred hard so nothing sharp shows through. */
+    background-color: color-mix(in srgb, var(--paper) 76%, transparent);
+    -webkit-backdrop-filter: blur(22px) saturate(130%);
+    backdrop-filter: blur(22px) saturate(130%);
+    border-color: color-mix(in srgb, var(--ink) 12%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent), 0 12px 32px rgb(0 0 0 / .18);
+  }
+  .top.is-pill nav a:not(.btn), .top.is-pill .repo { color: var(--ink); }
+  .top.is-pill nav a:not(.btn) { opacity: .78; }
+  .top.is-pill nav a:not(.btn):hover { opacity: 1; }
+  .top.is-pill .lang button { min-height: 34px; }
+  .top.is-pill .lang button:not([aria-pressed="true"]) { color: color-mix(in srgb, var(--ink) 72%, transparent); }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .top.is-pill { background-color: var(--paper-raised); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .top.is-pill { background-color: var(--paper-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+  @media (forced-colors: active) {
+    .top.is-pill { background-color: Canvas; border-color: CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
   .brand { display: inline-flex; align-items: center; gap: 8px; font: 600 20px/1 var(--sans); letter-spacing: -.01em; text-decoration: none; }
   .brand svg { width: 24px; height: 24px; }
   .top nav { display: flex; align-items: center; gap: 24px; font: 500 14px/20px var(--sans); }
@@ -228,6 +260,9 @@
     html:lang(es) { --seq-col: 116px; }
     .top nav a:not(.btn) { display: none; }
     .top-end { gap: 12px; }
+    .top.is-pill { padding-inline: 14px 6px; }
+    .top.is-pill .top-end { gap: 6px; }
+    .top.is-pill .lang button { min-width: 32px; }
     .app-body { grid-template-columns: minmax(0, 1fr); }
     .app-nav { display: flex; overflow: hidden; padding: 8px; }
     .app-nav li { padding: 4px 10px; font-size: 13px; }
@@ -240,6 +275,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
+    .top { transition: none; }
     * { transition: none !important; }
   }
 </style>
@@ -256,8 +292,9 @@
   </symbol>
 </svg>
 
-<div class="wrap">
-  <header class="top">
+<div class="top-sentinel" id="top-sentinel" aria-hidden="true"></div>
+<div class="wrap top-shell">
+  <header class="top" id="top-bar">
     <a class="brand" href="#top" aria-label="Vozella home" data-i18n-attr="aria-label:nav.home"><svg aria-hidden="true"><use href="#mark"/></svg>Vozella</a>
     <div class="top-end">
       <nav aria-label="Main" data-i18n-attr="aria-label:nav.label">
@@ -777,6 +814,15 @@ the monthly change until after the launch.
     }, 50);
 
     draw();
+  })();
+</script>
+<script>
+  // The header turns into a pill once the page has moved. Without this script it stays a plain bar.
+  (function () {
+    var bar = document.getElementById("top-bar");
+    new IntersectionObserver(function (entries) {
+      bar.classList.toggle("is-pill", !entries[0].isIntersecting);
+    }).observe(document.getElementById("top-sentinel"));
   })();
 </script>
 <script>
