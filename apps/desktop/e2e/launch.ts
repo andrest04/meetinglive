@@ -11,6 +11,14 @@ export interface LaunchedApp {
 
 const desktopDir = path.resolve(__dirname, '..');
 
+/** VOZELLA_E2E_BACKGROUND=1 keeps every window off-screen, so a run does not disturb the desktop. */
+function builtAppArgs(): string[] {
+  const main = path.join(desktopDir, 'out', 'main', 'index.js');
+  return process.env.VOZELLA_E2E_BACKGROUND === '1'
+    ? ['-r', path.join(desktopDir, 'e2e', 'background-windows.cjs'), main]
+    : [main];
+}
+
 /**
  * Launches the built app (out/main/index.js, run `pnpm build` first), or the packaged e2e
  * variant when VOZELLA_E2E_EXECUTABLE is set, with fake native
@@ -26,9 +34,7 @@ export async function launchApp(
   // VOZELLA_E2E_EXECUTABLE points at a packaged e2e-variant build (pnpm package:e2e).
   const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   const app = await electron.launch({
-    ...(executablePath
-      ? { executablePath, args: [] }
-      : { args: [path.join(desktopDir, 'out', 'main', 'index.js')] }),
+    ...(executablePath ? { executablePath, args: [] } : { args: builtAppArgs() }),
     cwd: desktopDir,
     env: {
       ...process.env,
@@ -58,9 +64,7 @@ export async function launchAppInRoot(
 ): Promise<ElectronApplication> {
   const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   return electron.launch({
-    ...(executablePath
-      ? { executablePath, args: [] }
-      : { args: [path.join(desktopDir, 'out', 'main', 'index.js')] }),
+    ...(executablePath ? { executablePath, args: [] } : { args: builtAppArgs() }),
     cwd: desktopDir,
     env: {
       ...process.env,

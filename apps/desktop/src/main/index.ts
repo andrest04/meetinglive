@@ -21,7 +21,6 @@ import {
   MeetingBusyRegistry,
   PatchQueue,
   resolveTemplateInstructions,
-  SummaryService,
   SummaryTabService,
   Workspace,
   type HardwareProbe,
@@ -98,6 +97,7 @@ import { registerAudioHandlers } from './ipc/audio-handlers';
 import { registerTranscriptionHandlers } from './ipc/transcription-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerSummariesHandlers } from './ipc/summaries-handlers';
+import { ObservedSummaryService } from './summaries/observed-summary-service';
 import { SummariesController } from './summaries/summaries-controller';
 import { ChatController, chatProviderSource } from './chat/chat-controller';
 import { registerChatHandlers } from './ipc/chat-handlers';
@@ -400,6 +400,8 @@ function main(): void {
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
     version: appVersion,
+    // The fake-native build never touches the real Recycle Bin.
+    ...(fakeNative ? {} : { discard: (path: string) => shell.trashItem(path) }),
     onChanged: (reason) => {
       broadcast(libraryChanged, { reason });
     },
@@ -725,21 +727,26 @@ function main(): void {
           : { processJob: loadProcessJob() }),
       });
       const summaryPatchQueue = new PatchQueue();
-      const summaryService = new SummaryService({
-        queue: summaryPatchQueue,
-        meetings: library.meetings,
-        settings: library.settings,
-        resolver: summaryRuntime.resolver,
-        clock: new SystemClock(),
-        notifyMeetingChanged: (id) => {
-          workspace.notifyMeetingChanged(id);
+      const summaryService = new ObservedSummaryService(
+        {
+          queue: summaryPatchQueue,
+          meetings: library.meetings,
+          settings: library.settings,
+          resolver: summaryRuntime.resolver,
+          clock: new SystemClock(),
+          notifyMeetingChanged: (id) => {
+            workspace.notifyMeetingChanged(id);
+          },
+          busy,
+          placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
+            const format = catalog.MeetingTitleFormat;
+            return format === undefined ? [] : [format];
+          }),
         },
-        busy,
-        placeholderFormats: [mainCatalogs.en, mainCatalogs.es].flatMap((catalog) => {
-          const format = catalog.MeetingTitleFormat;
-          return format === undefined ? [] : [format];
-        }),
-      });
+        () => {
+          broadcast(libraryChanged, { reason: 'meeting' });
+        },
+      );
       // A meeting being summarized cannot be re-transcribed, deleted or moved from under the run.
       busy.register({ isBusy: (id) => summaryService.isGenerating(id) });
       const summaries = new SummariesController({

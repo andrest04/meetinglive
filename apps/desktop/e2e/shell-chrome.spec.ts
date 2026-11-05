@@ -175,7 +175,7 @@ test('selecting navigates and publishes the tag; the same page is a no-op; Sessi
   expect(await page.evaluate(() => window.history.length)).toBe(before);
   await expect(page).toHaveURL(/#\/library$/);
 
-  await page.getByText('Weekly planning').first().click();
+  await page.getByText('Weekly planning').first().dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Weekly planning' })).toBeVisible();
   await expect(page.locator('#NavItemHistory')).toHaveAttribute('aria-current', 'page');
@@ -185,7 +185,7 @@ test('selecting navigates and publishes the tag; the same page is a no-op; Sessi
   // Re-clicking Library on a session returns to the list.
   await page.locator('#NavItemHistory').click();
   await expect(page).toHaveURL(/#\/library$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'All' })).toBeVisible();
 });
 
 test('a navigation request from elsewhere moves the rail and the page together (item 28)', async () => {

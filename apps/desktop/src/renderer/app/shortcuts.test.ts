@@ -4,6 +4,7 @@ import {
   chordLabel,
   composerIntent,
   isCtrlEnter,
+  matchLibraryShortcut,
   matchRecordShortcut,
   type KeyLike,
 } from './shortcuts';
@@ -26,7 +27,18 @@ describe('shortcut table (items 138, 139, _gaps section 3)', () => {
       ['discard', 'record', 'Ctrl+Shift+D'],
       ['liveAsk', 'liveAsk', 'Ctrl+Enter'],
       ['chatSend', 'chatComposer', 'Ctrl+Enter'],
+      ['librarySearch', 'library', 'Ctrl+F'],
+      ['librarySelectAll', 'libraryGrid', 'Ctrl+A'],
     ]);
+  });
+
+  it('maps the library chords and nothing else', () => {
+    expect(matchLibraryShortcut(key({ key: 'f', ctrlKey: true }))).toBe('librarySearch');
+    expect(matchLibraryShortcut(key({ key: 'F', ctrlKey: true }))).toBe('librarySearch');
+    expect(matchLibraryShortcut(key({ key: 'a', ctrlKey: true }))).toBe('librarySelectAll');
+    expect(matchLibraryShortcut(key({ key: 'a' }))).toBeNull();
+    expect(matchLibraryShortcut(key({ key: 'a', ctrlKey: true, shiftKey: true }))).toBeNull();
+    expect(matchLibraryShortcut(key({ key: 'r', ctrlKey: true }))).toBeNull();
   });
 
   it('maps the record chords and nothing else', () => {

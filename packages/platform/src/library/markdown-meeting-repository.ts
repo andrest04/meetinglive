@@ -2,25 +2,32 @@ import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import nodePath from 'node:path';
 import {
+  foldSearchText,
   LibraryFileCorruptError,
   MeetingFormatError,
+  MeetingTrashError,
   fileStem,
   folderChain,
-  meetingSnippet,
+  meetingListItem,
+  meetingSearchText,
   parseMeetingMarkdown,
   renderMeetingMarkdown,
   sanitizeName,
   siblingWavPath,
   type FolderRecord,
   type Logger,
+  type MeetingBody,
+  type MeetingDeleteMode,
   type MeetingList,
   type MeetingListItem,
   type MeetingRecord,
   type MeetingRepository,
+  type MeetingSearchText,
   type SkippedMeetingFile,
 } from '@vozella/core';
 import { writeFileAtomic } from '../fs/atomic-write';
 import { KeyedMutex, lockKeyFor } from '../fs/keyed-mutex';
+import { FoldedTextCache } from './folded-text-cache';
 import {
   directoryFor,
   errorCode,
@@ -41,6 +48,10 @@ export interface MarkdownMeetingRepositoryOptions {
   /** Test hooks for failures that cannot be provoked with real files. */
   readonly rename?: (from: string, to: string) => Promise<void>;
   readonly unlink?: (path: string) => Promise<void>;
+  /** Where a deleted meeting's files go, such as the Recycle Bin. Without it they are unlinked. */
+  readonly discard?: (path: string) => Promise<void>;
+  /** How much folded text search may keep in memory. */
+  readonly foldedTextBytes?: number;
 }
 
 interface IndexEntry {
@@ -53,7 +64,10 @@ interface IndexEntry {
 }
 
 const READ_CONCURRENCY = 16;
+const FOLDED_TEXT_BYTES = 64 * 1024 * 1024;
 const probe = { fileExists: (path: string): boolean => existsSync(path) };
+/** Search never looks at the recording, so its re-reads skip the blocking checks for it. */
+const noAudioProbe = { fileExists: (): boolean => false };
 
 /**
  * Meetings as Markdown files under the Library root (spec 3.6).
@@ -62,14 +76,20 @@ const probe = { fileExists: (path: string): boolean => existsSync(path) };
  * frontmatter. A small in-memory index (id, title, date, snippet per file, keyed by modified
  * time and size) means a Save, Delete or lookup costs one stat per file instead of a parse of
  * every file (B19), and a Library list never re-reads a transcript it has already seen (B28).
+ * Indexing already parses each file, so it also keeps the folded text search reads.
  */
 export class MarkdownMeetingRepository implements MeetingRepository {
   private readonly cache = new Map<string, IndexEntry>();
+  private readonly folded: FoldedTextCache;
   private readonly locks: KeyedMutex;
   private readonly rename: (from: string, to: string) => Promise<void>;
   private readonly unlink: (path: string) => Promise<void>;
+  /** Open `batch` calls. While any is open, the first scan stands in for the later ones. */
+  private batches = 0;
+  private batchScanned = false;
 
   constructor(private readonly options: MarkdownMeetingRepositoryOptions) {
+    this.folded = new FoldedTextCache(options.foldedTextBytes ?? FOLDED_TEXT_BYTES);
     this.locks = options.locks ?? new KeyedMutex();
     this.rename = options.rename ?? ((from, to) => fs.rename(from, to));
     this.unlink = options.unlink ?? ((path) => fs.unlink(path));
@@ -87,16 +107,53 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     for (const entry of entries) {
       if (entry.skipReason !== null) skipped.push({ path: entry.path, reason: entry.skipReason });
     }
+    const items = this.winners(entries)
+      .map((e) => e.item)
+      .filter((i): i is MeetingListItem => i !== null);
+    return { items, skipped };
+  }
+
+  async *bodies(filter: (item: MeetingListItem) => boolean): AsyncGenerator<MeetingBody> {
+    this.folded.beginPass();
+    const wanted = this.winners(await this.scan()).filter((e) => e.item !== null && filter(e.item));
+    for (let start = 0; start < wanted.length; start += READ_CONCURRENCY) {
+      const chunk = wanted.slice(start, start + READ_CONCURRENCY);
+      for (const body of await Promise.all(chunk.map((entry) => this.bodyOf(entry)))) {
+        if (body) yield body;
+      }
+    }
+  }
+
+  private async bodyOf(entry: IndexEntry): Promise<MeetingBody | undefined> {
+    if (entry.item === null) return undefined;
+    const original = (): Promise<MeetingSearchText | null> => this.searchTextAt(entry.path);
+    const cached = this.folded.get(entry.path, entry.mtimeMs, entry.size);
+    if (cached) return { item: entry.item, folded: cached, original };
+    const text = await original();
+    if (text === null) return undefined;
+    const folded = foldSearchText(text);
+    this.folded.set(entry.path, entry.mtimeMs, entry.size, folded);
+    return { item: entry.item, folded, original };
+  }
+
+  private async searchTextAt(path: string): Promise<MeetingSearchText | null> {
+    try {
+      const text = await fs.readFile(path, 'utf8');
+      return meetingSearchText(parseMeetingMarkdown(path, text, noAudioProbe));
+    } catch (error) {
+      if (error instanceof MeetingFormatError || this.isSkippable(error)) return null;
+      throw error;
+    }
+  }
+
+  private winners(entries: readonly IndexEntry[]): IndexEntry[] {
     const winners = new Map<string, IndexEntry>();
     for (const entry of entries) {
       if (entry.item === null) continue;
       const kept = winners.get(entry.item.id);
       if (kept === undefined || this.prefer(entry, kept)) winners.set(entry.item.id, entry);
     }
-    const items = [...winners.values()]
-      .map((e) => e.item)
-      .filter((i): i is MeetingListItem => i !== null);
-    return { items, skipped };
+    return [...winners.values()];
   }
 
   async get(id: string): Promise<MeetingRecord | null> {
@@ -119,8 +176,18 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return this.locks.run(this.lockKey(), () => this.saveLocked(record));
   }
 
-  delete(id: string): Promise<void> {
-    return this.locks.run(this.lockKey(), () => this.deleteLocked(id));
+  delete(id: string, mode: MeetingDeleteMode = 'trash'): Promise<void> {
+    return this.locks.run(this.lockKey(), () => this.deleteLocked(id, mode));
+  }
+
+  async batch<T>(run: () => Promise<T>): Promise<T> {
+    this.batches += 1;
+    try {
+      return await run();
+    } finally {
+      this.batches -= 1;
+      if (this.batches === 0) this.batchScanned = false;
+    }
   }
 
   private async saveLocked(record: MeetingRecord): Promise<MeetingRecord> {
@@ -142,6 +209,10 @@ export class MarkdownMeetingRepository implements MeetingRepository {
 
     await writeFileAtomic(markdownPath, renderMeetingMarkdown(saved));
     this.cache.delete(markdownPath);
+    if (this.batchScanned) {
+      const entry = await this.indexFile(markdownPath);
+      if (entry) this.cache.set(markdownPath, entry);
+    }
 
     if (existing && !samePath(existing.path, markdownPath) && (await exists(existing.path))) {
       await this.unlink(existing.path);
@@ -150,7 +221,21 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     return saved;
   }
 
-  private async deleteLocked(id: string): Promise<void> {
+  /** How a delete removes one file. Only a delete uses this; a move's old file is just unlinked. */
+  private removerFor(mode: MeetingDeleteMode): (path: string) => Promise<void> {
+    const discard = this.options.discard;
+    if (mode === 'permanent' || discard === undefined) return this.unlink;
+    return async (path) => {
+      try {
+        await discard(path);
+      } catch (error) {
+        throw new MeetingTrashError(error instanceof Error ? error.message : String(error));
+      }
+    };
+  }
+
+  private async deleteLocked(id: string, mode: MeetingDeleteMode): Promise<void> {
+    const remove = this.removerFor(mode);
     const entry = await this.pick(id);
     if (!entry || !(await exists(entry.path))) return;
 
@@ -164,12 +249,12 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     // the meeting stays listed and the delete can be retried.
     // B25: a stored path outside the Library is never deleted, only logged.
     if (storedAudio.trim() !== '' && (await exists(storedAudio))) {
-      if (isUnder(storedAudio, this.root)) await this.unlink(storedAudio);
+      if (isUnder(storedAudio, this.root)) await remove(storedAudio);
       else this.options.logger?.warn('left a recording outside the library in place', { id });
     }
     const sibling = siblingWavPath(entry.path);
-    if (await exists(sibling)) await this.unlink(sibling);
-    await this.unlink(entry.path);
+    if (await exists(sibling)) await remove(sibling);
+    await remove(entry.path);
     this.cache.delete(entry.path);
   }
 
@@ -274,6 +359,7 @@ export class MarkdownMeetingRepository implements MeetingRepository {
 
   /** Stats every markdown file and re-reads only those that changed since the last scan. */
   private async scan(): Promise<IndexEntry[]> {
+    if (this.batchScanned) return [...this.cache.values()];
     const files = await listMarkdownFiles(this.root);
     const fresh = new Map<string, IndexEntry>();
     let next = 0;
@@ -288,6 +374,7 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY, files.length) }, worker));
     this.cache.clear();
     for (const [path, entry] of fresh) this.cache.set(path, entry);
+    if (this.batches > 0) this.batchScanned = true;
     return [...fresh.values()];
   }
 
@@ -306,19 +393,14 @@ export class MarkdownMeetingRepository implements MeetingRepository {
     try {
       const record = await this.parseFile(path);
       if (legacy && (await this.isUserFolderDirectory(path, record))) legacy = false;
+      this.folded.set(path, stat.mtimeMs, stat.size, foldSearchText(meetingSearchText(record)));
       return {
         path,
         mtimeMs: stat.mtimeMs,
         size: stat.size,
         legacy,
         skipReason: null,
-        item: {
-          id: record.id,
-          title: record.title,
-          recordedAt: record.recordedAt,
-          folderId: record.folderId,
-          snippet: meetingSnippet(record.summary, record.transcript),
-        },
+        item: meetingListItem(record),
       };
     } catch (error) {
       if (error instanceof MeetingFormatError) {

@@ -1,6 +1,10 @@
 import type { FolderRecord } from './folder';
 import type { MeetingListItem, MeetingRecord, SkippedMeetingFile } from './meeting';
+import type { MeetingBody } from './meeting-search';
 import type { AppSettings } from './settings';
+
+/** `trash` keeps the files recoverable where the adapter can; `permanent` never does. */
+export type MeetingDeleteMode = 'trash' | 'permanent';
 
 export interface MeetingList {
   readonly items: readonly MeetingListItem[];
@@ -13,10 +17,23 @@ export interface MeetingRepository {
   /** Light list for the Library: no transcript or summary text. */
   list(): Promise<MeetingList>;
   get(id: string): Promise<MeetingRecord | null>;
+  /**
+   * The meetings the filter keeps, with their text folded for search. Stopping the iteration stops
+   * the reading, so a superseded search costs no more than it already did.
+   */
+  bodies(filter: (item: MeetingListItem) => boolean): AsyncIterable<MeetingBody>;
   /** Writes the record, moving its files as needed. Returns the record as stored. */
   save(record: MeetingRecord): Promise<MeetingRecord>;
-  /** No-op for an unknown id. A locked file throws and leaves the meeting listed. */
-  delete(id: string): Promise<void>;
+  /**
+   * No-op for an unknown id. A locked file throws and leaves the meeting listed. A Recycle Bin that
+   * refuses throws `MeetingTrashError`. The mode defaults to `trash`.
+   */
+  delete(id: string, mode?: MeetingDeleteMode): Promise<void>;
+  /**
+   * Runs many calls against one look at the store, so a bulk action does not pay for a full scan
+   * per meeting. Changes the calls make are seen; changes from outside wait for the next look.
+   */
+  batch<T>(run: () => Promise<T>): Promise<T>;
 }
 
 /** Port: the folder tree. Adapter: JsonFolderRepository (platform). */

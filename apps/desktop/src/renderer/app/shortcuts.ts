@@ -8,8 +8,9 @@
  * Dropped: the live answer button (Ctrl+Enter) belonged to armed questions, which depend on the
  * cut automatic live-question detection (owner decision 2026-11-03, may return later).
  */
-export type ShortcutId = 'stop' | 'pause' | 'discard' | 'liveAsk' | 'chatSend';
-export type ShortcutScope = 'record' | 'liveAsk' | 'chatComposer';
+export type ShortcutId =
+  'stop' | 'pause' | 'discard' | 'liveAsk' | 'chatSend' | 'librarySearch' | 'librarySelectAll';
+export type ShortcutScope = 'record' | 'liveAsk' | 'chatComposer' | 'library' | 'libraryGrid';
 
 export interface ShortcutDef {
   readonly scope: ShortcutScope;
@@ -32,6 +33,15 @@ export const SHORTCUTS: Readonly<Record<ShortcutId, ShortcutDef>> = {
     shift: false,
     key: 'enter',
     keys: ['Ctrl', 'Enter'],
+  },
+  librarySearch: { scope: 'library', ctrl: true, shift: false, key: 'f', keys: ['Ctrl', 'F'] },
+  // Only on the grid: in a text field Ctrl+A keeps selecting the text.
+  librarySelectAll: {
+    scope: 'libraryGrid',
+    ctrl: true,
+    shift: false,
+    key: 'a',
+    keys: ['Ctrl', 'A'],
   },
 };
 
@@ -63,6 +73,14 @@ const RECORD_IDS: readonly RecordShortcut[] = ['stop', 'pause', 'discard'];
 /** Ctrl+R stops or starts, Ctrl+P pauses or resumes, Ctrl+Shift+D discards (spec 2.6). */
 export function matchRecordShortcut(event: KeyLike): RecordShortcut | null {
   return RECORD_IDS.find((id) => matches(id, event)) ?? null;
+}
+
+export type LibraryShortcut = Extract<ShortcutId, 'librarySearch' | 'librarySelectAll'>;
+const LIBRARY_IDS: readonly LibraryShortcut[] = ['librarySearch', 'librarySelectAll'];
+
+/** Ctrl+F goes to the search, Ctrl+A checks every row of the list. */
+export function matchLibraryShortcut(event: KeyLike): LibraryShortcut | null {
+  return LIBRARY_IDS.find((id) => matches(id, event)) ?? null;
 }
 
 /** True for Ctrl+Enter, the chord of the live ask box and of the chat composer. */

@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { CloseDialogs } from '../record/CloseDialogs';
 import { connectLiveAsk } from '../record/use-live-ask';
+import { connectLibrary } from '../library/library-store';
+import { LibraryFolders, type SidebarLocation } from '../library/LibraryFolders';
 import { ChatBar } from '../chat/ChatBar';
 import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
@@ -40,9 +42,13 @@ export function AppShell() {
   useWorkspaceNavigation();
   // The live answer and the close dialogs belong to the window, not to one page.
   useEffect(() => connectLiveAsk(), []);
+  // The sidebar shows the folders on every route, so the library store belongs to the window too.
+  useEffect(() => connectLibrary(), []);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  // The library has a folder pane beside its list, so it gets a wider column than the documents.
-  const wide = pathname === '/library' || pathname === '/record';
+  // Record gets a wider column than the documents; the Library fills the area with its own panes,
+  // each scrolling on its own. The elements stay the same, so the page does not remount.
+  const paned = pathname === '/library';
+  const wide = pathname === '/record';
   return (
     <div className="h-screen bg-paper text-ink">
       <button
@@ -64,12 +70,21 @@ export function AppShell() {
           <main
             id="content"
             tabIndex={-1}
-            className="min-h-0 flex-1 overflow-y-auto pb-8 outline-none"
+            className={cn(
+              'min-h-0 flex-1 outline-none',
+              paned ? 'flex flex-col overflow-hidden' : 'overflow-y-auto pb-8',
+            )}
           >
             <div
-              className={cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')}
+              className={
+                paned
+                  ? 'flex min-h-0 flex-1 flex-col'
+                  : cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')
+              }
             >
-              <CallPromptBar />
+              <div className={paned ? 'shrink-0 px-4' : undefined}>
+                <CallPromptBar />
+              </div>
               <Outlet />
             </div>
           </main>
@@ -82,8 +97,14 @@ export function AppShell() {
   );
 }
 
+function sidebarLocation(pathname: string): SidebarLocation {
+  if (pathname === '/library') return 'library';
+  return pathname === '/session' ? 'session' : 'elsewhere';
+}
+
 function Sidebar() {
   const t = useT();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
     <aside className="flex h-full flex-col bg-paper-raised">
       <div className="app-drag flex h-10 shrink-0 items-center gap-2 px-4">
@@ -92,7 +113,7 @@ function Sidebar() {
           {t('AppTitleBar.Title')}
         </span>
       </div>
-      <NavRail />
+      <NavRail librarySlot={<LibraryFolders location={sidebarLocation(pathname)} />} />
     </aside>
   );
 }

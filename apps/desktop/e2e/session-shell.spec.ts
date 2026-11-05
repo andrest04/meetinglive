@@ -108,9 +108,9 @@ const openFromWorkspace = async (id: string, tab: 'Transcript' | 'Summary'): Pro
 test('opens from the Library with the title, two tabs and the back link', async () => {
   await goTo('Library');
   await page
-    .getByRole('button', { name: /Weekly sync/ })
+    .getByRole('row', { name: /Weekly sync/ })
     .first()
-    .click();
+    .dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Weekly sync' })).toBeVisible();
   const tabs = page.getByTestId('SelectorSessionTabs');

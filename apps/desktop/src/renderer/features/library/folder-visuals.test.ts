@@ -6,6 +6,7 @@ import {
   ACCENT_KEYS,
   FOLDER_ICONS,
   ICON_KEYS,
+  ALL_NODE_ID,
   INBOX_NODE_ID,
   accentColor,
   folderIcon,
@@ -21,17 +22,18 @@ describe('folder visuals', () => {
     expect(accentColor('teal')).toBe('var(--accent-teal)');
   });
 
-  it('puts the virtual Inbox first, with an empty accent slot, then folders by name', () => {
+  it('puts the virtual All and Inbox first, with an empty accent slot, then folders by name', () => {
     const folders = [
       folderRecord('b', 'Zeta', null, { colorKey: 'red', iconKey: 'star' }),
       folderRecord('a', 'alfa'),
       folderRecord('c', 'Child', 'a'),
     ];
-    const nodes = buildTreeNodes(buildFolderTree(folders, 'en'), 'Inbox');
-    expect(nodes.map((n) => n.label)).toEqual(['Inbox', 'alfa', 'Zeta']);
-    expect(nodes[0]).toMatchObject({ id: INBOX_NODE_ID, accent: null });
-    expect(nodes[2]).toMatchObject({ accent: 'var(--accent-red)' });
-    expect(nodes[1]?.children?.map((n) => n.label)).toEqual(['Child']);
+    const nodes = buildTreeNodes(buildFolderTree(folders, 'en'), 'Inbox', 'All');
+    expect(nodes.map((n) => n.label)).toEqual(['All', 'Inbox', 'alfa', 'Zeta']);
+    expect(nodes[0]).toMatchObject({ id: ALL_NODE_ID, accent: null });
+    expect(nodes[1]).toMatchObject({ id: INBOX_NODE_ID, accent: null });
+    expect(nodes[3]).toMatchObject({ accent: 'var(--accent-red)' });
+    expect(nodes[2]?.children?.map((n) => n.label)).toEqual(['Child']);
   });
 });
 

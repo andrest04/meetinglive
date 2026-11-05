@@ -61,6 +61,26 @@ describe('navigation shell (items 20 to 28)', () => {
     expect(current()).toEqual(['NavItemRecording']);
   });
 
+  it('keeps the DOM order Record, Library, slot, Settings', async () => {
+    const root = createRootRoute({
+      component: () => (
+        <Providers>
+          <NavRail librarySlot={<p>the slot</p>} />
+        </Providers>
+      ),
+    });
+    const router = createRouter({
+      routeTree: root,
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    });
+    await act(async () => {
+      render(<RouterProvider router={router} />);
+      await router.load();
+    });
+    const nav = screen.getByRole('navigation');
+    expect(nav.textContent).toBe('RecordLibrarythe slotSettings');
+  });
+
   it('labels follow the app language, Settings included (item 21)', async () => {
     await mount('/record', 'es');
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([

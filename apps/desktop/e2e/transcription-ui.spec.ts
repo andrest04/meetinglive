@@ -207,9 +207,9 @@ test('Session: re-transcribe a saved meeting after a confirmation', async () => 
   try {
     await go(page, 'Library');
     await page
-      .getByRole('list', { name: 'Library' })
-      .getByRole('button', { name: /Weekly sync/ })
-      .click();
+      .getByRole('grid', { name: 'Library' })
+      .getByRole('row', { name: /Weekly sync/ })
+      .dblclick();
     await expect(page.getByRole('heading', { level: 1, name: 'Weekly sync' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Re-transcribe', exact: true }).click();
@@ -259,9 +259,9 @@ test('Session: a meeting without audio offers no Re-transcribe button', async ()
   try {
     await go(page, 'Library');
     await page
-      .getByRole('list', { name: 'Library' })
-      .getByRole('button', { name: /Imported/ })
-      .click();
+      .getByRole('grid', { name: 'Library' })
+      .getByRole('row', { name: /Imported/ })
+      .dblclick();
     // No saved audio: the header does not offer Re-transcribe at all (item 89).
     await expect(page.getByRole('heading', { level: 1, name: 'Imported' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Re-transcribe', exact: true })).toHaveCount(0);

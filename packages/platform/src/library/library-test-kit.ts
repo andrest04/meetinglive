@@ -21,6 +21,7 @@ export function createLibraryFixture(
   options: {
     rename?: (from: string, to: string) => Promise<void>;
     unlink?: (p: string) => Promise<void>;
+    discard?: (p: string) => Promise<void>;
   } = {},
 ): LibraryFixture {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vozella-lib-'));

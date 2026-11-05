@@ -60,26 +60,44 @@ test('browse, search, open a meeting and its summary', async () => {
   });
   await goTo('Settings');
   await goTo('Library');
+  await page.getByRole('treeitem', { name: /Inbox/ }).click();
 
-  const list = page.getByRole('list', { name: 'Library' });
-  await expect(list.getByRole('listitem')).toHaveCount(2);
+  const list = page.getByRole('grid', { name: 'Library' });
+  const rows = list.locator('[data-row-id]');
+  await expect(rows).toHaveCount(2);
   // Newest first, each with a snippet.
-  await expect(list.getByRole('listitem').first()).toContainText('Planning');
-  await expect(list.getByRole('listitem').first()).toContainText('Hola a todos');
-  await expect(list.getByRole('listitem').nth(1)).toContainText('Ship the release on Friday');
+  await expect(rows.first()).toContainText('Planning');
+  await expect(rows.first()).toContainText('Hola a todos');
+  await expect(rows.nth(1)).toContainText('Ship the release on Friday');
 
   await page.getByRole('searchbox').fill('stand');
-  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(rows).toHaveCount(1);
   await page.getByRole('searchbox').fill('nothing here');
   await expect(page.getByText('No meetings match your search.')).toBeVisible();
+
+  // The second stage finds a word that is only in the transcript, through the real channel.
+  await page.getByRole('searchbox').fill('hola');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('Planning');
+  await expect(rows.first().locator('mark')).toHaveText('Hola');
   await page.getByRole('searchbox').fill('');
 
-  await list.getByRole('button', { name: /Standup/ }).click();
+  // A click previews, and leaves the screen alone.
+  const standup = list.getByRole('row', { name: /Standup/ });
+  await standup.click();
+  await expect(standup).toHaveAttribute('data-cursor', 'true');
+  const preview = page.getByTestId('library-preview');
+  await expect(preview.getByRole('heading', { level: 2, name: 'Standup' })).toBeVisible();
+  await expect(preview.getByText('Ship the release on Friday')).toBeVisible();
+  await expect(page).toHaveURL(/#\/library$/);
+
+  // Double click opens, and so does the preview's button.
+  await standup.dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Standup' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Back' }).click();
-  const row = page.getByRole('listitem').filter({ hasText: 'Planning' });
+  const row = page.getByRole('row').filter({ hasText: 'Planning' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Open summary' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Planning' })).toBeVisible();
@@ -115,7 +133,7 @@ test('folders: create, note, move a meeting into it, rename, restyle, keep a ful
     'aria-selected',
     'true',
   );
-  await page.getByRole('treeitem', { name: /^Universidad$/ }).click();
+  await page.getByRole('treeitem', { name: /^Universidad/ }).click();
   await page.getByRole('button', { name: 'New folder' }).click();
   const dup = page.getByRole('dialog', { name: 'New folder in Universidad' });
   await dup.getByRole('textbox', { name: 'Name' }).fill('calculo');
@@ -132,20 +150,20 @@ test('folders: create, note, move a meeting into it, rename, restyle, keep a ful
     .toContain('"note": "Fall term"');
 
   // Move Planning into Calculo: the files move on disk.
-  const row = page.getByRole('listitem').filter({ hasText: 'Planning' });
+  const row = page.getByRole('row').filter({ hasText: 'Planning' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Move' }).click();
   const move = page.getByRole('dialog', { name: 'Move meeting' });
   await expect(move.getByRole('radio').first()).toBeChecked();
   await move.getByText('Universidad / Calculo').click();
   await move.getByRole('button', { name: 'Move' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Planning' })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: 'Planning' })).toHaveCount(0);
   const moved = path.join(libraryRoot, 'Universidad', 'Calculo', '2026-09-03 Planning.md');
   await expect.poll(() => fs.existsSync(moved)).toBe(true);
   expect(fs.existsSync(path.join(libraryRoot, 'Inbox', '2026-09-03 Planning.md'))).toBe(false);
 
   // Rename from the context menu: the directory follows.
-  await page.getByRole('treeitem', { name: /^Universidad$/ }).click({ button: 'right' });
+  await page.getByRole('treeitem', { name: /^Universidad/ }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Rename' }).click();
   const rename = page.getByRole('dialog', { name: 'Rename folder' });
   await rename.getByRole('textbox', { name: 'Name' }).fill('Estudios');
@@ -212,16 +230,16 @@ test('a meeting is deleted only after confirming, with Cancel focused', async ()
   await goTo('Settings');
   await goTo('Library');
   await page.getByRole('treeitem', { name: /Inbox/ }).click();
-  const row = page.getByRole('listitem').filter({ hasText: 'Retro' });
+  const row = page.getByRole('row').filter({ hasText: 'Retro' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   const confirm = page.getByRole('dialog', { name: 'Delete this meeting?' });
   await expect(
-    confirm.getByText('This permanently deletes "Retro" and its recording.'),
+    confirm.getByText('This moves "Retro" and its recording to the Recycle Bin.'),
   ).toBeVisible();
   await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await confirm.getByRole('button', { name: 'Delete' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Retro' })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: 'Retro' })).toHaveCount(0);
   expect(fs.existsSync(path.join(libraryRoot, 'Inbox', '2026-09-04 Retro.md'))).toBe(false);
 });
 
@@ -248,7 +266,7 @@ test('Settings shows where data lives, follows a picked folder, and refuses Meet
   await page.getByRole('button', { name: 'Choose folder' }).click();
   await expect(page.getByText(picked, { exact: true })).toBeVisible();
   await goTo('Library');
-  await expect(page.getByRole('listitem').filter({ hasText: 'Elsewhere' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Elsewhere' })).toBeVisible();
 
   const forbidden = path.join(launched.dataRoot, 'x', 'MeetingLive');
   fs.mkdirSync(forbidden, { recursive: true });
@@ -262,6 +280,42 @@ test('Settings shows where data lives, follows a picked folder, and refuses Meet
 
   await page.getByRole('button', { name: 'Use the default folder' }).click();
   await expect(page.getByText(libraryRoot, { exact: true })).toBeVisible();
+});
+
+test('the library is panes that scroll on their own, under the title bar and over the chat', async () => {
+  const resize = async (width: number, height: number): Promise<void> => {
+    await launched.app.evaluate(
+      ({ BrowserWindow }, size) => {
+        BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+      },
+      { width, height },
+    );
+  };
+  const before = await launched.app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0]?.getContentSize(),
+  );
+  await goTo('Library');
+  const main = page.locator('#content');
+  await expect.poll(() => main.evaluate((el) => getComputedStyle(el).overflowY)).toBe('hidden');
+
+  await resize(1180, 760);
+  const preview = page.getByTestId('library-preview');
+  await expect(preview).toBeVisible();
+  // clamp(340px, 38%, 440px) of the 948 px beside the 232 px sidebar.
+  const list = page.getByTestId('library-list-pane');
+  await expect.poll(async () => (await list.boundingBox())?.width).toBeCloseTo(360.24, 0);
+  // The chat bar sits under the panes, not over them.
+  const paneBottom = (await list.boundingBox())?.y ?? 0;
+  const mainBox = await main.boundingBox();
+  expect(paneBottom).toBeGreaterThanOrEqual(mainBox?.y ?? Infinity);
+
+  // Below 760 px of content there is no preview. The window minimum leaves 728 px.
+  await resize(960, 700);
+  await expect(preview).toHaveCount(0);
+
+  await goTo('Settings');
+  await expect.poll(() => main.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+  if (before?.[0] && before[1]) await resize(before[0], before[1]);
 });
 
 test('no serious accessibility violations on the library, its dialogs and the data card', async () => {
@@ -293,7 +347,7 @@ test('no serious accessibility violations on the library, its dialogs and the da
     }, theme);
     await page.reload();
     await goTo('Library');
-    await expect(page.getByRole('list', { name: 'Library' })).toBeVisible();
+    await expect(page.getByRole('grid', { name: 'Library' })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await check();
 

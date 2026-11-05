@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderMeetingMarkdown } from '@vozella/core';
+import { MeetingTrashError, renderMeetingMarkdown } from '@vozella/core';
+import { MarkdownMeetingRepository } from './markdown-meeting-repository';
 import {
   FOLDER_1,
   FOLDER_2,
@@ -239,6 +240,84 @@ describe('delete', () => {
     }
   });
 
+  describe('with a Recycle Bin', () => {
+    const withBin = (discard: (p: string) => Promise<void>) => {
+      const unlinked: string[] = [];
+      const f = createLibraryFixture({
+        discard,
+        unlink: (p) => {
+          unlinked.push(path.basename(p));
+          return fs.promises.unlink(p);
+        },
+      });
+      const save = async () => {
+        const first = await f.meetings.save(meeting());
+        const wav = first.sourcePath?.replace(/\.md$/, '.wav') ?? '';
+        fs.writeFileSync(wav, 'RIFF');
+        return f.meetings.save({ ...first, audioFilePath: wav });
+      };
+      return { f, unlinked, save };
+    };
+
+    it('sends the recording and the markdown there, and nothing is unlinked', async () => {
+      const discarded: string[] = [];
+      const { f, unlinked, save } = withBin((p) => {
+        discarded.push(path.basename(p));
+        return fs.promises.unlink(p);
+      });
+      try {
+        await save();
+        unlinked.length = 0;
+        await f.meetings.delete(ID_A);
+        expect(discarded).toEqual(['2026-09-01 Standup.wav', '2026-09-01 Standup.md']);
+        expect(unlinked).toEqual([]);
+        expect(tree(f.root)).toEqual([]);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('a refusal is reported as a trash failure and the meeting stays listed', async () => {
+      const { f, save } = withBin(() => Promise.reject(new Error('no bin on this volume')));
+      try {
+        await save();
+        await expect(f.meetings.delete(ID_A)).rejects.toBeInstanceOf(MeetingTrashError);
+        expect((await f.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('a permanent delete unlinks and never asks the Recycle Bin', async () => {
+      const discard = vi.fn(() => Promise.reject(new Error('no bin on this volume')));
+      const { f, unlinked, save } = withBin(discard);
+      try {
+        await save();
+        unlinked.length = 0;
+        await f.meetings.delete(ID_A, 'permanent');
+        expect(discard).not.toHaveBeenCalled();
+        expect(unlinked).toEqual(['2026-09-01 Standup.wav', '2026-09-01 Standup.md']);
+      } finally {
+        f.cleanup();
+      }
+    });
+
+    it('moving a meeting still unlinks its old file: that is not a delete', async () => {
+      const discard = vi.fn(() => Promise.resolve());
+      const { f, unlinked, save } = withBin(discard);
+      try {
+        const saved = await save();
+        await f.folders.save(folder(FOLDER_1, 'Universidad'));
+        unlinked.length = 0;
+        await f.meetings.save({ ...saved, folderId: FOLDER_1 });
+        expect(discard).not.toHaveBeenCalled();
+        expect(unlinked).toEqual(['2026-09-01 Standup.md']);
+      } finally {
+        f.cleanup();
+      }
+    });
+  });
+
   it('does not rewrite sibling meetings', async () => {
     const a = await fx.meetings.save(meeting());
     const b = await fx.meetings.save(meeting({ id: ID_B, title: 'Other' }));
@@ -264,6 +343,140 @@ describe('delete', () => {
   });
 });
 
+describe('bodies', () => {
+  const collect = async (repository = fx.meetings, filter = (): boolean => true) => {
+    const out = [];
+    for await (const body of repository.bodies(filter)) out.push(body);
+    return out;
+  };
+  const reads = (root: string) => {
+    const spy = vi.spyOn(fsp, 'readFile');
+    return {
+      count: () =>
+        spy.mock.calls.filter(([p]) => typeof p === 'string' && p.startsWith(root)).length,
+      restore: () => {
+        spy.mockRestore();
+      },
+    };
+  };
+
+  it('gives folded text for every field, and the original on request', async () => {
+    await fx.meetings.save(
+      meeting({ title: 'Año nuevo', summary: 'RESUMEN', notes: 'Última nota', transcript: 'Dijo' }),
+    );
+    const [body] = await collect();
+    expect(body?.item.id).toBe(ID_A);
+    expect(body?.folded).toEqual({
+      title: 'ano nuevo',
+      summary: 'resumen',
+      notes: 'ultima nota',
+      transcript: 'dijo',
+    });
+    expect(await body?.original()).toMatchObject({ title: 'Año nuevo', notes: 'Última nota' });
+  });
+
+  it('applies the filter', async () => {
+    await fx.meetings.save(meeting());
+    await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+    const bodies = await collect(
+      fx.meetings,
+      ((item: { id: string }) => item.id === ID_B) as never,
+    );
+    expect(bodies.map((b) => b.item.id)).toEqual([ID_B]);
+  });
+
+  it('reuses folded text while the file is unchanged, and refolds after an edit', async () => {
+    await fx.meetings.save(meeting({ notes: 'Primera' }));
+    await collect();
+    const seen = reads(fx.root);
+    try {
+      await collect();
+      expect(seen.count()).toBe(0);
+    } finally {
+      seen.restore();
+    }
+    const saved = await fx.meetings.get(ID_A);
+    if (!saved) throw new Error('missing');
+    await fx.meetings.save({ ...saved, notes: 'Cambiada y más larga' });
+    const [body] = await collect();
+    expect(body?.folded.notes).toBe('cambiada y mas larga');
+  });
+
+  it('skips a file that disappears, and original() is null for one that goes later', async () => {
+    const saved = await fx.meetings.save(meeting());
+    const [body] = await collect();
+    fs.unlinkSync(saved.sourcePath ?? '');
+    expect(await body?.original()).toBeNull();
+    expect(await collect()).toEqual([]);
+  });
+
+  it('holds no more than its cap and still gives the text it could not keep', async () => {
+    const tiny = new MarkdownMeetingRepository({
+      root: fx.root,
+      folders: fx.folders,
+      foldedTextBytes: 8,
+    });
+    await tiny.save(meeting({ notes: 'Una nota bastante larga' }));
+    const [first] = await collect(tiny);
+    expect(first?.folded.notes).toBe('una nota bastante larga');
+    const seen = reads(fx.root);
+    try {
+      await collect(tiny);
+      expect(seen.count()).toBe(1);
+    } finally {
+      seen.restore();
+    }
+  });
+});
+
+describe('batch', () => {
+  const outsideFile = () =>
+    renderMeetingMarkdown(meeting({ id: ID_B, title: 'Written by another program' }));
+
+  it('scans once: a file that appears during the batch waits for the next scan', async () => {
+    await fx.meetings.save(meeting());
+    const inbox = path.join(fx.root, 'Inbox');
+    await fx.meetings.batch(async () => {
+      expect((await fx.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+      fs.writeFileSync(path.join(inbox, 'outside.md'), outsideFile());
+      expect((await fx.meetings.list()).items.map((i) => i.id)).toEqual([ID_A]);
+    });
+    expect((await fx.meetings.list()).items.map((i) => i.id).sort()).toEqual([ID_A, ID_B]);
+  });
+
+  it('sees its own saves, moves and deletes', async () => {
+    await fx.folders.save(folder(FOLDER_1, 'Universidad'));
+    const saved = await fx.meetings.save(meeting());
+    await fx.meetings.batch(async () => {
+      await fx.meetings.list();
+      await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+      await fx.meetings.save({ ...saved, folderId: FOLDER_1 });
+      expect((await fx.meetings.get(ID_A))?.folderId).toBe(FOLDER_1);
+      expect(await fx.meetings.get(ID_B)).toMatchObject({ title: 'Second' });
+      expect((await fx.meetings.list()).items).toHaveLength(2);
+      await fx.meetings.delete(ID_B);
+      expect(await fx.meetings.get(ID_B)).toBeNull();
+    });
+    expect((await fx.meetings.list()).items.map((i) => i.folderId)).toEqual([FOLDER_1]);
+    expect(tree(fx.root)).toContain('Universidad/2026-09-01 Standup.md');
+    expect(tree(fx.root)).not.toContain('Inbox/2026-09-01 Standup.md');
+  });
+
+  it('goes back to scanning when the batch fails, and nested batches end with the outer one', async () => {
+    await fx.meetings.save(meeting());
+    const inbox = path.join(fx.root, 'Inbox');
+    await expect(
+      fx.meetings.batch(async () => {
+        await fx.meetings.batch(() => fx.meetings.list());
+        fs.writeFileSync(path.join(inbox, 'outside.md'), outsideFile());
+        expect((await fx.meetings.list()).items).toHaveLength(1);
+        throw new Error('stop');
+      }),
+    ).rejects.toThrow('stop');
+    expect((await fx.meetings.list()).items).toHaveLength(2);
+  });
+});
+
 describe('list', () => {
   it('walks every depth and returns the light items', async () => {
     await fx.folders.save(folder(FOLDER_1, 'Universidad'));
@@ -273,6 +486,30 @@ describe('list', () => {
     expect(items.map((i) => i.id).sort()).toEqual([ID_A, ID_B]);
     expect(items.find((i) => i.id === ID_A)).toMatchObject({ folderId: FOLDER_1, snippet: 'Body' });
     expect(skipped).toEqual([]);
+  });
+
+  it('carries the end time and what the meeting holds', async () => {
+    await fx.meetings.save(
+      meeting({
+        endedAt: '2026-09-01T12:30:00.0000000+00:00',
+        summary: 'Body',
+        transcript: 'Spoken',
+      }),
+    );
+    await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+    const { items } = await fx.meetings.list();
+    expect(items.find((i) => i.id === ID_A)).toMatchObject({
+      endedAt: '2026-09-01T12:30:00.0000000+00:00',
+      hasSummary: true,
+      hasTranscript: true,
+      busy: false,
+    });
+    expect(items.find((i) => i.id === ID_B)).toMatchObject({
+      endedAt: null,
+      hasSummary: false,
+      hasTranscript: false,
+      busy: false,
+    });
   });
 
   it('computes the snippet once per file version and reuses it while mtime and size match (item 142)', async () => {

@@ -1,34 +1,46 @@
 import { resolveAccentKey, resolveIconKey } from '@vozella/core';
 import type { MeetingListItemDto } from '@vozella/contracts';
-import { FolderPlus, Ellipsis, PanelLeft, Palette, Pencil, Search, Trash } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
-import {
-  Button,
-  EmptyState,
-  IconButton,
-  Input,
-  Notice,
-  SectionHeader,
-  Skeleton,
-  Textarea,
-  Tree,
-  Icon,
-  Menu,
-  Field,
-  cn,
-  type MenuEntry,
-} from '../../ui';
+import { Button, EmptyState, Notice, Skeleton, cn } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
+import { BulkBar } from './BulkBar';
+import { matchLibraryShortcut } from '../../app/shortcuts';
+import { RenameDialog } from '../session/RenameDialog';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
-import { INBOX_NODE_ID, buildTreeNodes } from './folder-visuals';
-import { MeetingList } from './MeetingList';
+import {
+  clearDropRequest,
+  clearFolderRequest,
+  refreshLibrary,
+  rememberScroll,
+  setCursor,
+  setFilters,
+  useLibraryStore,
+  type FolderRequest,
+} from './library-store';
+import { folderIdOfView } from './library-store';
+import { folderMenuEntries } from './LibraryFolders';
+import {
+  EMPTY_CHECKS,
+  checkAll,
+  extendChecks,
+  keepLive,
+  setGroup,
+  toggleCheck,
+  type Checks,
+} from './library-selection';
+import { ListHeader } from './ListHeader';
+import { MeetingGrid, type MeetingGridHandle } from './MeetingGrid';
+import { FilterButton, FilterChips } from './MeetingFilterControls';
+import { NO_FILTERS, filterKey, isFiltering, type MeetingFilters } from './meeting-filters';
+import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
+import { HEADER_ROW_PX, MEETING_ROW_PX, nextCursor } from './logbook';
+import { tabOfHit } from './search-results';
+import { UndoOffer } from './UndoOffer';
+import { useMeetingPreview } from './use-meeting-preview';
 import { useLibrary, type StatusMessage } from './use-library';
-
-/** At or above this width of the page area the folder pane stays open beside the list. */
-const WIDE_LAYOUT_PX = 600;
 
 type DialogState =
   | { readonly kind: 'newFolder' }
@@ -36,16 +48,46 @@ type DialogState =
   | { readonly kind: 'personality'; readonly folderId: string }
   | { readonly kind: 'deleteFolder'; readonly folderId: string; readonly name: string }
   | { readonly kind: 'move'; readonly meeting: MeetingListItemDto }
-  | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto };
+  | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
+  /** `refused`: the Recycle Bin said no. Otherwise it was asked for directly, with Shift+Delete. */
+  | {
+      readonly kind: 'deleteMeetingPermanently';
+      readonly meeting: MeetingListItemDto;
+      readonly refused: boolean;
+    }
+  | { readonly kind: 'moveMany'; readonly meetings: readonly MeetingListItemDto[] }
+  | { readonly kind: 'deleteMany'; readonly meetingIds: readonly string[] }
+  | {
+      readonly kind: 'deleteManyPermanently';
+      readonly meetingIds: readonly string[];
+      readonly refused: boolean;
+    }
+  | { readonly kind: 'renameMeeting'; readonly meeting: MeetingListItemDto };
 
-function useWideLayout(): { ref: React.RefObject<HTMLDivElement | null>; wide: boolean } {
-  const ref = useRef<HTMLDivElement>(null);
+/** One move that can be taken back: where each meeting was, grouped by that place. */
+interface UndoMove {
+  readonly message: string;
+  readonly restore: readonly {
+    readonly folderId: string | null;
+    readonly meetingIds: readonly string[];
+  }[];
+}
+
+type BulkWork = { readonly kind: 'moving' | 'deleting'; readonly count: number } | null;
+
+const FOCUS_RETRY_MS = 250;
+
+/** From this width of the content the preview sits beside the list; below it a click opens. */
+export const PANED_LAYOUT_PX = 760;
+
+function useWideLayout(): { ref: React.RefObject<HTMLElement | null>; wide: boolean } {
+  const ref = useRef<HTMLElement>(null);
   const [wide, setWide] = useState(true);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
     const measure = (): void => {
-      setWide(element.clientWidth >= WIDE_LAYOUT_PX);
+      setWide(element.clientWidth >= PANED_LAYOUT_PX);
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -57,12 +99,11 @@ function useWideLayout(): { ref: React.RefObject<HTMLDivElement | null>; wide: b
   return { ref, wide };
 }
 
-/** The Library page: folder tree, breadcrumbs, search, the meeting list and the folder dialogs. */
+/** The Library route: the list pane with its header, the preview pane and the dialogs. */
 export function LibraryRoute() {
   const { t, locale } = useI18n();
   const library = useLibrary(locale, t('Library_Inbox'));
   const { ref: layoutRef, wide } = useWideLayout();
-  const [paneOpen, setPaneOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [skippedDismissed, setSkippedDismissed] = useState(false);
@@ -74,8 +115,6 @@ export function LibraryRoute() {
   }, []);
 
   const text = (message: StatusMessage): string => t(message.key, ...message.args);
-  const nodes = useMemo(() => buildTreeNodes(library.tree, t('Library_Inbox')), [library.tree, t]);
-  const treeSelected = library.selectedId ?? INBOX_NODE_ID;
   const folderName = (id: string): string => library.folders.find((f) => f.id === id)?.name ?? '';
 
   const crumbs = library.breadcrumbs.map((crumb) => ({
@@ -83,55 +122,32 @@ export function LibraryRoute() {
     label: crumb.folderId === null ? t('Library_Inbox') : folderName(crumb.folderId),
   }));
 
-  const folderEntries = (folderId: string): MenuEntry[] => [
-    {
-      id: 'rename',
-      label: t('LibraryContext_Rename'),
-      icon: Pencil,
-      onSelect: () => {
-        setDialog({ kind: 'rename', folderId, name: folderName(folderId) });
-      },
-    },
-    {
-      id: 'personality',
-      label: t('LibraryContext_Personality'),
-      icon: Palette,
-      onSelect: () => {
-        setDialog({ kind: 'personality', folderId });
-      },
-    },
-    {
-      id: 'delete',
-      label: t('LibraryContext_Delete'),
-      icon: Trash,
-      onSelect: () => {
-        if (library.canDeleteFolder(folderId)) {
-          setDialog({ kind: 'deleteFolder', folderId, name: folderName(folderId) });
-        } else {
-          library.showStatus({ key: 'LibraryDeleteFolder_NotEmpty', args: [] });
-        }
-      },
-    },
-  ];
-
-  const select = (id: string | null): void => {
-    library.selectFolder(id);
-    setPaneOpen(false);
+  const runFolderAction = (request: FolderRequest): void => {
+    if (request.kind === 'new') setDialog({ kind: 'newFolder' });
+    else if (request.kind === 'rename') {
+      setDialog({ kind: 'rename', folderId: request.folderId, name: folderName(request.folderId) });
+    } else if (request.kind === 'personality') {
+      setDialog({ kind: 'personality', folderId: request.folderId });
+    } else if (library.canDeleteFolder(request.folderId)) {
+      setDialog({
+        kind: 'deleteFolder',
+        folderId: request.folderId,
+        name: folderName(request.folderId),
+      });
+    } else {
+      library.showStatus({ key: 'LibraryDeleteFolder_NotEmpty', args: [] });
+    }
   };
 
-  const tree = (
-    <Tree
-      label={t('Ui_LibraryFolders')}
-      nodes={nodes}
-      selectedId={treeSelected}
-      expandedIds={library.expandedIds}
-      onExpandedChange={library.setExpandedIds}
-      onSelect={(id) => {
-        select(id === INBOX_NODE_ID ? null : id);
-      }}
-      nodeMenu={(id) => (id === INBOX_NODE_ID ? undefined : folderEntries(id))}
-    />
-  );
+  // The sidebar cannot open dialogs: it leaves the request here, also from another screen.
+  const folderRequest = useLibraryStore((state) => state.folderRequest);
+  const runRequest = useRef(runFolderAction);
+  runRequest.current = runFolderAction;
+  useEffect(() => {
+    if (!folderRequest) return;
+    clearFolderRequest();
+    runRequest.current(folderRequest);
+  }, [folderRequest]);
 
   const closeDialog = (): void => {
     setDialog(null);
@@ -157,180 +173,565 @@ export function LibraryRoute() {
       ? t('LibraryNewFolder_Title')
       : t('LibraryNewFolder_TitleIn', library.selectedFolder.name);
 
+  const cursorId = useLibraryStore((state) => state.cursorId);
+  const listedIds = useMemo(() => library.meetings.map((m) => m.id), [library.meetings]);
+  const lastListed = useRef<readonly string[]>([]);
+  // The preview needs a row: the newest at first, the neighbor when the row went away.
+  useEffect(() => {
+    const previous = lastListed.current;
+    lastListed.current = listedIds;
+    // `wide` starts true, and a list already loaded gets here before that measure takes effect.
+    const width = layoutRef.current?.clientWidth ?? PANED_LAYOUT_PX;
+    if (!wide || width < PANED_LAYOUT_PX || library.isLoading) return;
+    const next = nextCursor(useLibraryStore.getState().cursorId, previous, listedIds);
+    if (next !== useLibraryStore.getState().cursorId) setCursor(next);
+  }, [listedIds, wide, library.isLoading, cursorId, layoutRef]);
+  // Checks belong to one list: another view or another search starts with none.
+  const [checks, setChecks] = useState<Checks>(EMPTY_CHECKS);
+  const [bulkWork, setBulkWork] = useState<BulkWork>(null);
+  const viewKey = `${library.view.kind}-${String(folderIdOfView(library.view))}`;
+  const filters = useLibraryStore((state) => state.filters);
+  const filtering = isFiltering(filters);
+  const filtersKey = filterKey(filters);
+  useEffect(() => {
+    setChecks(EMPTY_CHECKS);
+  }, [viewKey, library.query, filtersKey]);
+  useEffect(() => {
+    setChecks((current) => keepLive(current, listedIds));
+  }, [listedIds]);
+  const checkedMeetings = useMemo(
+    () => library.meetings.filter((m) => checks.checked.has(m.id)),
+    [library.meetings, checks.checked],
+  );
+
+  const onExtendChecks = useCallback(
+    (fromId: string, toId: string): void => {
+      setChecks((current) => extendChecks(current, listedIds, fromId, toId));
+    },
+    [listedIds],
+  );
+
+  /** A row action from a checked row applies to all the checked ones, and alone otherwise. */
+  const targetsOf = (meeting: MeetingListItemDto): readonly MeetingListItemDto[] =>
+    checks.checked.has(meeting.id) ? checkedMeetings : [meeting];
+
+  const askMove = (targets: readonly MeetingListItemDto[]): void => {
+    const [only] = targets;
+    if (!only) return;
+    if (targets.length === 1) setDialog({ kind: 'move', meeting: only });
+    else setDialog({ kind: 'moveMany', meetings: targets });
+  };
+
+  const askDelete = (targets: readonly MeetingListItemDto[], permanent: boolean): void => {
+    const [only] = targets;
+    if (!only) return;
+    if (targets.length > 1) {
+      const meetingIds = targets.map((m) => m.id);
+      setDialog(
+        permanent
+          ? { kind: 'deleteManyPermanently', meetingIds, refused: false }
+          : { kind: 'deleteMany', meetingIds },
+      );
+      return;
+    }
+    void library.beginDelete(only.id).then((allowed) => {
+      if (!allowed) return;
+      setDialog(
+        permanent
+          ? { kind: 'deleteMeetingPermanently', meeting: only, refused: false }
+          : { kind: 'deleteMeeting', meeting: only },
+      );
+    });
+  };
+
+  // After a keyboard delete the row with the focus is gone: the focus goes on to its neighbor.
+  const gridRef = useRef<MeetingGridHandle>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const fromKeyboard = useRef(false);
+  const wantsListFocus = useRef(false);
+  const [workDone, setWorkDone] = useState(0);
+  const afterWork = (): void => {
+    if (fromKeyboard.current) wantsListFocus.current = true;
+    setWorkDone((count) => count + 1);
+  };
+  useEffect(() => {
+    if (!wantsListFocus.current || dialog !== null) return;
+    if (cursorId === null || !listedIds.includes(cursorId)) return;
+    const take = (): void => {
+      const active = document.activeElement;
+      const lost = !active || active === document.body || active.closest('[role="dialog"]');
+      if (lost) gridRef.current?.focusCursor();
+    };
+    take();
+    // A dialog that is still fading gives the focus back when it ends, to a row that may be gone.
+    const again = setTimeout(take, FOCUS_RETRY_MS);
+    wantsListFocus.current = false;
+    fromKeyboard.current = false;
+    return () => {
+      clearTimeout(again);
+    };
+  }, [cursorId, listedIds, dialog, workDone]);
+
+  // Ctrl+A on a list the second stage is still filling waits for the whole list.
+  const selectAllPending = useRef(false);
+  useEffect(() => {
+    selectAllPending.current = false;
+  }, [viewKey, library.query, filtersKey]);
+  useEffect(() => {
+    if (!selectAllPending.current || library.searching) return;
+    selectAllPending.current = false;
+    setChecks(checkAll(listedIds));
+  }, [library.searching, listedIds]);
+  const onSelectAll = (): void => {
+    if (library.searching) selectAllPending.current = true;
+    else setChecks(checkAll(listedIds));
+  };
+
+  const onRowKey = (
+    action: 'toggle' | 'rename' | 'delete' | 'deletePermanently' | 'clear',
+    id: string,
+  ): void => {
+    const meeting = library.meetings.find((m) => m.id === id);
+    if (action === 'clear') {
+      if (checks.checked.size > 0) setChecks(EMPTY_CHECKS);
+      else library.setQuery('');
+    } else if (!meeting) {
+      return;
+    } else if (action === 'toggle') {
+      setChecks((current) => toggleCheck(current, id));
+    } else if (action === 'rename') {
+      fromKeyboard.current = true;
+      setRenameProblem(null);
+      setDialog({ kind: 'renameMeeting', meeting });
+    } else {
+      fromKeyboard.current = true;
+      askDelete(targetsOf(meeting), action === 'deletePermanently');
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (matchLibraryShortcut(event) !== 'librarySearch') return;
+      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  const [renameProblem, setRenameProblem] = useState<string | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const renameMeeting = async (id: string, title: string): Promise<void> => {
+    setRenameBusy(true);
+    try {
+      const { status } = await window.vozella.invoke('session.rename', { id, title });
+      if (status === 'blocked') {
+        setRenameProblem(t('Ui_SessionRenameBlockedText'));
+        return;
+      }
+      // This channel does not announce a change, so the list asks for itself.
+      await refreshLibrary();
+      setDialog(null);
+      afterWork();
+    } catch (error) {
+      setRenameProblem(
+        t('Ui_SessionRenameFailedText', error instanceof Error ? error.message : ''),
+      );
+    } finally {
+      setRenameBusy(false);
+    }
+  };
+
+  const [undoMove, setUndoMove] = useState<UndoMove | null>(null);
+  const dismissUndo = useCallback(() => {
+    setUndoMove(null);
+  }, []);
+
+  /** Offers the way back from a move that happened. A folder that is gone reads as the Inbox. */
+  const offerUndo = (moved: readonly MeetingListItemDto[], folderId: string | null): void => {
+    const [first] = moved;
+    if (!first) return;
+    const groups = new Map<string | null, string[]>();
+    for (const meeting of moved) {
+      const known = library.folders.some((f) => f.id === meeting.folderId);
+      const from = known ? meeting.folderId : null;
+      groups.set(from, [...(groups.get(from) ?? []), meeting.id]);
+    }
+    const place = library.destinations.find((d) => d.folderId === folderId)?.path ?? '';
+    setUndoMove({
+      message:
+        moved.length === 1
+          ? t('Ui_LibraryMovedOne', first.title, place)
+          : t('Ui_LibraryMovedMany', String(moved.length), place),
+      restore: [...groups].map(([from, meetingIds]) => ({ folderId: from, meetingIds })),
+    });
+  };
+
+  const runMoveMany = async (
+    meetings: readonly MeetingListItemDto[],
+    folderId: string | null,
+  ): Promise<void> => {
+    const moving = meetings.filter((m) => m.folderId !== folderId);
+    if (moving.length === 0) return;
+    setUndoMove(null);
+    // One meeting is too quick to report, and "Moving 1 meetings" is not a sentence.
+    if (moving.length > 1) setBulkWork({ kind: 'moving', count: moving.length });
+    const failed = await library.moveMeetings(
+      moving.map((m) => m.id),
+      folderId,
+    );
+    setBulkWork(null);
+    setChecks((current) => keepLive(current, failed));
+    offerUndo(
+      moving.filter((m) => !failed.includes(m.id)),
+      folderId,
+    );
+    afterWork();
+  };
+
+  const runUndo = async (undo: UndoMove): Promise<void> => {
+    setUndoMove(null);
+    for (const { folderId, meetingIds } of undo.restore) {
+      await library.moveMeetings(meetingIds, folderId);
+    }
+  };
+
+  // A drop in the sidebar leaves its request here, like its folder actions.
+  const dropRequest = useLibraryStore((state) => state.dropRequest);
+  const runDrop = useRef(runMoveMany);
+  runDrop.current = runMoveMany;
+  useEffect(() => {
+    if (!dropRequest) return;
+    clearDropRequest();
+    const { meetings } = useLibraryStore.getState();
+    const wanted = new Set(dropRequest.meetingIds);
+    void runDrop.current(
+      meetings.filter((m) => wanted.has(m.id)),
+      dropRequest.folderId,
+    );
+  }, [dropRequest]);
+
+  const runDeleteMany = async (
+    meetingIds: readonly string[],
+    mode: 'trash' | 'permanent',
+  ): Promise<void> => {
+    setBulkWork({ kind: 'deleting', count: meetingIds.length });
+    const { failed, refused } = await library.deleteMeetings(meetingIds, mode);
+    setBulkWork(null);
+    setChecks((current) => keepLive(current, [...failed, ...refused]));
+    if (refused.length > 0) {
+      setDialog({ kind: 'deleteManyPermanently', meetingIds: refused, refused: true });
+    }
+    afterWork();
+  };
+
+  // A chip that goes takes the focus with it, so the focus goes to the button that made it.
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const changeFiltersFromList = (next: MeetingFilters): void => {
+    setFilters(next);
+    filterButtonRef.current?.focus();
+  };
+
+  const previewId = wide && cursorId !== null && listedIds.includes(cursorId) ? cursorId : null;
+  const preview = useMeetingPreview(previewId);
+
+  const gridLabels = useMemo(
+    () => ({
+      grid: t('HistoryPage_Title.Text'),
+      noContent: t('History_NoContent'),
+      more: t('HistoryRow_More.AutomationProperties.Name'),
+      openSummary: t('HistoryRow_OpenSummary'),
+      move: t('HistoryRow_Move'),
+      remove: t('HistoryRow_Delete'),
+      today: t('Ui_LibraryToday'),
+      yesterday: t('Ui_LibraryYesterday'),
+      noDate: t('Ui_LibraryNoDate'),
+      duration: (minutes: number) => t('Ui_LibraryDurationMinutes', String(minutes)),
+      checkMeeting: (title: string) => t('Ui_LibraryCheckMeeting', title),
+      checkDay: (day: string) => t('Ui_LibraryCheckDay', day),
+      dragCount: (count: number) => t('Ui_LibraryDragCount', String(count)),
+    }),
+    [t],
+  );
+
   const { flags } = library;
+  // Nothing matched is not known yet while the second stage is still reading.
   const emptyMessage: StringKey | null = flags.showLibraryEmpty
     ? 'HistoryPage_Empty.Text'
     : flags.showInboxEmpty
       ? 'Library_InboxEmpty.Text'
       : flags.showFolderEmpty
         ? 'Library_FolderEmpty.Text'
-        : flags.showNoMatches
-          ? 'Ui_LibrarySearchEmpty'
-          : null;
+        : library.filtersHideAll
+          ? 'Ui_LibraryFilterEmpty'
+          : flags.showNoMatches && !library.searching
+            ? 'Ui_LibrarySearchEmpty'
+            : null;
+  const searchStatus = library.searching
+    ? t('Ui_LibrarySearching')
+    : library.searchFailed
+      ? t('Ui_LibrarySearchTitlesOnly')
+      : t('Ui_LibrarySearchMatches', String(library.meetings.length));
 
   return (
-    <section ref={layoutRef} className="relative flex flex-col gap-5">
-      <div className="flex items-end justify-between gap-4">
-        <SectionHeader level={1} quiet title={t('HistoryPage_Title.Text')} />
-        <div className="flex shrink-0 items-center gap-2">
-          {wide ? null : (
-            <IconButton
-              label={t('Chat_ScopeFolder')}
-              icon={PanelLeft}
-              variant="secondary"
-              aria-expanded={paneOpen}
-              onClick={() => {
-                setPaneOpen((open) => !open);
-              }}
+    <section ref={layoutRef} className="flex min-h-0 flex-1">
+      <div
+        data-testid="library-list-pane"
+        className={cn(
+          'flex min-h-0 min-w-0 flex-col',
+          wide ? 'w-[clamp(340px,38%,440px)] shrink-0 border-e border-hairline' : 'flex-1',
+        )}
+      >
+        <ListHeader
+          title={
+            library.selectedFolder
+              ? library.selectedFolder.name
+              : library.view.kind === 'all'
+                ? t('Ui_LibraryAll')
+                : t('Library_Inbox')
+          }
+          count={library.viewCount}
+          countText={
+            filtering
+              ? t(
+                  'Ui_LibraryFilteredCount',
+                  String(library.meetings.length),
+                  String(library.viewCount),
+                )
+              : String(library.viewCount)
+          }
+          filterButton={
+            <FilterButton filters={filters} onChange={setFilters} buttonRef={filterButtonRef} />
+          }
+          filterChips={
+            <FilterChips
+              filters={filters}
+              onChange={changeFiltersFromList}
+              showClear={!library.filtersHideAll}
             />
-          )}
-          <Button
-            icon={FolderPlus}
-            onClick={() => {
-              setDialog({ kind: 'newFolder' });
-            }}
-          >
-            {t('Library_NewFolderLabel.Text')}
-          </Button>
-        </div>
-      </div>
+          }
+          filterResults={
+            filtering
+              ? t(
+                  'Ui_LibraryFilterResultsLine',
+                  String(library.meetings.length),
+                  String(library.viewCount),
+                )
+              : ''
+          }
+          filterResultsLabel={t('Ui_LibraryFilterResults')}
+          folder={library.selectedFolder}
+          breadcrumbs={
+            <Breadcrumbs
+              crumbs={crumbs}
+              label={t('Chat_ScopeFolder')}
+              onSelect={library.selectFolder}
+            />
+          }
+          menuEntries={
+            library.selectedFolder
+              ? folderMenuEntries(t, library.selectedFolder.id, runFolderAction)
+              : []
+          }
+          menuLabel={t('Ui_LibraryFolderActions')}
+          note={library.noteText}
+          noteLabel={t('Library_FolderNote.Header')}
+          notePlaceholder={t('Library_FolderNote.PlaceholderText')}
+          onNoteChange={library.setNoteText}
+          onNoteBlur={() => {
+            void library.saveNote();
+          }}
+          query={library.query}
+          searchLabel={t('Library_Search.PlaceholderText')}
+          searchRef={searchRef}
+          onSearchKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              library.setQuery('');
+            } else if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              gridRef.current?.focusCursor();
+            }
+          }}
+          clearSearchLabel={t('Ui_LibrarySearchClear')}
+          onQueryChange={library.setQuery}
+          searchStatus={searchStatus}
+          searchAll={
+            library.view.kind === 'all'
+              ? null
+              : { label: t('Ui_LibrarySearchAll'), onSelect: library.searchEverything }
+          }
+        />
 
-      <div className="flex flex-col gap-2">
-        {startupError ? (
-          <Notice tone="warning">{t('Ui_LibraryMigrationFailed', startupError)}</Notice>
-        ) : null}
-        {library.problem ? (
-          <Notice tone="warning">
-            {library.problem.reason === 'corrupt'
-              ? t('Ui_LibraryFoldersDamaged', library.problem.message ?? '')
-              : t('Ui_LibraryFolderFailed', library.problem.message ?? library.problem.reason)}
-          </Notice>
-        ) : null}
-        {library.skipped.length > 0 && !skippedDismissed ? (
-          <Notice
-            onDismiss={() => {
-              setSkippedDismissed(true);
-            }}
-            dismissLabel={t('Ui_Close')}
-          >
-            {t('Ui_LibrarySkippedFiles', describeSkipped(library.skipped))}
-          </Notice>
-        ) : null}
-        {library.status ? (
-          <Notice tone="warning" onDismiss={library.dismissStatus} dismissLabel={t('Ui_Close')}>
-            {text(library.status)}
-          </Notice>
-        ) : null}
-      </div>
-
-      <div className={cn('relative grid gap-x-8', wide && 'grid-cols-[12.5rem_minmax(0,1fr)]')}>
-        {wide ? <aside className="min-w-0">{tree}</aside> : null}
-        {!wide && paneOpen ? (
-          <aside
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setPaneOpen(false);
-            }}
-            className="absolute start-0 top-12 z-20 max-h-[60vh] w-60 overflow-y-auto rounded-overlay border border-hairline bg-paper-raised p-1.5 shadow-overlay"
-          >
-            {tree}
-          </aside>
-        ) : null}
-
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex min-w-0 items-center gap-1">
-              <Breadcrumbs crumbs={crumbs} label={t('Chat_ScopeFolder')} onSelect={select} />
-              {library.selectedFolder ? (
-                <Menu
-                  align="start"
-                  entries={folderEntries(library.selectedFolder.id)}
-                  trigger={
-                    <IconButton label={t('Ui_LibraryFolderActions')} icon={Ellipsis} size="sm" />
-                  }
-                />
-              ) : null}
-            </div>
-            <div className="relative min-w-40 flex-1 sm:max-w-60">
-              <Icon
-                icon={Search}
-                size={14}
-                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
-              />
-              <Input
-                type="search"
-                aria-label={t('Library_Search.PlaceholderText')}
-                placeholder={t('Library_Search.PlaceholderText')}
-                value={library.query}
-                onChange={(event) => {
-                  library.setQuery(event.target.value);
-                }}
-                className="w-full pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
-              />
-            </div>
-          </div>
-
-          {library.selectedFolder ? (
-            <Field label={t('Library_FolderNote.Header')}>
-              <Textarea
-                rows={1}
-                value={library.noteText}
-                placeholder={t('Library_FolderNote.PlaceholderText')}
-                onChange={(event) => {
-                  library.setNoteText(event.target.value);
-                }}
-                onBlur={() => {
-                  void library.saveNote();
-                }}
-                className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
-              />
-            </Field>
+        <div className="flex shrink-0 flex-col gap-2 px-4 empty:hidden">
+          {startupError ? (
+            <Notice tone="warning">{t('Ui_LibraryMigrationFailed', startupError)}</Notice>
           ) : null}
+          {library.problem ? (
+            <Notice tone="warning">
+              {library.problem.reason === 'corrupt'
+                ? t('Ui_LibraryFoldersDamaged', library.problem.message ?? '')
+                : t('Ui_LibraryFolderFailed', library.problem.message ?? library.problem.reason)}
+            </Notice>
+          ) : null}
+          {library.skipped.length > 0 && !skippedDismissed ? (
+            <Notice
+              onDismiss={() => {
+                setSkippedDismissed(true);
+              }}
+              dismissLabel={t('Ui_Close')}
+            >
+              {t('Ui_LibrarySkippedFiles', describeSkipped(library.skipped))}
+            </Notice>
+          ) : null}
+          {library.status ? (
+            <Notice tone="warning" onDismiss={library.dismissStatus} dismissLabel={t('Ui_Close')}>
+              {text(library.status)}
+            </Notice>
+          ) : null}
+        </div>
 
+        {checks.checked.size > 0 || bulkWork !== null ? (
+          <BulkBar
+            label={t('Ui_LibraryBulkLabel')}
+            status={
+              bulkWork === null
+                ? t('Ui_LibraryBulkChecked', String(checks.checked.size))
+                : t(
+                    bulkWork.kind === 'moving' ? 'Ui_LibraryBulkMoving' : 'Ui_LibraryBulkDeleting',
+                    String(bulkWork.count),
+                  )
+            }
+            busy={bulkWork !== null}
+            moveLabel={t('HistoryRow_Move')}
+            deleteLabel={t('HistoryRow_Delete')}
+            clearLabel={t('Ui_LibraryBulkClear')}
+            onMove={() => {
+              askMove(checkedMeetings);
+            }}
+            onDelete={() => {
+              fromKeyboard.current = false;
+              askDelete(checkedMeetings, false);
+            }}
+            onClear={() => {
+              setChecks(EMPTY_CHECKS);
+            }}
+          />
+        ) : null}
+
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {undoMove ? (
+            <UndoOffer
+              message={undoMove.message}
+              undoLabel={t('Ui_LibraryUndo')}
+              dismissLabel={t('Ui_LibraryUndoDismiss')}
+              onUndo={() => {
+                void runUndo(undoMove);
+              }}
+              onDismiss={dismissUndo}
+            />
+          ) : null}
           {library.isLoading ? (
-            <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col gap-4 py-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-4/5" />
+            <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col">
+              <div
+                style={{ height: HEADER_ROW_PX }}
+                className="flex items-center border-b border-hairline ps-4"
+              >
+                <Skeleton className="h-3 w-24" />
+              </div>
+              {[0, 1, 2, 3, 4].map((row) => (
+                <div
+                  key={row}
+                  style={{ height: MEETING_ROW_PX }}
+                  className="flex items-center border-b border-hairline ps-4 pe-3"
+                >
+                  <Skeleton className="h-3 w-10 shrink-0" />
+                  <div className="ms-8 flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-3 w-2/5" />
+                    <Skeleton className="h-3 w-4/5" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : library.flags.hasMeetings ? (
-            <MeetingList
+            <MeetingGrid
+              handle={gridRef}
+              key={`${viewKey}-${filtersKey}`}
               meetings={library.meetings}
               locale={locale}
-              labels={{
-                list: t('HistoryPage_Title.Text'),
-                noContent: t('History_NoContent'),
-                more: t('HistoryRow_More.AutomationProperties.Name'),
-                openSummary: t('HistoryRow_OpenSummary'),
-                move: t('HistoryRow_Move'),
-                remove: t('HistoryRow_Delete'),
+              labels={gridLabels}
+              query={library.query}
+              hits={library.hits}
+              cursorId={cursorId}
+              clickOpens={!wide}
+              initialScrollOffset={useLibraryStore.getState().scrollOffset}
+              checked={checks.checked}
+              onToggleCheck={(id) => {
+                setChecks((current) => toggleCheck(current, id));
               }}
+              onExtendChecks={onExtendChecks}
+              onSetDayChecks={(ids, on) => {
+                setChecks((current) => setGroup(current, ids, on));
+              }}
+              onCursorChange={setCursor}
+              onScrollOffsetChange={rememberScroll}
               onOpen={(id) => {
-                library.openMeeting(id, 'Transcript');
+                library.openMeeting(id, tabOfHit(library.hits.get(id)) ?? 'Transcript');
               }}
               onOpenSummary={(id) => {
                 library.openMeeting(id, 'Summary');
               }}
               onMove={(meeting) => {
-                setDialog({ kind: 'move', meeting });
+                fromKeyboard.current = false;
+                askMove(targetsOf(meeting));
               }}
               onDelete={(meeting) => {
-                void library.beginDelete(meeting.id).then((allowed) => {
-                  if (allowed) setDialog({ kind: 'deleteMeeting', meeting });
-                });
+                fromKeyboard.current = false;
+                askDelete(targetsOf(meeting), false);
               }}
+              onRowKey={onRowKey}
+              onSelectAll={onSelectAll}
             />
           ) : emptyMessage ? (
-            <EmptyState
-              message={t(emptyMessage)}
-              action={
-                flags.showLibraryEmpty ? (
-                  <Button onClick={library.goRecord}>{t('HistoryPage_EmptyCta.Content')}</Button>
-                ) : undefined
-              }
-            />
+            <div className="px-4">
+              <EmptyState
+                message={t(emptyMessage)}
+                action={
+                  flags.showLibraryEmpty ? (
+                    <Button onClick={library.goRecord}>{t('HistoryPage_EmptyCta.Content')}</Button>
+                  ) : emptyMessage === 'Ui_LibraryFilterEmpty' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        changeFiltersFromList(NO_FILTERS);
+                      }}
+                    >
+                      {t('Ui_LibraryFilterClear')}
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           ) : null}
         </div>
       </div>
+      {wide ? (
+        <section
+          data-testid="library-preview"
+          aria-label={t('Ui_LibraryPreview')}
+          className="flex min-w-0 flex-1 flex-col"
+        >
+          <MeetingPreview
+            state={preview}
+            preferredTab={previewId === null ? null : tabOfHit(library.hits.get(previewId))}
+            onOpen={library.openMeeting}
+          />
+        </section>
+      ) : null}
 
       <NameDialog
         {...dialogChrome}
@@ -401,7 +802,58 @@ export function LibraryRoute() {
         destinations={library.destinations}
         currentFolderId={shown?.kind === 'move' ? shown.meeting.folderId : null}
         onMove={(folderId) => {
-          if (dialog?.kind === 'move') void library.moveMeeting(dialog.meeting.id, folderId);
+          if (dialog?.kind !== 'move') return;
+          const { meeting } = dialog;
+          void library.moveMeeting(meeting.id, folderId).then((moved) => {
+            if (moved && meeting.folderId !== folderId) offerUndo([meeting], folderId);
+          });
+        }}
+      />
+      <MoveDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'moveMany'}
+        title={t(
+          'Ui_LibraryMoveManyTitle',
+          String(shown?.kind === 'moveMany' ? shown.meetings.length : 0),
+        )}
+        cancelLabel={t('LibraryMove_Cancel')}
+        primaryLabel={t('LibraryMove_Primary')}
+        destinations={library.destinations}
+        currentFolderId={null}
+        onMove={(folderId) => {
+          if (dialog?.kind === 'moveMany') void runMoveMany(dialog.meetings, folderId);
+        }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteMany'}
+        title={t(
+          'Ui_LibraryDeleteManyTitle',
+          String(shown?.kind === 'deleteMany' ? shown.meetingIds.length : 0),
+        )}
+        description={t('Ui_LibraryDeleteManyContent')}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('HistoryDelete_Primary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteMany') void runDeleteMany(dialog.meetingIds, 'trash');
+        }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteManyPermanently'}
+        title={t('Ui_LibraryDeletePermanentTitle')}
+        description={t(
+          shown?.kind === 'deleteManyPermanently' && !shown.refused
+            ? 'Ui_LibraryDeleteManyPermanent'
+            : 'Ui_LibraryDeleteManyRefused',
+          String(shown?.kind === 'deleteManyPermanently' ? shown.meetingIds.length : 0),
+        )}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('Ui_LibraryDeletePermanentPrimary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteManyPermanently') {
+            void runDeleteMany(dialog.meetingIds, 'permanent');
+          }
         }}
       />
       <ConfirmDialog
@@ -409,14 +861,49 @@ export function LibraryRoute() {
         open={dialog?.kind === 'deleteMeeting'}
         title={t('HistoryDelete_Title')}
         description={t(
-          'HistoryDelete_Content',
+          'Ui_LibraryDeleteContent',
           shown?.kind === 'deleteMeeting' ? shown.meeting.title : '',
         )}
         cancelLabel={t('HistoryDelete_Cancel')}
         primaryLabel={t('HistoryDelete_Primary')}
         onConfirm={() => {
-          if (dialog?.kind === 'deleteMeeting') void library.deleteMeeting(dialog.meeting.id);
+          if (dialog?.kind !== 'deleteMeeting') return;
+          const { meeting } = dialog;
+          void library.deleteMeeting(meeting.id).then((outcome) => {
+            if (outcome === 'trash-failed') {
+              setDialog({ kind: 'deleteMeetingPermanently', meeting, refused: true });
+            }
+            afterWork();
+          });
         }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteMeetingPermanently'}
+        title={t('Ui_LibraryDeletePermanentTitle')}
+        description={t(
+          shown?.kind === 'deleteMeetingPermanently' && !shown.refused
+            ? 'Ui_LibraryDeletePermanentDirect'
+            : 'Ui_LibraryDeletePermanentContent',
+          shown?.kind === 'deleteMeetingPermanently' ? shown.meeting.title : '',
+        )}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('Ui_LibraryDeletePermanentPrimary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteMeetingPermanently') {
+            void library.deleteMeeting(dialog.meeting.id, 'permanent').then(afterWork);
+          }
+        }}
+      />
+      <RenameDialog
+        open={dialog?.kind === 'renameMeeting'}
+        currentTitle={shown?.kind === 'renameMeeting' ? shown.meeting.title : ''}
+        problem={renameProblem}
+        busy={renameBusy}
+        onSubmit={(title) => {
+          if (dialog?.kind === 'renameMeeting') void renameMeeting(dialog.meeting.id, title);
+        }}
+        onClose={closeDialog}
       />
     </section>
   );

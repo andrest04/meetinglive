@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventChannel } from '@vozella/contracts';
-import { MeetingBusyRegistry, Workspace, type Logger } from '@vozella/core';
+import { MeetingBusyRegistry, Workspace, type Logger, type MeetingRecord } from '@vozella/core';
 import { FakeClock, LibraryRuntime } from '@vozella/platform';
 import type { IpcEventLike } from '../security/trusted-origin';
 import type { IpcMainLike } from './ipc-server';
@@ -24,7 +24,32 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-async function setup() {
+const record = (id: string = ID, title = 'Standup'): MeetingRecord => ({
+  id,
+  title,
+  recordedAt: '2026-09-01T12:00:00.0000000+00:00',
+  endedAt: null,
+  audioFilePath: '',
+  sourcePath: null,
+  folderId: null,
+  summaryProvider: null,
+  calendarEventId: null,
+  calendarId: null,
+  seriesId: null,
+  joinUrl: null,
+  noteTemplateId: null,
+  attendees: [],
+  brief: null,
+  transcript: null,
+  summary: null,
+  actionItems: [],
+  jevAnalysis: null,
+  notes: null,
+  followUp: null,
+  projectPlan: null,
+});
+
+async function setup(options: { discard?: (path: string) => Promise<void> } = {}) {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (name, listener) => void handlers.set(name, listener) };
   const busy = new MeetingBusyRegistry();
@@ -43,6 +68,7 @@ async function setup() {
     openPath: () => Promise.resolve(''),
     pickFolder: () => Promise.resolve(null),
     version: '1.0.0.0',
+    ...options,
   });
   await runtime.start();
   const workspace = new Workspace();
@@ -66,7 +92,125 @@ async function setup() {
   return { call, events, workspace, busy, runtime, writes };
 }
 
+describe('bulk meeting handlers', () => {
+  const OTHER = '22222222-2222-2222-2222-222222222222';
+  const count = (t: Awaited<ReturnType<typeof setup>>, name: string): number =>
+    t.events.filter((e) => e.name === name).length;
+
+  it('moves several meetings with one library change and reports each one', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    await t.runtime.meetings.save(record(OTHER, 'Other'));
+    const created = await t.call('library.createFolder', { name: 'Trabajo', parentId: null });
+    const folderId = (created.value as { folder: { id: string } }).folder.id;
+    t.events.length = 0;
+    t.busy.register({ isBusy: (id) => id === OTHER });
+
+    const moved = await t.call('library.moveMeetings', { meetingIds: [ID, OTHER], folderId });
+
+    expect(moved.value).toEqual({
+      results: [
+        { meetingId: ID, ok: true },
+        { meetingId: OTHER, ok: false, reason: 'busy' },
+      ],
+    });
+    expect(count(t, 'library.changed')).toBe(1);
+    expect(t.events.filter((e) => e.name === 'workspace.meetingChanged')).toEqual([
+      { name: 'workspace.meetingChanged', payload: { id: ID } },
+    ]);
+    expect((await t.runtime.meetings.get(ID))?.folderId).toBe(folderId);
+  });
+
+  it('deletes several meetings with one library change and one deleted notice per meeting', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    await t.runtime.meetings.save(record(OTHER, 'Other'));
+    t.workspace.selectMeeting(OTHER);
+    t.events.length = 0;
+
+    const deleted = await t.call('library.deleteMeetings', {
+      meetingIds: [ID, OTHER],
+      mode: 'permanent',
+    });
+
+    expect(deleted.value).toEqual({
+      results: [
+        { meetingId: ID, ok: true },
+        { meetingId: OTHER, ok: true },
+      ],
+    });
+    expect(count(t, 'library.changed')).toBe(1);
+    expect(count(t, 'workspace.meetingDeleted')).toBe(2);
+    expect(t.workspace.state.selectedMeetingId).toBeNull();
+  });
+
+  it('stays quiet when nothing changed', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    t.busy.register({ isBusy: () => true });
+    t.events.length = 0;
+    await t.call('library.deleteMeetings', { meetingIds: [ID], mode: 'trash' });
+    await t.call('library.moveMeetings', { meetingIds: [ID], folderId: null });
+    expect(t.events).toEqual([]);
+  });
+
+  it('refuses an empty list at the boundary', async () => {
+    const t = await setup();
+    expect(await t.call('library.deleteMeetings', { meetingIds: [], mode: 'trash' })).toMatchObject(
+      { ok: false },
+    );
+  });
+
+  it('a quit waits for a bulk write in flight', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save(record());
+    const run = t.call('library.deleteMeetings', { meetingIds: [ID], mode: 'permanent' });
+    await t.writes.settled();
+    expect(await t.runtime.meetings.get(ID)).toBeNull();
+    await run;
+  });
+});
+
+describe('library.search', () => {
+  it('finds a word in a body across the boundary', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save({ ...record(), transcript: '[00:01.00-00:02.00] el año fiscal' });
+    const found = await t.call('library.search', {
+      query: 'ano',
+      scope: { kind: 'all' },
+      requestId: 3,
+    });
+    expect(found.value).toEqual({
+      requestId: 3,
+      stale: false,
+      hits: [{ meetingId: ID, field: 'transcript', snippet: 'el año fiscal' }],
+    });
+  });
+
+  it('refuses a scope it does not know', async () => {
+    const t = await setup();
+    expect(
+      await t.call('library.search', { query: 'ano', scope: { kind: 'nope' }, requestId: 3 }),
+    ).toMatchObject({ ok: false });
+  });
+});
+
 describe('library handlers', () => {
+  it('reports a meeting the Recycle Bin refused and leaves it listed', async () => {
+    const t = await setup({
+      discard: () => Promise.reject(new Error('no bin on this volume')),
+    });
+    await t.runtime.meetings.save(record());
+    expect(await t.call('library.deleteMeeting', { meetingId: ID })).toMatchObject({
+      value: { ok: false, reason: 'trash-failed' },
+    });
+    expect(t.events.map((e) => e.name)).not.toContain('library.changed');
+    expect(
+      await t.call('library.deleteMeeting', { meetingId: ID, mode: 'permanent' }),
+    ).toMatchObject({ value: { ok: true } });
+    expect(t.events.map((e) => e.name)).toContain('library.changed');
+  });
+
   it('creates a folder, lists it, and tells the windows', async () => {
     const t = await setup();
     const created = await t.call('library.createFolder', { name: 'Trabajo', parentId: null });

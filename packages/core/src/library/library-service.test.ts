@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Clock } from '../clock';
 import type { FolderRecord } from './folder';
 import { InMemoryFolderRepository, InMemoryMeetingRepository } from './in-memory-library';
@@ -377,6 +377,142 @@ describe('deleteMeeting', () => {
   it('an unknown id succeeds without error', async () => {
     expect(await setup().service.deleteMeeting('zz')).toEqual({ ok: true });
   });
+
+  it('says so when the Recycle Bin refused, and the meeting stays', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.trashRefusedIds.add('m');
+    expect(await t.service.deleteMeeting('m')).toMatchObject({
+      ok: false,
+      reason: 'trash-failed',
+    });
+    expect(t.meetings.records.size).toBe(1);
+  });
+
+  it('a permanent delete does not depend on the Recycle Bin', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.trashRefusedIds.add('m');
+    expect(await t.service.deleteMeeting('m', 'permanent')).toEqual({ ok: true });
+    expect(t.meetings.records.size).toBe(0);
+  });
+});
+
+describe('search', () => {
+  const seeded = () => {
+    const t = setup();
+    t.folders.folders = [folder('a', 'A')];
+    t.meetings.records.set('in', { ...meeting('in'), notes: 'presupuesto del año' });
+    t.meetings.records.set('lost', { ...meeting('lost', 'gone'), notes: 'presupuesto' });
+    t.meetings.records.set('filed', { ...meeting('filed', 'a'), notes: 'presupuesto' });
+    return t;
+  };
+  const ids = (result: { hits: readonly { meetingId: string }[] }): string[] =>
+    result.hits.map((hit) => hit.meetingId).sort();
+
+  it('searches the view it is given and echoes the request', async () => {
+    const t = seeded();
+    const search = (scope: Parameters<typeof t.service.search>[0]['scope']) =>
+      t.service.search({ query: 'presupuesto', scope, requestId: 7 });
+    expect(await search({ kind: 'all' })).toMatchObject({ requestId: 7, stale: false });
+    expect(ids(await search({ kind: 'all' }))).toEqual(['filed', 'in', 'lost']);
+    expect(ids(await search({ kind: 'inbox' }))).toEqual(['in', 'lost']);
+    expect(ids(await search({ kind: 'folder', id: 'a' }))).toEqual(['filed']);
+  });
+
+  it('abandons a search when a newer one arrives', async () => {
+    const t = seeded();
+    const first = t.service.search({ query: 'presupuesto', scope: { kind: 'all' }, requestId: 1 });
+    const second = t.service.search({ query: 'presupuesto', scope: { kind: 'all' }, requestId: 2 });
+    expect(await first).toEqual({ requestId: 1, stale: true, hits: [] });
+    expect(await second).toMatchObject({ requestId: 2, stale: false });
+    expect(ids(await second)).toEqual(['filed', 'in', 'lost']);
+  });
+
+  it('a damaged folders file treats every meeting as Inbox, like the rest of the Library', async () => {
+    const t = seeded();
+    t.folders.getAll = () => Promise.reject(new LibraryFileCorruptError('folders', 'bad'));
+    const result = await t.service.search({
+      query: 'presupuesto',
+      scope: { kind: 'inbox' },
+      requestId: 1,
+    });
+    expect(ids(result)).toEqual(['filed', 'in', 'lost']);
+  });
+});
+
+describe('moveMeetings', () => {
+  it('moves each meeting and reports each one, without stopping at a failure', async () => {
+    const t = setup();
+    t.folders.folders = [folder('a', 'A')];
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.records.set('b', meeting('b'));
+    t.meetings.records.set('n', meeting('n'));
+    t.busy.register({ isBusy: (id) => id === 'b' });
+    expect(
+      await t.service.moveMeetings({ meetingIds: ['m', 'b', 'gone', 'n'], folderId: 'a' }),
+    ).toEqual([
+      { meetingId: 'm', ok: true },
+      { meetingId: 'b', ok: false, reason: 'busy' },
+      { meetingId: 'gone', ok: false, reason: 'not-found' },
+      { meetingId: 'n', ok: true },
+    ]);
+    expect(t.meetings.records.get('m')?.folderId).toBe('a');
+    expect(t.meetings.records.get('b')?.folderId).toBeNull();
+    expect(t.meetings.records.get('n')?.folderId).toBe('a');
+  });
+
+  it('runs the whole batch as one repository batch', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    const batch = vi.spyOn(t.meetings, 'batch');
+    await t.service.moveMeetings({ meetingIds: ['m'], folderId: null });
+    await t.service.deleteMeetings({ meetingIds: ['m'], mode: 'trash' });
+    expect(batch).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports one result for an id named twice', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m', 'a'));
+    expect(await t.service.moveMeetings({ meetingIds: ['m', 'm'], folderId: null })).toEqual([
+      { meetingId: 'm', ok: true },
+    ]);
+  });
+});
+
+describe('deleteMeetings', () => {
+  it('deletes each meeting and reports each one, without stopping at a failure', async () => {
+    const t = setup();
+    t.meetings.records.set('m', meeting('m'));
+    t.meetings.records.set('l', meeting('l'));
+    t.meetings.records.set('t', meeting('t'));
+    t.meetings.records.set('n', meeting('n'));
+    t.meetings.lockedIds.add('l');
+    t.meetings.trashRefusedIds.add('t');
+    expect(
+      await t.service.deleteMeetings({ meetingIds: ['m', 'l', 't', 'n'], mode: 'trash' }),
+    ).toEqual([
+      { meetingId: 'm', ok: true },
+      { meetingId: 'l', ok: false, reason: 'io-failed', message: 'EBUSY: resource busy or locked' },
+      {
+        meetingId: 't',
+        ok: false,
+        reason: 'trash-failed',
+        message: 'The Recycle Bin refused the file.',
+      },
+      { meetingId: 'n', ok: true },
+    ]);
+    expect([...t.meetings.records.keys()]).toEqual(['l', 't']);
+  });
+
+  it('passes the mode on', async () => {
+    const t = setup();
+    t.meetings.records.set('t', meeting('t'));
+    t.meetings.trashRefusedIds.add('t');
+    expect(await t.service.deleteMeetings({ meetingIds: ['t'], mode: 'permanent' })).toEqual([
+      { meetingId: 't', ok: true },
+    ]);
+  });
 });
 
 describe('load', () => {
@@ -391,6 +527,36 @@ describe('load', () => {
       meetings: [{ id: 'm', folderId: 'a', snippet: 'Body text' }],
       skipped: [],
     });
+  });
+
+  it('tells the list how long a meeting ran, what it holds and whether it is busy', async () => {
+    const t = setup();
+    t.meetings.records.set('m', {
+      ...meeting('m'),
+      endedAt: '2026-09-01T12:45:00.0000000+00:00',
+      summary: 'Body',
+      transcript: '  ',
+    });
+    t.meetings.records.set('n', { ...meeting('n'), transcript: 'Spoken' });
+    t.busy.register({ isBusy: (id) => id === 'n' });
+    const result = await t.service.load();
+    if (!result.ok) throw new Error('load failed');
+    expect(result.meetings).toEqual([
+      expect.objectContaining({
+        id: 'm',
+        endedAt: '2026-09-01T12:45:00.0000000+00:00',
+        hasSummary: true,
+        hasTranscript: false,
+        busy: false,
+      }),
+      expect.objectContaining({
+        id: 'n',
+        endedAt: null,
+        hasSummary: false,
+        hasTranscript: true,
+        busy: true,
+      }),
+    ]);
   });
 
   it('B5: reports a damaged folders file instead of throwing', async () => {

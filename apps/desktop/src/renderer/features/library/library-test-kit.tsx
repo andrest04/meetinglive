@@ -4,14 +4,18 @@ import {
   InMemoryMeetingRepository,
   LibraryService,
   MeetingBusyRegistry,
+  renameMeeting,
   Workspace,
   type FolderRecord,
   type MeetingRecord,
 } from '@vozella/core';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import type { Locale } from '../../i18n/translate';
 import { TooltipProvider } from '../../ui';
+import { connectLibrary } from './library-store';
+import { LibraryFolders } from './LibraryFolders';
+import { LibraryRoute } from './LibraryRoute';
 
 type Listener = (payload: unknown) => void;
 
@@ -72,6 +76,11 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
   const busy = new MeetingBusyRegistry();
   const workspace = new Workspace();
   let counter = 0;
+  // A re-transcription under way blocks a rename of that meeting.
+  const runner: { isRunning: boolean; meetingId: string | null } = {
+    isRunning: false,
+    meetingId: null,
+  };
   const service = new LibraryService({
     meetings,
     folders,
@@ -128,10 +137,33 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
         return result;
       }
       case 'library.deleteMeeting': {
-        const result = await service.deleteMeeting(input.meetingId as string);
+        const result = await service.deleteMeeting(
+          input.meetingId as string,
+          input.mode as 'trash' | 'permanent' | undefined,
+        );
         if (result.ok) emit('library.changed', { reason: 'meeting' });
         return result;
       }
+      case 'library.moveMeetings': {
+        const results = await service.moveMeetings(input as never);
+        if (results.some((r) => r.ok)) emit('library.changed', { reason: 'meeting' });
+        return { results };
+      }
+      case 'library.deleteMeetings': {
+        const results = await service.deleteMeetings(input as never);
+        if (results.some((r) => r.ok)) emit('library.changed', { reason: 'meeting' });
+        return { results };
+      }
+      case 'session.rename':
+        return {
+          status: await renameMeeting(
+            { meetings, workspace, runnerState: () => runner },
+            input.id as string,
+            input.title as string,
+          ),
+        };
+      case 'library.search':
+        return service.search(input as never);
       case 'library.isMeetingBusy':
         return { busy: service.isMeetingBusy(input.meetingId as string) };
       case 'library.getMeeting':
@@ -167,7 +199,7 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
   };
   Object.defineProperty(window, 'vozella', { value: api, configurable: true, writable: true });
 
-  return { meetings, folders, busy, workspace, calls, actions, emit, service };
+  return { meetings, folders, busy, workspace, calls, actions, emit, service, runner };
 }
 
 export function Providers({ children, locale = 'en' }: { children: ReactNode; locale?: Locale }) {
@@ -175,5 +207,24 @@ export function Providers({ children, locale = 'en' }: { children: ReactNode; lo
     <I18nProvider initialLocale={locale}>
       <TooltipProvider delay={0}>{children}</TooltipProvider>
     </I18nProvider>
+  );
+}
+
+/** jsdom has no layout: the grid needs a height to decide which rows to render. */
+export function stubLayout(height = 2000): void {
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get: () => height,
+  });
+}
+
+/** The Library as the shell shows it: the connected store, the sidebar tree and the route. */
+export function LibraryScreen() {
+  useEffect(() => connectLibrary(), []);
+  return (
+    <>
+      <LibraryFolders location="library" />
+      <LibraryRoute />
+    </>
   );
 }

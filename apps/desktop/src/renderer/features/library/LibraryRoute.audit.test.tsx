@@ -3,8 +3,14 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { formatMeetingDate } from './format';
-import { LibraryRoute } from './LibraryRoute';
-import { Providers, folderRecord, installFakeApi, meetingRecord } from './library-test-kit';
+import {
+  LibraryScreen,
+  Providers,
+  stubLayout,
+  folderRecord,
+  installFakeApi,
+  meetingRecord,
+} from './library-test-kit';
 
 beforeAll(() => {
   class FakeResizeObserver {
@@ -19,6 +25,7 @@ beforeAll(() => {
     }
   }
   globalThis.ResizeObserver = FakeResizeObserver;
+  stubLayout();
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
     configurable: true,
     get: () => 900,
@@ -39,7 +46,7 @@ async function mount(
   const user = userEvent.setup();
   const { unmount } = render(
     <Providers>
-      <LibraryRoute />
+      <LibraryScreen />
     </Providers>,
   );
   if (options.waitForLoad !== false) {
@@ -65,9 +72,7 @@ const seed = ({ meetings, folders }: Api): void => {
 const publishes = (api: Api) => api.actions.filter((a) => a.type === 'publishSelectedFolder');
 
 function rowOf(name: RegExp): HTMLElement {
-  const row = screen.getByRole('button', { name }).closest('li');
-  if (!row) throw new Error('no row');
-  return row;
+  return screen.getByRole('row', { name });
 }
 
 describe('selection and the workspace', () => {
@@ -252,7 +257,7 @@ describe('the meeting row', () => {
       screen.getAllByRole('menuitem').map((item) => item.textContent);
     await user.pointer({
       keys: '[MouseRight]',
-      target: within(rowOf(/Standup/)).getByRole('button', { name: /Standup/ }),
+      target: rowOf(/Standup/),
     });
     await screen.findByRole('menuitem', { name: 'Move' });
     expect(names()).toEqual(['Open summary', 'Move', 'Delete']);
@@ -265,11 +270,11 @@ describe('the meeting row', () => {
     expect(names()).toEqual(['Open summary', 'Move', 'Delete']);
   });
 
-  it('item 111: the row shows the local short date and time of the meeting', async () => {
+  it('item 111: the row shows the local time, with the short date and time on hover', async () => {
     await mount(seed);
     const expected = formatMeetingDate('2026-09-01T09:00:00.0000000+00:00', 'en');
     expect(expected).not.toBe('');
-    expect(within(rowOf(/Standup/)).getByText(expected)).toBeInTheDocument();
+    expect(within(rowOf(/Standup/)).getByTitle(expected)).toHaveTextContent(/^\d{2}:\d{2}$/);
   });
 
   it('item 115: Move preselects Inbox for a dangling folder id and the real folder otherwise', async () => {
@@ -341,7 +346,7 @@ describe('status messages and startup', () => {
     vi.spyOn(api.meetings, 'save').mockRejectedValue(new Error('disk full'));
     await move(/Review/);
     expect(await screen.findByText(/The meeting was not moved: .*disk full/)).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(rowOf(/Review/)).toBeInTheDocument();
   });
 
   it('B13: a failed create, rename or personality save shows the folder message', async () => {

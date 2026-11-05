@@ -22,8 +22,13 @@ export const meetingListItemSchema = z.object({
   title: z.string(),
   /** Round-trip text with offset; the UI formats it in the user's locale. */
   recordedAt: z.string(),
+  endedAt: z.string().nullable(),
   folderId: z.string().nullable(),
   snippet: z.string(),
+  hasSummary: z.boolean(),
+  hasTranscript: z.boolean(),
+  /** A summary is being generated for this meeting. */
+  busy: z.boolean(),
 });
 export type MeetingListItemDto = z.infer<typeof meetingListItemSchema>;
 
@@ -81,6 +86,7 @@ export const failureReasonSchema = z.enum([
   'busy',
   'corrupt',
   'io-failed',
+  'trash-failed',
 ]);
 export type FailureReasonDto = z.infer<typeof failureReasonSchema>;
 
@@ -149,9 +155,61 @@ export const libraryMoveMeeting = defineRequest('library.moveMeeting', {
   output: done,
 });
 
+export const meetingDeleteModeSchema = z.enum(['trash', 'permanent']);
+export type MeetingDeleteModeDto = z.infer<typeof meetingDeleteModeSchema>;
+
 export const libraryDeleteMeeting = defineRequest('library.deleteMeeting', {
-  input: z.object({ meetingId: guid }),
+  /** The mode defaults to `trash`, which keeps the files recoverable. */
+  input: z.object({ meetingId: guid, mode: meetingDeleteModeSchema.optional() }),
   output: done,
+});
+
+const bulkMeetingIds = z.array(guid).min(1).max(10_000).readonly();
+const meetingOutcome = z.discriminatedUnion('ok', [
+  z.object({ meetingId: guid, ok: z.literal(true) }),
+  z.object({ meetingId: guid, ...failureShape }),
+]);
+const bulkResult = z.object({ results: z.array(meetingOutcome).readonly() });
+
+/** One result per meeting; a meeting that cannot move does not stop the others. */
+export const libraryMoveMeetings = defineRequest('library.moveMeetings', {
+  input: z.object({ meetingIds: bulkMeetingIds, folderId: z.string().nullable() }),
+  output: bulkResult,
+});
+
+/** One result per meeting; a meeting that cannot go does not stop the others. */
+export const libraryDeleteMeetings = defineRequest('library.deleteMeetings', {
+  input: z.object({ meetingIds: bulkMeetingIds, mode: meetingDeleteModeSchema }),
+  output: bulkResult,
+});
+
+export const libraryViewSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('all') }),
+  z.object({ kind: z.literal('inbox') }),
+  z.object({ kind: z.literal('folder'), id: guid }),
+]);
+export type LibraryViewDto = z.infer<typeof libraryViewSchema>;
+
+export const searchHitSchema = z.object({
+  meetingId: guid,
+  field: z.enum(['title', 'summary', 'notes', 'transcript']),
+  /** Null for a title hit and past the newest hits: show the list's own snippet then. */
+  snippet: z.string().nullable(),
+});
+export type SearchHitDto = z.infer<typeof searchHitSchema>;
+
+/** Full text across a view. A newer request abandons this one, which then reports `stale`. */
+export const librarySearch = defineRequest('library.search', {
+  input: z.object({
+    query: z.string().max(500),
+    scope: libraryViewSchema,
+    requestId: z.number().int().nonnegative(),
+  }),
+  output: z.object({
+    requestId: z.number(),
+    stale: z.boolean(),
+    hits: z.array(searchHitSchema).readonly(),
+  }),
 });
 
 export const libraryIsMeetingBusy = defineRequest('library.isMeetingBusy', {

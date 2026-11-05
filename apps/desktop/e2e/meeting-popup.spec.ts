@@ -147,6 +147,22 @@ test('Dismiss from the More menu closes the popup', async () => {
 });
 
 test('Start requests take notes and brings the main window to the front', async () => {
+  // The take that follows hands off to the pill and minimizes the window by design, so the state
+  // is read at the moment of activation, the last step of which is focus.
+  await launched.app.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find((w) =>
+      w.webContents.getURL().includes('index.html'),
+    );
+    if (!win) return;
+    const focus = win.focus.bind(win);
+    win.focus = () => {
+      (globalThis as { activated?: unknown }).activated = {
+        visible: win.isVisible(),
+        minimized: win.isMinimized(),
+      };
+      focus();
+    };
+  });
   startCall();
   const page = await popupPage();
   await page.getByRole('button', { name: 'Start recording' }).click();
@@ -154,13 +170,11 @@ test('Start requests take notes and brings the main window to the front', async 
   await expect
     .poll(async () => await main.evaluate(() => (window as unknown as { took: number }).took))
     .toBe(1);
-  const mainState = await launched.app.evaluate(({ BrowserWindow }) => {
-    const win = BrowserWindow.getAllWindows().find((w) =>
-      w.webContents.getURL().includes('index.html'),
-    );
-    return { visible: win?.isVisible() ?? false, minimized: win?.isMinimized() ?? true };
-  });
-  expect(mainState).toEqual({ visible: true, minimized: false });
+  await expect
+    .poll(() =>
+      launched.app.evaluate(() => (globalThis as { activated?: unknown }).activated ?? null),
+    )
+    .toEqual({ visible: true, minimized: false });
   await endCall();
 });
 

@@ -9,6 +9,76 @@ export function formatMeetingDate(recordedAt: string, locale: string): string {
   );
 }
 
+/** The time in the logbook gutter: local, on a 24 hour clock, so every row has the same width. */
+export function formatMeetingTime(recordedAt: string, locale: string): string {
+  const parsed = parseOffsetDate(recordedAt);
+  if (!parsed) return '';
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(parsed.ms));
+}
+
+const startOfDay = (ms: number): number => {
+  const date = new Date(ms);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+};
+
+/** A plain sentence: Today, Yesterday, then "Tuesday 3 November", with the year only if it differs. */
+export function formatDayHeader(
+  ms: number,
+  nowMs: number,
+  locale: string,
+  words: { readonly today: string; readonly yesterday: string },
+): string {
+  const today = startOfDay(nowMs);
+  const day = startOfDay(ms);
+  if (day === today) return words.today;
+  // Through the date parts, because a daylight saving day is not 24 hours long.
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (day === yesterday.getTime()) return words.yesterday;
+  return formatLongDay(ms, nowMs, locale);
+}
+
+/** "Tuesday 3 November", with the year only if it differs. */
+function formatLongDay(ms: number, nowMs: number, locale: string): string {
+  const sameYear = new Date(ms).getFullYear() === new Date(nowMs).getFullYear();
+  const text = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+    .format(new Date(ms))
+    .replace(',', '');
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
+
+export interface MeetingSpan {
+  readonly day: string;
+  readonly start: string;
+  readonly end: string | null;
+}
+
+/** The parts of "Tuesday 3 November, 10:30 to 11:15"; the catalogs hold the sentence. */
+export function formatMeetingSpan(
+  recordedAt: string,
+  endedAt: string | null,
+  nowMs: number,
+  locale: string,
+): MeetingSpan | null {
+  const parsed = parseOffsetDate(recordedAt);
+  if (!parsed) return null;
+  const end = endedAt === null ? '' : formatMeetingTime(endedAt, locale);
+  return {
+    day: formatLongDay(parsed.ms, nowMs, locale),
+    start: formatMeetingTime(recordedAt, locale),
+    end: end === '' ? null : end,
+  };
+}
+
 const SKIPPED_SHOWN = 3;
 const REASON_MAX = 60;
 
