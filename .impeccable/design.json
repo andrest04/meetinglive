@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T00:00:00Z",
+  "title": "Design System: Vozella",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "primary", "displayName": "Stenographer's Ink", "canonical": "#0a0a0a", "tonalRamp": ["#0a0a0a", "#171717", "#262626", "#525252", "#6e6e6e", "#a3a3a3", "#e5e5e5", "#f5f5f5"] },
+      "signal": { "role": "secondary", "displayName": "Tally Red", "canonical": "#d92d20", "tonalRamp": ["oklch(30% 0.10 28)", "oklch(40% 0.15 28)", "oklch(50% 0.19 28)", "oklch(57% 0.21 28)", "oklch(66% 0.19 28)", "oklch(76% 0.13 28)", "oklch(86% 0.07 28)", "oklch(95% 0.02 28)"] },
+      "paper": { "role": "neutral", "displayName": "Paper", "canonical": "#ffffff" },
+      "paper-raised": { "role": "neutral", "displayName": "Raised Paper", "canonical": "#f5f5f5" },
+      "ink-muted": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#525252" },
+      "ink-faint": { "role": "neutral", "displayName": "Faint Ink", "canonical": "#6e6e6e" },
+      "border-control": { "role": "neutral", "displayName": "Control Edge", "canonical": "#8a8a8a" },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "#e5e5e5" }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Page titles and the editable meeting title." },
+      "heading": { "displayName": "Heading", "purpose": "Section and dialog titles." },
+      "read": { "displayName": "Read", "purpose": "Transcripts, notes, summaries, chat; ~62ch measure." },
+      "ui-lg": { "displayName": "UI Large", "purpose": "Navigation, md buttons, inputs." },
+      "ui": { "displayName": "UI", "purpose": "Dense controls, sm buttons, tooltips." },
+      "caption": { "displayName": "Caption", "purpose": "Badges, metadata, sources." },
+      "mono": { "displayName": "Mono", "purpose": "Every time, date and duration, tabular numbers." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "0 6px 24px -6px color-mix(in srgb, var(--ink, #0a0a0a) 22%, transparent)", "purpose": "Menus, popups, dialogs, toasts only." },
+      { "name": "pill", "value": "0 2px 6px color-mix(in srgb, var(--ink, #0a0a0a) 32%, transparent)", "purpose": "The floating recording pill only." }
+    ],
+    "motion": [
+      { "name": "ease-out-quick", "value": "cubic-bezier(0.2, 0.7, 0.2, 1)", "purpose": "Default easing; nearly every transition is 150ms." },
+      { "name": "pulse-halo", "value": "1.2s ease-in-out infinite alternate", "purpose": "Recording halo breathing 0.15 to 0.45 opacity." },
+      { "name": "pill-hint", "value": "180ms cubic-bezier(0.37, 0, 0.63, 1)", "purpose": "Pill scale 1 to 1.08 hint, two legs." }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single main action on a screen. Ink fill.",
+      "html": "<button class=\"ds-btn-primary\">Start recording</button>",
+      "css": ".ds-btn-primary { height: 32px; padding: 0 12px; border: 1px solid var(--ink, #0a0a0a); border-radius: 4px; background: var(--ink, #0a0a0a); color: var(--on-ink, #fff); font: 500 14px/20px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; cursor: pointer; transition: opacity 150ms cubic-bezier(0.2,0.7,0.2,1); } .ds-btn-primary:hover { opacity: 0.85; } .ds-btn-primary:active { opacity: 0.7; } .ds-btn-primary:focus-visible { outline: 2px solid var(--ink, #0a0a0a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions. Paper with a control edge.",
+      "html": "<button class=\"ds-btn-secondary\">Import audio</button>",
+      "css": ".ds-btn-secondary { height: 32px; padding: 0 12px; border: 1px solid var(--border-control, #8a8a8a); border-radius: 4px; background: var(--paper, #fff); color: var(--ink, #0a0a0a); font: 500 14px/20px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; cursor: pointer; transition: background 150ms cubic-bezier(0.2,0.7,0.2,1); } .ds-btn-secondary:hover { background: color-mix(in srgb, var(--ink, #0a0a0a) 6%, transparent); } .ds-btn-secondary:active { background: color-mix(in srgb, var(--ink, #0a0a0a) 12%, transparent); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--ink, #0a0a0a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Low-emphasis and icon actions. Transparent until hovered.",
+      "html": "<button class=\"ds-btn-quiet\">Cancel</button>",
+      "css": ".ds-btn-quiet { height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--ink, #0a0a0a); font: 500 14px/20px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; cursor: pointer; transition: background 150ms cubic-bezier(0.2,0.7,0.2,1); } .ds-btn-quiet:hover { background: color-mix(in srgb, var(--ink, #0a0a0a) 6%, transparent); } .ds-btn-quiet:active { background: color-mix(in srgb, var(--ink, #0a0a0a) 12%, transparent); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--ink, #0a0a0a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Paper field with a control edge, 32px tall.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search meetings\">",
+      "css": ".ds-input { height: 32px; padding: 0 10px; border: 1px solid var(--border-control, #8a8a8a); border-radius: 4px; background: var(--paper, #fff); color: var(--ink, #0a0a0a); font: 400 14px/20px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2,0.7,0.2,1); } .ds-input::placeholder { color: var(--ink-faint, #6e6e6e); } .ds-input:hover { background: color-mix(in srgb, var(--ink, #0a0a0a) 6%, transparent); } .ds-input:focus-visible { outline: 2px solid var(--ink, #0a0a0a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "232px raised-paper rail; active item uses the pressed tint.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item is-active\" href=\"#\">Record</a><a class=\"ds-nav-item\" href=\"#\">Library</a><a class=\"ds-nav-item\" href=\"#\">Settings</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 1px; width: 232px; padding: 8px; background: var(--paper-raised, #f5f5f5); border-right: 1px solid var(--hairline, #e5e5e5); } .ds-nav-item { display: flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 4px; color: var(--ink-muted, #525252); text-decoration: none; font: 400 14px/20px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; transition: background 150ms cubic-bezier(0.2,0.7,0.2,1), color 150ms; } .ds-nav-item:hover { background: color-mix(in srgb, var(--ink, #0a0a0a) 6%, transparent); color: var(--ink, #0a0a0a); } .ds-nav-item.is-active { background: color-mix(in srgb, var(--ink, #0a0a0a) 12%, transparent); color: var(--ink, #0a0a0a); font-weight: 500; } .ds-nav-item:focus-visible { outline: 2px solid var(--ink, #0a0a0a); outline-offset: 2px; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Neutral metadata badge and the live recording badge.",
+      "html": "<span class=\"ds-badge\">Summarized</span> <span class=\"ds-badge\"><span class=\"ds-badge-dot\"></span>Live</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 6px; border-radius: 4px; background: var(--paper-raised, #f5f5f5); color: var(--ink-muted, #525252); font: 500 12px/16px 'Schibsted Grotesk Variable', 'Segoe UI Variable', system-ui, sans-serif; } .ds-badge-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--signal, #d92d20); }"
+    },
+    {
+      "name": "Recording Pill",
+      "kind": "custom",
+      "refersTo": "stop-button",
+      "description": "Always-dark floating capsule shown during a recording; the only home of the stop button.",
+      "html": "<div class=\"ds-pill\"><span class=\"ds-pill-time\">12:48</span><button class=\"ds-pill-pause\" aria-label=\"Pause\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\"/></svg></button><button class=\"ds-pill-stop\" aria-label=\"Stop\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"1\"/></svg></button></div>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 16px; border: 1px solid #262626; border-radius: 9999px; background: #171717; color: #fff; box-shadow: 0 2px 6px color-mix(in srgb, #0a0a0a 32%, transparent); } .ds-pill-time { font: 400 12px/16px 'IBM Plex Mono', Consolas, monospace; font-variant-numeric: tabular-nums; color: #a3a3a3; } .ds-pill-pause, .ds-pill-stop { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9999px; cursor: pointer; transition: opacity 150ms cubic-bezier(0.2,0.7,0.2,1); } .ds-pill-pause { border: 1px solid #6b6b6b; background: transparent; color: #fff; } .ds-pill-stop { border: none; background: #ff5a4f; color: #fff; } .ds-pill-pause:hover, .ds-pill-stop:hover { opacity: 0.85; } .ds-pill-pause:focus-visible, .ds-pill-stop:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Stenographer",
+    "overview": "Vozella should feel like someone writing quietly in the corner of the room. The interface is ink on paper: one near-black ink, white or deep-black paper, and grey steps between them. It is precise and dense, and it does not compete with the meeting. Nothing decorates. Hierarchy comes from weight, size, and tonal layering, not from color.\n\nThe system has exactly one loud moment, and that moment is recording. The signal red appears only when Vozella is capturing audio. It shows as a pulsing dot, a live badge, or the stop button on the pill. Everywhere else the stenographer stays out of sight. Primary actions are ink, focus rings are ink, and selection is a darker tint of paper.\n\nThe same tokens drive the desktop app (`apps/desktop`) and the landing page (`website/`). The tokens were taken from the landing page and ported into the app. Light is the default and dark follows the system. In-call surfaces (the recording pill and the call popup) are always dark, so they sit quietly over whatever app is on screen.",
+    "keyCharacteristics": [
+      "Monochrome ink on paper, light and dark, with high-contrast neutrals.",
+      "One signal color, reserved for recording.",
+      "Flat, tonal depth: paper, raised paper, hover tint, pressed tint. A shadow appears only on true overlays.",
+      "Small, consistent corners: 4px on controls and 6px on overlays.",
+      "Compact desktop density: 28px and 32px controls, on a 4px rhythm.",
+      "Uniform, quick motion: 150ms ease-out, fully respecting reduced motion."
+    ],
+    "rules": [
+      { "name": "The Tally Light Rule", "body": "Signal red means \"recording now\". It is never used for errors, deletion, emphasis, branding, or folders. If nothing is recording, no signal red is on screen.", "section": "colors" },
+      { "name": "The Ink Is the Accent Rule", "body": "There is no chromatic primary. Emphasis comes from ink (`ink`) against paper, from weight, and from the pressed tint.", "section": "colors" },
+      { "name": "The No Status Colors Rule", "body": "Success, warning, and error do not get colors. Notices and toasts look the same in every tone; the icon and the ARIA role carry the meaning.", "section": "colors" },
+      { "name": "The Timestamp Rule", "body": "Time, dates, and durations are set in IBM Plex Mono with tabular numbers. Prose is never set in mono.", "section": "typography" },
+      { "name": "The Two Weights Rule", "body": "Use 500 for interactive emphasis (buttons, active nav, tabs) and 600 for headings. No other weights.", "section": "typography" },
+      { "name": "The Paper Stack Rule", "body": "Surfaces are flat at rest. Use a tint or a hairline to separate them; reach for the overlay shadow only when an element floats over content and dismisses.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use ink (`ink`) for the single primary action on a screen, and secondary or quiet buttons for everything else.",
+      "Do separate surfaces with raised paper, the 6% and 12% tints, and hairlines before considering a shadow.",
+      "Do set every time, date, and duration in IBM Plex Mono with tabular numbers.",
+      "Do use only the radius tokens: 4px for controls, 6px for overlays, full for the pill and dots.",
+      "Do animate with 150ms `cubic-bezier(0.2, 0.7, 0.2, 1)` and honor reduced motion with `useReducedMotion` or the global CSS override.",
+      "Do keep in-call surfaces (the pill and the call popup) on dark tokens."
+    ],
+    "donts": [
+      "Don't use signal red (`signal`) for anything except active recording: no errors, no deletion, no emphasis.",
+      "Don't introduce success, warning, or error colors; carry the meaning with the icon and the ARIA role.",
+      "Don't add shadows to cards, rows, or panels at rest.",
+      "Don't use arbitrary radii (`[3px]`, `[2px]`, `[1.5px]`) or undefined tokens such as `rounded-card`. These exist today and are drift, not precedent.",
+      "Don't use off-scale type sizes such as the 17px h2 in the notepad. Map to the scale instead.",
+      "Don't use folder accents (`folder-*`) for status or for branding."
+    ]
+  }
+}
