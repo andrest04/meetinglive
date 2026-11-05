@@ -9,7 +9,8 @@ export interface LibrarySnapshot {
   readonly meetings: readonly MeetingListItem[];
 }
 
-function instant(item: MeetingListItem): number {
+/** When the meeting was recorded, for sorting. Offsets count, so text order is not enough. */
+export function meetingInstant(item: Pick<MeetingListItem, 'recordedAt'>): number {
   return parseOffsetDate(item.recordedAt)?.ms ?? 0;
 }
 
@@ -62,7 +63,7 @@ export function selectMeetings(
       ? inContainer
       : inContainer.filter((m) => hasAllWords(foldText(m.title), words));
   return {
-    meetings: [...matching].sort((a, b) => instant(b) - instant(a)),
+    meetings: [...matching].sort((a, b) => meetingInstant(b) - meetingInstant(a)),
     inFolderCount: inContainer.length,
   };
 }

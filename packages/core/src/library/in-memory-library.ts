@@ -1,6 +1,7 @@
 import { MeetingTrashError } from './errors';
 import type { FolderRecord } from './folder';
-import type { MeetingRecord } from './meeting';
+import type { MeetingListItem, MeetingRecord } from './meeting';
+import { foldSearchText, meetingSearchText, type MeetingBody } from './meeting-search';
 import { meetingListItem } from './snippet';
 import { applySettingsPatch, readSettings, type AppSettings, type RawSettings } from './settings';
 import type {
@@ -26,6 +27,16 @@ export class InMemoryMeetingRepository implements MeetingRepository {
 
   get(id: string): Promise<MeetingRecord | null> {
     return Promise.resolve(this.records.get(id) ?? null);
+  }
+
+  async *bodies(filter: (item: MeetingListItem) => boolean): AsyncGenerator<MeetingBody> {
+    for (const record of [...this.records.values()]) {
+      const item = meetingListItem(record);
+      if (!filter(item)) continue;
+      const text = meetingSearchText(record);
+      yield { item, folded: foldSearchText(text), original: () => Promise.resolve(text) };
+      await Promise.resolve();
+    }
   }
 
   save(record: MeetingRecord): Promise<MeetingRecord> {

@@ -171,6 +171,30 @@ describe('bulk meeting handlers', () => {
   });
 });
 
+describe('library.search', () => {
+  it('finds a word in a body across the boundary', async () => {
+    const t = await setup();
+    await t.runtime.meetings.save({ ...record(), transcript: '[00:01.00-00:02.00] el año fiscal' });
+    const found = await t.call('library.search', {
+      query: 'ano',
+      scope: { kind: 'all' },
+      requestId: 3,
+    });
+    expect(found.value).toEqual({
+      requestId: 3,
+      stale: false,
+      hits: [{ meetingId: ID, field: 'transcript', snippet: 'el año fiscal' }],
+    });
+  });
+
+  it('refuses a scope it does not know', async () => {
+    const t = await setup();
+    expect(
+      await t.call('library.search', { query: 'ano', scope: { kind: 'nope' }, requestId: 3 }),
+    ).toMatchObject({ ok: false });
+  });
+});
+
 describe('library handlers', () => {
   it('reports a meeting the Recycle Bin refused and leaves it listed', async () => {
     const t = await setup({

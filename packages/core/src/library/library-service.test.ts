@@ -398,6 +398,49 @@ describe('deleteMeeting', () => {
   });
 });
 
+describe('search', () => {
+  const seeded = () => {
+    const t = setup();
+    t.folders.folders = [folder('a', 'A')];
+    t.meetings.records.set('in', { ...meeting('in'), notes: 'presupuesto del año' });
+    t.meetings.records.set('lost', { ...meeting('lost', 'gone'), notes: 'presupuesto' });
+    t.meetings.records.set('filed', { ...meeting('filed', 'a'), notes: 'presupuesto' });
+    return t;
+  };
+  const ids = (result: { hits: readonly { meetingId: string }[] }): string[] =>
+    result.hits.map((hit) => hit.meetingId).sort();
+
+  it('searches the view it is given and echoes the request', async () => {
+    const t = seeded();
+    const search = (scope: Parameters<typeof t.service.search>[0]['scope']) =>
+      t.service.search({ query: 'presupuesto', scope, requestId: 7 });
+    expect(await search({ kind: 'all' })).toMatchObject({ requestId: 7, stale: false });
+    expect(ids(await search({ kind: 'all' }))).toEqual(['filed', 'in', 'lost']);
+    expect(ids(await search({ kind: 'inbox' }))).toEqual(['in', 'lost']);
+    expect(ids(await search({ kind: 'folder', id: 'a' }))).toEqual(['filed']);
+  });
+
+  it('abandons a search when a newer one arrives', async () => {
+    const t = seeded();
+    const first = t.service.search({ query: 'presupuesto', scope: { kind: 'all' }, requestId: 1 });
+    const second = t.service.search({ query: 'presupuesto', scope: { kind: 'all' }, requestId: 2 });
+    expect(await first).toEqual({ requestId: 1, stale: true, hits: [] });
+    expect(await second).toMatchObject({ requestId: 2, stale: false });
+    expect(ids(await second)).toEqual(['filed', 'in', 'lost']);
+  });
+
+  it('a damaged folders file treats every meeting as Inbox, like the rest of the Library', async () => {
+    const t = seeded();
+    t.folders.getAll = () => Promise.reject(new LibraryFileCorruptError('folders', 'bad'));
+    const result = await t.service.search({
+      query: 'presupuesto',
+      scope: { kind: 'inbox' },
+      requestId: 1,
+    });
+    expect(ids(result)).toEqual(['filed', 'in', 'lost']);
+  });
+});
+
 describe('moveMeetings', () => {
   it('moves each meeting and reports each one, without stopping at a failure', async () => {
     const t = setup();

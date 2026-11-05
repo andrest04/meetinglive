@@ -3,6 +3,7 @@ import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MeetingTrashError, renderMeetingMarkdown } from '@vozella/core';
+import { MarkdownMeetingRepository } from './markdown-meeting-repository';
 import {
   FOLDER_1,
   FOLDER_2,
@@ -339,6 +340,92 @@ describe('delete', () => {
     await fx.meetings.delete(ID_A);
     expect(fs.existsSync(outside)).toBe(true);
     expect(tree(fx.root)).toEqual([]);
+  });
+});
+
+describe('bodies', () => {
+  const collect = async (repository = fx.meetings, filter = (): boolean => true) => {
+    const out = [];
+    for await (const body of repository.bodies(filter)) out.push(body);
+    return out;
+  };
+  const reads = (root: string) => {
+    const spy = vi.spyOn(fsp, 'readFile');
+    return {
+      count: () =>
+        spy.mock.calls.filter(([p]) => typeof p === 'string' && p.startsWith(root)).length,
+      restore: () => {
+        spy.mockRestore();
+      },
+    };
+  };
+
+  it('gives folded text for every field, and the original on request', async () => {
+    await fx.meetings.save(
+      meeting({ title: 'Año nuevo', summary: 'RESUMEN', notes: 'Última nota', transcript: 'Dijo' }),
+    );
+    const [body] = await collect();
+    expect(body?.item.id).toBe(ID_A);
+    expect(body?.folded).toEqual({
+      title: 'ano nuevo',
+      summary: 'resumen',
+      notes: 'ultima nota',
+      transcript: 'dijo',
+    });
+    expect(await body?.original()).toMatchObject({ title: 'Año nuevo', notes: 'Última nota' });
+  });
+
+  it('applies the filter', async () => {
+    await fx.meetings.save(meeting());
+    await fx.meetings.save(meeting({ id: ID_B, title: 'Second' }));
+    const bodies = await collect(
+      fx.meetings,
+      ((item: { id: string }) => item.id === ID_B) as never,
+    );
+    expect(bodies.map((b) => b.item.id)).toEqual([ID_B]);
+  });
+
+  it('reuses folded text while the file is unchanged, and refolds after an edit', async () => {
+    await fx.meetings.save(meeting({ notes: 'Primera' }));
+    await collect();
+    const seen = reads(fx.root);
+    try {
+      await collect();
+      expect(seen.count()).toBe(0);
+    } finally {
+      seen.restore();
+    }
+    const saved = await fx.meetings.get(ID_A);
+    if (!saved) throw new Error('missing');
+    await fx.meetings.save({ ...saved, notes: 'Cambiada y más larga' });
+    const [body] = await collect();
+    expect(body?.folded.notes).toBe('cambiada y mas larga');
+  });
+
+  it('skips a file that disappears, and original() is null for one that goes later', async () => {
+    const saved = await fx.meetings.save(meeting());
+    const [body] = await collect();
+    fs.unlinkSync(saved.sourcePath ?? '');
+    expect(await body?.original()).toBeNull();
+    expect(await collect()).toEqual([]);
+  });
+
+  it('holds no more than its cap and still gives the text it could not keep', async () => {
+    const tiny = new MarkdownMeetingRepository({
+      root: fx.root,
+      folders: fx.folders,
+      foldedTextBytes: 8,
+    });
+    await tiny.save(meeting({ notes: 'Una nota bastante larga' }));
+    const [first] = await collect(tiny);
+    expect(first?.folded.notes).toBe('una nota bastante larga');
+    const seen = reads(fx.root);
+    try {
+      await collect(tiny);
+      expect(seen.count()).toBe(1);
+    } finally {
+      seen.restore();
+    }
   });
 });
 

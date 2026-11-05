@@ -87,6 +87,7 @@ export const requestChannels = {
   [library.libraryDeleteMeeting.name]: library.libraryDeleteMeeting,
   [library.libraryMoveMeetings.name]: library.libraryMoveMeetings,
   [library.libraryDeleteMeetings.name]: library.libraryDeleteMeetings,
+  [library.librarySearch.name]: library.librarySearch,
   [library.libraryIsMeetingBusy.name]: library.libraryIsMeetingBusy,
   [library.libraryGetLocation.name]: library.libraryGetLocation,
   [library.libraryOpenFolder.name]: library.libraryOpenFolder,

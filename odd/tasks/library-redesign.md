@@ -98,7 +98,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 - [x] T1.1 List items carry length and state; All view; folded titles
 - [x] T1.2 Delete goes to the Recycle Bin
 - [x] T1.3 Bulk move and delete
-- [ ] T1.4 Full-text search with timing harness
+- [x] T1.4 Full-text search with timing harness
 
 ### Batch 2: shell, sidebar, list (about 1,250)
 - [ ] T2.1 Folders move to the sidebar, with store and counts
@@ -140,8 +140,16 @@ Each batch writer records its commit hashes and observed check results here. A c
 
 - T1.1 `faa918e` `feat(library): list items carry length and state, with an All view and folded titles`. `pnpm check`: passed; contracts 44 tests, core 1654, platform 428 passed and 13 skipped, desktop 1875 passed and 6 skipped. Generation start did not fire `library.changed`: `ObservedSummaryService` in `main/summaries` now broadcasts at the start and end of a run, because `packages/core/src/summaries` is not part of this batch. `emptyFlags` is unchanged, so T2.1 decides the All view's empty copy.
 - T1.2 `ed6d91c` `feat(library): deleting a meeting moves it to the Recycle Bin`. `pnpm check`: passed; contracts 44, core 1656, platform 432 passed and 13 skipped, desktop 1878 passed and 6 skipped. When the bin refuses, the current screen opens a second dialog offering "Delete permanently". Real Recycle Bin restore and a volume with no bin stay manual and pending.
-- T1.3 `feat(library): move and delete many meetings in one request`. `pnpm check`: passed; contracts 44, core 1661, platform 435 passed and 14 skipped, desktop 1883 passed and 6 skipped. 200 moves at 3,000 meetings measured 29,838 ms, over the 10 s line, so the repository gained `batch`, which reuses one scan: 2,537 ms after it (`library-timing.test.ts`, about 3 KB per meeting).
+- T1.3 `230f639` `feat(library): move and delete many meetings in one request`. `pnpm check`: passed; contracts 44, core 1661, platform 435 passed and 14 skipped, desktop 1883 passed and 6 skipped. 200 moves at 3,000 meetings measured 29,838 ms, over the 10 s line, so the repository gained `batch`, which reuses one scan: 2,537 ms after it (`library-timing.test.ts`, about 3 KB per meeting).
+- T1.4 `feat(library): full-text search across meetings`. `pnpm check`: passed; contracts 44, core 1681, platform 447 passed and 17 skipped, desktop 1885 passed and 6 skipped. An earlier run failed once on `notepad-markdown.test.ts` "is idempotent for a long mixed document" with a 5000 ms timeout under the full suite; that file is untouched here and it passed alone (106 tests) and on the rerun.
+  - Search gate, measured on this machine at 3,000 meetings with files the OS already cached. Gate: 800 ms cold, 150 ms warm. Figures are every word matching every meeting / one meeting matching / nothing matching, in ms.
+    - 13 MB (40 transcript lines): cold after `library.load` 148 / 83 / 72, warm 137 / 76 / 67. Gate met. Cold as the first thing in the process, which the app never does: 1161 / 1022 / 982.
+    - 78 MB (250 lines, about 30 minutes): cold after load 195 / 167 / 78, warm 191 / 164 / 69. Cold gate met; warm over by 41 and 14 ms in the first two. First thing in the process: 2168 / 1987 / 2054.
+    - 156 MB (500 lines, about an hour): cold after load 1166 / 1280 / 990, warm 1221 / 1150 / 954. Gate missed: the folded text outgrows the 64 MB cap, so part of the library is re-read on every search. First thing in the process: 3799 / 3878 / 3632.
+    - `library.load` first run: 985 ms at 13 MB, about 2 s at 78 MB, about 2.7 s at 156 MB; second run about 70 ms.
+  - Choices the document left open: indexing keeps the folded text it already parsed, so a search after `library.load` reads nothing twice; the cache will not evict what the last two searches used, because a repeated full scan otherwise gets no hits at all once the library outgrows the cap; stamps and speaker tags are not searchable; `summary` also holds action items, follow up and project plan, `notes` also holds brief and attendees; a query shorter than 2 characters returns no hits.
+  - The e2e for T1.3's bulk channels landed with this commit, in `library.spec.ts`.
 
 ## Next step
 
-Batch 1.
+Batch 2. Owner to decide whether the 64 MB cap or the gate moves for libraries of hour-long meetings.

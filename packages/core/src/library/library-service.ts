@@ -3,8 +3,9 @@ import { LibraryFileCorruptError, MeetingTrashError } from './errors';
 import type { FolderRecord } from './folder';
 import { nextAccentKey, resolveAccentKey, resolveIconKey } from './folder-personality';
 import { folderDirectoryName } from './names';
-import { canDeleteFolder } from './library-view';
+import { canDeleteFolder, isInLibraryView, type LibraryView } from './library-view';
 import type { MeetingListItem, SkippedMeetingFile } from './meeting';
+import { searchMeetings, type SearchHit } from './meeting-search';
 import { formatOffsetDate, offsetDateFromInstant } from './offset-date';
 import type {
   FolderRepository,
@@ -43,6 +44,13 @@ export type LoadResult =
     }
   | Failure;
 
+export interface SearchResult {
+  readonly requestId: number;
+  /** A newer search replaced this one, so its hits are empty and mean nothing. */
+  readonly stale: boolean;
+  readonly hits: readonly SearchHit[];
+}
+
 export interface LibraryDeps {
   readonly meetings: MeetingRepository;
   readonly folders: FolderRepository;
@@ -73,6 +81,8 @@ const sameDirectory = (a: string, b: string): boolean =>
  * and no call mutates records it was given, so a failed save leaves nothing half done (B13, B26).
  */
 export class LibraryService {
+  private latestSearch = 0;
+
   constructor(private readonly deps: LibraryDeps) {}
 
   async load(): Promise<LoadResult> {
@@ -87,6 +97,36 @@ export class LibraryService {
       return { ok: true, folders, meetings, skipped: list.skipped };
     } catch (error) {
       return failure(error);
+    }
+  }
+
+  /** Full text across a view. Only the newest request runs to the end. */
+  async search(input: {
+    query: string;
+    scope: LibraryView;
+    requestId: number;
+  }): Promise<SearchResult> {
+    this.latestSearch += 1;
+    const own = this.latestSearch;
+    const isStale = (): boolean => own !== this.latestSearch;
+    const known = await this.knownFolderIds();
+    const hits = await searchMeetings({
+      bodies: this.deps.meetings.bodies((item) => isInLibraryView(input.scope, known, item)),
+      query: input.query,
+      isStale,
+    });
+    return hits === null
+      ? { requestId: input.requestId, stale: true, hits: [] }
+      : { requestId: input.requestId, stale: false, hits };
+  }
+
+  /** A damaged folders file leaves meetings findable: as everywhere else, they read as Inbox. */
+  private async knownFolderIds(): Promise<ReadonlySet<string>> {
+    try {
+      return new Set((await this.deps.folders.getAll()).map((folder) => folder.id));
+    } catch (error) {
+      if (error instanceof LibraryFileCorruptError) return new Set();
+      throw error;
     }
   }
 

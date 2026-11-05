@@ -13,6 +13,7 @@ import {
   libraryMoveMeetings,
   libraryOpenFolder,
   libraryRenameFolder,
+  librarySearch,
   librarySetFolderNote,
   librarySetLocation,
   libraryUpdateFolderPersonality,
@@ -214,6 +215,8 @@ export function registerLibraryHandlers(deps: LibraryHandlerDeps): LibraryWrites
     if (deleted.length > 0) broadcast(libraryChanged, { reason: 'meeting' });
     return { results };
   });
+
+  registerRequest(server, librarySearch, (input) => runtime.service.search(input));
 
   registerRequest(server, libraryIsMeetingBusy, ({ meetingId }) => ({
     busy: runtime.service.isMeetingBusy(meetingId),

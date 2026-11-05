@@ -183,6 +183,35 @@ export const libraryDeleteMeetings = defineRequest('library.deleteMeetings', {
   output: bulkResult,
 });
 
+export const libraryViewSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('all') }),
+  z.object({ kind: z.literal('inbox') }),
+  z.object({ kind: z.literal('folder'), id: guid }),
+]);
+export type LibraryViewDto = z.infer<typeof libraryViewSchema>;
+
+export const searchHitSchema = z.object({
+  meetingId: guid,
+  field: z.enum(['title', 'summary', 'notes', 'transcript']),
+  /** Null for a title hit and past the newest hits: show the list's own snippet then. */
+  snippet: z.string().nullable(),
+});
+export type SearchHitDto = z.infer<typeof searchHitSchema>;
+
+/** Full text across a view. A newer request abandons this one, which then reports `stale`. */
+export const librarySearch = defineRequest('library.search', {
+  input: z.object({
+    query: z.string().max(500),
+    scope: libraryViewSchema,
+    requestId: z.number().int().nonnegative(),
+  }),
+  output: z.object({
+    requestId: z.number(),
+    stale: z.boolean(),
+    hits: z.array(searchHitSchema).readonly(),
+  }),
+});
+
 export const libraryIsMeetingBusy = defineRequest('library.isMeetingBusy', {
   input: z.object({ meetingId: guid }),
   output: z.object({ busy: z.boolean() }),

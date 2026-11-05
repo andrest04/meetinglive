@@ -29,6 +29,11 @@ function stripMarkers(line: string, heading: boolean): string {
     .trim();
 }
 
+/** One line of Markdown without its heading mark and inline markers. */
+export function plainMarkdownLine(line: string): string {
+  return stripMarkers(line, HEADING.test(line.trim()));
+}
+
 /** One-line preview of Markdown: body text first, headings only when there is no body. */
 export function snippetFromMarkdown(markdown: string): string {
   if (markdown.trim() === '') return '';
@@ -50,7 +55,8 @@ export { isTranscriptHeader };
 /** The spoken text of one transcript line, without the star, the stamp and the speaker tag. */
 export const committedLineBody = extractCommittedBody;
 
-function transcriptBody(transcript: string): string {
+/** What was said: no header lines, stamps or speaker tags. */
+export function spokenTranscript(transcript: string): string {
   return transcript
     .split(/\r\n|\n|\r/)
     .filter((line) => line !== '' && !isTranscriptHeader(line))
@@ -62,7 +68,7 @@ function transcriptBody(transcript: string): string {
 /** Spec 3.15: the summary when there is one, otherwise the spoken transcript. */
 export function meetingSnippet(summary: string | null, transcript: string | null): string {
   if (summary !== null && summary.trim() !== '') return snippetFromMarkdown(summary);
-  return snippetFromMarkdown(transcriptBody(transcript ?? ''));
+  return snippetFromMarkdown(spokenTranscript(transcript ?? ''));
 }
 
 const hasText = (value: string | null): boolean => value !== null && value.trim() !== '';

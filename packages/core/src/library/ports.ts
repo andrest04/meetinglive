@@ -1,5 +1,6 @@
 import type { FolderRecord } from './folder';
 import type { MeetingListItem, MeetingRecord, SkippedMeetingFile } from './meeting';
+import type { MeetingBody } from './meeting-search';
 import type { AppSettings } from './settings';
 
 /** `trash` keeps the files recoverable where the adapter can; `permanent` never does. */
@@ -16,6 +17,11 @@ export interface MeetingRepository {
   /** Light list for the Library: no transcript or summary text. */
   list(): Promise<MeetingList>;
   get(id: string): Promise<MeetingRecord | null>;
+  /**
+   * The meetings the filter keeps, with their text folded for search. Stopping the iteration stops
+   * the reading, so a superseded search costs no more than it already did.
+   */
+  bodies(filter: (item: MeetingListItem) => boolean): AsyncIterable<MeetingBody>;
   /** Writes the record, moving its files as needed. Returns the record as stored. */
   save(record: MeetingRecord): Promise<MeetingRecord>;
   /**

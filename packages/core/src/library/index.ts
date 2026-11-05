@@ -7,6 +7,7 @@ export * from './folders-json';
 export * from './library-view';
 export * from './meeting';
 export * from './meeting-markdown';
+export * from './meeting-search';
 export * from './names';
 export * from './offset-date';
 export * from './settings';
