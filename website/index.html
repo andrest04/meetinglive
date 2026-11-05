@@ -133,10 +133,17 @@
   .stars[hidden] { display: none; }
   .stars svg { width: 14px; height: 14px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .lang { display: flex; gap: 4px; }
-  .lang button { min-width: 40px; min-height: 40px; padding: 0 4px; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; font: 500 13px/20px var(--mono); color: var(--ink-faint); }
+  /* One underline slides between the two languages. */
+  .lang { --lang-width: 40px; position: relative; display: flex; gap: 4px; }
+  .lang::after {
+    content: ""; position: absolute; left: 0; bottom: 0; width: var(--lang-width);
+    border-bottom: 2px solid var(--ink); pointer-events: none;
+    transition: transform .35s cubic-bezier(.22, .8, .24, 1);
+  }
+  .lang:has([data-lang="es"][aria-pressed="true"])::after { transform: translateX(calc(var(--lang-width) + 4px)); }
+  .lang button { width: var(--lang-width); min-height: 40px; padding: 0 4px; transition: color .25s ease; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; font: 500 13px/20px var(--mono); color: var(--ink-faint); }
   .lang button:hover { color: var(--ink); }
-  .lang button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .lang button[aria-pressed="true"] { color: var(--ink); }
 
   /* Hero */
   .hero { padding-block: clamp(40px, 7vw, 88px) clamp(32px, 4vw, 56px); }
@@ -262,7 +269,7 @@
     .top-end { gap: 12px; }
     .top.is-pill { padding-inline: 14px 6px; }
     .top.is-pill .top-end { gap: 6px; }
-    .top.is-pill .lang button { min-width: 32px; }
+    .top.is-pill .lang { --lang-width: 32px; }
     .app-body { grid-template-columns: minmax(0, 1fr); }
     .app-nav { display: flex; overflow: hidden; padding: 8px; }
     .app-nav li { padding: 4px 10px; font-size: 13px; }
@@ -275,7 +282,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .top { transition: none; }
+    .top, .lang::after, .lang button { transition: none; }
     * { transition: none !important; }
   }
 </style>
