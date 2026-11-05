@@ -175,7 +175,7 @@ test('selecting navigates and publishes the tag; the same page is a no-op; Sessi
   expect(await page.evaluate(() => window.history.length)).toBe(before);
   await expect(page).toHaveURL(/#\/library$/);
 
-  await page.getByText('Weekly planning').first().click();
+  await page.getByText('Weekly planning').first().dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Weekly planning' })).toBeVisible();
   await expect(page.locator('#NavItemHistory')).toHaveAttribute('aria-current', 'page');

@@ -186,12 +186,14 @@ async function resize(
 ): Promise<void> {
   await launched.app.evaluate(
     ({ BrowserWindow }, size) => {
-      BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+      const main = BrowserWindow.getAllWindows()[0];
+      // The real minimum is the 960 asked for here, and parked the frame would keep it at 976.
+      main?.setMinimumSize(300, 300);
+      main?.setContentSize(size.width, size.height);
     },
     { width, height },
   );
-  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeGreaterThanOrEqual(width);
-  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(width + 16);
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
   await page.waitForTimeout(200);
 }
 
@@ -276,18 +278,6 @@ test.describe('seeded library', () => {
       await shot(page, `library-no-match-${theme}`);
       await search.fill('');
 
-      // Hover and the row menu.
-      await row(page, 'Customer call, Acme').hover();
-      await shot(page, `library-row-hover-${theme}`);
-      await row(page, 'Customer call, Acme').getByRole('button', { name: 'More actions' }).click();
-      await expect(page.getByRole('menu')).toBeVisible();
-      await shot(page, `library-row-menu-${theme}`);
-      await page.keyboard.press('Escape');
-      // Focus left on the menu button keeps its tooltip up, and a check does not take the focus.
-      await page.evaluate(() => {
-        (document.activeElement as HTMLElement | null)?.blur();
-      });
-
       // Several checked, with the bar up.
       await row(page, 'Quarterly planning').getByRole('checkbox').click();
       await row(page, 'Customer call, Acme').getByRole('checkbox').click();
@@ -301,6 +291,14 @@ test.describe('seeded library', () => {
       await page.keyboard.press('Escape');
       await bar.getByRole('button').last().click();
       await expect(bar).toHaveCount(0);
+
+      // Hover and the row menu.
+      await row(page, 'Customer call, Acme').hover();
+      await shot(page, `library-row-hover-${theme}`);
+      await row(page, 'Customer call, Acme').getByRole('button', { name: 'More actions' }).click();
+      await expect(page.getByRole('menu')).toBeVisible();
+      await shot(page, `library-row-menu-${theme}`);
+      await page.keyboard.press('Escape');
 
       // A folder: path, icon, note, and a move that can be undone.
       await page.getByRole('treeitem', { name: /Universidad/ }).click();

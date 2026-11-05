@@ -33,15 +33,19 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 ### Screens (UI half)
 
-- **Layout.** The Library gets a 960 px column (the documents keep 720) with a 200 px folder pane beside the list. Rows are hairline-separated lines, not cards: title and date on one line, a one-line snippet below. No cards inside cards; shadows only on the narrow overlay and menus.
-- **Accents** are folder content, kept muted: a small dot and the icon in the accent color, nothing else is tinted. `signal` red is never used here.
+- **Layout.** Three panes: folders in the app sidebar, a date-grouped list, and a preview beside it. With 760 px of content or more the list is `clamp(340px, 38%, 440px)` and the preview takes the rest; below that there is no preview and a click opens the meeting. The smallest window (960 px, 728 of content) is below the line. The list is a logbook: a virtual `role="grid"` with sticky day headers and fixed 64 px rows, ruled at the bottom, with no cards. Each ruling is 2 px at the left and as long as the meeting on a square-root scale, capped at 120 min and 64 px; it is `aria-hidden`, because the duration is in the row text. Shadows only on the Undo offer, menus and dialogs. Window zoom cannot reduce the width: there is no application menu (`main/index.ts:566`) and nothing in `src` changes the zoom factor.
+- **Accents** are folder content, kept muted: the icon in the accent color, nothing else is tinted. The dot beside it was removed in the redesign; a `Tree` row with no icon keeps it. `signal` red is never used here.
 - **Session placeholder.** The Session module is not built, so `/session` shows the opened meeting title and tab and a back link. It exists so the hand-off through the workspace is real and testable; the Session module replaces it.
-- **Shell.** `AppShell` now listens to `workspace.navigationRequested` and reports its tag. It also widens the content column on `/library`.
-- **UI kit changes.** `Tree` takes optional accent dots, controlled expansion and per-row context menus; `Dialog` takes an initial focus target; new `Notice`; `ContextMenu` can render its trigger as another element. All are backward compatible and covered in `components.test.tsx`.
+- **Shell.** `AppShell` listens to `workspace.navigationRequested` and reports its tag. `/library` is paned: `main` stops scrolling and each pane has its own scroll, with the same elements, so `Outlet` does not remount. `NavRail` has a slot after Library for the folder tree, shown on every route; the selection shows only on `/library` and `/session`, and on `/library` the rail does not also fill Library. A folder click elsewhere sets the view and navigates; a right click elsewhere does not. Forced colors mark the selection with an outline in the rail, the tree and the list, because the Canvas backplate behind text made `HighlightText` on a `Highlight` fill unreadable.
+- **UI kit changes.** `Tree` takes optional accent dots (for rows with no icon), controlled expansion, per-row context menus, `rowProps(id)` for drop targets and `selectOnContextMenu`; `Dialog` takes an initial focus target; new `Notice`; `ContextMenu` can render its trigger as another element. All are backward compatible and covered in `components.test.tsx`.
 - **New strings** (en and es): `Ui_LibraryFolders`, `Ui_LibraryFolderActions`, `Ui_LibraryOpenFailed`. Everything else reuses existing keys. The meeting list is named with `HistoryPage_Title`, the breadcrumb with `Chat_ScopeFolder`.
 - **Move after a busy refusal** shows `HistoryDelete_Busy` (same meaning as for delete) instead of a new string.
 - **TDD note.** The screen tests and the e2e specs were written after the screen code and were green on first run. RED was not observed.
-- **Checks.** `LibraryRoute.test.tsx` drives the real page against the real `LibraryService` over in-memory repositories and the real `Workspace`. `library-ui.spec.ts` drives the built app with `VOZELLA_FAKE_NATIVE=1`, writes meeting files the way the app does and checks the files on disk. The folder dialog and `shell.openPath` are stubbed in the main process, so no real dialog or file manager opens. axe (serious and critical) is clean on the library, the new folder dialog and the data card in both themes.
+- **Checks.** `LibraryRoute.test.tsx` drives the real page against the real `LibraryService` over in-memory repositories and the real `Workspace`. `library-ui.spec.ts` drives the built app with `VOZELLA_FAKE_NATIVE=1`, writes meeting files the way the app does and checks the files on disk. The folder dialog and `shell.openPath` are stubbed in the main process, so no real dialog or file manager opens. `library-grid.spec.ts` proves the virtual grid in the real renderer, `library-interactions.spec.ts` checks, keyboard and drag with the files on disk, and `library-a11y.spec.ts` runs axe over the grid and the tree (any impact) and the page (serious and critical), in both themes, in the states that change roles or colors.
+- **Search.** `library.search` reads titles, summaries, notes and transcripts in `packages/core/src/library/meeting-search.ts`, accent-insensitive with words ANDed. Titles filter at once in memory; the second stage needs 2 or more characters and a 200 ms debounce, and results stay date-ordered. Measured at 3,000 meetings on this machine: gate met at 13 MB (148 ms cold, 137 ms warm at worst); at 78 MB the cold gate is met and warm is over by up to 41 ms; at 156 MB (about an hour per meeting) the gate of 800 ms is missed, at about 1.2 s, because the folded text outgrows the 64 MB cap. Whether the cap or the gate moves is an owner decision. A row brings a match near the start of its snippet with `snippetAroundMatch`, because a narrow row shows only the start.
+- **Trash.** Deleting a meeting moves its audio, sibling WAV and markdown to the Recycle Bin through `shell.trashItem`, injected as `discard`; under `VOZELLA_FAKE_NATIVE` they are unlinked. If the bin refuses, a second dialog offers "Delete permanently". Shift+Delete asks for that directly. Moving a meeting still unlinks the old file. A real bin restore and a volume with no bin are `pending-real-validation`.
+- **Undo.** The redesign named a toast for Undo after a move. It is `UndoOffer` inside the list pane, because `ui/Toast.tsx` has no action: 8 s, held while hovered or focused. It follows a drag and the Move dialog.
+- **Rename from the list.** `session.rename` does not broadcast `library.changed`, so F2 refreshes the list itself after the rename.
 
 ## Parity items
 
@@ -165,9 +169,9 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 82 | done | Inbox is a virtual first node with an empty accent slot so names align. `LibraryRoute.test.tsx` |
+| 82 | improved | All is a new first node, Inbox the second, both virtual, then a gap and the folders. All shows every meeting and is not a drop target; All and Inbox both publish `null` as scope. `LibraryRoute.test.tsx`, `library-store.test.tsx` |
 | 83 | done | `buildFolderTree` |
-| 84 | improved | Reload only adds ancestors of the target to what the user already opened (B14). A selected folder with children is not auto-expanded, as in the spec |
+| 84 | improved | Reload only adds ancestors of the target to what the user already opened (B14). A selected folder with children is not auto-expanded, as in the spec. Holding a drag over a closed folder for 600 ms now opens it |
 | 85 | done | `selectFolder` ignores the current id |
 | 86 | done | `use-library.ts` saves the note of the folder being left before it switches; `LibraryRoute.test.tsx` (folder note) and `library-ui.spec.ts` |
 | 87 | done | `workspace.dispatch publishSelectedFolder` |
@@ -177,18 +181,18 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 91 | done | Sorted by instant, not by text |
 | 92 | done | |
 | 93 | done | `emptyFlags` truth table |
-| 94 | improved | B15: `emptyFlags.showNoMatches`; string `Ui_LibrarySearchEmpty` |
+| 94 | improved | B15: `emptyFlags.showNoMatches`; string `Ui_LibrarySearchEmpty`. Search now reads inside meetings as well as titles, and offers to widen to everything from a narrower view. "No meetings match" waits for the second stage. See Search in the decisions |
 | 95 | done | |
-| 96 | improved | Skeleton rows of the real list instead of a progress ring, and only on the first load; later reloads are silent so the page does not flash. Loading is cleared in `finally` |
+| 96 | improved | Skeleton rows of the real list (a day header, then rows with time and two lines) instead of a progress ring, and only on the first load; later reloads are silent so the page does not flash. Loading is cleared in `finally`. The preview has its own skeleton, after 150 ms. Screenshot `library-loading-light.png` |
 | 97 | improved | Loads on mount, saves the note on unmount and on `pagehide`. It also reloads when the main process reports `library.changed`, which the WinUI page did not (it had no live refresh) |
-| 98 | improved | The switch is the width of the page area, 600 px, not the window (the sidebar is resizable, so 820 px of window can leave 500 px for the page). Wide: 200 px inline pane. Narrow: closed overlay under the header with a toggle named `Folder` that reports `aria-expanded`; choosing a folder closes it. `LibraryRoute.test.tsx` (narrow layout), screenshot `library-narrow-pane-light.png` |
+| 98 | improved | The folders moved to the sidebar, 232 px at every width, so the narrow overlay and its `Folder` toggle are gone: the overlay was unreachable at the window minimum. The switch is now preview or no preview, at 760 px of the page area, not the window. `LibraryRoute.test.tsx`, `library-grid.spec.ts`, screenshots `library-all-*-960.png` |
 
 ### Folder actions
 
 | # | Status | Notes |
 | --- | --- | --- |
 | 99 | done | `LibraryService.createFolder` |
-| 100 | done | The new folder is selected and its ancestors open. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
+| 100 | improved | The new folder is selected and its ancestors open. New folder is a quiet row at the end of the sidebar tree, reachable from any route. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
 | 101 | done | `LibraryNewFolder_Title` and `LibraryNewFolder_TitleIn` |
 | 102 | done | The primary button stays disabled for a blank name; Enter submits only a non-blank name; the service trims |
 | 103 | done | Pre-filled; the directory moves on disk (`library-ui.spec.ts`) |
@@ -197,23 +201,23 @@ Status words: `done`, `improved` (a section 7 fix or a recorded decision changed
 | 106 | done | `not-empty` plus the existing `LibraryDeleteFolder_NotEmpty` string |
 | 107 | done | Cancel has the focus; confirm goes back to Inbox and the handler publishes null. `LibraryRoute.test.tsx`, `library-ui.spec.ts` |
 | 108 | improved | B26: the check uses fresh data |
-| 109 | done | Right click on a real folder now selects it first (so Escape leaves it selected and the note of the previous folder is saved), then opens Rename, Personality, Delete folder; Inbox has no menu. The same three items are in a `Folder actions` button next to the breadcrumb. Audit fix, with a test |
+| 109 | improved | Right click on a real folder selects it first on `/library` (so Escape leaves it selected and the note of the previous folder is saved), then opens Rename, Personality, Delete folder; All and Inbox have no menu. Elsewhere it does not navigate until an entry is chosen. The same three items are in a `Folder actions` button in the list header. With a test |
 | 110 | pending-real-validation | Saved on folder change, create, rename, personality, unmount and `pagehide` (B16). Audit fix: main now tracks library writes and `before-quit` waits for them (3 s cap), covered by a handler test. The save on a real window close was still not observed end to end, and a `pagehide` invoke that has not reached main when the window dies could still be lost |
 
 ### Meeting actions
 
 | # | Status | Notes |
 | --- | --- | --- |
-| 111 | done | `MeetingList.tsx`: title, date and time in the user locale in the mono face, one-line snippet or `History_NoContent`, more button (shown on hover and focus, always visible in forced colors) |
+| 111 | improved | `MeetingGrid.tsx`: time and duration in the mono face, 24 hour in every locale with the full date on hover; title; one-line snippet or `History_NoContent`; check and more button (shown on hover and focus, always in forced colors). Day headers carry the date. Rows also show length through the ruling. Snippet shows the words found |
 | 112 | done | `snippet.test.ts` |
-| 113 | done | Click selects and opens Session on Transcript; Open summary on Summary. The shell navigates. Session is a placeholder (see decisions) |
-| 114 | done | Open summary, Move, Delete from the more button and from right click |
+| 113 | improved | With a preview, a click previews and double click or Enter opens on Transcript (a search hit opens its own tab, notes hits Summary); Open summary opens on Summary. With no preview, a click opens. The shell navigates. Coming back restores the row and the scroll. `LibraryRoute.test.tsx`, `library-grid.spec.ts` |
+| 114 | improved | Open summary, Move, Delete from the more button and from right click, plus keys (Delete, Shift+Delete, F2), the bulk bar for checked meetings, and drag to a folder with Undo; the dialog and the menu satisfy WCAG 2.5.7. `library-interactions.spec.ts` |
 | 115 | done | The dialog lists the flattened paths; the current folder is preselected, Inbox when dangling |
 | 116 | done | |
 | 117 | improved | B13: busy refusal and `io-failed` with the message, as values |
 | 118 | done | `isMeetingBusy` before the dialog and again inside `deleteMeeting`. Nothing reports busy until the recording and re-transcription modules register a probe |
-| 119 | done | Names the title; Cancel has the focus |
-| 120 | done | `HistoryDelete_Failed` with the message; the meeting stays listed. Tested with a locked file in `LibraryRoute.test.tsx` |
+| 119 | improved | Names the title and says it goes to the Recycle Bin; Cancel has the focus. If the bin refuses, a second dialog offers to delete permanently. `LibraryRoute.test.tsx` |
+| 120 | improved | `HistoryDelete_Failed` with the message; the meeting stays listed, and in a bulk delete meetings that failed stay checked. Tested with a locked file in `LibraryRoute.test.tsx` |
 | 121 | done | `library.deleteMeeting` calls `notifyDeleted` |
 | 122 | done | Dispatches `navigateTo Recording`; the shell follows (`library-ui.spec.ts`) |
 | 123 | done | `Notice`, closable, one at a time. Load problems, skipped files and the startup error get their own notices above it |
