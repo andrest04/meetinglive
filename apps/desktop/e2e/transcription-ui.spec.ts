@@ -170,10 +170,18 @@ test('Settings: engine, live preview and speaker labels', async () => {
     await expect(section.getByRole('button', { name: 'Delete Speaker model' })).toBeEnabled();
 
     await section.getByRole('button', { name: 'Delete Speaker model' }).click();
+    await page
+      .getByRole('dialog', { name: 'Delete the speaker model?' })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
     await expect(labels).not.toBeChecked();
     await expect(section.getByRole('button', { name: 'Download Speaker model' })).toBeEnabled();
 
     await section.getByRole('button', { name: 'Delete Nemotron 3.5 ASR Streaming 0.6B' }).click();
+    await page
+      .getByRole('dialog', { name: 'Delete the transcription engine?' })
+      .getByRole('button', { name: 'Delete', exact: true })
+      .click();
     await expect(section.getByText('Not installed').first()).toBeVisible();
   } finally {
     await launched.close();
