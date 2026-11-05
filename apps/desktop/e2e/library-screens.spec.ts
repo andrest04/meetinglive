@@ -184,15 +184,20 @@ async function resize(
   width: number,
   height: number,
 ): Promise<void> {
-  await launched.app.evaluate(
-    ({ BrowserWindow }, size) => {
+  // Parked, the page can come out a few px off what the window reports, so ask again by the gap.
+  let asked = { width, height };
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await launched.app.evaluate(({ BrowserWindow }, size) => {
       const main = BrowserWindow.getAllWindows()[0];
       // The real minimum is the 960 asked for here, and parked the frame would keep it at 976.
       main?.setMinimumSize(300, 300);
       main?.setContentSize(size.width, size.height);
-    },
-    { width, height },
-  );
+    }, asked);
+    await page.waitForTimeout(200);
+    const inner = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+    if (inner.w === width) break;
+    asked = { width: asked.width + width - inner.w, height: asked.height + height - inner.h };
+  }
   await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
   await page.waitForTimeout(200);
 }
@@ -277,6 +282,26 @@ test.describe('seeded library', () => {
       await expect(page.getByText('No meetings match your search.')).toBeVisible();
       await shot(page, `library-no-match-${theme}`);
       await search.fill('');
+
+      // Filters: the menu open on a custom range, then the chips and the count, then no match.
+      const filterButton = page.getByRole('button', { name: /^Filters/ });
+      const filterMenu = page.getByRole('dialog', { name: 'Filters' });
+      await filterButton.click();
+      await filterMenu.getByRole('radio', { name: 'Custom range' }).click();
+      await filterMenu.getByLabel('From', { exact: true }).fill(localStamp(7, 0, 0).slice(0, 10));
+      await filterMenu.getByLabel('To', { exact: true }).fill(localStamp(1, 0, 0).slice(0, 10));
+      await filterMenu.getByRole('radio', { name: 'With summary' }).click();
+      await shot(page, `library-filter-menu-${theme}`);
+      await page.keyboard.press('Escape');
+      await expect(filterMenu).toHaveCount(0);
+      await page.getByRole('searchbox').focus();
+      await shot(page, `library-filtered-${theme}`);
+      await search.fill('Hallway');
+      await expect(page.getByText('No meetings match these filters.')).toBeVisible();
+      await shot(page, `library-filter-no-match-${theme}`);
+      await search.fill('');
+      await page.getByRole('group', { name: 'Active filters' }).getByText('Clear filters').click();
+      await expect(page.getByRole('group', { name: 'Active filters' })).toHaveCount(0);
 
       // Several checked, with the bar up.
       await row(page, 'Quarterly planning').getByRole('checkbox').click();

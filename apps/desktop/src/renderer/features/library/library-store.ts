@@ -8,6 +8,7 @@ import {
 } from '@vozella/core';
 import type { FailureReasonDto, FolderDto, MeetingListItemDto } from '@vozella/contracts';
 import { create } from 'zustand';
+import { NO_FILTERS, type MeetingFilters } from './meeting-filters';
 
 export interface SkippedFile {
   readonly path: string;
@@ -41,6 +42,8 @@ export interface LibraryState {
   readonly folders: readonly FolderDto[];
   readonly meetings: readonly MeetingListItemDto[];
   readonly view: LibraryView;
+  /** Kept across views and meetings for this session. Never written to disk. */
+  readonly filters: MeetingFilters;
   readonly expandedIds: ReadonlySet<string>;
   /** The row the keyboard is on. It survives leaving the route, so coming back lands on it. */
   readonly cursorId: string | null;
@@ -58,6 +61,7 @@ const INITIAL: LibraryState = {
   folders: [],
   meetings: [],
   view: ALL_VIEW,
+  filters: NO_FILTERS,
   expandedIds: new Set(),
   cursorId: null,
   scrollOffset: 0,
@@ -250,6 +254,11 @@ export function selectView(wanted: LibraryView): void {
       publish(next);
     });
   }
+}
+
+/** The list changes under the scroll position, so it starts again from the top. */
+export function setFilters(filters: MeetingFilters): void {
+  set({ filters, scrollOffset: 0 });
 }
 
 export function setExpandedIds(expandedIds: ReadonlySet<string>): void {

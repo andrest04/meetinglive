@@ -28,6 +28,7 @@ import {
   type LoadProblem,
   type SkippedFile,
 } from './library-store';
+import { filterMeetings } from './meeting-filters';
 import { mergeMatches, type SearchHits } from './search-results';
 import { useFolderNote } from './use-folder-note';
 import { useMeetingSearch } from './use-meeting-search';
@@ -58,6 +59,8 @@ export interface LibraryModel {
   readonly meetings: readonly MeetingListItemDto[];
   /** Meetings in the view before the search filter. */
   readonly viewCount: number;
+  /** The filters alone emptied the list: without them the view or the search has something. */
+  readonly filtersHideAll: boolean;
   readonly flags: EmptyFlags;
   readonly query: string;
   /** What the second stage found inside meetings, by meeting id. */
@@ -121,6 +124,7 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   const folders = useLibraryStore((state) => state.folders);
   const allMeetings = useLibraryStore((state) => state.meetings);
   const view = useLibraryStore((state) => state.view);
+  const filters = useLibraryStore((state) => state.filters);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<StatusMessage | null>(null);
   const { noteText, setNoteText, saveNote } = useFolderNote();
@@ -137,11 +141,13 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
   const inView = useMemo(() => selectMeetings(snapshot, view, ''), [snapshot, view]);
   const selection = useMemo(() => {
     const byTitle = selectMeetings(snapshot, view, query);
+    const matches = mergeMatches(inView.meetings, byTitle.meetings, search.hits);
     return {
       inFolderCount: byTitle.inFolderCount,
-      meetings: mergeMatches(inView.meetings, byTitle.meetings, search.hits),
+      unfilteredCount: matches.length,
+      meetings: filterMeetings(matches, filters, Date.now()),
     };
-  }, [snapshot, view, query, inView, search.hits]);
+  }, [snapshot, view, query, inView, search.hits, filters]);
   const flags = useMemo(
     () =>
       emptyFlags({
@@ -190,6 +196,11 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
     breadcrumbs,
     meetings: selection.meetings,
     viewCount: selection.inFolderCount,
+    filtersHideAll:
+      !isLoading &&
+      !search.searching &&
+      selection.meetings.length === 0 &&
+      selection.unfilteredCount > 0,
     flags,
     query,
     hits: search.hits,

@@ -15,6 +15,7 @@ import {
   refreshLibrary,
   rememberScroll,
   setCursor,
+  setFilters,
   useLibraryStore,
   type FolderRequest,
 } from './library-store';
@@ -31,6 +32,8 @@ import {
 } from './library-selection';
 import { ListHeader } from './ListHeader';
 import { MeetingGrid, type MeetingGridHandle } from './MeetingGrid';
+import { FilterButton, FilterChips } from './MeetingFilterControls';
+import { NO_FILTERS, filterKey, isFiltering, type MeetingFilters } from './meeting-filters';
 import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
 import { HEADER_ROW_PX, MEETING_ROW_PX, nextCursor } from './logbook';
@@ -187,9 +190,12 @@ export function LibraryRoute() {
   const [checks, setChecks] = useState<Checks>(EMPTY_CHECKS);
   const [bulkWork, setBulkWork] = useState<BulkWork>(null);
   const viewKey = `${library.view.kind}-${String(folderIdOfView(library.view))}`;
+  const filters = useLibraryStore((state) => state.filters);
+  const filtering = isFiltering(filters);
+  const filtersKey = filterKey(filters);
   useEffect(() => {
     setChecks(EMPTY_CHECKS);
-  }, [viewKey, library.query]);
+  }, [viewKey, library.query, filtersKey]);
   useEffect(() => {
     setChecks((current) => keepLive(current, listedIds));
   }, [listedIds]);
@@ -270,7 +276,7 @@ export function LibraryRoute() {
   const selectAllPending = useRef(false);
   useEffect(() => {
     selectAllPending.current = false;
-  }, [viewKey, library.query]);
+  }, [viewKey, library.query, filtersKey]);
   useEffect(() => {
     if (!selectAllPending.current || library.searching) return;
     selectAllPending.current = false;
@@ -423,6 +429,13 @@ export function LibraryRoute() {
     afterWork();
   };
 
+  // A chip that goes takes the focus with it, so the focus goes to the button that made it.
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const changeFiltersFromList = (next: MeetingFilters): void => {
+    setFilters(next);
+    filterButtonRef.current?.focus();
+  };
+
   const previewId = wide && cursorId !== null && listedIds.includes(cursorId) ? cursorId : null;
   const preview = useMeetingPreview(previewId);
 
@@ -453,9 +466,11 @@ export function LibraryRoute() {
       ? 'Library_InboxEmpty.Text'
       : flags.showFolderEmpty
         ? 'Library_FolderEmpty.Text'
-        : flags.showNoMatches && !library.searching
-          ? 'Ui_LibrarySearchEmpty'
-          : null;
+        : library.filtersHideAll
+          ? 'Ui_LibraryFilterEmpty'
+          : flags.showNoMatches && !library.searching
+            ? 'Ui_LibrarySearchEmpty'
+            : null;
   const searchStatus = library.searching
     ? t('Ui_LibrarySearching')
     : library.searchFailed
@@ -480,6 +495,35 @@ export function LibraryRoute() {
                 : t('Library_Inbox')
           }
           count={library.viewCount}
+          countText={
+            filtering
+              ? t(
+                  'Ui_LibraryFilteredCount',
+                  String(library.meetings.length),
+                  String(library.viewCount),
+                )
+              : String(library.viewCount)
+          }
+          filterButton={
+            <FilterButton filters={filters} onChange={setFilters} buttonRef={filterButtonRef} />
+          }
+          filterChips={
+            <FilterChips
+              filters={filters}
+              onChange={changeFiltersFromList}
+              showClear={!library.filtersHideAll}
+            />
+          }
+          filterResults={
+            filtering
+              ? t(
+                  'Ui_LibraryFilterResultsLine',
+                  String(library.meetings.length),
+                  String(library.viewCount),
+                )
+              : ''
+          }
+          filterResultsLabel={t('Ui_LibraryFilterResults')}
           folder={library.selectedFolder}
           breadcrumbs={
             <Breadcrumbs
@@ -616,7 +660,7 @@ export function LibraryRoute() {
           ) : library.flags.hasMeetings ? (
             <MeetingGrid
               handle={gridRef}
-              key={`${library.view.kind}-${String(folderIdOfView(library.view))}`}
+              key={`${viewKey}-${filtersKey}`}
               meetings={library.meetings}
               locale={locale}
               labels={gridLabels}
@@ -659,6 +703,15 @@ export function LibraryRoute() {
                 action={
                   flags.showLibraryEmpty ? (
                     <Button onClick={library.goRecord}>{t('HistoryPage_EmptyCta.Content')}</Button>
+                  ) : emptyMessage === 'Ui_LibraryFilterEmpty' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        changeFiltersFromList(NO_FILTERS);
+                      }}
+                    >
+                      {t('Ui_LibraryFilterClear')}
+                    </Button>
                   ) : undefined
                 }
               />

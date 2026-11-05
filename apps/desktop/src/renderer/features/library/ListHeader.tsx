@@ -8,6 +8,14 @@ export interface ListHeaderProps {
   /** The name of the view: All, Inbox or the folder. */
   readonly title: string;
   readonly count: number;
+  /** What the count reads: the number alone, or the filtered number of it. */
+  readonly countText: string;
+  /** The filter button, beside the search, and its chips, under it. */
+  readonly filterButton: ReactNode;
+  readonly filterChips: ReactNode;
+  /** Said to a screen reader when the filters change the list; empty with none on. */
+  readonly filterResults: string;
+  readonly filterResultsLabel: string;
   /** Only a real folder has an icon, a path, a menu and a note. */
   readonly folder: FolderDto | null;
   readonly breadcrumbs: ReactNode;
@@ -34,6 +42,11 @@ export interface ListHeaderProps {
 export function ListHeader({
   title,
   count,
+  countText,
+  filterButton,
+  filterChips,
+  filterResults,
+  filterResultsLabel,
   folder,
   breadcrumbs,
   menuEntries,
@@ -66,9 +79,13 @@ export function ListHeader({
             data-testid="library-view-count"
             className="tabular shrink-0 pt-1 font-mono text-caption text-ink-faint"
           >
-            {count}
+            {countText}
           </span>
         )}
+        {/* Mounted before it has anything to say, or the first change would not be announced. */}
+        <span role="status" aria-label={filterResultsLabel} className="sr-only">
+          {filterResults}
+        </span>
         {folder ? (
           <span className="ms-auto shrink-0">
             <Menu
@@ -92,37 +109,41 @@ export function ListHeader({
           className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0! hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5!"
         />
       ) : null}
-      <div className="relative mt-1.5">
-        <Icon
-          icon={Search}
-          size={14}
-          className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
-        />
-        <Input
-          ref={searchRef}
-          type="search"
-          onKeyDown={onSearchKeyDown}
-          aria-label={searchLabel}
-          placeholder={searchLabel}
-          value={query}
-          onChange={(event) => {
-            onQueryChange(event.target.value);
-          }}
-          className="w-full pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
-        />
-        {query === '' ? null : (
-          <IconButton
-            label={clearSearchLabel}
-            icon={X}
-            size="sm"
-            className="absolute top-1/2 right-0.5 -translate-y-1/2"
-            onClick={() => {
-              onQueryChange('');
-              searchRef.current?.focus();
-            }}
+      <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+        <div className="relative min-w-0 flex-1">
+          <Icon
+            icon={Search}
+            size={14}
+            className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
           />
-        )}
+          <Input
+            ref={searchRef}
+            type="search"
+            onKeyDown={onSearchKeyDown}
+            aria-label={searchLabel}
+            placeholder={searchLabel}
+            value={query}
+            onChange={(event) => {
+              onQueryChange(event.target.value);
+            }}
+            className="w-full pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          {query === '' ? null : (
+            <IconButton
+              label={clearSearchLabel}
+              icon={X}
+              size="sm"
+              className="absolute top-1/2 right-0.5 -translate-y-1/2"
+              onClick={() => {
+                onQueryChange('');
+                searchRef.current?.focus();
+              }}
+            />
+          )}
+        </div>
+        {filterButton}
       </div>
+      {filterChips}
       {query === '' ? null : (
         <div className="flex min-h-7 items-center justify-between gap-2">
           <span role="status" className="min-w-0 truncate text-ui text-ink-muted">
