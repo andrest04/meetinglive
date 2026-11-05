@@ -211,6 +211,16 @@ Each batch writer records its commit hashes and observed check results here. A c
   - Deviations: the popover shell imports `@base-ui/react/popover` and `ui/styles` from the feature, the first feature to do so, because `ui/` has no Popover or radio menu and is outside this task. A `ui/Popover` is the clean home. Axe in this spec excludes `[data-base-ui-focus-guard]`: Base UI's own guards are tabbable and aria-hidden, which `aria-hidden-focus` reports as serious; `modal="trap-focus"` did not remove them, and a guard hands the focus on at once.
   - Manual, pending: a screen reader pass of the popover and the result line, and a real High Contrast theme. Forced colors here are emulated. A week or month preset across a daylight saving change is covered only by how the code builds local days, not by a test in another zone.
 
+### Final checks (`e6d976a`, 2026-11-05)
+
+- T5.1 is commit `e6d976a` `feat(library): filter meetings by date and status`. `pnpm check` passed with no timeouts.
+- Full e2e with real windows, pill specs included: 282 passed, 1 failed, 67 skipped, 7 did not run, 23.5 min.
+  - Failed: `record-idle.spec.ts:114`, window height 770 instead of 768. The other 7 in that serial spec did not run.
+  - The same spec fails the same way on `main` (`4ae5af4`), so this branch did not cause it. The display reports 1536x864. These 8 tests have no result tonight.
+- `library-ui.spec.ts:285` fails by about 2 px only in background mode; it passed with real windows.
+- Pending for the owner: real Recycle Bin restore, a volume with no bin, a screen reader pass, real High Contrast themes.
+- Engram mirror pending: the server was disconnected.
+
 ## Next step
 
-Owner: the manual checks, the `pill-*` specs while away from the machine, and whether the 64 MB cap or the gate moves for libraries of hour-long meetings.
+Owner reviews the Library and decides whether to merge to main, which publishes a release.
