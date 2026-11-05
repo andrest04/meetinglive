@@ -112,10 +112,14 @@ export function rateFor(
   return 'NotRecommended';
 }
 
+/**
+ * The rating is hardware fit, not a pick: every model can fit a large PC. The labels say so in
+ * plain words (settings polish 2026-11-05); the WinUI `Fit_` strings read as recommendations.
+ */
 export const FIT_LABEL_KEYS: Readonly<Record<FitRating, string>> = {
-  Recommended: 'Fit_Recommended',
-  MayBeSlow: 'Fit_MayBeSlow',
-  NotRecommended: 'Fit_NotRecommended',
+  Recommended: 'Ui_FitRunsWell',
+  MayBeSlow: 'Ui_FitMayBeSlow',
+  NotRecommended: 'Ui_FitTooHeavy',
 };
 
 /** The size as the .NET `0.#` pattern writes it in the locale: 0.81 gives 0.8, 4.98 gives 5. */

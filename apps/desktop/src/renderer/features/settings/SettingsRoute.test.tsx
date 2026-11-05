@@ -311,6 +311,8 @@ describe('Settings page', () => {
     expect(
       within(group).getAllByText('Fast · Quality Very good · 3.1 GB download', { exact: false })[0],
     ).toBeInTheDocument();
+    expect(within(group).getAllByText('Runs well on this PC')).toHaveLength(2);
+    expect(within(group).queryByText('Recommended')).toBeNull();
     // A model that is not on this PC says why it cannot be picked, not only by being disabled.
     expect(within(group).getAllByText('Download to use')).toHaveLength(1);
     expect(within(group).getByRole('radio', { name: /Model A/ })).toHaveAccessibleName(

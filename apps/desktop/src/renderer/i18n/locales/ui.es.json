@@ -190,5 +190,8 @@
   "Ui_LiveTranscriptionDescription": "Muestra subtítulos en pantalla mientras grabas. La transcripción guardada siempre se hace a partir de la grabación al detenerla; desactivar esto solo omite la vista previa en vivo.",
   "Ui_LiveNeedsEngine": "Descarga el motor de transcripción para usar esto.",
   "Ui_SpeakerLabelsDescription": "Etiqueta hasta cuatro voces como Hablante 1 a 4. Necesita un modelo adicional pequeño (unos 0,14 GB) y usa más recursos del PC al transcribir.",
-  "Ui_SpeakerDownloading": "Descargando el modelo de hablantes"
+  "Ui_SpeakerDownloading": "Descargando el modelo de hablantes",
+  "Ui_FitRunsWell": "Funciona bien en este PC",
+  "Ui_FitMayBeSlow": "Puede ir lento",
+  "Ui_FitTooHeavy": "Demasiado pesado para este PC"
 }

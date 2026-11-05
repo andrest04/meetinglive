@@ -308,6 +308,10 @@ describe('references in the code (item 118, B21)', () => {
     'Settings_AccelerationActiveCuda',
     'Settings_LiveTranscription.Description',
     'Settings_SpeakerLabels.Description',
+    // The fit labels read as recommendations; Ui_FitRunsWell, Ui_FitMayBeSlow, Ui_FitTooHeavy say fit.
+    'Fit_Recommended',
+    'Fit_MayBeSlow',
+    'Fit_NotRecommended',
   ];
 
   /** The whole quoted key, so a key is not found inside a longer one. */

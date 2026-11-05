@@ -190,5 +190,8 @@
   "Ui_LiveTranscriptionDescription": "Shows captions on screen while you record. The saved transcript is always made from the recording after you stop; turning this off skips only the live preview.",
   "Ui_LiveNeedsEngine": "Download the transcription engine to use this.",
   "Ui_SpeakerLabelsDescription": "Labels up to four voices as Speaker 1 to 4. Needs a small extra model (about 0.14 GB) and uses more of the PC while transcribing.",
-  "Ui_SpeakerDownloading": "Downloading the speaker model"
+  "Ui_SpeakerDownloading": "Downloading the speaker model",
+  "Ui_FitRunsWell": "Runs well on this PC",
+  "Ui_FitMayBeSlow": "May be slow",
+  "Ui_FitTooHeavy": "Too heavy for this PC"
 }

@@ -105,7 +105,7 @@ test.describe('with a GPU and a slow download', () => {
     await expect(list.getByRole('radio')).toHaveCount(4);
     await expect(list.getByText('Llama 3.2 1B Instruct')).toBeVisible();
     await expect(list.getByText(/0\.8 GB download/)).toBeVisible();
-    await expect(list.getByText('Recommended').first()).toBeVisible();
+    await expect(list.getByText('Runs well on this PC').first()).toBeVisible();
     await expect(list.getByRole('radio').first()).toBeChecked();
     expect(await serious(page)).toEqual([]);
   });
