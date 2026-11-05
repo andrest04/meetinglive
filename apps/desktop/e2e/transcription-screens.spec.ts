@@ -160,8 +160,8 @@ for (const theme of ['light', 'dark'] as const) {
     try {
       await open(page, '#/library', theme);
       await page
-        .getByRole('list', { name: 'Library' })
-        .getByRole('button', { name: /Weekly sync/ })
+        .getByRole('grid', { name: 'Library' })
+        .getByRole('row', { name: /Weekly sync/ })
         .click();
       await expect(page.getByRole('heading', { level: 1, name: 'Weekly sync' })).toBeVisible();
       await shot(page, `session-retranscribe-${theme}`);

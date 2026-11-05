@@ -62,25 +62,26 @@ test('browse, search, open a meeting and its summary', async () => {
   await goTo('Library');
   await page.getByRole('treeitem', { name: /Inbox/ }).click();
 
-  const list = page.getByRole('list', { name: 'Library' });
-  await expect(list.getByRole('listitem')).toHaveCount(2);
+  const list = page.getByRole('grid', { name: 'Library' });
+  const rows = list.locator('[data-row-id]');
+  await expect(rows).toHaveCount(2);
   // Newest first, each with a snippet.
-  await expect(list.getByRole('listitem').first()).toContainText('Planning');
-  await expect(list.getByRole('listitem').first()).toContainText('Hola a todos');
-  await expect(list.getByRole('listitem').nth(1)).toContainText('Ship the release on Friday');
+  await expect(rows.first()).toContainText('Planning');
+  await expect(rows.first()).toContainText('Hola a todos');
+  await expect(rows.nth(1)).toContainText('Ship the release on Friday');
 
   await page.getByRole('searchbox').fill('stand');
-  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(rows).toHaveCount(1);
   await page.getByRole('searchbox').fill('nothing here');
   await expect(page.getByText('No meetings match your search.')).toBeVisible();
   await page.getByRole('searchbox').fill('');
 
-  await list.getByRole('button', { name: /Standup/ }).click();
+  await list.getByRole('row', { name: /Standup/ }).click();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Standup' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Back' }).click();
-  const row = page.getByRole('listitem').filter({ hasText: 'Planning' });
+  const row = page.getByRole('row').filter({ hasText: 'Planning' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Open summary' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Planning' })).toBeVisible();
@@ -133,14 +134,14 @@ test('folders: create, note, move a meeting into it, rename, restyle, keep a ful
     .toContain('"note": "Fall term"');
 
   // Move Planning into Calculo: the files move on disk.
-  const row = page.getByRole('listitem').filter({ hasText: 'Planning' });
+  const row = page.getByRole('row').filter({ hasText: 'Planning' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Move' }).click();
   const move = page.getByRole('dialog', { name: 'Move meeting' });
   await expect(move.getByRole('radio').first()).toBeChecked();
   await move.getByText('Universidad / Calculo').click();
   await move.getByRole('button', { name: 'Move' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Planning' })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: 'Planning' })).toHaveCount(0);
   const moved = path.join(libraryRoot, 'Universidad', 'Calculo', '2026-09-03 Planning.md');
   await expect.poll(() => fs.existsSync(moved)).toBe(true);
   expect(fs.existsSync(path.join(libraryRoot, 'Inbox', '2026-09-03 Planning.md'))).toBe(false);
@@ -213,7 +214,7 @@ test('a meeting is deleted only after confirming, with Cancel focused', async ()
   await goTo('Settings');
   await goTo('Library');
   await page.getByRole('treeitem', { name: /Inbox/ }).click();
-  const row = page.getByRole('listitem').filter({ hasText: 'Retro' });
+  const row = page.getByRole('row').filter({ hasText: 'Retro' });
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   const confirm = page.getByRole('dialog', { name: 'Delete this meeting?' });
@@ -222,7 +223,7 @@ test('a meeting is deleted only after confirming, with Cancel focused', async ()
   ).toBeVisible();
   await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await confirm.getByRole('button', { name: 'Delete' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Retro' })).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: 'Retro' })).toHaveCount(0);
   expect(fs.existsSync(path.join(libraryRoot, 'Inbox', '2026-09-04 Retro.md'))).toBe(false);
 });
 
@@ -249,7 +250,7 @@ test('Settings shows where data lives, follows a picked folder, and refuses Meet
   await page.getByRole('button', { name: 'Choose folder' }).click();
   await expect(page.getByText(picked, { exact: true })).toBeVisible();
   await goTo('Library');
-  await expect(page.getByRole('listitem').filter({ hasText: 'Elsewhere' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Elsewhere' })).toBeVisible();
 
   const forbidden = path.join(launched.dataRoot, 'x', 'MeetingLive');
   fs.mkdirSync(forbidden, { recursive: true });
@@ -330,7 +331,7 @@ test('no serious accessibility violations on the library, its dialogs and the da
     }, theme);
     await page.reload();
     await goTo('Library');
-    await expect(page.getByRole('list', { name: 'Library' })).toBeVisible();
+    await expect(page.getByRole('grid', { name: 'Library' })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await check();
 

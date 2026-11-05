@@ -103,7 +103,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 ### Batch 2: shell, sidebar, list (about 1,250)
 - [x] T2.1 Folders move to the sidebar, with store and counts
 - [x] T2.2 Paned layout and folder header
-- [ ] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
+- [x] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
 
 ### Batch 3: preview, search UI, bulk, keyboard, drag (about 1,250)
 - [ ] T3.1 Preview pane
@@ -155,6 +155,10 @@ Each batch writer records its commit hashes and observed check results here. A c
 - T2.1 `0cac442` `feat(library): folders live in the sidebar, backed by a shared store`. RED: the new store and sidebar tests failed on the missing modules and the three new `Tree` tests failed, then passed. Focused unit: 62 passed. `playwright test e2e/library-ui.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 7 passed, 2.4 min. Choices: an empty All shows the empty library copy with its Record action, even when folders exist; a stored folder that no longer exists lands on the Inbox; opening the route still reloads, because a store that outlives the route would otherwise miss files that appeared with no change event; counts of zero are not drawn; `LibraryRoute.audit.test.tsx` changed only in the mount line and import, since the tree no longer lives inside the route. The `TreeNode` type stays as it was: counts come through a `trailing` prop.
 
 - T2.2 `feat(library): the list and preview are panes, with a folder header`. RED: 4 of 32 tests in `LibraryRoute.test.tsx` failed on the header and preview pane, then passed. Focused unit: 67 passed. `playwright test e2e/library-ui.spec.ts e2e/shell.spec.ts e2e/shell-chrome.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 26 passed, 1 skipped (screenshot-only), 4.3 min. The preview pane is empty on purpose until T3.1. At the 960 px window minimum the content is 728 px, under the 760 px line, so the smallest window has no preview.
+
+- T2.3 `feat(library): meetings are a date-grouped virtual grid`. RED: `logbook.test.ts` failed on the missing module, and `library-grid.spec.ts` failed with the grid not found. Then GREEN. `library-grid.spec.ts` is the real-renderer proof of the recipe, 5 passed: only part of 210 rows is in the DOM; the header of the day under the top row is `position: sticky`, sits at the top of the grid and names that row's day; every `aria-rowindex` appears once, so no clone; the focused row stays attached and focused 4,000 px away, and ArrowDown lands clear of the sticky header; coming back from a meeting restores the row and the scroll. `playwright test` with `VOZELLA_E2E_BACKGROUND=1` over `library-grid`, `library-ui`, `chat-bar`, `chat-recipes`, `transcription-ui`, `session-shell`, `transcription-screens`: 37 passed, 11 skipped, 4.4 min (the skips include the specs gated on `VOZELLA_SCREENSHOTS=1`). `library-screens.spec.ts` was edited for grid and row but did not run: it needs a shown window and belongs to T4.1.
+  - Differences from the decisions above: the installed virtual core reads `clientHeight`, not `offsetHeight`, so `stubLayout` stubs that. Rows are reached with ArrowUp, ArrowDown, Home, End, PageUp and PageDown, Enter opens, and Tab goes on to the row's More actions, because a roving tab stop without arrows would have removed keyboard access; the rest of T3.4 stays in batch 3. `aria-selected` is always false until T3.3. Time is 24 hour in every locale, as the design shows it, with the full short date and time on hover (item 111). A meeting with an unreadable date goes under "No date".
+  - For T4.1: in background mode CSS transitions lag behind in screenshots, so a highlight can look stale. Wait longer or disable transitions before judging the sidebar.
 
 ## Next step
 

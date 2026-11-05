@@ -136,7 +136,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.evaluate(() => {
       window.location.hash = '#/library';
     });
-    await expect(page.getByRole('listitem').filter({ hasText: 'Weekly planning' })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'Weekly planning' })).toBeVisible();
     await shot(`library-inbox-${theme}`);
 
     await page.getByRole('treeitem', { name: /Universidad/ }).click();
@@ -152,7 +152,7 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('searchbox').fill('');
     await page.getByRole('treeitem', { name: /Inbox/ }).click();
 
-    const row = page.getByRole('listitem').filter({ hasText: 'Weekly planning' });
+    const row = page.getByRole('row').filter({ hasText: 'Weekly planning' });
     await row.hover();
     await row.getByRole('button', { name: 'More actions' }).click();
     await expect(page.getByRole('menu')).toBeVisible();
@@ -176,7 +176,7 @@ for (const theme of ['light', 'dark'] as const) {
 
     await page.getByRole('treeitem', { name: /Inbox/ }).click();
     await page
-      .getByRole('listitem')
+      .getByRole('row')
       .filter({ hasText: 'Standup' })
       .getByRole('button', { name: 'More actions' })
       .click();
@@ -194,16 +194,14 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-test('narrow window with the folder pane open', async () => {
+test('narrow window with no preview', async () => {
   await useTheme('light');
   await page.evaluate(() => {
     window.location.hash = '#/library';
   });
-  await resizeWindow(760, 640);
-  await expect(page.getByRole('button', { name: 'Folder', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Folder', exact: true }).click();
-  await expect(page.getByRole('tree')).toBeVisible();
-  await shot('library-narrow-pane-light');
+  await resizeWindow(960, 640);
+  await expect(page.getByRole('grid', { name: 'Library' })).toBeVisible();
+  await shot('library-narrow-light');
   await resizeWindow(1120, 740);
 });
 

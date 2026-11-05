@@ -184,6 +184,14 @@ export function Providers({ children, locale = 'en' }: { children: ReactNode; lo
   );
 }
 
+/** jsdom has no layout: the grid needs a height to decide which rows to render. */
+export function stubLayout(height = 2000): void {
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get: () => height,
+  });
+}
+
 /** The Library as the shell shows it: the connected store, the sidebar tree and the route. */
 export function LibraryScreen() {
   useEffect(() => connectLibrary(), []);

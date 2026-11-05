@@ -63,8 +63,8 @@ const expandBar = async (page: Page): Promise<void> => {
 const openMeeting = async (page: Page): Promise<void> => {
   await page.getByRole('navigation').getByRole('link', { name: 'Library' }).click();
   await page
-    .getByRole('list', { name: 'Library' })
-    .getByRole('button', { name: /Weekly planning/ })
+    .getByRole('grid', { name: 'Library' })
+    .getByRole('row', { name: /Weekly planning/ })
     .click();
   await expect(page.getByTestId('LblMeetingChatScope')).toHaveText('Meeting: Weekly planning');
 };

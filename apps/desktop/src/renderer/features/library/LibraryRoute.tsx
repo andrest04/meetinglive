@@ -1,15 +1,22 @@
 import { resolveAccentKey, resolveIconKey } from '@vozella/core';
 import type { MeetingListItemDto } from '@vozella/contracts';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { Button, EmptyState, Notice, Skeleton, cn } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
-import { clearFolderRequest, useLibraryStore, type FolderRequest } from './library-store';
+import {
+  clearFolderRequest,
+  rememberScroll,
+  setCursor,
+  useLibraryStore,
+  type FolderRequest,
+} from './library-store';
+import { folderIdOfView } from './library-store';
 import { folderMenuEntries } from './LibraryFolders';
 import { ListHeader } from './ListHeader';
-import { MeetingList } from './MeetingList';
+import { MeetingGrid } from './MeetingGrid';
 import { describeSkipped } from './format';
 import { useLibrary, type StatusMessage } from './use-library';
 
@@ -118,6 +125,23 @@ export function LibraryRoute() {
       ? t('LibraryNewFolder_Title')
       : t('LibraryNewFolder_TitleIn', library.selectedFolder.name);
 
+  const cursorId = useLibraryStore((state) => state.cursorId);
+  const gridLabels = useMemo(
+    () => ({
+      grid: t('HistoryPage_Title.Text'),
+      noContent: t('History_NoContent'),
+      more: t('HistoryRow_More.AutomationProperties.Name'),
+      openSummary: t('HistoryRow_OpenSummary'),
+      move: t('HistoryRow_Move'),
+      remove: t('HistoryRow_Delete'),
+      today: t('Ui_LibraryToday'),
+      yesterday: t('Ui_LibraryYesterday'),
+      noDate: t('Ui_LibraryNoDate'),
+      duration: (minutes: number) => t('Ui_LibraryDurationMinutes', String(minutes)),
+    }),
+    [t],
+  );
+
   const { flags } = library;
   const emptyMessage: StringKey | null = flags.showLibraryEmpty
     ? 'HistoryPage_Empty.Text'
@@ -201,29 +225,29 @@ export function LibraryRoute() {
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
           {library.isLoading ? (
-            <div
-              role="status"
-              aria-label={t('Ui_Loading')}
-              className="flex flex-col gap-4 px-4 py-2"
-            >
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-4/5" />
+            <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col">
+              {[0, 1, 2, 3, 4].map((row) => (
+                <div
+                  key={row}
+                  className="flex h-16 items-center gap-4 border-b border-hairline ps-4 pe-4"
+                >
+                  <Skeleton className="h-3.5 w-12 shrink-0" />
+                  <Skeleton className="h-3.5 w-full" />
+                </div>
+              ))}
             </div>
           ) : library.flags.hasMeetings ? (
-            <MeetingList
+            <MeetingGrid
+              key={`${library.view.kind}-${String(folderIdOfView(library.view))}`}
               meetings={library.meetings}
               locale={locale}
-              labels={{
-                list: t('HistoryPage_Title.Text'),
-                noContent: t('History_NoContent'),
-                more: t('HistoryRow_More.AutomationProperties.Name'),
-                openSummary: t('HistoryRow_OpenSummary'),
-                move: t('HistoryRow_Move'),
-                remove: t('HistoryRow_Delete'),
-              }}
+              labels={gridLabels}
+              cursorId={cursorId}
+              initialScrollOffset={useLibraryStore.getState().scrollOffset}
+              onCursorChange={setCursor}
+              onScrollOffsetChange={rememberScroll}
               onOpen={(id) => {
                 library.openMeeting(id, 'Transcript');
               }}
@@ -240,14 +264,16 @@ export function LibraryRoute() {
               }}
             />
           ) : emptyMessage ? (
-            <EmptyState
-              message={t(emptyMessage)}
-              action={
-                flags.showLibraryEmpty ? (
-                  <Button onClick={library.goRecord}>{t('HistoryPage_EmptyCta.Content')}</Button>
-                ) : undefined
-              }
-            />
+            <div className="px-4">
+              <EmptyState
+                message={t(emptyMessage)}
+                action={
+                  flags.showLibraryEmpty ? (
+                    <Button onClick={library.goRecord}>{t('HistoryPage_EmptyCta.Content')}</Button>
+                  ) : undefined
+                }
+              />
+            </div>
           ) : null}
         </div>
       </div>

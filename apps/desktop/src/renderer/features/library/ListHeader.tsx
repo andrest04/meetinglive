@@ -74,7 +74,7 @@ export function ListHeader({
             onNoteChange(event.target.value);
           }}
           onBlur={onNoteBlur}
-          className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
+          className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0! hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5!"
         />
       ) : null}
       <div className="relative mt-1.5">

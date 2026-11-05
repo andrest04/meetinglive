@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { useLibraryStore } from './library-store';
 import {
   LibraryScreen,
   Providers,
+  stubLayout,
   folderRecord,
   installFakeApi,
   meetingRecord,
@@ -25,6 +26,7 @@ beforeAll(() => {
     }
   }
   globalThis.ResizeObserver = FakeResizeObserver;
+  stubLayout();
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
     configurable: true,
     get: () => pageWidth,
@@ -37,16 +39,13 @@ afterEach(() => {
 });
 
 function rowOf(name: RegExp): HTMLElement {
-  const row = screen.getByRole('button', { name }).closest('li');
-  if (!row) throw new Error('no row');
-  return row;
+  return screen.getByRole('row', { name });
 }
-function rowAt(rows: readonly HTMLElement[], index: number): HTMLElement {
-  const row = rows[index];
-  if (!row) throw new Error('no row ' + String(index));
-  return row;
+function optionAt(options: readonly HTMLElement[], index: number): HTMLElement {
+  const option = options[index];
+  if (!option) throw new Error('no option ' + String(index));
+  return option;
 }
-const optionAt = rowAt;
 
 const UNI = '11111111-1111-4111-8111-111111111111';
 const CALC = '22222222-2222-4222-8222-222222222222';
@@ -112,14 +111,16 @@ describe('the list', () => {
   it('lists the inbox newest first, with unknown folders filed there, and a snippet', async () => {
     const { user } = await mount(seed);
     await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
-    const list = screen.getByRole('list', { name: 'Library' });
-    const rows = within(list).getAllByRole('listitem');
-    expect(rows.map((row) => within(row).getAllByRole('button')[0]?.textContent)).toEqual([
+    const grid = screen.getByRole('grid', { name: 'Library' });
+    const rows = within(grid)
+      .getAllByRole('row')
+      .filter((row) => within(row).queryAllByRole('gridcell').length > 0);
+    expect(rows.map((row) => row.textContent)).toEqual([
       expect.stringContaining('Review'),
       expect.stringContaining('Standup'),
     ]);
-    expect(within(rowAt(rows, 1)).getByText('Ship the release')).toBeInTheDocument();
-    expect(within(rowAt(rows, 0)).getByText('No content yet')).toBeInTheDocument();
+    expect(within(rowOf(/Standup/)).getByText('Ship the release')).toBeInTheDocument();
+    expect(within(rowOf(/Review/)).getByText('No content yet')).toBeInTheDocument();
   });
 
   it('filters by title and keeps the query when the folder changes', async () => {
@@ -134,7 +135,7 @@ describe('the list', () => {
 
   it('opens a meeting on the transcript and the summary through the workspace', async () => {
     const { api, user } = await mount(seed);
-    await user.click(screen.getByRole('button', { name: /Standup/ }));
+    await user.click(rowOf(/Standup/));
     await waitFor(() => {
       expect(api.workspace.state.selectedMeetingId).toBe('a');
     });
@@ -513,6 +514,105 @@ describe('the All view', () => {
     await waitFor(() => {
       expect(useLibraryStore.getState().folderRequest).toBeNull();
     });
+  });
+});
+
+describe('the grid', () => {
+  const noLength = '2026-09-01T09:00:00.0000000+00:00';
+  const seedLengths = ({ meetings }: ReturnType<typeof installFakeApi>): void => {
+    meetings.records.set(
+      'long',
+      meetingRecord('long', 'Long', noLength, { endedAt: '2026-09-01T10:00:00.0000000+00:00' }),
+    );
+    meetings.records.set('open', meetingRecord('open', 'Open', noLength));
+  };
+
+  it('is a grid with row counts, day headers and one tab stop', async () => {
+    await mount(seed);
+    const grid = screen.getByRole('grid', { name: 'Library' });
+    // Three days, three meetings.
+    expect(grid).toHaveAttribute('aria-rowcount', '6');
+    expect(grid).toHaveAttribute('aria-multiselectable', 'true');
+    const rows = within(grid).getAllByRole('row');
+    expect(rows.map((row) => row.getAttribute('aria-rowindex'))).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+    ]);
+    expect(within(grid).getAllByRole('rowheader')).toHaveLength(3);
+    const stops = within(grid)
+      .getAllByRole('row')
+      .filter((row) => row.getAttribute('tabindex') === '0');
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toHaveTextContent('Planning');
+  });
+
+  it('shows a length and a ruling only for a meeting with an end', async () => {
+    await mount(seedLengths);
+    const long = rowOf(/Long/);
+    expect(within(long).getByText('60 min')).toBeInTheDocument();
+    const ruling = long.querySelector<HTMLElement>('[data-ruling]');
+    expect(ruling).toHaveAttribute('aria-hidden', 'true');
+    // sqrt(60 / 120) of 64 px.
+    expect(ruling?.style.width).toBe('45px');
+    const open = rowOf(/Open/);
+    expect(open.querySelector('[data-ruling]')).toBeNull();
+    expect(within(open).queryByText(/min/)).not.toBeInTheDocument();
+  });
+
+  it('arrows move the cursor and the focus over headers, and Enter opens', async () => {
+    const { api, user } = await mount(seed);
+    act(() => {
+      rowOf(/Planning/).focus();
+    });
+    expect(rowOf(/Planning/)).toHaveAttribute('data-cursor', 'true');
+    await user.keyboard('{ArrowDown}');
+    expect(rowOf(/Review/)).toHaveFocus();
+    expect(rowOf(/Review/)).toHaveAttribute('data-cursor', 'true');
+    expect(rowOf(/Planning/)).not.toHaveAttribute('data-cursor');
+    // Moving previews later; here it does not leave the screen or tell the workspace anything.
+    expect(api.actions).not.toContainEqual({ type: 'openSession', tab: 'Transcript' });
+    await user.keyboard('{End}');
+    expect(rowOf(/Standup/)).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(rowOf(/Planning/)).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(api.workspace.state.selectedMeetingId).toBe('b');
+    });
+  });
+
+  it('Tab goes from the cursor row to its actions, and only those', async () => {
+    const { user } = await mount(seed);
+    act(() => {
+      rowOf(/Planning/).focus();
+    });
+    await user.tab();
+    expect(within(rowOf(/Planning/)).getByRole('button', { name: 'More actions' })).toHaveFocus();
+    await user.tab();
+    expect(rowOf(/Review/)).not.toHaveFocus();
+    expect(within(rowOf(/Review/)).getByRole('button', { name: 'More actions' })).not.toHaveFocus();
+  });
+
+  it('a click on a menu entry of a row does not open the meeting', async () => {
+    const { api, user } = await mount(seed);
+    await user.click(within(rowOf(/Standup/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
+    await screen.findByRole('dialog', { name: 'Move meeting' });
+    expect(api.actions).not.toContainEqual({ type: 'openSession', tab: 'Transcript' });
+  });
+
+  it('starts again at the top in another view', async () => {
+    const { user } = await mount(seed);
+    act(() => {
+      rowOf(/Planning/).focus();
+    });
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
+    expect(useLibraryStore.getState().cursorId).toBeNull();
+    expect(useLibraryStore.getState().scrollOffset).toBe(0);
   });
 });
 
