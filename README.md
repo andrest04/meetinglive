@@ -74,6 +74,8 @@ pnpm package
 
 `pnpm package` writes an unsigned NSIS installer to `apps/desktop/release/`.
 
+Pushing a tag that matches the version in `apps/desktop/package.json`, such as `v1.0.0`, builds the installer on GitHub Actions and creates a draft release. It stays private until someone publishes it.
+
 ## Build and run: WinUI 3
 
 Prerequisites:

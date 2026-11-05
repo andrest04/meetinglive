@@ -1,0 +1,66 @@
+name: Release
+
+# Pushing a tag such as v1.0.0 builds the Windows installer and creates a draft release.
+# Nothing is public until someone reviews the draft and publishes it.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that the tag matches the app version
+        shell: pwsh
+        run: |
+          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_NAME -ne "v$version") {
+            Write-Error "Tag $env:GITHUB_REF_NAME does not match apps/desktop/package.json version $version."
+            exit 1
+          }
+
+      # Uses the version pinned by packageManager in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: pnpm install --frozen-lockfile
+
+      # The typecheck and the tests read the addon's generated files.
+      - run: pnpm build:native
+
+      - run: pnpm check
+
+      - run: pnpm package
+
+      - name: Create the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = Get-ChildItem apps/desktop/release/Vozella-Setup-*.exe | Select-Object -First 1
+          if (-not $installer) {
+            Write-Error "No installer found in apps/desktop/release."
+            exit 1
+          }
+          $checksum = "$($installer.FullName).sha256"
+          "$((Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower())  $($installer.Name)" |
+            Set-Content $checksum -Encoding ascii
+          gh release create $env:GITHUB_REF_NAME $installer.FullName $checksum `
+            --draft --generate-notes --title "Vozella $($env:GITHUB_REF_NAME)"
