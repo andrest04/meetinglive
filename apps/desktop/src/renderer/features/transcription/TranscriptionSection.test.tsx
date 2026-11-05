@@ -125,7 +125,7 @@ describe('TranscriptionSection engine', () => {
     });
     mount();
     expect(await screen.findByTestId('acceleration-caption')).toHaveTextContent(
-      'Will try GPU (CUDA); the backend actually used is shown after the first transcription',
+      'Will try the graphics card (GPU). The one actually used shows after the first transcription.',
     );
     cleanup();
     installTranscriptionApi({
@@ -136,7 +136,7 @@ describe('TranscriptionSection engine', () => {
     });
     mount();
     expect(await screen.findByTestId('acceleration-caption')).toHaveTextContent(
-      'Running on GPU (CUDA)',
+      'Running on the graphics card (GPU)',
     );
   });
 
@@ -307,7 +307,7 @@ describe('TranscriptionSection speaker download progress', () => {
       stepCount: 1,
     });
     const bar = await screen.findByRole('progressbar', {
-      name: 'Downloading Sortformer speaker model...',
+      name: 'Downloading the speaker model',
     });
     expect(bar).toHaveAttribute('aria-valuenow', '40');
     api.emit('transcription.installProgress', {
@@ -424,5 +424,54 @@ describe('TranscriptionSection number format', () => {
     const section = await screen.findByTestId('transcription-section');
     await within(section).findByRole('button', { name: 'Download Speaker model' });
     expect(within(section).queryByText(missingCopy)).toBeNull();
+  });
+});
+
+describe('TranscriptionSection clarity', () => {
+  it('names the engine in plain words and keeps the processor line inside its row', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, expectedBackend: 'cuda' }),
+    });
+    mount();
+    const row = await screen.findByRole('group', { name: 'Transcription engine' });
+    expect(within(row).getByTestId('acceleration-caption')).toBeInTheDocument();
+    // The model name stays as detail, and the buttons keep it in their names.
+    expect(row).toHaveTextContent('Nemotron 3.5');
+    expect(within(row).getByRole('button', { name: `Download ${ENGINE}` })).toBeDisabled();
+  });
+
+  it('uses no jargon in the labels and descriptions of a ready engine', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, expectedBackend: 'cuda' }),
+    });
+    mount();
+    const section = await screen.findByTestId('transcription-section');
+    await within(section).findByText('Installed');
+    expect(section.textContent).not.toMatch(/Sortformer|CUDA|ASR|CLI/);
+  });
+
+  it('shows live transcription as unavailable, with the reason, while the engine is missing', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...notReady, liveEnabled: true }),
+    });
+    mount();
+    const live = await screen.findByRole('switch', { name: 'Live transcription during recording' });
+    await waitFor(() => {
+      expect(live).toHaveAttribute('aria-disabled', 'true');
+    });
+    expect(live).not.toBeChecked();
+    expect(
+      screen.getByRole('group', { name: 'Live transcription during recording' }),
+    ).toHaveAccessibleDescription('Download the transcription engine to use this.');
+  });
+
+  it('keeps speaker labels and their model in one row', async () => {
+    installTranscriptionApi();
+    mount();
+    const row = await screen.findByRole('group', { name: 'Speaker labels' });
+    expect(within(row).getByRole('switch', { name: 'Speaker labels' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Download Speaker model' })).toBeEnabled();
+    expect(within(row).getByRole('button', { name: 'Delete Speaker model' })).toBeDisabled();
+    expect(screen.queryByRole('group', { name: 'Speaker model' })).toBeNull();
   });
 });

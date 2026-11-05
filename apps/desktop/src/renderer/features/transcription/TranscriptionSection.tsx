@@ -2,7 +2,7 @@ import type { EngineStatusDto } from '@vozella/contracts';
 import { INSTALL_STAGE_LABEL_KEYS, LIVE_DROP_WARNING_PERCENT } from '@vozella/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { StringKey } from '../../i18n/translate';
+import type { StringKey, Translate } from '../../i18n/translate';
 import { Badge, Button, Notice, Progress, SectionHeader, SettingRow, Switch } from '../../ui';
 import { ConfirmDialog } from '../library/dialogs';
 import { overallPercent } from './live-lines';
@@ -14,7 +14,8 @@ const errorText = (error: unknown): string =>
 
 /**
  * Settings, Transcription (spec 2.6): the engine (download, delete, which processor it runs on),
- * the live preview, speaker labels and their model. The language is chosen in the meeting language
+ * the live preview, and speaker labels with their model in one row. Labels are plain words; model
+ * names stay in descriptions and in the buttons' accessible names. The language is chosen in the meeting language
  * block above. Everything shown comes from the status the main process keeps.
  */
 export function TranscriptionSection() {
@@ -143,6 +144,9 @@ export function TranscriptionSection() {
   };
 
   const installing = install.phase === 'running';
+  // Live captions need the engine: without it the switch says why instead of showing On.
+  const liveUnavailable = status !== null && !status.ready;
+  const liveOn = !liveUnavailable && (status?.liveEnabled ?? false);
   const anyEngineFile =
     status !== null && (status.modelInstalled || status.runtimes.cpu || status.runtimes.cuda);
 
@@ -150,8 +154,17 @@ export function TranscriptionSection() {
     <div data-testid="transcription-section">
       <SectionHeader level={2} compact title={t('Settings_Transcription.Text')} className="pb-2" />
       <SettingRow
-        title={t('Settings_NemotronCard.Header')}
-        description={t('Settings_NemotronCard.Description')}
+        title={t('Ui_EngineTitle')}
+        description={
+          <>
+            <span className="block">{t('Ui_EngineDescription')}</span>
+            {status ? (
+              <span className="block pt-1" data-testid="acceleration-caption">
+                {engineNote ?? backendCaption(status, t)}
+              </span>
+            ) : null}
+          </>
+        }
       >
         {status ? (
           <Badge tone="outline">
@@ -194,68 +207,66 @@ export function TranscriptionSection() {
         </div>
       ) : null}
 
-      {status ? <EngineCaptions status={status} locale={locale} note={engineNote} /> : null}
+      {status ? <EngineNotices status={status} locale={locale} /> : null}
 
       <SettingRow
         title={t('Settings_LiveTranscription.Header')}
-        description={t('Settings_LiveTranscription.Description')}
+        description={
+          liveUnavailable ? t('Ui_LiveNeedsEngine') : t('Ui_LiveTranscriptionDescription')
+        }
       >
         {({ titleId }) => (
           <Switch
             aria-labelledby={titleId}
-            label={status?.liveEnabled ? t('Ui_SwitchOn') : t('Ui_SwitchOff')}
-            checked={status?.liveEnabled ?? false}
-            disabled={status === null}
+            label={liveOn ? t('Ui_SwitchOn') : t('Ui_SwitchOff')}
+            checked={liveOn}
+            disabled={status === null || liveUnavailable}
             onCheckedChange={setLive}
           />
         )}
       </SettingRow>
 
+      {/* One row: the switch and the model it needs (download and delete). */}
       <SettingRow
         title={t('Settings_SpeakerLabels.Header')}
-        description={t('Settings_SpeakerLabels.Description')}
+        description={t('Ui_SpeakerLabelsDescription')}
       >
         {({ titleId }) => (
-          <Switch
-            aria-labelledby={titleId}
-            label={status?.speakerLabelsEnabled ? t('Ui_SwitchOn') : t('Ui_SwitchOff')}
-            checked={status?.speakerLabelsEnabled ?? false}
-            disabled={status === null || speakerBusy !== null}
-            onCheckedChange={setSpeakerLabels}
-          />
+          <>
+            <Button
+              disabled={status === null || status.speakerModelInstalled || speakerBusy !== null}
+              aria-label={`${t('Settings_DownloadSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
+              onClick={downloadSpeakerModel}
+            >
+              {t('Settings_DownloadSpeakers.Content')}
+            </Button>
+            <Button
+              variant="quiet"
+              disabled={status === null || !status.speakerModelInstalled || speakerBusy !== null}
+              aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
+              onClick={() => {
+                ask('speaker');
+              }}
+            >
+              {t('Settings_DeleteSpeakers.Content')}
+            </Button>
+            <Switch
+              aria-labelledby={titleId}
+              className="pl-2"
+              label={status?.speakerLabelsEnabled ? t('Ui_SwitchOn') : t('Ui_SwitchOff')}
+              checked={status?.speakerLabelsEnabled ?? false}
+              disabled={status === null || speakerBusy !== null}
+              onCheckedChange={setSpeakerLabels}
+            />
+          </>
         )}
-      </SettingRow>
-
-      <SettingRow title={t('Ui_SpeakerModel')}>
-        {status ? (
-          <Badge tone="outline">
-            {status.speakerModelInstalled ? t('Ui_EngineInstalled') : t('Ui_EngineNotInstalled')}
-          </Badge>
-        ) : null}
-        <Button
-          disabled={status === null || status.speakerModelInstalled || speakerBusy !== null}
-          aria-label={`${t('Settings_DownloadSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
-          onClick={downloadSpeakerModel}
-        >
-          {t('Settings_DownloadSpeakers.Content')}
-        </Button>
-        <Button
-          variant="quiet"
-          disabled={status === null || !status.speakerModelInstalled || speakerBusy !== null}
-          aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
-          onClick={() => {
-            ask('speaker');
-          }}
-        >
-          {t('Settings_DeleteSpeakers.Content')}
-        </Button>
       </SettingRow>
       {speakerBusy !== null || speakerNote || speakerModelMissing ? (
         <div className="flex flex-col gap-2.5 border-b border-hairline py-3">
           {speakerBusy === 'download' ? (
             <Progress
               className="max-w-sm"
-              label={t('Status_DownloadingSpeakerModel')}
+              label={t('Ui_SpeakerDownloading')}
               value={speakerPercent}
               showValue
             />
@@ -298,26 +309,25 @@ export function TranscriptionSection() {
   );
 }
 
-/** Which processor runs the engine, the CUDA fallback reason and the last live session's drops. */
-function EngineCaptions({
-  status,
-  locale,
-  note,
-}: {
-  status: EngineStatusDto;
-  locale: string;
-  note: string | null;
-}) {
+/** Which processor runs the engine, or will. Shown under the engine description. */
+function backendCaption(status: EngineStatusDto, t: Translate): string {
+  const usage = status.usage;
+  if (usage) {
+    return usage.backend === 'cuda'
+      ? t('Ui_AccelerationActiveGpu')
+      : t('Settings_AccelerationActiveCpu');
+  }
+  return status.expectedBackend === 'cuda'
+    ? t('Ui_AccelerationExpectedGpu')
+    : t('Settings_AccelerationExpectedCpu');
+}
+
+/** The GPU fallback reason and the last live session's drops, when there is something to say. */
+function EngineNotices({ status, locale }: { status: EngineStatusDto; locale: string }) {
   const { t } = useI18n();
   const usage = status.usage;
-  const caption = usage
-    ? usage.backend === 'cuda'
-      ? t('Settings_AccelerationActiveCuda')
-      : t('Settings_AccelerationActiveCpu')
-    : status.expectedBackend === 'cuda'
-      ? t('Settings_AccelerationExpectedCuda')
-      : t('Settings_AccelerationExpectedCpu');
   const dropped = status.liveDroppedPercent;
+  if (!usage?.fallbackReason && dropped === null) return null;
   const droppedText =
     dropped === null
       ? ''
@@ -326,9 +336,6 @@ function EngineCaptions({
 
   return (
     <div className="flex flex-col gap-2.5 border-b border-hairline py-3">
-      <p className="text-ui-lg text-ink-muted" data-testid="acceleration-caption">
-        {note ?? caption}
-      </p>
       {usage?.fallbackReason ? (
         <Notice tone="warning">
           <span className="block font-medium">{t('Settings_AsrFallback.Title')}</span>

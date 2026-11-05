@@ -301,6 +301,13 @@ describe('references in the code (item 118, B21)', () => {
   const UNUSED_BY_DECISION: string[] = [
     // Settings polish 2026-11-05: About is its own section, headed Ui_About, with a Version row.
     'Settings_About.Header',
+    // Transcription section in plain words: the Ui_Engine*, Ui_Acceleration*Gpu, Ui_LiveTranscription*,
+    // and Ui_SpeakerLabelsDescription strings replace these.
+    'Settings_NemotronCard.Description',
+    'Settings_AccelerationExpectedCuda',
+    'Settings_AccelerationActiveCuda',
+    'Settings_LiveTranscription.Description',
+    'Settings_SpeakerLabels.Description',
   ];
 
   /** The whole quoted key, so a key is not found inside a longer one. */

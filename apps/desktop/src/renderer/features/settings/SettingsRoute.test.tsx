@@ -388,7 +388,10 @@ describe('Settings page', () => {
 
     await user.click(trigger);
     let dialog = await screen.findByRole('dialog', { name: 'Delete Model B?' });
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // Cancel takes the focus once the dialog has opened, so Enter never deletes.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull();
