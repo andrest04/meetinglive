@@ -4,6 +4,7 @@ import { useT } from '../../i18n/I18nProvider';
 import { useTheme, isThemePreference } from '../../app/theme';
 import { Button, Notice, RadioGroup, SectionHeader, SettingRow, SkeletonText } from '../../ui';
 import { MicrophoneSection } from '../audio/MicrophoneSection';
+import { AboutSection } from './AboutSection';
 import { CallDetectionSection } from './CallDetectionSection';
 import { DataSection } from './DataSection';
 import { LanguageSection } from './LanguageSection';
@@ -38,8 +39,9 @@ function AppearanceSection() {
 }
 
 /**
- * The Settings page. The blocks follow `SETTINGS_SECTIONS` (spec 2.0); a block whose module has not
- * landed is not drawn, and nothing stands in for it. Data and About come from library-storage.
+ * The Settings page. The blocks follow `SETTINGS_SECTIONS`, in meeting lifecycle order; a block
+ * whose module has not landed is not drawn, and nothing stands in for it. Appearance needs no page
+ * answer, so it stays reachable while the page loads or fails.
  */
 export function SettingsRoute() {
   const t = useT();
@@ -47,8 +49,8 @@ export function SettingsRoute() {
   const { page } = model;
   // The fade belongs to the first reveal; a revisit paints the kept snapshot silently (spec 8.5).
   const revealed = useRef(model.page === null).current;
-  const built = new Set(
-    SETTINGS_SECTIONS.filter((section) => section.status === 'built').map((section) => section.id),
+  const appearanceBuilt = SETTINGS_SECTIONS.some(
+    (section) => section.id === 'appearance' && section.status === 'built',
   );
 
   const renderBlock = (id: SettingsSectionId): ReactNode => {
@@ -72,10 +74,12 @@ export function SettingsRoute() {
         return <TranscriptionSection />;
       case 'callDetection':
         return <CallDetectionSection />;
+      case 'appearance':
+        return <AppearanceSection />;
       case 'data':
+        return <DataSection />;
       case 'about':
-        // The Data block draws the About rows too.
-        return id === 'data' ? <DataSection /> : null;
+        return <AboutSection />;
       default:
         return null;
     }
@@ -90,8 +94,6 @@ export function SettingsRoute() {
           {model.problem}
         </Notice>
       ) : null}
-
-      {built.has('appearance') ? <AppearanceSection /> : null}
 
       {page === null && model.loading ? (
         <SkeletonText lines={6} className="py-3" label={t('Ui_SettingsLoading')} />
@@ -112,6 +114,8 @@ export function SettingsRoute() {
         </div>
       ) : null}
 
+      {page === null && appearanceBuilt ? <AppearanceSection /> : null}
+
       {page ? (
         <div
           className={`flex flex-col gap-8${revealed ? ' animate-fade-in' : ''}`}
@@ -130,7 +134,7 @@ export function SettingsRoute() {
             </Notice>
           ))}
           {SETTINGS_SECTIONS.map((section) =>
-            section.status === 'built' && section.id !== 'appearance' ? (
+            section.status === 'built' ? (
               <Fragment key={section.id}>{renderBlock(section.id)}</Fragment>
             ) : null,
           )}

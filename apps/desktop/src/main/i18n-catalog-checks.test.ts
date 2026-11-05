@@ -298,7 +298,10 @@ describe('references in the code (item 118, B21)', () => {
    */
   const REMOVED_PROVIDER_KEYS =
     /^(Xai_(?!FeedbackModel$)|Settings_Xai|Settings_ProviderXai|Settings_SummaryProviderCard\.Description$)/;
-  const UNUSED_BY_DECISION: string[] = [];
+  const UNUSED_BY_DECISION: string[] = [
+    // Settings polish 2026-11-05: About is its own section, headed Ui_About, with a Version row.
+    'Settings_About.Header',
+  ];
 
   /** The whole quoted key, so a key is not found inside a longer one. */
   const uses = (key: string): boolean =>

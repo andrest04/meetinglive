@@ -460,18 +460,20 @@ describe('Settings page', () => {
     expect(screen.queryByLabelText('Loading settings')).toBeNull();
   });
 
-  it('draws the blocks in table order under the page title (8.1, 8.2)', async () => {
+  it('draws the blocks in meeting lifecycle order under the page title (8.1, 8.2)', async () => {
     install({ 'settings.getPage': () => pageDto() });
     mount();
     await screen.findByRole('radio', { name: 'Local (on this device)' });
     expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
     const wanted = [
-      'Language',
-      'Summary provider',
       'Microphone',
       'Meeting language',
       'Transcription',
+      'Summary provider',
+      'Appearance',
+      'Language',
       'Data',
+      'About',
     ];
     const seen = screen
       .getAllByRole('heading')

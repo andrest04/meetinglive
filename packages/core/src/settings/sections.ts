@@ -1,5 +1,5 @@
 /**
- * The blocks of the Settings page, top to bottom (spec 2.0), and who owns each. The page is a
+ * The blocks of the Settings page, top to bottom, and who owns each. The page is a
  * frame: it draws these in order and each owner mounts its own content in its slot. A `slot`
  * block has no content until its module lands; the page shows nothing in its place.
  */
@@ -27,19 +27,19 @@ export interface SettingsSection {
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  // The theme is a shell setting, not part of the WinUI page; it keeps its place at the top.
-  { id: 'appearance', headingKey: 'Ui_Appearance', owner: 'shell-platform', status: 'built' },
-  { id: 'language', headingKey: 'Settings_Language.Text', owner: 'settings-i18n', status: 'built' },
-  {
-    id: 'summaryProvider',
-    headingKey: 'Settings_SummaryProvider.Text',
-    owner: 'settings-i18n',
-    status: 'built',
-  },
+  // The meeting lifecycle (owner decision 2026-11-05, not the WinUI order): what is captured, what is
+  // made of it, then the app itself. The theme is a shell setting with no WinUI equivalent.
   {
     id: 'microphone',
     headingKey: 'Settings_Microphone.Text',
     owner: 'audio-capture',
+    status: 'built',
+  },
+  { id: 'recording', headingKey: 'Settings_Recording.Text', owner: 'recording', status: 'slot' },
+  {
+    id: 'callDetection',
+    headingKey: 'Ui_CallDetection',
+    owner: 'calendar-detection',
     status: 'built',
   },
   {
@@ -54,15 +54,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     owner: 'transcription',
     status: 'built',
   },
-  { id: 'recording', headingKey: 'Settings_Recording.Text', owner: 'recording', status: 'slot' },
   {
-    id: 'callDetection',
-    headingKey: 'Ui_CallDetection',
-    owner: 'calendar-detection',
+    id: 'summaryProvider',
+    headingKey: 'Settings_SummaryProvider.Text',
+    owner: 'settings-i18n',
     status: 'built',
   },
+  { id: 'appearance', headingKey: 'Ui_Appearance', owner: 'shell-platform', status: 'built' },
+  { id: 'language', headingKey: 'Settings_Language.Text', owner: 'settings-i18n', status: 'built' },
   { id: 'data', headingKey: 'Settings_Data.Text', owner: 'library-storage', status: 'built' },
-  { id: 'about', headingKey: null, owner: 'library-storage', status: 'built' },
+  { id: 'about', headingKey: 'Ui_About', owner: 'library-storage', status: 'built' },
 ];
 
 /**

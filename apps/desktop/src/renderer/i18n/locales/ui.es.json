@@ -170,5 +170,7 @@
   "Ui_LibraryFilterEmpty": "Ninguna reunión coincide con estos filtros.",
   "Ui_LibraryFilteredCount": "{0} de {1}",
   "Ui_LibraryFilterResults": "Resultado de los filtros",
-  "Ui_LibraryFilterResultsLine": "Se muestran {0} de {1} reuniones"
+  "Ui_LibraryFilterResultsLine": "Se muestran {0} de {1} reuniones",
+  "Ui_About": "Acerca de",
+  "Ui_AboutVersion": "Versión"
 }

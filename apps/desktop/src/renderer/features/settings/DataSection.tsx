@@ -11,7 +11,7 @@ type LocationChoice =
   | { readonly status: 'refused'; readonly message: string };
 
 /** A title, optional actions, and the value below in the data face so long paths wrap cleanly. */
-function DataRow({
+export function DataRow({
   title,
   value,
   children,
@@ -35,7 +35,7 @@ function DataRow({
   );
 }
 
-/** Where the library and app data live, the folder picker, and the version. */
+/** Where the library and app data live, and the folder picker. The version is in About. */
 export function DataSection() {
   const t = useT();
   const [location, setLocation] = useState<LocationDto | null>(null);
@@ -114,7 +114,6 @@ export function DataSection() {
             </Button>
           </DataRow>
           <DataRow title={t('Settings_AppDataLocation.Header')} value={location.appDataRoot} />
-          <DataRow title={t('Settings_About.Header')} value={location.version} />
         </>
       )}
     </div>

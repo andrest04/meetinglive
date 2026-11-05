@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
+import { AboutSection } from './AboutSection';
 import { DataSection } from './DataSection';
 
 const MEETINGS = 'C:/Temp/Vozella/meetings';
@@ -41,7 +42,7 @@ const mount = () =>
   );
 
 describe('Settings data and about', () => {
-  it('shows both folders and the version, and opens the meetings folder', async () => {
+  it('shows both folders, leaves the version to About, and opens the meetings folder', async () => {
     const { calls } = install({
       'library.getLocation': () => location(),
       'library.openFolder': () => ({ opened: true, error: null }),
@@ -49,7 +50,7 @@ describe('Settings data and about', () => {
     mount();
     expect(await screen.findByText(MEETINGS)).toBeInTheDocument();
     expect(screen.getByText(APP_DATA)).toBeInTheDocument();
-    expect(screen.getByText('1.2.3.4')).toBeInTheDocument();
+    expect(screen.queryByText('1.2.3.4')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Use the default folder' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Open folder' }));
     await waitFor(() => {
@@ -96,5 +97,19 @@ describe('Settings data and about', () => {
       await screen.findByText('That folder cannot be used. Not allowed while testing.'),
     ).toBeVisible();
     expect(screen.getByText(MEETINGS)).toBeInTheDocument();
+  });
+});
+
+describe('Settings about', () => {
+  it('has its own heading and shows the version', async () => {
+    install({ 'library.getLocation': () => location() });
+    render(
+      <Providers>
+        <AboutSection />
+      </Providers>,
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'About' })).toBeInTheDocument();
+    const row = await screen.findByRole('group', { name: 'Version' });
+    expect(row).toHaveTextContent('1.2.3.4');
   });
 });
