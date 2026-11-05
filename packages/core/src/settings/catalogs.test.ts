@@ -169,7 +169,15 @@ describe('summary model catalog', () => {
         expect(key).not.toContain(' ');
       }
     }
-    for (const key of Object.values(FIT_LABEL_KEYS)) expect(key).toMatch(/^Fit_[A-Za-z]+$/);
+    for (const key of Object.values(FIT_LABEL_KEYS)) expect(key).toMatch(/^Ui_Fit[A-Za-z]+$/);
+  });
+
+  it('labels the fit as hardware fit, not as a pick (settings polish T2)', () => {
+    expect(FIT_LABEL_KEYS).toEqual({
+      Recommended: 'Ui_FitRunsWell',
+      MayBeSlow: 'Ui_FitMayBeSlow',
+      NotRecommended: 'Ui_FitTooHeavy',
+    });
   });
 
   it('pins every URL, size and catalog key', () => {

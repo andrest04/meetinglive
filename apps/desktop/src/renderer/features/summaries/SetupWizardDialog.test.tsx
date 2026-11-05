@@ -167,9 +167,9 @@ describe('SetupWizardDialog: model list', () => {
     const list = screen.getByTestId('ListModelOptions');
     expect(within(list).getAllByRole('radio')).toHaveLength(3);
     expect(within(list).getByText('Small model')).toBeVisible();
-    expect(within(list).getByText('Recommended')).toBeVisible();
+    expect(within(list).getByText('Runs well on this PC')).toBeVisible();
     expect(within(list).getByText('May be slow')).toBeVisible();
-    expect(within(list).getByText('Not recommended')).toBeVisible();
+    expect(within(list).getByText('Too heavy for this PC')).toBeVisible();
     expect(within(list).getByText(/0\.8 GB download/)).toBeVisible();
     expect(within(list).getByText(/7\.1 GB download/)).toBeVisible();
     expect(within(list).getAllByText(/Quality/)).toHaveLength(3);
@@ -354,19 +354,19 @@ describe('SetupWizardDialog: closed and Spanish', () => {
     mount({ mode: 'local-only' }, {}, 'es');
     expect(await screen.findByText('Elige un modelo para generar resúmenes')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeVisible();
-    expect(screen.getByText('Recomendado')).toBeVisible();
+    expect(screen.getByText('Funciona bien en este PC')).toBeVisible();
   });
 
   it('relabels the open model list when the language changes, speed, quality, use case and fit', async () => {
     const { api } = mount({ mode: 'local-only' });
     expect(await screen.findByText('Choose a model to generate summaries')).toBeVisible();
-    expect(screen.getAllByText('Recommended').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Runs well on this PC').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Modest PCs / laptops without a GPU').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Fast · Quality Good/).length).toBeGreaterThan(0);
     api.emit('i18n.localeChanged', { locale: 'es' });
     expect(await screen.findByText('Elige un modelo para generar resúmenes')).toBeVisible();
-    expect(screen.getAllByText('Recomendado').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Puede ser lento').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Funciona bien en este PC').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Puede ir lento').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Equipos modestos o portátiles sin GPU').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Rápido · Calidad Buena/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Recommended')).toBeNull();

@@ -222,6 +222,17 @@ describe('Settings page', () => {
     expect(closed).toBeGreaterThan(1);
   });
 
+  it('keeps Set up as the only primary action beside the Download buttons', async () => {
+    install({ 'settings.getPage': () => pageDto() });
+    mount();
+    const setUp = await screen.findByRole('button', { name: 'Set up' });
+    expect(setUp).toHaveClass('bg-ink');
+    const group = screen.getByRole('radiogroup', { name: 'Summary models' });
+    for (const button of within(group).getAllByRole('button')) {
+      expect(button).not.toHaveClass('bg-ink');
+    }
+  });
+
   it('hides Set up once a model is active, and for the CLI providers (S20)', async () => {
     install({
       'settings.getPage': () =>
@@ -300,6 +311,16 @@ describe('Settings page', () => {
     expect(
       within(group).getAllByText('Fast · Quality Very good · 3.1 GB download', { exact: false })[0],
     ).toBeInTheDocument();
+    expect(within(group).getAllByText('Runs well on this PC')).toHaveLength(2);
+    expect(within(group).queryByText('Recommended')).toBeNull();
+    // A model that is not on this PC says why it cannot be picked, not only by being disabled.
+    expect(within(group).getAllByText('Download to use')).toHaveLength(1);
+    expect(within(group).getByRole('radio', { name: /Model A/ })).toHaveAccessibleName(
+      /Download to use/,
+    );
+    expect(within(group).getByRole('radio', { name: /Model B/ })).not.toHaveAccessibleName(
+      /Download to use/,
+    );
 
     await user.click(within(group).getByRole('button', { name: 'Download' }));
     expect(
@@ -337,11 +358,57 @@ describe('Settings page', () => {
     expect(
       await screen.findByText(/gone\.gguf is not on this PC|selected model gone\.gguf/),
     ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Model B' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete Model B?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(
       await screen.findByText('Model B is downloading. Cancel the download first.'),
     ).toBeInTheDocument();
     expect(calls.some((call) => call.name === 'settings.models.delete')).toBe(true);
+  });
+
+  it('asks before deleting a model: Cancel keeps it, Delete removes it and says so', async () => {
+    let deleted = false;
+    const calls = install({
+      'settings.getPage': () =>
+        pageDto({
+          models: {
+            rows: [model('b.gguf', 'Model B', { downloaded: !deleted })],
+            missingActiveId: null,
+          },
+        }),
+      'settings.models.delete': () => {
+        deleted = true;
+        return { status: 'deleted', settings: {} };
+      },
+    });
+    mount();
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole('button', { name: 'Delete Model B' });
+    // The trigger is quiet, so it does not read like Download.
+    expect(trigger).toHaveClass('bg-transparent');
+
+    await user.click(trigger);
+    let dialog = await screen.findByRole('dialog', { name: 'Delete Model B?' });
+    // Cancel takes the focus once the dialog has opened, so Enter never deletes.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(calls.some((call) => call.name === 'settings.models.delete')).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Delete Model B' }));
+    dialog = await screen.findByRole('dialog', { name: 'Delete Model B?' });
+    const confirm = within(dialog).getByRole('button', { name: 'Delete' });
+    expect(confirm).toHaveClass('bg-ink');
+    await user.click(confirm);
+    expect(calls.find((call) => call.name === 'settings.models.delete')?.input).toEqual({
+      fileName: 'b.gguf',
+    });
+    expect(await screen.findByText('Model B deleted.')).toBeInTheDocument();
   });
 
   it('shows the recovered settings notice and dismisses it', async () => {
@@ -460,18 +527,20 @@ describe('Settings page', () => {
     expect(screen.queryByLabelText('Loading settings')).toBeNull();
   });
 
-  it('draws the blocks in table order under the page title (8.1, 8.2)', async () => {
+  it('draws the blocks in meeting lifecycle order under the page title (8.1, 8.2)', async () => {
     install({ 'settings.getPage': () => pageDto() });
     mount();
     await screen.findByRole('radio', { name: 'Local (on this device)' });
     expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
     const wanted = [
-      'Language',
-      'Summary provider',
       'Microphone',
       'Meeting language',
       'Transcription',
+      'Summary provider',
+      'Appearance',
+      'Language',
       'Data',
+      'About',
     ];
     const seen = screen
       .getAllByRole('heading')

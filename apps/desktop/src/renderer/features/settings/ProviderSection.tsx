@@ -218,9 +218,7 @@ export function ProviderSection({
                 void model.downloadModel(fileName);
               }}
               onCancel={model.cancelModel}
-              onDelete={(fileName) => {
-                void model.deleteModel(fileName);
-              }}
+              onDelete={model.deleteModel}
             />
           </div>
         </div>

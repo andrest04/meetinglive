@@ -2,24 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { SETTINGS_MESSAGE_KEYS, SETTINGS_SECTIONS } from './sections';
 
 describe('settings sections', () => {
-  it('follow the order of the spec table, with the theme first', () => {
+  it('follow the meeting lifecycle: capture, then transcript and summary, then the app itself', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
-      'appearance',
-      'language',
-      'summaryProvider',
       'microphone',
-      'meetingLanguage',
-      'transcription',
       'recording',
       'callDetection',
+      'meetingLanguage',
+      'transcription',
+      'summaryProvider',
+      'appearance',
+      'language',
       'data',
       'about',
     ]);
   });
 
+  it('About is a section of its own with a heading', () => {
+    expect(SETTINGS_SECTIONS.find((s) => s.id === 'about')?.headingKey).toBe('Ui_About');
+  });
+
   it('this module owns the language, provider and meeting language blocks and they are built', () => {
     const own = SETTINGS_SECTIONS.filter((s) => s.owner === 'settings-i18n');
-    expect(own.map((s) => s.id)).toEqual(['language', 'summaryProvider', 'meetingLanguage']);
+    expect(own.map((s) => s.id)).toEqual(['meetingLanguage', 'summaryProvider', 'language']);
     expect(own.every((s) => s.status === 'built')).toBe(true);
   });
 

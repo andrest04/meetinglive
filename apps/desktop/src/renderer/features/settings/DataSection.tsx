@@ -10,8 +10,11 @@ type LocationChoice =
   | { readonly status: 'cancelled' }
   | { readonly status: 'refused'; readonly message: string };
 
-/** A title, optional actions, and the value below in the data face so long paths wrap cleanly. */
-function DataRow({
+/**
+ * A title, optional actions, and the value below. Paths are read, not timed, so they use the UI face
+ * at 13px rather than 12px mono, wrap anywhere, and can be selected to copy.
+ */
+export function DataRow({
   title,
   value,
   children,
@@ -30,12 +33,12 @@ function DataRow({
         <span className="text-ui-lg font-medium text-ink">{title}</span>
         {children ? <div className="flex shrink-0 items-center gap-2">{children}</div> : null}
       </div>
-      <span className="font-mono text-caption break-all text-ink-muted">{value}</span>
+      <span className="text-ui break-all text-ink-muted select-text">{value}</span>
     </div>
   );
 }
 
-/** Where the library and app data live, the folder picker, and the version. */
+/** Where the library and app data live, and the folder picker. The version is in About. */
 export function DataSection() {
   const t = useT();
   const [location, setLocation] = useState<LocationDto | null>(null);
@@ -114,7 +117,6 @@ export function DataSection() {
             </Button>
           </DataRow>
           <DataRow title={t('Settings_AppDataLocation.Header')} value={location.appDataRoot} />
-          <DataRow title={t('Settings_About.Header')} value={location.version} />
         </>
       )}
     </div>

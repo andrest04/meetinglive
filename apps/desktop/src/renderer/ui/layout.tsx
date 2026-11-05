@@ -63,7 +63,8 @@ export function SettingRow({
   className,
 }: {
   title: string;
-  description?: string;
+  /** Plain text, or a few lines (for example a status line under the description). */
+  description?: ReactNode;
   /** The control. Give it the accessible name through the title id passed to the render prop. */
   children: ReactNode | ((ids: { titleId: string; descriptionId: string }) => ReactNode);
   className?: string;

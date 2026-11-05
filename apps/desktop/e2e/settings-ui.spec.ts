@@ -49,7 +49,8 @@ test('a local model downloads, becomes active and is removed', async () => {
   const group = page.getByRole('radiogroup', { name: 'Summary models' });
   const gemma = group.getByRole('radio', { name: /Gemma 4 E2B Instruct/ });
   await expect(gemma).toBeDisabled();
-  await expect(group.getByText('Recommended').first()).toBeVisible();
+  await expect(group.getByText('Runs well on this PC').first()).toBeVisible();
+  await expect(group.getByText('Download to use').first()).toBeVisible();
   await expect(group.getByText('Fast · Quality Very good · 3.1 GB download')).toBeVisible();
 
   const row = group
@@ -63,6 +64,9 @@ test('a local model downloads, becomes active and is removed', async () => {
   await expect(row.getByText('Active', { exact: true })).toBeVisible();
 
   await row.getByRole('button', { name: 'Delete' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Delete Gemma 4 E2B Instruct?' });
+  await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Gemma 4 E2B Instruct deleted.')).toBeAttached();
   await expect(gemma).toBeDisabled();
   await expect(gemma).not.toBeChecked();
   await expect.poll(() => settingsFile().selectedSummaryModelId).toBeNull();

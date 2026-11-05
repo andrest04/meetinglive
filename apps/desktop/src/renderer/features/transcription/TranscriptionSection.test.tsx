@@ -27,6 +27,12 @@ const notReady = {
 
 const ENGINE = 'Nemotron 3.5 ASR Streaming 0.6B';
 
+/** Deleting asks first; this answers the dialog with Delete. */
+const confirmDelete = async (title: string) => {
+  const dialog = await screen.findByRole('dialog', { name: title });
+  await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+};
+
 describe('TranscriptionSection engine', () => {
   it('says what is installed and enables only the action that makes sense', async () => {
     installTranscriptionApi();
@@ -86,9 +92,31 @@ describe('TranscriptionSection engine', () => {
     installTranscriptionApi({ 'transcription.deleteEngine': () => ({ outcome }) });
     mount();
     await userEvent.click(await screen.findByRole('button', { name: `Delete ${ENGINE}` }));
+    await confirmDelete('Delete the transcription engine?');
     await waitFor(() => {
       expect(screen.getByTestId('acceleration-caption')).toHaveTextContent(text);
     });
+  });
+
+  it('asks before deleting the engine, keeps it on Cancel, and announces the deletion', async () => {
+    const api = installTranscriptionApi({
+      'transcription.deleteEngine': () => ({ outcome: 'Deleted' }),
+    });
+    mount();
+    const trigger = await screen.findByRole('button', { name: `Delete ${ENGINE}` });
+    expect(trigger).toHaveClass('bg-transparent');
+    await userEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog', { name: 'Delete the transcription engine?' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(api.calls.some((c) => c.name === 'transcription.deleteEngine')).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: `Delete ${ENGINE}` }));
+    await confirmDelete('Delete the transcription engine?');
+    expect(await screen.findByText('Transcription engine deleted.')).toBeInTheDocument();
+    expect(api.calls.some((c) => c.name === 'transcription.deleteEngine')).toBe(true);
   });
 
   it('shows the acceleration captions for the expected and the used backend', async () => {
@@ -97,7 +125,7 @@ describe('TranscriptionSection engine', () => {
     });
     mount();
     expect(await screen.findByTestId('acceleration-caption')).toHaveTextContent(
-      'Will try GPU (CUDA); the backend actually used is shown after the first transcription',
+      'Will try the graphics card (GPU). The one actually used shows after the first transcription.',
     );
     cleanup();
     installTranscriptionApi({
@@ -108,7 +136,7 @@ describe('TranscriptionSection engine', () => {
     });
     mount();
     expect(await screen.findByTestId('acceleration-caption')).toHaveTextContent(
-      'Running on GPU (CUDA)',
+      'Running on the graphics card (GPU)',
     );
   });
 
@@ -222,6 +250,8 @@ describe('TranscriptionSection switches', () => {
       expect(screen.getByRole('button', { name: 'Delete Speaker model' })).toBeEnabled();
     });
     await userEvent.click(screen.getByRole('button', { name: 'Delete Speaker model' }));
+    await confirmDelete('Delete the speaker model?');
+    expect(await screen.findByText('Speaker model deleted.')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Download Speaker model' })).toBeEnabled();
     });
@@ -234,6 +264,7 @@ describe('TranscriptionSection switches', () => {
     });
     mount();
     await userEvent.click(await screen.findByRole('button', { name: 'Delete Speaker model' }));
+    await confirmDelete('Delete the speaker model?');
     expect(await screen.findByText('Could not delete the speaker model: EBUSY')).toBeVisible();
     expect(screen.queryByText(/Download failed/)).toBeNull();
     expect(screen.queryByRole('progressbar', { name: /Sortformer/ })).toBeNull();
@@ -276,7 +307,7 @@ describe('TranscriptionSection speaker download progress', () => {
       stepCount: 1,
     });
     const bar = await screen.findByRole('progressbar', {
-      name: 'Downloading Sortformer speaker model...',
+      name: 'Downloading the speaker model',
     });
     expect(bar).toHaveAttribute('aria-valuenow', '40');
     api.emit('transcription.installProgress', {
@@ -345,7 +376,7 @@ describe('TranscriptionSection status pushes', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: `Download ${ENGINE}` })).toBeEnabled();
     });
-    expect(screen.getByRole('button', { name: `Delete ${ENGINE}` })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: `Delete ${ENGINE}` })).toBeNull();
   });
 });
 
@@ -393,5 +424,71 @@ describe('TranscriptionSection number format', () => {
     const section = await screen.findByTestId('transcription-section');
     await within(section).findByRole('button', { name: 'Download Speaker model' });
     expect(within(section).queryByText(missingCopy)).toBeNull();
+  });
+});
+
+describe('TranscriptionSection clarity', () => {
+  it('names the engine in plain words and keeps the processor line inside its row', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, expectedBackend: 'cuda' }),
+    });
+    mount();
+    const row = await screen.findByRole('group', { name: 'Transcription engine' });
+    expect(within(row).getByTestId('acceleration-caption')).toBeInTheDocument();
+    // The model name stays as detail, and the buttons keep it in their names.
+    expect(row).toHaveTextContent('Nemotron 3.5');
+    expect(within(row).getByRole('button', { name: `Download ${ENGINE}` })).toBeDisabled();
+  });
+
+  it('uses no jargon in the labels and descriptions of a ready engine', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, expectedBackend: 'cuda' }),
+    });
+    mount();
+    const section = await screen.findByTestId('transcription-section');
+    await within(section).findByText('Installed');
+    expect(section.textContent).not.toMatch(/Sortformer|CUDA|ASR|CLI/);
+  });
+
+  it('shows live transcription as unavailable, with the reason, while the engine is missing', async () => {
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...notReady, liveEnabled: true }),
+    });
+    mount();
+    const live = await screen.findByRole('switch', { name: 'Live transcription during recording' });
+    await waitFor(() => {
+      expect(live).toHaveAttribute('aria-disabled', 'true');
+    });
+    expect(live).not.toBeChecked();
+    expect(
+      screen.getByRole('group', { name: 'Live transcription during recording' }),
+    ).toHaveAccessibleDescription('Download the transcription engine to use this.');
+  });
+
+  it('keeps speaker labels and their model in one row', async () => {
+    installTranscriptionApi();
+    mount();
+    const row = await screen.findByRole('group', { name: 'Speaker labels' });
+    expect(within(row).getByRole('switch', { name: 'Speaker labels' })).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Download Speaker model' })).toBeEnabled();
+    expect(within(row).queryByRole('button', { name: 'Delete Speaker model' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Speaker model' })).toBeNull();
+  });
+});
+
+describe('TranscriptionSection delete buttons', () => {
+  it('offers Delete only for files that are on this PC', async () => {
+    installTranscriptionApi({ 'transcription.getStatus': () => notReady });
+    mount();
+    await screen.findByText('Not installed');
+    expect(screen.queryByRole('button', { name: `Delete ${ENGINE}` })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete Speaker model' })).toBeNull();
+    cleanup();
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, speakerModelInstalled: true }),
+    });
+    mount();
+    expect(await screen.findByRole('button', { name: `Delete ${ENGINE}` })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete Speaker model' })).toBeEnabled();
   });
 });
