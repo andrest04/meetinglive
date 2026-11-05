@@ -102,7 +102,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 
 ### Batch 2: shell, sidebar, list (about 1,250)
 - [x] T2.1 Folders move to the sidebar, with store and counts
-- [ ] T2.2 Paned layout and folder header
+- [x] T2.2 Paned layout and folder header
 - [ ] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
 
 ### Batch 3: preview, search UI, bulk, keyboard, drag (about 1,250)
@@ -152,7 +152,9 @@ Each batch writer records its commit hashes and observed check results here. A c
 
 ### Batch 2 (`feat/library-redesign-b2-shell`)
 
-- T2.1 `feat(library): folders live in the sidebar, backed by a shared store`. RED: the new store and sidebar tests failed on the missing modules and the three new `Tree` tests failed, then passed. Focused unit and e2e results are in this batch's closing report. Choices: an empty All shows the empty library copy with its Record action, even when folders exist; a stored folder that no longer exists lands on the Inbox; opening the route still reloads, because a store that outlives the route would otherwise miss files that appeared with no change event; counts of zero are not drawn; `LibraryRoute.audit.test.tsx` changed only in the mount line and import, since the tree no longer lives inside the route. The `TreeNode` type stays as it was: counts come through a `trailing` prop.
+- T2.1 `0cac442` `feat(library): folders live in the sidebar, backed by a shared store`. RED: the new store and sidebar tests failed on the missing modules and the three new `Tree` tests failed, then passed. Focused unit: 62 passed. `playwright test e2e/library-ui.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 7 passed, 2.4 min. Choices: an empty All shows the empty library copy with its Record action, even when folders exist; a stored folder that no longer exists lands on the Inbox; opening the route still reloads, because a store that outlives the route would otherwise miss files that appeared with no change event; counts of zero are not drawn; `LibraryRoute.audit.test.tsx` changed only in the mount line and import, since the tree no longer lives inside the route. The `TreeNode` type stays as it was: counts come through a `trailing` prop.
+
+- T2.2 `feat(library): the list and preview are panes, with a folder header`. RED: 4 of 32 tests in `LibraryRoute.test.tsx` failed on the header and preview pane, then passed. Focused unit: 67 passed. `playwright test e2e/library-ui.spec.ts e2e/shell.spec.ts e2e/shell-chrome.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 26 passed, 1 skipped (screenshot-only), 4.3 min. The preview pane is empty on purpose until T3.1. At the 960 px window minimum the content is 728 px, under the 760 px line, so the smallest window has no preview.
 
 ## Next step
 

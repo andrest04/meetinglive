@@ -1,26 +1,14 @@
 import { resolveAccentKey, resolveIconKey } from '@vozella/core';
 import type { MeetingListItemDto } from '@vozella/contracts';
-import { Ellipsis, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
-import {
-  Button,
-  EmptyState,
-  IconButton,
-  Input,
-  Notice,
-  SectionHeader,
-  Skeleton,
-  Textarea,
-  Icon,
-  Menu,
-  Field,
-} from '../../ui';
+import { Button, EmptyState, Notice, Skeleton, cn } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
 import { clearFolderRequest, useLibraryStore, type FolderRequest } from './library-store';
 import { folderMenuEntries } from './LibraryFolders';
+import { ListHeader } from './ListHeader';
 import { MeetingList } from './MeetingList';
 import { describeSkipped } from './format';
 import { useLibrary, type StatusMessage } from './use-library';
@@ -34,10 +22,33 @@ type DialogState =
   | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
   | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto };
 
-/** The Library page: breadcrumbs, search, the meeting list and the dialogs of the folders. */
+/** From this width of the content the preview sits beside the list; below it a click opens. */
+export const PANED_LAYOUT_PX = 760;
+
+function useWideLayout(): { ref: React.RefObject<HTMLElement | null>; wide: boolean } {
+  const ref = useRef<HTMLElement>(null);
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = (): void => {
+      setWide(element.clientWidth >= PANED_LAYOUT_PX);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  return { ref, wide };
+}
+
+/** The Library route: the list pane with its header, the preview pane and the dialogs. */
 export function LibraryRoute() {
   const { t, locale } = useI18n();
   const library = useLibrary(locale, t('Library_Inbox'));
+  const { ref: layoutRef, wide } = useWideLayout();
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [skippedDismissed, setSkippedDismissed] = useState(false);
@@ -119,96 +130,84 @@ export function LibraryRoute() {
           : null;
 
   return (
-    <section className="relative flex flex-col gap-5">
-      <div className="flex items-end justify-between gap-4">
-        <SectionHeader level={1} quiet title={t('HistoryPage_Title.Text')} />
-      </div>
+    <section ref={layoutRef} className="flex min-h-0 flex-1">
+      <div
+        data-testid="library-list-pane"
+        className={cn(
+          'flex min-h-0 min-w-0 flex-col',
+          wide ? 'w-[clamp(340px,38%,440px)] shrink-0 border-e border-hairline' : 'flex-1',
+        )}
+      >
+        <ListHeader
+          title={
+            library.selectedFolder
+              ? library.selectedFolder.name
+              : library.view.kind === 'all'
+                ? t('Ui_LibraryAll')
+                : t('Library_Inbox')
+          }
+          count={library.viewCount}
+          folder={library.selectedFolder}
+          breadcrumbs={
+            <Breadcrumbs
+              crumbs={crumbs}
+              label={t('Chat_ScopeFolder')}
+              onSelect={library.selectFolder}
+            />
+          }
+          menuEntries={
+            library.selectedFolder
+              ? folderMenuEntries(t, library.selectedFolder.id, runFolderAction)
+              : []
+          }
+          menuLabel={t('Ui_LibraryFolderActions')}
+          note={library.noteText}
+          noteLabel={t('Library_FolderNote.Header')}
+          notePlaceholder={t('Library_FolderNote.PlaceholderText')}
+          onNoteChange={library.setNoteText}
+          onNoteBlur={() => {
+            void library.saveNote();
+          }}
+          query={library.query}
+          searchLabel={t('Library_Search.PlaceholderText')}
+          onQueryChange={library.setQuery}
+        />
 
-      <div className="flex flex-col gap-2">
-        {startupError ? (
-          <Notice tone="warning">{t('Ui_LibraryMigrationFailed', startupError)}</Notice>
-        ) : null}
-        {library.problem ? (
-          <Notice tone="warning">
-            {library.problem.reason === 'corrupt'
-              ? t('Ui_LibraryFoldersDamaged', library.problem.message ?? '')
-              : t('Ui_LibraryFolderFailed', library.problem.message ?? library.problem.reason)}
-          </Notice>
-        ) : null}
-        {library.skipped.length > 0 && !skippedDismissed ? (
-          <Notice
-            onDismiss={() => {
-              setSkippedDismissed(true);
-            }}
-            dismissLabel={t('Ui_Close')}
-          >
-            {t('Ui_LibrarySkippedFiles', describeSkipped(library.skipped))}
-          </Notice>
-        ) : null}
-        {library.status ? (
-          <Notice tone="warning" onDismiss={library.dismissStatus} dismissLabel={t('Ui_Close')}>
-            {text(library.status)}
-          </Notice>
-        ) : null}
-      </div>
-
-      <div className="relative">
-        <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex min-w-0 items-center gap-1">
-              <Breadcrumbs
-                crumbs={crumbs}
-                label={t('Chat_ScopeFolder')}
-                onSelect={library.selectFolder}
-              />
-              {library.selectedFolder ? (
-                <Menu
-                  align="start"
-                  entries={folderMenuEntries(t, library.selectedFolder.id, runFolderAction)}
-                  trigger={
-                    <IconButton label={t('Ui_LibraryFolderActions')} icon={Ellipsis} size="sm" />
-                  }
-                />
-              ) : null}
-            </div>
-            <div className="relative min-w-40 flex-1 sm:max-w-60">
-              <Icon
-                icon={Search}
-                size={14}
-                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-faint"
-              />
-              <Input
-                type="search"
-                aria-label={t('Library_Search.PlaceholderText')}
-                placeholder={t('Library_Search.PlaceholderText')}
-                value={library.query}
-                onChange={(event) => {
-                  library.setQuery(event.target.value);
-                }}
-                className="w-full pl-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:appearance-none"
-              />
-            </div>
-          </div>
-
-          {library.selectedFolder ? (
-            <Field label={t('Library_FolderNote.Header')}>
-              <Textarea
-                rows={1}
-                value={library.noteText}
-                placeholder={t('Library_FolderNote.PlaceholderText')}
-                onChange={(event) => {
-                  library.setNoteText(event.target.value);
-                }}
-                onBlur={() => {
-                  void library.saveNote();
-                }}
-                className="field-sizing-content max-h-30 min-h-0! w-full resize-none! border-transparent bg-transparent px-0 hover:not-data-disabled:not-disabled:bg-transparent focus:border-border-control focus:px-2.5"
-              />
-            </Field>
+        <div className="flex shrink-0 flex-col gap-2 px-4 empty:hidden">
+          {startupError ? (
+            <Notice tone="warning">{t('Ui_LibraryMigrationFailed', startupError)}</Notice>
           ) : null}
+          {library.problem ? (
+            <Notice tone="warning">
+              {library.problem.reason === 'corrupt'
+                ? t('Ui_LibraryFoldersDamaged', library.problem.message ?? '')
+                : t('Ui_LibraryFolderFailed', library.problem.message ?? library.problem.reason)}
+            </Notice>
+          ) : null}
+          {library.skipped.length > 0 && !skippedDismissed ? (
+            <Notice
+              onDismiss={() => {
+                setSkippedDismissed(true);
+              }}
+              dismissLabel={t('Ui_Close')}
+            >
+              {t('Ui_LibrarySkippedFiles', describeSkipped(library.skipped))}
+            </Notice>
+          ) : null}
+          {library.status ? (
+            <Notice tone="warning" onDismiss={library.dismissStatus} dismissLabel={t('Ui_Close')}>
+              {text(library.status)}
+            </Notice>
+          ) : null}
+        </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {library.isLoading ? (
-            <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col gap-4 py-2">
+            <div
+              role="status"
+              aria-label={t('Ui_Loading')}
+              className="flex flex-col gap-4 px-4 py-2"
+            >
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-4/5" />
@@ -252,6 +251,8 @@ export function LibraryRoute() {
           ) : null}
         </div>
       </div>
+      {/* Batch 3 fills this pane. Until then a click still opens the meeting. */}
+      {wide ? <div data-testid="library-preview" className="min-w-0 flex-1" /> : null}
 
       <NameDialog
         {...dialogChrome}

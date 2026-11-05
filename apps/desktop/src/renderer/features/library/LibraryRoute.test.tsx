@@ -516,6 +516,59 @@ describe('the All view', () => {
   });
 });
 
+describe('the header of the list', () => {
+  it('names the view with its count, and has no Library title', async () => {
+    const { user } = await mount(seed);
+    expect(screen.getByRole('heading', { level: 1, name: 'All' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Library' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('library-view-count')).toHaveTextContent('3');
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Inbox' })).toBeInTheDocument();
+    expect(screen.getByTestId('library-view-count')).toHaveTextContent('2');
+  });
+
+  it('has breadcrumbs, an actions menu and a note only for a real folder', async () => {
+    const { user } = await mount(seed);
+    expect(screen.queryByRole('navigation', { name: 'Folder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Folder actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Folder notes' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Universidad' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Folder' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Folder actions' })).toBeInTheDocument();
+    // The note carries its name without a visible label above it.
+    expect(screen.getByRole('textbox', { name: 'Folder notes' })).toHaveAttribute(
+      'placeholder',
+      'Notes for this folder',
+    );
+    expect(screen.queryByText('Folder notes')).not.toBeInTheDocument();
+  });
+
+  it('keeps the count of the view while a search narrows the list', async () => {
+    const { user } = await mount(seed);
+    await user.type(screen.getByRole('searchbox'), 'stand');
+    expect(screen.getByTestId('library-view-count')).toHaveTextContent('3');
+  });
+});
+
+describe('the panes', () => {
+  it('shows the list beside the preview pane when the content is wide enough', async () => {
+    pageWidth = 760;
+    await mount(seed);
+    expect(screen.getByTestId('library-preview')).toBeInTheDocument();
+  });
+
+  it('shows only the list below that width, and a click still opens the meeting', async () => {
+    pageWidth = 759;
+    const { api, user } = await mount(seed);
+    expect(screen.queryByTestId('library-preview')).not.toBeInTheDocument();
+    await user.click(screen.getByText('Standup'));
+    await waitFor(() => {
+      expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Transcript' });
+    });
+  });
+});
+
 describe('the note and the debounced reload', () => {
   it('B16: a character typed while the debounced reload is really in flight is kept', async () => {
     const { api, user } = await mount(seed);

@@ -19,7 +19,7 @@ test('navigation moves between Record, Library and Settings', async () => {
   const nav = page.getByRole('navigation');
   await nav.getByRole('link', { name: 'Library' }).click();
   await expect(page).toHaveURL(/#\/library$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'All' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Library' })).toHaveAttribute('aria-current', 'page');
 
   await nav.getByRole('link', { name: 'Settings' }).click();

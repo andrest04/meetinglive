@@ -265,6 +265,42 @@ test('Settings shows where data lives, follows a picked folder, and refuses Meet
   await expect(page.getByText(libraryRoot, { exact: true })).toBeVisible();
 });
 
+test('the library is panes that scroll on their own, under the title bar and over the chat', async () => {
+  const resize = async (width: number, height: number): Promise<void> => {
+    await launched.app.evaluate(
+      ({ BrowserWindow }, size) => {
+        BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+      },
+      { width, height },
+    );
+  };
+  const before = await launched.app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0]?.getContentSize(),
+  );
+  await goTo('Library');
+  const main = page.locator('#content');
+  await expect.poll(() => main.evaluate((el) => getComputedStyle(el).overflowY)).toBe('hidden');
+
+  await resize(1180, 760);
+  const preview = page.getByTestId('library-preview');
+  await expect(preview).toBeVisible();
+  // clamp(340px, 38%, 440px) of the 948 px beside the 232 px sidebar.
+  const list = page.getByTestId('library-list-pane');
+  await expect.poll(async () => (await list.boundingBox())?.width).toBeCloseTo(360.24, 0);
+  // The chat bar sits under the panes, not over them.
+  const paneBottom = (await list.boundingBox())?.y ?? 0;
+  const mainBox = await main.boundingBox();
+  expect(paneBottom).toBeGreaterThanOrEqual(mainBox?.y ?? Infinity);
+
+  // Below 760 px of content there is no preview. The window minimum leaves 728 px.
+  await resize(960, 700);
+  await expect(preview).toHaveCount(0);
+
+  await goTo('Settings');
+  await expect.poll(() => main.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+  if (before?.[0] && before[1]) await resize(before[0], before[1]);
+});
+
 test('no serious accessibility violations on the library, its dialogs and the data card', async () => {
   const check = async (): Promise<void> => {
     // AxeBuilder opens a second page, which Electron does not support: inject axe directly.

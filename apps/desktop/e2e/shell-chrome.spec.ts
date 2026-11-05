@@ -185,7 +185,7 @@ test('selecting navigates and publishes the tag; the same page is a no-op; Sessi
   // Re-clicking Library on a session returns to the list.
   await page.locator('#NavItemHistory').click();
   await expect(page).toHaveURL(/#\/library$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'All' })).toBeVisible();
 });
 
 test('a navigation request from elsewhere moves the rail and the page together (item 28)', async () => {
