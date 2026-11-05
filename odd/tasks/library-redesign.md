@@ -128,7 +128,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 - Per commit: `pnpm check`
 - Focused unit: `pnpm --filter @vozella/desktop exec vitest run src/renderer/features/library`
 - Focused e2e: `pnpm --filter @vozella/desktop build`, then `pnpm --filter @vozella/desktop exec playwright test e2e/library-ui.spec.ts`
-- Per batch: `pnpm --filter @vozella/desktop build`, then `pnpm --filter @vozella/desktop test:e2e`
+- From batch 2, by the owner's decision on 2026-11-04 for speed, as an exception to `stack.md:77`: focused Library unit tests per commit, `pnpm check` at the end of each batch, and one e2e run at the end of batch 4, excluding the `pill-*` specs. Those specs cover the screen with a magenta backdrop and stay pending for the owner to run while away from the machine. Every Playwright run sets `VOZELLA_E2E_BACKGROUND=1` (`e2e/background-windows.cjs`), because the owner is using the machine: sampled across 16 specs, no Electron window was on-screen and focus never moved. Batch 1's full e2e run was interrupted and has no result.
 - Screenshots: `VOZELLA_SCREENSHOTS=1` with `library-screens.spec.ts`
 - Manual, pending: real Recycle Bin restore; `trashItem` on a volume with no bin; screen reader pass
 
