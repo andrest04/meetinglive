@@ -308,7 +308,10 @@ describe('folders', () => {
         'This deletes the folder "Vacia". Meetings inside it are not deleted.',
       ),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // The dialog moves the focus just after it appears.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => {
       expect(api.folders.folders).toHaveLength(0);
@@ -429,7 +432,10 @@ describe('moving and deleting a meeting', () => {
       within(dialog).getByText('This moves "Review" and its recording to the Recycle Bin.'),
     ).toBeInTheDocument();
     // The safe choice has the focus.
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // The dialog moves the focus just after it appears.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => {
       expect(api.meetings.records.has('c')).toBe(false);
@@ -467,7 +473,10 @@ describe('moving and deleting a meeting', () => {
       ),
     ).toBeInTheDocument();
     expect(api.meetings.records.has('c')).toBe(true);
-    expect(within(second).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // The dialog moves the focus just after it appears.
+    await waitFor(() => {
+      expect(within(second).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
 
     await user.click(within(second).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() => {
@@ -1152,7 +1161,10 @@ describe('checking several meetings', () => {
     expect(
       within(dialog).getByText('This moves them and their recordings to the Recycle Bin.'),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // The dialog moves the focus just after it appears.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     dialog = await screen.findByRole('dialog', { name: 'Delete permanently?' });
@@ -1439,7 +1451,10 @@ describe('the keyboard', () => {
         'This deletes "Second" and its recording. A permanent delete cannot be undone.',
       ),
     ).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    // The dialog moves the focus just after it appears.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    });
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() => {
       expect(api.meetings.records.has('b')).toBe(false);
