@@ -72,6 +72,30 @@ export function withPinned(range: readonly number[], pinned: readonly (number | 
   return [...all].sort((a, b) => a - b);
 }
 
+/**
+ * Where the cursor belongs in a new list: where it is, else the nearest row after the one that went
+ * away, else the one before, else the newest. The list is newest first.
+ */
+export function nextCursor(
+  cursorId: string | null,
+  previousIds: readonly string[],
+  ids: readonly string[],
+): string | null {
+  if (cursorId !== null && ids.includes(cursorId)) return cursorId;
+  const live = new Set(ids);
+  const from = cursorId === null ? -1 : previousIds.indexOf(cursorId);
+  if (from !== -1) {
+    const after = previousIds.slice(from + 1).find((id) => live.has(id));
+    if (after !== undefined) return after;
+    const before = previousIds
+      .slice(0, from)
+      .reverse()
+      .find((id) => live.has(id));
+    if (before !== undefined) return before;
+  }
+  return ids[0] ?? null;
+}
+
 const isMeeting = (items: readonly GridItem[], index: number): boolean =>
   items[index]?.kind === 'meeting';
 

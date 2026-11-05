@@ -65,7 +65,7 @@ const openMeeting = async (page: Page): Promise<void> => {
   await page
     .getByRole('grid', { name: 'Library' })
     .getByRole('row', { name: /Weekly planning/ })
-    .click();
+    .dblclick();
   await expect(page.getByTestId('LblMeetingChatScope')).toHaveText('Meeting: Weekly planning');
 };
 

@@ -2,6 +2,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { formatMeetingTime } from './format';
 import { useLibraryStore } from './library-store';
 import {
   LibraryScreen,
@@ -126,8 +127,8 @@ describe('the list', () => {
   it('filters by title and keeps the query when the folder changes', async () => {
     const { user } = await mount(seed);
     await user.type(screen.getByRole('searchbox'), 'stand');
-    expect(screen.getByText('Standup')).toBeInTheDocument();
-    expect(screen.queryByText('Review')).not.toBeInTheDocument();
+    expect(rowOf(/Standup/)).toBeInTheDocument();
+    expect(screen.queryByRole('row', { name: /Review/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
     expect(screen.getByRole('searchbox')).toHaveValue('stand');
     expect(screen.getByText('No meetings match your search.')).toBeInTheDocument();
@@ -135,7 +136,7 @@ describe('the list', () => {
 
   it('opens a meeting on the transcript and the summary through the workspace', async () => {
     const { api, user } = await mount(seed);
-    await user.click(rowOf(/Standup/));
+    await user.dblClick(rowOf(/Standup/));
     await waitFor(() => {
       expect(api.workspace.state.selectedMeetingId).toBe('a');
     });
@@ -168,7 +169,7 @@ describe('folders', () => {
       'Inbox',
       'Universidad',
     ]);
-    expect(screen.getByText('Planning')).toBeInTheDocument();
+    expect(rowOf(/Planning/)).toBeInTheDocument();
     await user.click(crumbs.getByRole('button', { name: 'Inbox' }));
     expect(screen.queryByRole('textbox', { name: 'Folder notes' })).not.toBeInTheDocument();
   });
@@ -402,7 +403,7 @@ describe('moving and deleting a meeting', () => {
       expect(api.meetings.records.get('a')?.folderId).toBe(CALC);
     });
     await waitFor(() => {
-      expect(screen.queryByText('Standup')).not.toBeInTheDocument();
+      expect(screen.queryByRole('row', { name: /Standup/ })).not.toBeInTheDocument();
     });
   });
 
@@ -434,7 +435,7 @@ describe('moving and deleting a meeting', () => {
       expect(api.meetings.records.has('c')).toBe(false);
     });
     await waitFor(() => {
-      expect(screen.queryByText('Review')).not.toBeInTheDocument();
+      expect(screen.queryByRole('row', { name: /Review/ })).not.toBeInTheDocument();
     });
   });
 
@@ -447,7 +448,7 @@ describe('moving and deleting a meeting', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText(/The meeting was not deleted/)).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(rowOf(/Review/)).toBeInTheDocument();
   });
 
   it('offers a permanent delete only when the Recycle Bin refused, and asks again', async () => {
@@ -494,9 +495,9 @@ describe('moving and deleting a meeting', () => {
 describe('the All view', () => {
   it('opens on All with every meeting', async () => {
     await mount(seed);
-    expect(screen.getByText('Planning')).toBeInTheDocument();
-    expect(screen.getByText('Standup')).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(rowOf(/Planning/)).toBeInTheDocument();
+    expect(rowOf(/Standup/)).toBeInTheDocument();
+    expect(rowOf(/Review/)).toBeInTheDocument();
   });
 
   it('asks to record when nothing is recorded, even with folders', async () => {
@@ -605,13 +606,13 @@ describe('the grid', () => {
     expect(api.actions).not.toContainEqual({ type: 'openSession', tab: 'Transcript' });
   });
 
-  it('starts again at the top in another view', async () => {
+  it('starts again at the top in another view, on its newest meeting', async () => {
     const { user } = await mount(seed);
     act(() => {
       rowOf(/Planning/).focus();
     });
     await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
-    expect(useLibraryStore.getState().cursorId).toBeNull();
+    expect(useLibraryStore.getState().cursorId).toBe('c');
     expect(useLibraryStore.getState().scrollOffset).toBe(0);
   });
 });
@@ -666,6 +667,183 @@ describe('the panes', () => {
     await waitFor(() => {
       expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Transcript' });
     });
+  });
+});
+
+describe('the preview', () => {
+  const preview = (): HTMLElement => screen.getByTestId('library-preview');
+  const reads = (api: ReturnType<typeof installFakeApi>) =>
+    api.calls.filter((c) => c.name === 'library.getMeeting');
+
+  it('previews the newest meeting on arrival, and a click only moves it', async () => {
+    const { api, user } = await mount(seed);
+    expect(
+      await within(preview()).findByRole('heading', { level: 2, name: 'Planning' }),
+    ).toBeInTheDocument();
+    await user.click(rowOf(/Standup/));
+    expect(
+      await within(preview()).findByRole('heading', { level: 2, name: 'Standup' }),
+    ).toBeInTheDocument();
+    expect(await within(preview()).findByRole('heading', { name: 'Plan' })).toBeInTheDocument();
+    expect(rowOf(/Standup/)).toHaveAttribute('data-cursor', 'true');
+    expect(api.actions).not.toContainEqual({ type: 'openSession', tab: 'Transcript' });
+    // Previewing tells the workspace nothing: selectMeeting emits a scope change on each arrow.
+    expect(api.actions.filter((a) => a.type === 'selectMeeting')).toEqual([]);
+  });
+
+  it('double click and Open meeting open it', async () => {
+    const { api, user } = await mount(seed);
+    await user.dblClick(rowOf(/Review/));
+    await waitFor(() => {
+      expect(api.workspace.state.selectedMeetingId).toBe('c');
+    });
+    expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Transcript' });
+
+    await user.click(rowOf(/Standup/));
+    await within(preview()).findByRole('heading', { level: 2, name: 'Standup' });
+    await user.click(within(preview()).getByRole('button', { name: 'Open meeting' }));
+    await waitFor(() => {
+      expect(api.workspace.state.selectedMeetingId).toBe('a');
+    });
+    expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Summary' });
+  });
+
+  it('says when it happened, in a plain sentence', async () => {
+    await mount(({ meetings }) => {
+      meetings.records.set(
+        'a',
+        meetingRecord('a', 'Roadmap', '2026-09-01T10:30:00.0000000+00:00', {
+          endedAt: '2026-09-01T11:15:00.0000000+00:00',
+        }),
+      );
+    });
+    const start = formatMeetingTime('2026-09-01T10:30:00.0000000+00:00', 'en');
+    const end = formatMeetingTime('2026-09-01T11:15:00.0000000+00:00', 'en');
+    expect(
+      await within(preview()).findByText(new RegExp(`, ${start} to ${end}$`)),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the start of the transcript when there is no summary, and no tabs', async () => {
+    await mount(({ meetings }) => {
+      meetings.records.set(
+        'a',
+        meetingRecord('a', 'Sync', '2026-09-01T09:00:00.0000000+00:00', {
+          transcript: '[00:01.00-00:02.00] Hello everyone',
+        }),
+      );
+    });
+    expect(await within(preview()).findByText(/Hello everyone/)).toBeInTheDocument();
+    expect(within(preview()).queryByRole('tab')).not.toBeInTheDocument();
+    expect(within(preview()).queryByText(/00:01/)).not.toBeInTheDocument();
+  });
+
+  it('has a tab each when both exist, with action items, attendees and the recording', async () => {
+    const { api, user } = await mount(({ meetings }) => {
+      meetings.records.set(
+        'a',
+        meetingRecord('a', 'Sync', '2026-09-01T09:00:00.0000000+00:00', {
+          summary: 'Agreed to ship',
+          transcript: '[00:01.00-00:02.00] Hello everyone',
+          actionItems: [{ text: 'Send the notes', isDone: false }],
+          attendees: ['Ana', 'Luis'],
+          audioFilePath: 'C:\\Meetings\\Inbox\\sync.wav',
+        }),
+      );
+    });
+    expect(await within(preview()).findByText('Agreed to ship')).toBeInTheDocument();
+    expect(within(preview()).getByText('Send the notes')).toBeInTheDocument();
+    expect(within(preview()).getByText('Ana, Luis')).toBeInTheDocument();
+    expect(within(preview()).getByText('sync.wav')).toBeInTheDocument();
+    await user.click(within(preview()).getByRole('tab', { name: 'Transcript' }));
+    expect(await within(preview()).findByText(/Hello everyone/)).toBeInTheDocument();
+    await user.click(within(preview()).getByRole('button', { name: 'Open meeting' }));
+    await waitFor(() => {
+      expect(api.actions).toContainEqual({ type: 'openSession', tab: 'Transcript' });
+    });
+  });
+
+  it('waits for the arrows to settle before it reads a meeting', async () => {
+    const { api, user } = await mount(seed);
+    await within(preview()).findByRole('heading', { level: 2, name: 'Planning' });
+    const before = reads(api).length;
+    act(() => {
+      rowOf(/Planning/).focus();
+    });
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    expect(rowOf(/Standup/)).toHaveFocus();
+    await within(preview()).findByRole('heading', { level: 2, name: 'Standup' });
+    expect(reads(api).length - before).toBe(1);
+  });
+
+  it('a slow answer for an earlier row does not replace a later one', async () => {
+    const { api, user } = await mount(seed);
+    await within(preview()).findByRole('heading', { level: 2, name: 'Planning' });
+    const get = api.meetings.get.bind(api.meetings);
+    let release: () => void = () => undefined;
+    const spy = vi.spyOn(api.meetings, 'get').mockImplementationOnce(async (id) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return get(id);
+    });
+    await user.click(rowOf(/Review/));
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalled();
+    });
+    await user.click(rowOf(/Standup/));
+    await within(preview()).findByRole('heading', { level: 2, name: 'Standup' });
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(within(preview()).getByRole('heading', { level: 2 })).toHaveTextContent('Standup');
+  });
+
+  it('uses what it already read, and reads again after a change', async () => {
+    const { api, user } = await mount(seed);
+    await within(preview()).findByRole('heading', { level: 2, name: 'Planning' });
+    await user.click(rowOf(/Standup/));
+    await within(preview()).findByRole('heading', { level: 2, name: 'Standup' });
+    const before = reads(api).length;
+    await user.click(rowOf(/Planning/));
+    expect(within(preview()).getByRole('heading', { level: 2 })).toHaveTextContent('Planning');
+    expect(reads(api)).toHaveLength(before);
+
+    const record = api.meetings.records.get('b');
+    if (!record) throw new Error('no record');
+    api.meetings.records.set('b', { ...record, summary: 'Changed elsewhere' });
+    api.emit('library.changed', { reason: 'meeting' });
+    expect(await within(preview()).findByText('Changed elsewhere')).toBeInTheDocument();
+  });
+
+  it('shows a skeleton only when a read takes a while', async () => {
+    const { api, user } = await mount(seed);
+    await within(preview()).findByRole('heading', { level: 2, name: 'Planning' });
+    vi.spyOn(api.meetings, 'get').mockImplementationOnce(() => new Promise(() => undefined));
+    await user.click(rowOf(/Standup/));
+    expect(within(preview()).queryByRole('status')).not.toBeInTheDocument();
+    expect(await within(preview()).findByRole('status', { name: 'Loading' })).toBeInTheDocument();
+  });
+
+  it('says so when the meeting cannot be read', async () => {
+    await mount(({ meetings }) => {
+      meetings.records.set('a', meetingRecord('a', 'Sync', '2026-09-01T09:00:00.0000000+00:00'));
+      vi.spyOn(meetings, 'get').mockResolvedValue(null);
+    });
+    expect(
+      await within(preview()).findByText('This meeting could not be read.'),
+    ).toBeInTheDocument();
+  });
+
+  it('has nothing to preview in an empty view', async () => {
+    await mount();
+    expect(preview()).toBeEmptyDOMElement();
+  });
+
+  it('does not read anything below the width, where there is no preview', async () => {
+    pageWidth = 759;
+    const { api } = await mount(seed);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(reads(api)).toEqual([]);
   });
 });
 

@@ -17,7 +17,10 @@ import { folderIdOfView } from './library-store';
 import { folderMenuEntries } from './LibraryFolders';
 import { ListHeader } from './ListHeader';
 import { MeetingGrid } from './MeetingGrid';
+import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
+import { nextCursor } from './logbook';
+import { useMeetingPreview } from './use-meeting-preview';
 import { useLibrary, type StatusMessage } from './use-library';
 
 type DialogState =
@@ -126,6 +129,19 @@ export function LibraryRoute() {
       : t('LibraryNewFolder_TitleIn', library.selectedFolder.name);
 
   const cursorId = useLibraryStore((state) => state.cursorId);
+  const listedIds = useMemo(() => library.meetings.map((m) => m.id), [library.meetings]);
+  const lastListed = useRef<readonly string[]>([]);
+  // The preview needs a row: the newest at first, the neighbor when the row went away.
+  useEffect(() => {
+    const previous = lastListed.current;
+    lastListed.current = listedIds;
+    if (!wide || library.isLoading) return;
+    const next = nextCursor(useLibraryStore.getState().cursorId, previous, listedIds);
+    if (next !== useLibraryStore.getState().cursorId) setCursor(next);
+  }, [listedIds, wide, library.isLoading, cursorId]);
+  const previewId = wide && cursorId !== null && listedIds.includes(cursorId) ? cursorId : null;
+  const preview = useMeetingPreview(previewId);
+
   const gridLabels = useMemo(
     () => ({
       grid: t('HistoryPage_Title.Text'),
@@ -245,6 +261,7 @@ export function LibraryRoute() {
               locale={locale}
               labels={gridLabels}
               cursorId={cursorId}
+              clickOpens={!wide}
               initialScrollOffset={useLibraryStore.getState().scrollOffset}
               onCursorChange={setCursor}
               onScrollOffsetChange={rememberScroll}
@@ -277,8 +294,15 @@ export function LibraryRoute() {
           ) : null}
         </div>
       </div>
-      {/* Batch 3 fills this pane. Until then a click still opens the meeting. */}
-      {wide ? <div data-testid="library-preview" className="min-w-0 flex-1" /> : null}
+      {wide ? (
+        <section
+          data-testid="library-preview"
+          aria-label={t('Ui_LibraryPreview')}
+          className="flex min-w-0 flex-1 flex-col"
+        >
+          <MeetingPreview state={preview} preferredTab={null} onOpen={library.openMeeting} />
+        </section>
+      ) : null}
 
       <NameDialog
         {...dialogChrome}

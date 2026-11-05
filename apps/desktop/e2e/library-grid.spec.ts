@@ -146,7 +146,7 @@ test('coming back from a meeting restores the row and the scroll', async () => {
     const inView = rows.find((row) => row.getBoundingClientRect().top >= top);
     return inView?.querySelector('[data-title]')?.textContent ?? '';
   }, floor);
-  await grid.getByRole('row', { name: new RegExp(name) }).click();
+  await grid.getByRole('row', { name: new RegExp(name) }).dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page).toHaveURL(/#\/library$/);

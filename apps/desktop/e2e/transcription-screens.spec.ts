@@ -162,7 +162,7 @@ for (const theme of ['light', 'dark'] as const) {
       await page
         .getByRole('grid', { name: 'Library' })
         .getByRole('row', { name: /Weekly sync/ })
-        .click();
+        .dblclick();
       await expect(page.getByRole('heading', { level: 1, name: 'Weekly sync' })).toBeVisible();
       await shot(page, `session-retranscribe-${theme}`);
       await page.getByRole('button', { name: 'Re-transcribe', exact: true }).click();

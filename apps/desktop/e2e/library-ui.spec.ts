@@ -76,7 +76,17 @@ test('browse, search, open a meeting and its summary', async () => {
   await expect(page.getByText('No meetings match your search.')).toBeVisible();
   await page.getByRole('searchbox').fill('');
 
-  await list.getByRole('row', { name: /Standup/ }).click();
+  // A click previews, and leaves the screen alone.
+  const standup = list.getByRole('row', { name: /Standup/ });
+  await standup.click();
+  await expect(standup).toHaveAttribute('data-cursor', 'true');
+  const preview = page.getByTestId('library-preview');
+  await expect(preview.getByRole('heading', { level: 2, name: 'Standup' })).toBeVisible();
+  await expect(preview.getByText('Ship the release on Friday')).toBeVisible();
+  await expect(page).toHaveURL(/#\/library$/);
+
+  // Double click opens, and so does the preview's button.
+  await standup.dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Standup' })).toBeVisible();
 

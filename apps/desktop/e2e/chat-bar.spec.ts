@@ -80,7 +80,7 @@ test('Library with a folder shows the folder chip, and a meeting shows its title
   await page
     .getByRole('grid', { name: 'Library' })
     .getByRole('row', { name: /Weekly planning/ })
-    .click();
+    .dblclick();
   await expect(page.getByRole('heading', { level: 1, name: 'Weekly planning' })).toBeVisible();
   await expect(chip()).toHaveText('Meeting: Weekly planning');
   await shot('chat-bar-meeting-light');

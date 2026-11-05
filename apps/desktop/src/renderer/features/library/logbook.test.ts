@@ -4,6 +4,7 @@ import {
   buildGridItems,
   durationMinutes,
   movedIndex,
+  nextCursor,
   rulingWidthPx,
   withPinned,
   type GridItem,
@@ -142,5 +143,26 @@ describe('format', () => {
     const text = `2026-11-03T15:05:00.0000000${sign}${pad(Math.trunc(offset / 60))}:${pad(offset % 60)}`;
     expect(formatMeetingTime(text, 'en')).toBe('15:05');
     expect(formatMeetingTime('nope', 'en')).toBe('');
+  });
+});
+
+describe('nextCursor', () => {
+  it('keeps a cursor that is still listed', () => {
+    expect(nextCursor('b', ['a', 'b', 'c'], ['a', 'b', 'c'])).toBe('b');
+  });
+
+  it('starts on the newest when there is no cursor', () => {
+    expect(nextCursor(null, [], ['a', 'b'])).toBe('a');
+    expect(nextCursor('gone', [], ['a', 'b'])).toBe('a');
+  });
+
+  it('moves to the next row when its row went away, then to the one before', () => {
+    expect(nextCursor('b', ['a', 'b', 'c'], ['a', 'c'])).toBe('c');
+    expect(nextCursor('c', ['a', 'b', 'c'], ['a', 'b'])).toBe('b');
+    expect(nextCursor('b', ['a', 'b', 'c', 'd'], ['a', 'd'])).toBe('d');
+  });
+
+  it('is null with nothing listed', () => {
+    expect(nextCursor('a', ['a'], [])).toBeNull();
   });
 });

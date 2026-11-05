@@ -42,6 +42,8 @@ export interface MeetingGridProps {
   readonly labels: MeetingGridLabels;
   readonly cursorId: string | null;
   readonly initialScrollOffset: number;
+  /** With no preview beside the list, a click has nothing else to do but open. */
+  readonly clickOpens: boolean;
   readonly onCursorChange: (id: string) => void;
   readonly onScrollOffsetChange: (offset: number) => void;
   readonly onOpen: (id: string) => void;
@@ -63,6 +65,7 @@ export function MeetingGrid({
   labels,
   cursorId,
   initialScrollOffset,
+  clickOpens,
   onCursorChange,
   onScrollOffsetChange,
   onOpen,
@@ -194,6 +197,7 @@ export function MeetingGrid({
               offset={virtual.start}
               isCursor={virtual.index === cursorIndex}
               isTabStop={virtual.index === tabStopIndex}
+              clickOpens={clickOpens}
               onCursorChange={onCursorChange}
               onOpen={onOpen}
               onOpenSummary={onOpenSummary}
@@ -248,6 +252,7 @@ interface MeetingRowProps {
   readonly offset: number;
   readonly isCursor: boolean;
   readonly isTabStop: boolean;
+  readonly clickOpens: boolean;
   readonly onCursorChange: (id: string) => void;
   readonly onOpen: (id: string) => void;
   readonly onOpenSummary: (id: string) => void;
@@ -263,6 +268,7 @@ function MeetingRow({
   offset,
   isCursor,
   isTabStop,
+  clickOpens,
   onCursorChange,
   onOpen,
   onOpenSummary,
@@ -296,12 +302,18 @@ function MeetingRow({
       },
     },
   ];
-  const onClick = (event: MouseEvent<HTMLDivElement>): void => {
-    // Menus are portals: their clicks bubble here through React, and they do not open the meeting.
+  // Menus are portals: their clicks bubble here through React, and they do not touch the row.
+  const isRowClick = (event: MouseEvent<HTMLDivElement>): boolean => {
     const target = event.target as HTMLElement;
-    if (!event.currentTarget.contains(target) || target.closest('button')) return;
+    return event.currentTarget.contains(target) && target.closest('button') === null;
+  };
+  const onClick = (event: MouseEvent<HTMLDivElement>): void => {
+    if (!isRowClick(event)) return;
     onCursorChange(meeting.id);
-    onOpen(meeting.id);
+    if (clickOpens) onOpen(meeting.id);
+  };
+  const onDoubleClick = (event: MouseEvent<HTMLDivElement>): void => {
+    if (isRowClick(event) && !clickOpens) onOpen(meeting.id);
   };
   return (
     <ContextMenu
@@ -316,20 +328,21 @@ function MeetingRow({
           data-cursor={isCursor ? 'true' : undefined}
           style={{ transform: `translateY(${String(offset)}px)` }}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           onFocus={(event) => {
             if (event.currentTarget.contains(event.target)) onCursorChange(meeting.id);
           }}
         />
       }
       className={cn(
-        'group absolute start-0 top-0 flex h-16 w-full cursor-default items-stretch border-b border-hairline ps-4 pe-1.5 outline-offset-[-2px]',
+        'group absolute start-0 top-0 flex h-16 w-full cursor-default items-stretch border-b border-hairline ps-4 pe-1.5 outline-offset-[-2px] select-none',
         'transition-colors duration-150 ease-out-quick hover:bg-hover',
         'data-cursor:bg-pressed forced-colors:data-cursor:bg-[Highlight] forced-colors:data-cursor:text-[HighlightText]',
       )}
     >
       <div
         role="gridcell"
-        className="tabular flex w-16 shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint forced-colors:text-[CanvasText]"
+        className="tabular flex w-16 shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint group-data-cursor:text-ink-muted forced-colors:text-[CanvasText]"
       >
         <time dateTime={meeting.recordedAt} title={formatMeetingDate(meeting.recordedAt, locale)}>
           {formatMeetingTime(meeting.recordedAt, locale)}

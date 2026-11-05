@@ -110,7 +110,7 @@ test('opens from the Library with the title, two tabs and the back link', async 
   await page
     .getByRole('row', { name: /Weekly sync/ })
     .first()
-    .click();
+    .dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Weekly sync' })).toBeVisible();
   const tabs = page.getByTestId('SelectorSessionTabs');

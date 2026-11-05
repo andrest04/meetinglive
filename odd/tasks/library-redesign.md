@@ -106,7 +106,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 - [x] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
 
 ### Batch 3: preview, search UI, bulk, keyboard, drag (about 1,250)
-- [ ] T3.1 Preview pane
+- [x] T3.1 Preview pane
 - [ ] T3.2 Two-stage search UI
 - [ ] T3.3 Multi-select and bulk bar
 - [ ] T3.4 Keyboard
@@ -160,6 +160,9 @@ Each batch writer records its commit hashes and observed check results here. A c
   - Differences from the decisions above: the installed virtual core reads `clientHeight`, not `offsetHeight`, so `stubLayout` stubs that. Rows are reached with ArrowUp, ArrowDown, Home, End, PageUp and PageDown, Enter opens, and Tab goes on to the row's More actions, because a roving tab stop without arrows would have removed keyboard access; the rest of T3.4 stays in batch 3. `aria-selected` is always false until T3.3. Time is 24 hour in every locale, as the design shows it, with the full short date and time on hover (item 111). A meeting with an unreadable date goes under "No date".
   - For T4.1: in background mode CSS transitions lag behind in screenshots, so a highlight can look stale. Wait longer or disable transitions before judging the sidebar.
 - Batch close, on `8eb279c`: `pnpm check` passed; contracts 44 tests, core 1681, platform 447 passed and 17 skipped, desktop 1928 passed and 6 skipped. The focused e2e runs came before two class-only changes in that commit (note and empty-state padding); batch 4's full run is their first e2e proof.
+
+### Batch 3 (`feat/library-redesign-b3-interactions`)
+- T3.1 `feat(library): a click previews the meeting beside the list`. RED: 18 of 108 focused tests failed on the missing preview, `formatMeetingSpan` and `nextCursor`, then passed. Focused unit: 108 passed. `playwright test` with `VOZELLA_E2E_BACKGROUND=1` over `library-grid`, `library-ui`, `session-shell`, `chat-bar`, `chat-recipes`, `transcription-ui`: 36 passed, 3 skipped, 1 failed on the first run. The failure was real: the time on the cursor row was `ink-faint` on `pressed`, under AA, and autoselect now always shows such a row. The cursor row uses `ink-muted` for it, and `library-ui.spec.ts` then passed, 8 of 8. `transcription-screens.spec.ts` was edited for double click and did not run, because it is gated on screenshots. Choices: Open meeting opens the tab the preview shows; a row that goes away moves the cursor to the next row; the audit test at item 117 now finds the row by role, because the preview repeats the title (its only change).
 
 ## Next step
 

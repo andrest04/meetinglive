@@ -39,6 +39,11 @@ export function formatDayHeader(
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
   if (day === yesterday.getTime()) return words.yesterday;
+  return formatLongDay(ms, nowMs, locale);
+}
+
+/** "Tuesday 3 November", with the year only if it differs. */
+function formatLongDay(ms: number, nowMs: number, locale: string): string {
   const sameYear = new Date(ms).getFullYear() === new Date(nowMs).getFullYear();
   const text = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale, {
     weekday: 'long',
@@ -49,6 +54,29 @@ export function formatDayHeader(
     .format(new Date(ms))
     .replace(',', '');
   return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
+
+export interface MeetingSpan {
+  readonly day: string;
+  readonly start: string;
+  readonly end: string | null;
+}
+
+/** The parts of "Tuesday 3 November, 10:30 to 11:15"; the catalogs hold the sentence. */
+export function formatMeetingSpan(
+  recordedAt: string,
+  endedAt: string | null,
+  nowMs: number,
+  locale: string,
+): MeetingSpan | null {
+  const parsed = parseOffsetDate(recordedAt);
+  if (!parsed) return null;
+  const end = endedAt === null ? '' : formatMeetingTime(endedAt, locale);
+  return {
+    day: formatLongDay(parsed.ms, nowMs, locale),
+    start: formatMeetingTime(recordedAt, locale),
+    end: end === '' ? null : end,
+  };
 }
 
 const SKIPPED_SHOWN = 3;

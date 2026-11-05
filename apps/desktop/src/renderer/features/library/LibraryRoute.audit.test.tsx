@@ -346,7 +346,7 @@ describe('status messages and startup', () => {
     vi.spyOn(api.meetings, 'save').mockRejectedValue(new Error('disk full'));
     await move(/Review/);
     expect(await screen.findByText(/The meeting was not moved: .*disk full/)).toBeInTheDocument();
-    expect(screen.getByText('Review')).toBeInTheDocument();
+    expect(rowOf(/Review/)).toBeInTheDocument();
   });
 
   it('B13: a failed create, rename or personality save shows the folder message', async () => {
