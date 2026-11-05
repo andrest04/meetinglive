@@ -34,9 +34,7 @@ export async function launchApp(
   // VOZELLA_E2E_EXECUTABLE points at a packaged e2e-variant build (pnpm package:e2e).
   const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   const app = await electron.launch({
-    ...(executablePath
-      ? { executablePath, args: [] }
-      : { args: builtAppArgs() }),
+    ...(executablePath ? { executablePath, args: [] } : { args: builtAppArgs() }),
     cwd: desktopDir,
     env: {
       ...process.env,
@@ -66,9 +64,7 @@ export async function launchAppInRoot(
 ): Promise<ElectronApplication> {
   const executablePath = process.env.VOZELLA_E2E_EXECUTABLE;
   return electron.launch({
-    ...(executablePath
-      ? { executablePath, args: [] }
-      : { args: builtAppArgs() }),
+    ...(executablePath ? { executablePath, args: [] } : { args: builtAppArgs() }),
     cwd: desktopDir,
     env: {
       ...process.env,

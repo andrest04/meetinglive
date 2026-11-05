@@ -1,6 +1,7 @@
 // Loaded with `electron -r` when VOZELLA_E2E_BACKGROUND=1, so an e2e run can happen while someone
 // is using the machine: every window stays off-screen, out of the taskbar and never takes focus.
 // Specs that depend on real screen pixels or on window focus cannot run in this mode.
+/* eslint-disable @typescript-eslint/no-require-imports -- Electron runs this file through -r, as CommonJS. */
 const { app, BrowserWindow } = require('electron');
 
 const OFF_SCREEN = -32000;
@@ -21,8 +22,8 @@ BrowserWindow.prototype.setBounds = function (bounds, animate) {
   setBounds.call(this, { ...bounds, x: OFF_SCREEN, y: OFF_SCREEN }, animate);
 };
 for (const method of ['setPosition', 'center', 'focus', 'moveTop', 'maximize', 'setFullScreen']) {
-  BrowserWindow.prototype[method] = () => {};
+  BrowserWindow.prototype[method] = () => undefined;
 }
-app.focus = () => {};
+app.focus = () => undefined;
 // An off-screen window counts as occluded on Windows, and would stop painting.
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
