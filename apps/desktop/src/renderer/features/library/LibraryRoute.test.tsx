@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { formatMeetingTime } from './format';
@@ -1485,6 +1485,227 @@ describe('the keyboard', () => {
     expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
     expect(within(dialog).getByRole('textbox')).toBeInTheDocument();
     expect(api.calls.some((c) => c.name === 'library.deleteMeeting')).toBe(false);
+  });
+});
+
+describe('dragging meetings to a folder', () => {
+  const TYPE = 'application/x-vozella-meetings';
+  const dataTransfer = () => {
+    const data = new Map<string, string>();
+    return {
+      data,
+      get types() {
+        return [...data.keys()];
+      },
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: (type: string, value: string) => {
+        data.set(type, value);
+      },
+      getData: (type: string) => data.get(type) ?? '',
+      setDragImage: vi.fn(),
+    };
+  };
+  const tree = (name: RegExp): HTMLElement => screen.getByRole('treeitem', { name });
+  const seedDrag = ({ meetings, folders }: ReturnType<typeof installFakeApi>): void => {
+    folders.folders = [folderRecord(UNI, 'Universidad'), folderRecord(CALC, 'Calculo', UNI)];
+    for (const [id, title, day] of [
+      ['a', 'First', '04'],
+      ['b', 'Second', '03'],
+      ['c', 'Third', '02'],
+    ] as const) {
+      meetings.records.set(id, meetingRecord(id, title, `2026-09-${day}T09:00:00.0000000+00:00`));
+    }
+  };
+  const dragTo = (from: HTMLElement, to: HTMLElement) => {
+    const transfer = dataTransfer();
+    fireEvent.dragStart(from, { dataTransfer: transfer });
+    fireEvent.dragOver(to, { dataTransfer: transfer });
+    fireEvent.drop(to, { dataTransfer: transfer });
+    fireEvent.dragEnd(from, { dataTransfer: transfer });
+    return transfer;
+  };
+
+  it('an unchecked row drags alone, even with others checked, and files it', async () => {
+    const { api, user } = await mount(seedDrag);
+    expect(rowOf(/First/)).toHaveAttribute('draggable', 'true');
+    await user.click(within(rowOf(/Second/)).getByRole('checkbox'));
+    const transfer = dragTo(rowOf(/First/), tree(/Universidad/));
+    expect(transfer.effectAllowed).toBe('move');
+    expect(transfer.types).toEqual([TYPE]);
+    await waitFor(() => {
+      expect(api.meetings.records.get('a')?.folderId).toBe(UNI);
+    });
+    expect(api.meetings.records.get('b')?.folderId).toBeNull();
+    expect(api.calls.find((c) => c.name === 'library.moveMeetings')?.input).toEqual({
+      meetingIds: ['a'],
+      folderId: UNI,
+    });
+  });
+
+  it('a checked row drags the whole set, and the ids stay readable during the drag', async () => {
+    const { api, user } = await mount(seedDrag);
+    await user.click(within(rowOf(/First/)).getByRole('checkbox'));
+    await user.click(within(rowOf(/Third/)).getByRole('checkbox'));
+    const transfer = dataTransfer();
+    fireEvent.dragStart(rowOf(/First/), { dataTransfer: transfer });
+    expect(useLibraryStore.getState().draggedIds).toEqual(['a', 'c']);
+    expect(transfer.setDragImage).toHaveBeenCalled();
+    fireEvent.drop(tree(/Universidad/), { dataTransfer: transfer });
+    fireEvent.dragEnd(rowOf(/First/), { dataTransfer: transfer });
+    expect(useLibraryStore.getState().draggedIds).toEqual([]);
+    await waitFor(() => {
+      expect(api.meetings.records.get('c')?.folderId).toBe(UNI);
+    });
+    expect(api.meetings.records.get('a')?.folderId).toBe(UNI);
+    expect(api.meetings.records.get('b')?.folderId).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    });
+  });
+
+  it('Inbox is a target and All is not, and only meetings can land', async () => {
+    const { api } = await mount(({ meetings, folders }) => {
+      seedDrag({ meetings, folders } as never);
+      const record = meetings.records.get('a');
+      if (record) meetings.records.set('a', { ...record, folderId: UNI });
+    });
+    const transfer = dataTransfer();
+    fireEvent.dragStart(rowOf(/First/), { dataTransfer: transfer });
+    // fireEvent says false when the handler called preventDefault, which is what allows a drop.
+    expect(fireEvent.dragOver(tree(/^All/), { dataTransfer: transfer })).toBe(true);
+    expect(fireEvent.dragOver(tree(/Inbox/), { dataTransfer: transfer })).toBe(false);
+    expect(transfer.dropEffect).toBe('move');
+    expect(tree(/Inbox/)).toHaveAttribute('data-drop-target', 'true');
+    fireEvent.dragLeave(tree(/Inbox/), { dataTransfer: transfer });
+    expect(tree(/Inbox/)).not.toHaveAttribute('data-drop-target');
+    expect(fireEvent.dragOver(tree(/Inbox/), { dataTransfer: { types: ['text/plain'] } })).toBe(
+      true,
+    );
+    fireEvent.drop(tree(/Inbox/), { dataTransfer: transfer });
+    await waitFor(() => {
+      expect(api.meetings.records.get('a')?.folderId).toBeNull();
+    });
+  });
+
+  it('dropping where the meetings already are does nothing', async () => {
+    const { api } = await mount(({ meetings, folders }) => {
+      seedDrag({ meetings, folders } as never);
+      const record = meetings.records.get('a');
+      if (record) meetings.records.set('a', { ...record, folderId: UNI });
+    });
+    dragTo(rowOf(/First/), tree(/Universidad/));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(api.calls.some((c) => c.name === 'library.moveMeetings')).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+  });
+
+  it('holding over a closed folder opens it, and leaving in time does not', async () => {
+    await mount(seedDrag);
+    const transfer = dataTransfer();
+    fireEvent.dragStart(rowOf(/First/), { dataTransfer: transfer });
+    fireEvent.dragOver(tree(/Universidad/), { dataTransfer: transfer });
+    fireEvent.dragLeave(tree(/Universidad/), { dataTransfer: transfer });
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    expect(tree(/Universidad/)).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.dragOver(tree(/Universidad/), { dataTransfer: transfer });
+    await waitFor(
+      () => {
+        expect(tree(/Universidad/)).toHaveAttribute('aria-expanded', 'true');
+      },
+      { timeout: 1000 },
+    );
+    expect(tree(/Calculo/)).toBeInTheDocument();
+    fireEvent.dragEnd(rowOf(/First/), { dataTransfer: transfer });
+  });
+
+  it('Undo puts each meeting back where it was', async () => {
+    const { api, user } = await mount(({ meetings, folders }) => {
+      seedDrag({ meetings, folders } as never);
+      const record = meetings.records.get('b');
+      if (record) meetings.records.set('b', { ...record, folderId: CALC });
+    });
+    await user.click(within(rowOf(/First/)).getByRole('checkbox'));
+    await user.click(within(rowOf(/Second/)).getByRole('checkbox'));
+    dragTo(rowOf(/First/), tree(/Universidad/));
+    expect(await screen.findByText('Moved 2 meetings to Universidad.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.meetings.records.get('b')?.folderId).toBe(UNI);
+    });
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(api.meetings.records.get('a')?.folderId).toBeNull();
+    });
+    await waitFor(() => {
+      expect(api.meetings.records.get('b')?.folderId).toBe(CALC);
+    });
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+  });
+
+  it('Undo is also there after the Move dialog, for one meeting and for several', async () => {
+    const { api, user } = await mount(seedDrag);
+    await user.click(within(rowOf(/First/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Move meeting' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Universidad' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    expect(await screen.findByText('Moved "First" to Universidad.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(api.meetings.records.get('a')?.folderId).toBeNull();
+    });
+
+    await user.click(
+      await within(await screen.findByRole('row', { name: /Second/ })).findByRole('checkbox'),
+    );
+    await user.click(within(rowOf(/Third/)).getByRole('checkbox'));
+    await user.click(
+      within(screen.getByRole('toolbar', { name: 'Checked meetings' })).getByRole('button', {
+        name: 'Move',
+      }),
+    );
+    dialog = await screen.findByRole('dialog', { name: 'Move 2 meetings' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Universidad' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    expect(await screen.findByText('Moved 2 meetings to Universidad.')).toBeInTheDocument();
+  });
+
+  it('a meeting that cannot move is reported and only the moved ones are offered back', async () => {
+    const { api, user } = await mount(seedDrag);
+    api.busy.register({ isBusy: (id) => id === 'a' });
+    await user.click(within(rowOf(/First/)).getByRole('checkbox'));
+    await user.click(within(rowOf(/Second/)).getByRole('checkbox'));
+    dragTo(rowOf(/First/), tree(/Universidad/));
+    expect(await screen.findByText('1 of 2 meetings could not be moved.')).toBeInTheDocument();
+    expect(await screen.findByText('Moved "Second" to Universidad.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    await waitFor(() => {
+      expect(api.meetings.records.get('b')?.folderId).toBeNull();
+    });
+    expect(api.calls.filter((c) => c.name === 'library.moveMeetings').map((c) => c.input)).toEqual([
+      { meetingIds: ['a', 'b'], folderId: UNI },
+      { meetingIds: ['b'], folderId: null },
+    ]);
+  });
+
+  it('the Undo offer can be closed and goes away by itself', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { user } = await mount(seedDrag);
+      dragTo(rowOf(/First/), tree(/Universidad/));
+      const offer = await screen.findByRole('button', { name: 'Undo' });
+      expect(offer).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9000);
+      });
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      dragTo(rowOf(/Second/), tree(/Universidad/));
+      await screen.findByRole('button', { name: 'Undo' });
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

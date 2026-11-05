@@ -142,10 +142,14 @@ test('coming back from a meeting restores the row and the scroll', async () => {
   await scrollTo(3000);
   // A row fully in view, chosen by name: a position in the DOM moves as the window renders.
   const floor = ((await grid.boundingBox())?.y ?? 0) + 32;
-  const name = await grid.locator('[data-row-id]').evaluateAll((rows, top) => {
-    const inView = rows.find((row) => row.getBoundingClientRect().top >= top);
-    return inView?.querySelector('[data-title]')?.textContent ?? '';
-  }, floor);
+  const nameInView = (): Promise<string> =>
+    grid.locator('[data-row-id]').evaluateAll((rows, top) => {
+      const inView = rows.find((row) => row.getBoundingClientRect().top >= top);
+      return inView?.querySelector('[data-title]')?.textContent ?? '';
+    }, floor);
+  // In an off-screen window the rows for a new offset can take longer than the wait in scrollTo.
+  await expect.poll(nameInView).not.toBe('');
+  const name = await nameInView();
   await grid.getByRole('row', { name: new RegExp(name) }).dblclick();
   await expect(page).toHaveURL(/#\/session$/);
   await page.getByRole('button', { name: 'Back' }).click();
@@ -153,6 +157,22 @@ test('coming back from a meeting restores the row and the scroll', async () => {
   await expect(grid).toBeVisible();
   await expect.poll(() => grid.evaluate((el) => Math.round(el.scrollTop))).toBe(3000);
   await expect(grid.locator('[data-row-id][data-cursor="true"] [data-title]')).toHaveText(name);
+});
+
+test('a row being dragged stays in the DOM when the list scrolls away from it', async () => {
+  await scrollTo(0);
+  const dragged = grid.getByRole('row', { name: /Meeting 30-03/ });
+  await dragged.hover();
+  await page.mouse.down();
+  await page.mouse.move(300, 300, { steps: 4 });
+  await scrollTo(6000);
+  await expect(dragged).toBeAttached();
+  const gridTop = (await grid.boundingBox())?.y ?? 0;
+  expect((await dragged.boundingBox())?.y ?? 0).toBeLessThan(gridTop);
+  const rows = await rowIndexes();
+  expect(new Set(rows).size).toBe(rows.length);
+  await page.mouse.up();
+  await scrollTo(0);
 });
 
 test('the ruling shows the length only when the meeting has one', async () => {

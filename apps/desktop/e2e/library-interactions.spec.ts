@@ -187,3 +187,19 @@ test('the keyboard reaches everything: find, move, check, rename, delete', async
   await expect(page).toHaveURL(/#\/session$/);
   await page.getByRole('button', { name: 'Back' }).click();
 });
+
+test('a meeting dragged to a folder moves on disk, and Undo brings it back', async () => {
+  seed('Drag one', '29');
+  seed('Drag two', '28');
+  await reopenLibrary();
+  const clients = page.getByRole('treeitem', { name: /Clients/ });
+
+  await row('Drag one').dragTo(clients);
+  await expect.poll(() => fs.existsSync(onDisk('Clients', 'Drag one', '29'))).toBe(true);
+  await expect(row('Drag one')).toHaveCount(0);
+  await expect(page.getByText('Moved "Drag one" to Clients.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => fs.existsSync(onDisk('Inbox', 'Drag one', '29'))).toBe(true);
+  await expect(row('Drag one')).toBeVisible();
+});

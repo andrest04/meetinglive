@@ -1,12 +1,14 @@
 import { ALL_VIEW, buildFolderTree, folderView, INBOX_VIEW, type LibraryView } from '@vozella/core';
 import { FolderPlus, Palette, Pencil, Trash } from 'lucide-react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { Translate } from '../../i18n/translate';
-import { Icon, Tree, type MenuEntry } from '../../ui';
+import { Icon, Tree, cn, type MenuEntry } from '../../ui';
 import { ALL_NODE_ID, INBOX_NODE_ID, buildTreeNodes } from './folder-visuals';
 import {
   directCounts,
+  MEETINGS_DRAG_TYPE,
+  requestDrop,
   requestFolderAction,
   selectView,
   setExpandedIds,
@@ -57,6 +59,12 @@ const nodeIdOf = (view: LibraryView): string =>
 const viewOf = (nodeId: string): LibraryView =>
   nodeId === ALL_NODE_ID ? ALL_VIEW : nodeId === INBOX_NODE_ID ? INBOX_VIEW : folderView(nodeId);
 
+/** Holding a drag over a closed folder opens it. */
+export const DRAG_EXPAND_MS = 600;
+
+const carriesMeetings = (event: DragEvent): boolean =>
+  [...event.dataTransfer.types].includes(MEETINGS_DRAG_TYPE);
+
 /** All, Inbox and the folder tree with their own meeting counts, plus the way to add a folder. */
 export function LibraryFolders({ location }: { readonly location: SidebarLocation }) {
   const { t, locale } = useI18n();
@@ -88,6 +96,52 @@ export function LibraryFolders({ location }: { readonly location: SidebarLocatio
     showLibrary();
   };
 
+  const [dropId, setDropId] = useState<string | null>(null);
+  const expandTimer = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const disarmExpand = (): void => {
+    if (expandTimer.current) clearTimeout(expandTimer.current.timer);
+    expandTimer.current = null;
+  };
+  useEffect(() => disarmExpand, []);
+  const armExpand = (id: string): void => {
+    if (expandTimer.current?.id === id) return;
+    disarmExpand();
+    expandTimer.current = {
+      id,
+      timer: setTimeout(() => {
+        expandTimer.current = null;
+        setExpandedIds(new Set([...useLibraryStore.getState().expandedIds, id]));
+      }, DRAG_EXPAND_MS),
+    };
+  };
+  // All shows every meeting, so nothing can be moved into it.
+  const dropProps = (id: string) =>
+    id === ALL_NODE_ID
+      ? undefined
+      : {
+          onDragOver: (event: DragEvent) => {
+            if (!carriesMeetings(event)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            setDropId(id);
+            armExpand(id);
+          },
+          onDragLeave: (event: DragEvent) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+            setDropId(null);
+            disarmExpand();
+          },
+          onDrop: (event: DragEvent) => {
+            event.preventDefault();
+            setDropId(null);
+            disarmExpand();
+            const meetingIds = useLibraryStore.getState().draggedIds;
+            if (meetingIds.length === 0) return;
+            requestDrop({ meetingIds, folderId: id === INBOX_NODE_ID ? null : id });
+          },
+          'data-drop-target': dropId === id ? 'true' : undefined,
+        };
+
   return (
     <div className="mt-1 mb-1 flex min-h-0 flex-1 flex-col">
       <Tree
@@ -108,7 +162,13 @@ export function LibraryFolders({ location }: { readonly location: SidebarLocatio
             ? undefined
             : folderMenuEntries(t, id, runInLibrary)
         }
-        rowProps={(id) => (id === INBOX_NODE_ID ? { className: 'mb-3' } : undefined)}
+        rowProps={(id) => ({
+          ...dropProps(id),
+          className: cn(
+            id === INBOX_NODE_ID && 'mb-3',
+            'data-drop-target:bg-pressed data-drop-target:text-ink data-drop-target:outline data-drop-target:outline-border-control forced-colors:data-drop-target:outline-[Highlight]',
+          ),
+        })}
         trailing={(id) => {
           const count = countOf(id);
           return count === 0 ? null : (

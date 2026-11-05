@@ -10,6 +10,7 @@ import { matchLibraryShortcut } from '../../app/shortcuts';
 import { RenameDialog } from '../session/RenameDialog';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
 import {
+  clearDropRequest,
   clearFolderRequest,
   refreshLibrary,
   rememberScroll,
@@ -34,6 +35,7 @@ import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
 import { nextCursor } from './logbook';
 import { tabOfHit } from './search-results';
+import { UndoOffer } from './UndoOffer';
 import { useMeetingPreview } from './use-meeting-preview';
 import { useLibrary, type StatusMessage } from './use-library';
 
@@ -58,6 +60,15 @@ type DialogState =
       readonly refused: boolean;
     }
   | { readonly kind: 'renameMeeting'; readonly meeting: MeetingListItemDto };
+
+/** One move that can be taken back: where each meeting was, grouped by that place. */
+interface UndoMove {
+  readonly message: string;
+  readonly restore: readonly {
+    readonly folderId: string | null;
+    readonly meetingIds: readonly string[];
+  }[];
+}
 
 type BulkWork = { readonly kind: 'moving' | 'deleting'; readonly count: number } | null;
 
@@ -327,19 +338,74 @@ export function LibraryRoute() {
     }
   };
 
+  const [undoMove, setUndoMove] = useState<UndoMove | null>(null);
+  const dismissUndo = useCallback(() => {
+    setUndoMove(null);
+  }, []);
+
+  /** Offers the way back from a move that happened. A folder that is gone reads as the Inbox. */
+  const offerUndo = (moved: readonly MeetingListItemDto[], folderId: string | null): void => {
+    const [first] = moved;
+    if (!first) return;
+    const groups = new Map<string | null, string[]>();
+    for (const meeting of moved) {
+      const known = library.folders.some((f) => f.id === meeting.folderId);
+      const from = known ? meeting.folderId : null;
+      groups.set(from, [...(groups.get(from) ?? []), meeting.id]);
+    }
+    const place = library.destinations.find((d) => d.folderId === folderId)?.path ?? '';
+    setUndoMove({
+      message:
+        moved.length === 1
+          ? t('Ui_LibraryMovedOne', first.title, place)
+          : t('Ui_LibraryMovedMany', String(moved.length), place),
+      restore: [...groups].map(([from, meetingIds]) => ({ folderId: from, meetingIds })),
+    });
+  };
+
   const runMoveMany = async (
     meetings: readonly MeetingListItemDto[],
     folderId: string | null,
   ): Promise<void> => {
-    setBulkWork({ kind: 'moving', count: meetings.length });
+    const moving = meetings.filter((m) => m.folderId !== folderId);
+    if (moving.length === 0) return;
+    setUndoMove(null);
+    // One meeting is too quick to report, and "Moving 1 meetings" is not a sentence.
+    if (moving.length > 1) setBulkWork({ kind: 'moving', count: moving.length });
     const failed = await library.moveMeetings(
-      meetings.map((m) => m.id),
+      moving.map((m) => m.id),
       folderId,
     );
     setBulkWork(null);
     setChecks((current) => keepLive(current, failed));
+    offerUndo(
+      moving.filter((m) => !failed.includes(m.id)),
+      folderId,
+    );
     afterWork();
   };
+
+  const runUndo = async (undo: UndoMove): Promise<void> => {
+    setUndoMove(null);
+    for (const { folderId, meetingIds } of undo.restore) {
+      await library.moveMeetings(meetingIds, folderId);
+    }
+  };
+
+  // A drop in the sidebar leaves its request here, like its folder actions.
+  const dropRequest = useLibraryStore((state) => state.dropRequest);
+  const runDrop = useRef(runMoveMany);
+  runDrop.current = runMoveMany;
+  useEffect(() => {
+    if (!dropRequest) return;
+    clearDropRequest();
+    const { meetings } = useLibraryStore.getState();
+    const wanted = new Set(dropRequest.meetingIds);
+    void runDrop.current(
+      meetings.filter((m) => wanted.has(m.id)),
+      dropRequest.folderId,
+    );
+  }, [dropRequest]);
 
   const runDeleteMany = async (
     meetingIds: readonly string[],
@@ -372,6 +438,7 @@ export function LibraryRoute() {
       duration: (minutes: number) => t('Ui_LibraryDurationMinutes', String(minutes)),
       checkMeeting: (title: string) => t('Ui_LibraryCheckMeeting', title),
       checkDay: (day: string) => t('Ui_LibraryCheckDay', day),
+      dragCount: (count: number) => t('Ui_LibraryDragCount', String(count)),
     }),
     [t],
   );
@@ -482,7 +549,7 @@ export function LibraryRoute() {
           ) : null}
         </div>
 
-        {checks.checked.size > 0 ? (
+        {checks.checked.size > 0 || bulkWork !== null ? (
           <BulkBar
             label={t('Ui_LibraryBulkLabel')}
             status={
@@ -510,7 +577,18 @@ export function LibraryRoute() {
           />
         ) : null}
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {undoMove ? (
+            <UndoOffer
+              message={undoMove.message}
+              undoLabel={t('Ui_LibraryUndo')}
+              dismissLabel={t('Ui_LibraryUndoDismiss')}
+              onUndo={() => {
+                void runUndo(undoMove);
+              }}
+              onDismiss={dismissUndo}
+            />
+          ) : null}
           {library.isLoading ? (
             <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col">
               {[0, 1, 2, 3, 4].map((row) => (
@@ -659,7 +737,11 @@ export function LibraryRoute() {
         destinations={library.destinations}
         currentFolderId={shown?.kind === 'move' ? shown.meeting.folderId : null}
         onMove={(folderId) => {
-          if (dialog?.kind === 'move') void library.moveMeeting(dialog.meeting.id, folderId);
+          if (dialog?.kind !== 'move') return;
+          const { meeting } = dialog;
+          void library.moveMeeting(meeting.id, folderId).then((moved) => {
+            if (moved && meeting.folderId !== folderId) offerUndo([meeting], folderId);
+          });
         }}
       />
       <MoveDialog

@@ -29,7 +29,9 @@ export interface TreeProps {
   /** A row with a menu is selected before the menu opens, unless this is false. */
   readonly selectOnContextMenu?: boolean;
   /** Extra attributes for a row, for example drop targets. The tree's own role and state win. */
-  readonly rowProps?: (id: string) => HTMLAttributes<HTMLLIElement> | undefined;
+  readonly rowProps?: (
+    id: string,
+  ) => (HTMLAttributes<HTMLLIElement> & Readonly<Record<`data-${string}`, unknown>>) | undefined;
   /** Drawn at the end of a row, for example a count. */
   readonly trailing?: (id: string) => ReactNode;
   readonly className?: string;

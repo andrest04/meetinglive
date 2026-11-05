@@ -24,6 +24,15 @@ export type FolderRequest =
   | { readonly kind: 'new' }
   | { readonly kind: 'rename' | 'personality' | 'delete'; readonly folderId: string };
 
+/** Meetings dropped on a folder in the sidebar. The route moves them, and offers Undo. */
+export interface DropRequest {
+  readonly meetingIds: readonly string[];
+  readonly folderId: string | null;
+}
+
+/** Marks a drag as meetings. The ids stay here: `getData` is not available during `dragover`. */
+export const MEETINGS_DRAG_TYPE = 'application/x-vozella-meetings';
+
 export interface LibraryState {
   readonly isLoading: boolean;
   readonly problem: LoadProblem | null;
@@ -37,6 +46,9 @@ export interface LibraryState {
   readonly cursorId: string | null;
   readonly scrollOffset: number;
   readonly folderRequest: FolderRequest | null;
+  /** The meetings being dragged. These rows stay rendered: removing the source ends a drag. */
+  readonly draggedIds: readonly string[];
+  readonly dropRequest: DropRequest | null;
 }
 
 const INITIAL: LibraryState = {
@@ -50,6 +62,8 @@ const INITIAL: LibraryState = {
   cursorId: null,
   scrollOffset: 0,
   folderRequest: null,
+  draggedIds: [],
+  dropRequest: null,
 };
 
 export const useLibraryStore = create<LibraryState>(() => INITIAL);
@@ -248,6 +262,18 @@ export function requestFolderAction(folderRequest: FolderRequest): void {
 
 export function clearFolderRequest(): void {
   set({ folderRequest: null });
+}
+
+export function setDragged(draggedIds: readonly string[]): void {
+  set({ draggedIds });
+}
+
+export function requestDrop(dropRequest: DropRequest): void {
+  set({ dropRequest });
+}
+
+export function clearDropRequest(): void {
+  set({ dropRequest: null });
 }
 
 export function setCursor(cursorId: string | null): void {
