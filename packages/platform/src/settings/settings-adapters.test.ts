@@ -80,8 +80,9 @@ describe('PathCliProbe (spec 2.2)', () => {
     touch('bin', 'codex');
     const probe = new PathCliProbe({
       platform: 'linux',
-      pathSeparator: ':',
-      env: { PATH: `/nowhere:${path.join(dir, 'bin')}` },
+      // Not ':', which would also split the drive letter of a Windows temp path.
+      pathSeparator: '|',
+      env: { PATH: `/nowhere|${path.join(dir, 'bin')}` },
     });
     expect(await probe.isOnPath('codex')).toBe(true);
     expect(await probe.isOnPath('claude')).toBe(false);
