@@ -1,6 +1,6 @@
 import type { FolderDto } from '@vozella/contracts';
 import { Ellipsis, Search, X } from 'lucide-react';
-import { useRef, type ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { Button, Icon, IconButton, Input, Menu, Textarea, type MenuEntry } from '../../ui';
 import { folderAccent, folderIcon } from './folder-visuals';
 
@@ -20,6 +20,8 @@ export interface ListHeaderProps {
   readonly onNoteBlur: () => void;
   readonly query: string;
   readonly searchLabel: string;
+  readonly searchRef: RefObject<HTMLInputElement | null>;
+  readonly onSearchKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   readonly clearSearchLabel: string;
   readonly onQueryChange: (value: string) => void;
   /** One quiet line about the search under way; empty when there is nothing to say. */
@@ -43,12 +45,13 @@ export function ListHeader({
   onNoteBlur,
   query,
   searchLabel,
+  searchRef,
+  onSearchKeyDown,
   clearSearchLabel,
   onQueryChange,
   searchStatus,
   searchAll,
 }: ListHeaderProps) {
-  const searchRef = useRef<HTMLInputElement>(null);
   return (
     <header className="flex shrink-0 flex-col gap-1.5 px-4 pb-3">
       {folder ? breadcrumbs : null}
@@ -95,6 +98,7 @@ export function ListHeader({
         <Input
           ref={searchRef}
           type="search"
+          onKeyDown={onSearchKeyDown}
           aria-label={searchLabel}
           placeholder={searchLabel}
           value={query}

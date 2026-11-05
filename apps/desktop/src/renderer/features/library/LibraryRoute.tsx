@@ -6,9 +6,12 @@ import type { StringKey } from '../../i18n/translate';
 import { Button, EmptyState, Notice, Skeleton, cn } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
 import { BulkBar } from './BulkBar';
+import { matchLibraryShortcut } from '../../app/shortcuts';
+import { RenameDialog } from '../session/RenameDialog';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
 import {
   clearFolderRequest,
+  refreshLibrary,
   rememberScroll,
   setCursor,
   useLibraryStore,
@@ -18,6 +21,7 @@ import { folderIdOfView } from './library-store';
 import { folderMenuEntries } from './LibraryFolders';
 import {
   EMPTY_CHECKS,
+  checkAll,
   extendChecks,
   keepLive,
   setGroup,
@@ -25,7 +29,7 @@ import {
   type Checks,
 } from './library-selection';
 import { ListHeader } from './ListHeader';
-import { MeetingGrid } from './MeetingGrid';
+import { MeetingGrid, type MeetingGridHandle } from './MeetingGrid';
 import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
 import { nextCursor } from './logbook';
@@ -40,12 +44,24 @@ type DialogState =
   | { readonly kind: 'deleteFolder'; readonly folderId: string; readonly name: string }
   | { readonly kind: 'move'; readonly meeting: MeetingListItemDto }
   | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
-  | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto }
+  /** `refused`: the Recycle Bin said no. Otherwise it was asked for directly, with Shift+Delete. */
+  | {
+      readonly kind: 'deleteMeetingPermanently';
+      readonly meeting: MeetingListItemDto;
+      readonly refused: boolean;
+    }
   | { readonly kind: 'moveMany'; readonly meetings: readonly MeetingListItemDto[] }
   | { readonly kind: 'deleteMany'; readonly meetingIds: readonly string[] }
-  | { readonly kind: 'deleteManyPermanently'; readonly meetingIds: readonly string[] };
+  | {
+      readonly kind: 'deleteManyPermanently';
+      readonly meetingIds: readonly string[];
+      readonly refused: boolean;
+    }
+  | { readonly kind: 'renameMeeting'; readonly meeting: MeetingListItemDto };
 
 type BulkWork = { readonly kind: 'moving' | 'deleting'; readonly count: number } | null;
+
+const FOCUS_RETRY_MS = 250;
 
 /** From this width of the content the preview sits beside the list; below it a click opens. */
 export const PANED_LAYOUT_PX = 760;
@@ -187,16 +203,128 @@ export function LibraryRoute() {
     else setDialog({ kind: 'moveMany', meetings: targets });
   };
 
-  const askDelete = (targets: readonly MeetingListItemDto[]): void => {
+  const askDelete = (targets: readonly MeetingListItemDto[], permanent: boolean): void => {
     const [only] = targets;
     if (!only) return;
     if (targets.length > 1) {
-      setDialog({ kind: 'deleteMany', meetingIds: targets.map((m) => m.id) });
+      const meetingIds = targets.map((m) => m.id);
+      setDialog(
+        permanent
+          ? { kind: 'deleteManyPermanently', meetingIds, refused: false }
+          : { kind: 'deleteMany', meetingIds },
+      );
       return;
     }
     void library.beginDelete(only.id).then((allowed) => {
-      if (allowed) setDialog({ kind: 'deleteMeeting', meeting: only });
+      if (!allowed) return;
+      setDialog(
+        permanent
+          ? { kind: 'deleteMeetingPermanently', meeting: only, refused: false }
+          : { kind: 'deleteMeeting', meeting: only },
+      );
     });
+  };
+
+  // After a keyboard delete the row with the focus is gone: the focus goes on to its neighbor.
+  const gridRef = useRef<MeetingGridHandle>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const fromKeyboard = useRef(false);
+  const wantsListFocus = useRef(false);
+  const [workDone, setWorkDone] = useState(0);
+  const afterWork = (): void => {
+    if (fromKeyboard.current) wantsListFocus.current = true;
+    setWorkDone((count) => count + 1);
+  };
+  useEffect(() => {
+    if (!wantsListFocus.current || dialog !== null) return;
+    if (cursorId === null || !listedIds.includes(cursorId)) return;
+    const take = (): void => {
+      const active = document.activeElement;
+      const lost = !active || active === document.body || active.closest('[role="dialog"]');
+      if (lost) gridRef.current?.focusCursor();
+    };
+    take();
+    // A dialog that is still fading gives the focus back when it ends, to a row that may be gone.
+    const again = setTimeout(take, FOCUS_RETRY_MS);
+    wantsListFocus.current = false;
+    fromKeyboard.current = false;
+    return () => {
+      clearTimeout(again);
+    };
+  }, [cursorId, listedIds, dialog, workDone]);
+
+  // Ctrl+A on a list the second stage is still filling waits for the whole list.
+  const selectAllPending = useRef(false);
+  useEffect(() => {
+    selectAllPending.current = false;
+  }, [viewKey, library.query]);
+  useEffect(() => {
+    if (!selectAllPending.current || library.searching) return;
+    selectAllPending.current = false;
+    setChecks(checkAll(listedIds));
+  }, [library.searching, listedIds]);
+  const onSelectAll = (): void => {
+    if (library.searching) selectAllPending.current = true;
+    else setChecks(checkAll(listedIds));
+  };
+
+  const onRowKey = (
+    action: 'toggle' | 'rename' | 'delete' | 'deletePermanently' | 'clear',
+    id: string,
+  ): void => {
+    const meeting = library.meetings.find((m) => m.id === id);
+    if (action === 'clear') {
+      if (checks.checked.size > 0) setChecks(EMPTY_CHECKS);
+      else library.setQuery('');
+    } else if (!meeting) {
+      return;
+    } else if (action === 'toggle') {
+      setChecks((current) => toggleCheck(current, id));
+    } else if (action === 'rename') {
+      fromKeyboard.current = true;
+      setRenameProblem(null);
+      setDialog({ kind: 'renameMeeting', meeting });
+    } else {
+      fromKeyboard.current = true;
+      askDelete(targetsOf(meeting), action === 'deletePermanently');
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (matchLibraryShortcut(event) !== 'librarySearch') return;
+      if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+  const [renameProblem, setRenameProblem] = useState<string | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const renameMeeting = async (id: string, title: string): Promise<void> => {
+    setRenameBusy(true);
+    try {
+      const { status } = await window.vozella.invoke('session.rename', { id, title });
+      if (status === 'blocked') {
+        setRenameProblem(t('Ui_SessionRenameBlockedText'));
+        return;
+      }
+      // This channel does not announce a change, so the list asks for itself.
+      await refreshLibrary();
+      setDialog(null);
+      afterWork();
+    } catch (error) {
+      setRenameProblem(
+        t('Ui_SessionRenameFailedText', error instanceof Error ? error.message : ''),
+      );
+    } finally {
+      setRenameBusy(false);
+    }
   };
 
   const runMoveMany = async (
@@ -210,6 +338,7 @@ export function LibraryRoute() {
     );
     setBulkWork(null);
     setChecks((current) => keepLive(current, failed));
+    afterWork();
   };
 
   const runDeleteMany = async (
@@ -220,7 +349,10 @@ export function LibraryRoute() {
     const { failed, refused } = await library.deleteMeetings(meetingIds, mode);
     setBulkWork(null);
     setChecks((current) => keepLive(current, [...failed, ...refused]));
-    if (refused.length > 0) setDialog({ kind: 'deleteManyPermanently', meetingIds: refused });
+    if (refused.length > 0) {
+      setDialog({ kind: 'deleteManyPermanently', meetingIds: refused, refused: true });
+    }
+    afterWork();
   };
 
   const previewId = wide && cursorId !== null && listedIds.includes(cursorId) ? cursorId : null;
@@ -302,6 +434,16 @@ export function LibraryRoute() {
           }}
           query={library.query}
           searchLabel={t('Library_Search.PlaceholderText')}
+          searchRef={searchRef}
+          onSearchKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              library.setQuery('');
+            } else if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              gridRef.current?.focusCursor();
+            }
+          }}
           clearSearchLabel={t('Ui_LibrarySearchClear')}
           onQueryChange={library.setQuery}
           searchStatus={searchStatus}
@@ -359,7 +501,8 @@ export function LibraryRoute() {
               askMove(checkedMeetings);
             }}
             onDelete={() => {
-              askDelete(checkedMeetings);
+              fromKeyboard.current = false;
+              askDelete(checkedMeetings, false);
             }}
             onClear={() => {
               setChecks(EMPTY_CHECKS);
@@ -382,6 +525,7 @@ export function LibraryRoute() {
             </div>
           ) : library.flags.hasMeetings ? (
             <MeetingGrid
+              handle={gridRef}
               key={`${library.view.kind}-${String(folderIdOfView(library.view))}`}
               meetings={library.meetings}
               locale={locale}
@@ -408,11 +552,15 @@ export function LibraryRoute() {
                 library.openMeeting(id, 'Summary');
               }}
               onMove={(meeting) => {
+                fromKeyboard.current = false;
                 askMove(targetsOf(meeting));
               }}
               onDelete={(meeting) => {
-                askDelete(targetsOf(meeting));
+                fromKeyboard.current = false;
+                askDelete(targetsOf(meeting), false);
               }}
+              onRowKey={onRowKey}
+              onSelectAll={onSelectAll}
             />
           ) : emptyMessage ? (
             <div className="px-4">
@@ -548,7 +696,9 @@ export function LibraryRoute() {
         open={dialog?.kind === 'deleteManyPermanently'}
         title={t('Ui_LibraryDeletePermanentTitle')}
         description={t(
-          'Ui_LibraryDeleteManyRefused',
+          shown?.kind === 'deleteManyPermanently' && !shown.refused
+            ? 'Ui_LibraryDeleteManyPermanent'
+            : 'Ui_LibraryDeleteManyRefused',
           String(shown?.kind === 'deleteManyPermanently' ? shown.meetingIds.length : 0),
         )}
         cancelLabel={t('HistoryDelete_Cancel')}
@@ -573,8 +723,10 @@ export function LibraryRoute() {
           if (dialog?.kind !== 'deleteMeeting') return;
           const { meeting } = dialog;
           void library.deleteMeeting(meeting.id).then((outcome) => {
-            if (outcome === 'trash-failed')
-              setDialog({ kind: 'deleteMeetingPermanently', meeting });
+            if (outcome === 'trash-failed') {
+              setDialog({ kind: 'deleteMeetingPermanently', meeting, refused: true });
+            }
+            afterWork();
           });
         }}
       />
@@ -583,16 +735,28 @@ export function LibraryRoute() {
         open={dialog?.kind === 'deleteMeetingPermanently'}
         title={t('Ui_LibraryDeletePermanentTitle')}
         description={t(
-          'Ui_LibraryDeletePermanentContent',
+          shown?.kind === 'deleteMeetingPermanently' && !shown.refused
+            ? 'Ui_LibraryDeletePermanentDirect'
+            : 'Ui_LibraryDeletePermanentContent',
           shown?.kind === 'deleteMeetingPermanently' ? shown.meeting.title : '',
         )}
         cancelLabel={t('HistoryDelete_Cancel')}
         primaryLabel={t('Ui_LibraryDeletePermanentPrimary')}
         onConfirm={() => {
           if (dialog?.kind === 'deleteMeetingPermanently') {
-            void library.deleteMeeting(dialog.meeting.id, 'permanent');
+            void library.deleteMeeting(dialog.meeting.id, 'permanent').then(afterWork);
           }
         }}
+      />
+      <RenameDialog
+        open={dialog?.kind === 'renameMeeting'}
+        currentTitle={shown?.kind === 'renameMeeting' ? shown.meeting.title : ''}
+        problem={renameProblem}
+        busy={renameBusy}
+        onSubmit={(title) => {
+          if (dialog?.kind === 'renameMeeting') void renameMeeting(dialog.meeting.id, title);
+        }}
+        onClose={closeDialog}
       />
     </section>
   );

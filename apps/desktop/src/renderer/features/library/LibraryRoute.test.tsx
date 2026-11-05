@@ -1216,6 +1216,278 @@ describe('checking several meetings', () => {
   });
 });
 
+describe('the keyboard', () => {
+  const bar = (): HTMLElement => screen.getByRole('toolbar', { name: 'Checked meetings' });
+  const seedMany = ({ meetings }: ReturnType<typeof installFakeApi>): void => {
+    for (const [id, title, day] of [
+      ['a', 'First', '04'],
+      ['b', 'Second', '03'],
+      ['c', 'Third', '02'],
+      ['d', 'Fourth', '01'],
+    ] as const) {
+      meetings.records.set(id, meetingRecord(id, title, `2026-09-${day}T09:00:00.0000000+00:00`));
+    }
+  };
+  const focusRow = (name: RegExp): void => {
+    act(() => {
+      rowOf(name).focus();
+    });
+  };
+
+  it('Space checks the row under the cursor, and again unchecks it', async () => {
+    const { user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard(' ');
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/First/)).toHaveFocus();
+    await user.keyboard(' ');
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('Shift and an arrow grow the range, and coming back shrinks it', async () => {
+    const { user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard('{Shift>}{ArrowDown}{ArrowDown}{/Shift}');
+    expect(rowOf(/Third/)).toHaveFocus();
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Second/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Third/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Fourth/)).toHaveAttribute('aria-selected', 'false');
+    await user.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    expect(rowOf(/Third/)).toHaveAttribute('aria-selected', 'false');
+    expect(within(bar()).getByText('Checked: 2')).toBeInTheDocument();
+  });
+
+  it('an arrow alone moves the cursor and keeps the checks', async () => {
+    const { user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard(' {ArrowDown}');
+    expect(rowOf(/Second/)).toHaveFocus();
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Second/)).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('Escape clears the checks first, then the search', async () => {
+    const { user } = await mount(seedMany);
+    await user.type(screen.getByRole('searchbox'), 'r');
+    focusRow(/First/);
+    await user.keyboard(' ');
+    expect(bar()).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox')).toHaveValue('r');
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(rowOf(/Second/)).toBeInTheDocument();
+  });
+
+  it('Ctrl+A checks every row of the list', async () => {
+    const { user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard('{Control>}a{/Control}');
+    expect(within(bar()).getByText('Checked: 4')).toBeInTheDocument();
+  });
+
+  it('Ctrl+A waits for the search inside meetings, and checks what it found', async () => {
+    const { api, user } = await mount(({ meetings }) => {
+      meetings.records.set(
+        'a',
+        meetingRecord('a', 'Fiscal plan', '2026-09-04T09:00:00.0000000+00:00'),
+      );
+      meetings.records.set(
+        'b',
+        meetingRecord('b', 'Sync', '2026-09-03T09:00:00.0000000+00:00', {
+          transcript: '[00:01.00-00:02.00] the fiscal year',
+        }),
+      );
+      meetings.records.set('c', meetingRecord('c', 'Lunch', '2026-09-02T09:00:00.0000000+00:00'));
+    });
+    let release: () => void = () => undefined;
+    const search = api.service.search.bind(api.service);
+    vi.spyOn(api.service, 'search').mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return search(input);
+    });
+    await user.type(screen.getByRole('searchbox'), 'fiscal');
+    focusRow(/Fiscal plan/);
+    await user.keyboard('{Control>}a{/Control}');
+    // Still reading: nothing is checked on a partial list.
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.calls.some((c) => c.name === 'library.search')).toBe(true);
+    });
+    release();
+    expect(await within(await screen.findByRole('toolbar')).findByText('Checked: 2')).toBeVisible();
+  });
+
+  it('Ctrl+F goes to the search with its text selected, and Ctrl+A stays its own there', async () => {
+    const { user } = await mount(seedMany);
+    await user.type(screen.getByRole('searchbox'), 'fi');
+    focusRow(/First/);
+    await user.keyboard('{Control>}f{/Control}');
+    const box = screen.getByRole<HTMLInputElement>('searchbox');
+    expect(box).toHaveFocus();
+    expect([box.selectionStart, box.selectionEnd]).toEqual([0, 2]);
+    await user.keyboard('{Control>}a{/Control}');
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+  });
+
+  it('ArrowDown goes from the search to the list, and Escape clears the search in place', async () => {
+    const { user } = await mount(seedMany);
+    const box = screen.getByRole('searchbox');
+    await user.type(box, 'fi');
+    await waitFor(() => {
+      expect(rowOf(/First/)).toHaveAttribute('data-cursor', 'true');
+    });
+    await user.keyboard('{ArrowDown}');
+    expect(rowOf(/First/)).toHaveFocus();
+    await user.click(box);
+    await user.keyboard('{Escape}');
+    expect(box).toHaveValue('');
+    expect(box).toHaveFocus();
+  });
+
+  it('F2 renames the meeting under the cursor and the list follows', async () => {
+    const { api, user } = await mount(seedMany);
+    focusRow(/Second/);
+    await user.keyboard('{F2}');
+    const dialog = await screen.findByRole('dialog', { name: 'Rename meeting' });
+    const field = within(dialog).getByRole('textbox');
+    expect(field).toHaveValue('Second');
+    await user.clear(field);
+    await user.type(field, 'Renamed{Enter}');
+    expect(await screen.findByRole('row', { name: /Renamed/ })).toBeInTheDocument();
+    expect(api.meetings.records.get('b')?.title).toBe('Renamed');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(rowOf(/Renamed/)).toHaveFocus();
+    });
+  });
+
+  it('F2 says why when a re-transcription blocks the rename', async () => {
+    const { api, user } = await mount(seedMany);
+    api.runner.isRunning = true;
+    api.runner.meetingId = 'b';
+    focusRow(/Second/);
+    await user.keyboard('{F2}');
+    const dialog = await screen.findByRole('dialog', { name: 'Rename meeting' });
+    const field = within(dialog).getByRole('textbox');
+    await user.clear(field);
+    await user.type(field, 'Renamed{Enter}');
+    expect(await within(dialog).findByText(/re-transcription to finish/)).toBeInTheDocument();
+    expect(api.meetings.records.get('b')?.title).toBe('Second');
+  });
+
+  it('Delete asks about the row, and the next row takes the focus', async () => {
+    const { api, user } = await mount(seedMany);
+    focusRow(/Second/);
+    await user.keyboard('{Delete}');
+    const dialog = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
+    expect(within(dialog).getByText(/"Second"/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => {
+      expect(api.meetings.records.has('b')).toBe(false);
+    });
+    await waitFor(() => {
+      expect(rowOf(/Third/)).toHaveFocus();
+    });
+    expect(api.calls.find((c) => c.name === 'library.deleteMeeting')?.input).toEqual({
+      meetingId: 'b',
+      mode: 'trash',
+    });
+  });
+
+  it('Delete refused by the bin still offers the permanent delete', async () => {
+    const { api, user } = await mount(seedMany);
+    api.meetings.trashRefusedIds.add('b');
+    focusRow(/Second/);
+    await user.keyboard('{Delete}');
+    let dialog = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    dialog = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    expect(within(dialog).getByText(/could not go to the Recycle Bin/)).toBeInTheDocument();
+  });
+
+  it('Delete refuses a busy meeting before asking', async () => {
+    const { api, user } = await mount(seedMany);
+    api.busy.register({ isBusy: (id) => id === 'b' });
+    focusRow(/Second/);
+    await user.keyboard('{Delete}');
+    expect(await screen.findByText(/still being recorded or processed/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('Delete on a checked row asks about the whole set', async () => {
+    const { user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard(' {ArrowDown} ');
+    await user.keyboard('{Delete}');
+    expect(await screen.findByRole('dialog', { name: 'Delete 2 meetings?' })).toBeInTheDocument();
+  });
+
+  it('Shift+Delete asks for a permanent delete directly, with its own words', async () => {
+    const { api, user } = await mount(seedMany);
+    focusRow(/Second/);
+    await user.keyboard('{Shift>}{Delete}{/Shift}');
+    const dialog = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    expect(
+      within(dialog).getByText(
+        'This deletes "Second" and its recording. A permanent delete cannot be undone.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => {
+      expect(api.meetings.records.has('b')).toBe(false);
+    });
+    expect(api.calls.find((c) => c.name === 'library.deleteMeeting')?.input).toEqual({
+      meetingId: 'b',
+      mode: 'permanent',
+    });
+  });
+
+  it('Shift+Delete on a checked row asks about the set, and refuses nothing silently', async () => {
+    const { api, user } = await mount(seedMany);
+    focusRow(/First/);
+    await user.keyboard(' {ArrowDown} ');
+    await user.keyboard('{Shift>}{Delete}{/Shift}');
+    const dialog = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    expect(
+      within(dialog).getByText(
+        'This deletes 2 meetings and their recordings. A permanent delete cannot be undone.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => {
+      expect(api.meetings.records.has('a')).toBe(false);
+    });
+    expect(api.calls.find((c) => c.name === 'library.deleteMeetings')?.input).toEqual({
+      meetingIds: ['a', 'b'],
+      mode: 'permanent',
+    });
+  });
+
+  it('keys typed in a dialog or a menu do not reach the rows', async () => {
+    const { api, user } = await mount(seedMany);
+    await user.click(within(rowOf(/First/)).getByRole('button', { name: 'More actions' }));
+    await screen.findByRole('menuitem', { name: 'Move' });
+    await user.keyboard('{Delete}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    focusRow(/First/);
+    await user.keyboard('{F2}');
+    const dialog = await screen.findByRole('dialog', { name: 'Rename meeting' });
+    await user.keyboard(' {Delete}');
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('textbox')).toBeInTheDocument();
+    expect(api.calls.some((c) => c.name === 'library.deleteMeeting')).toBe(false);
+  });
+});
+
 describe('the note and the debounced reload', () => {
   it('B16: a character typed while the debounced reload is really in flight is kept', async () => {
     const { api, user } = await mount(seed);

@@ -58,6 +58,8 @@
   "Ui_LibraryDeleteManyTitle": "Delete {0} meetings?",
   "Ui_LibraryDeleteManyContent": "This moves them and their recordings to the Recycle Bin.",
   "Ui_LibraryDeleteManyRefused": "{0} of these meetings could not go to the Recycle Bin. A permanent delete cannot be undone.",
+  "Ui_LibraryDeletePermanentDirect": "This deletes \"{0}\" and its recording. A permanent delete cannot be undone.",
+  "Ui_LibraryDeleteManyPermanent": "This deletes {0} meetings and their recordings. A permanent delete cannot be undone.",
   "Ui_LibraryOpenFailed": "The folder could not be opened: {0}",
   "Ui_SettingsLoadFailed": "The settings could not be loaded. {0}",
   "Ui_SettingsLoading": "Loading settings",

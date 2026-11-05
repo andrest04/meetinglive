@@ -119,3 +119,71 @@ test('checked meetings move and go to the bin together, and the files follow', a
   expect(fs.existsSync(onDisk('Clients', 'Bulk two', '10'))).toBe(false);
   await expect(bar).toHaveCount(0);
 });
+
+test('the keyboard reaches everything: find, move, check, rename, delete', async () => {
+  seed('Keys alpha', '21');
+  seed('Keys beta', '20');
+  seed('Keys gamma', '19');
+  await reopenLibrary();
+
+  // Ctrl+F, then down into the list, which previews without opening.
+  await row('Keys alpha').focus();
+  await page.keyboard.press('Control+f');
+  const search = page.getByRole('searchbox');
+  await expect(search).toBeFocused();
+  await page.keyboard.type('keys');
+  await expect(grid.locator('[data-row-id]')).toHaveCount(3);
+  await page.keyboard.press('ArrowDown');
+  await expect(row('Keys alpha')).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(row('Keys beta')).toBeFocused();
+  const preview = page.getByTestId('library-preview');
+  await expect(preview.getByRole('heading', { level: 2, name: 'Keys beta' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/library$/);
+
+  // Checks by Space, Shift and Ctrl+A, and Escape takes them back, then the search.
+  const bar = page.getByRole('toolbar', { name: 'Checked meetings' });
+  await page.keyboard.press('Space');
+  await expect(bar.getByText('Checked: 1')).toBeVisible();
+  await page.keyboard.press('Shift+ArrowDown');
+  await expect(bar.getByText('Checked: 2')).toBeVisible();
+  await page.keyboard.press('Control+a');
+  await expect(bar.getByText('Checked: 3')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(bar).toHaveCount(0);
+  await expect(search).toHaveValue('keys');
+  await page.keyboard.press('Escape');
+  await expect(search).toHaveValue('');
+
+  // F2 renames on disk, and the list follows.
+  await row('Keys gamma').focus();
+  await page.keyboard.press('F2');
+  const rename = page.getByRole('dialog', { name: 'Rename meeting' });
+  await rename.getByRole('textbox').fill('Keys delta');
+  await page.keyboard.press('Enter');
+  await expect(rename).toBeHidden();
+  await expect(row('Keys delta')).toBeVisible();
+  await expect.poll(() => fs.existsSync(onDisk('Inbox', 'Keys delta', '19'))).toBe(true);
+
+  // Delete asks, then the next row has the focus; Shift+Delete asks with permanent words.
+  await row('Keys alpha').focus();
+  await page.keyboard.press('Delete');
+  const remove = page.getByRole('dialog', { name: 'Delete this meeting?' });
+  await remove.getByRole('button', { name: 'Delete' }).click();
+  await expect(row('Keys alpha')).toHaveCount(0);
+  await expect(row('Keys beta')).toBeFocused();
+  expect(fs.existsSync(onDisk('Inbox', 'Keys alpha', '21'))).toBe(false);
+
+  await page.keyboard.press('Shift+Delete');
+  const permanent = page.getByRole('dialog', { name: 'Delete permanently?' });
+  await expect(permanent.getByText(/cannot be undone/)).toBeVisible();
+  await permanent.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(row('Keys beta')).toHaveCount(0);
+  expect(fs.existsSync(onDisk('Inbox', 'Keys beta', '20'))).toBe(false);
+
+  // Enter opens what the cursor is on.
+  await row('Keys delta').focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/session$/);
+  await page.getByRole('button', { name: 'Back' }).click();
+});

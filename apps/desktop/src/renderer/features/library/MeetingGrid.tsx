@@ -4,13 +4,17 @@ import { Check, Ellipsis, FileText, FolderInput, Minus, Trash } from 'lucide-rea
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   type KeyboardEvent,
   type MouseEvent,
+  type Ref,
 } from 'react';
+import { matchLibraryShortcut } from '../../app/shortcuts';
 import { ContextMenu, Icon, IconButton, Menu, cn, type MenuEntry } from '../../ui';
 import { formatDayHeader, formatMeetingDate, formatMeetingTime } from './format';
+import { gridKeyAction, type GridKeyAction } from './library-keys';
 import { groupState } from './library-selection';
 import { highlightParts, type SearchHits } from './search-results';
 import {
@@ -41,7 +45,13 @@ export interface MeetingGridLabels {
   readonly checkDay: (day: string) => string;
 }
 
+export interface MeetingGridHandle {
+  /** Puts the focus on the cursor row. False when there is no row to take it. */
+  readonly focusCursor: () => boolean;
+}
+
 export interface MeetingGridProps {
+  readonly handle?: Ref<MeetingGridHandle>;
   readonly meetings: readonly MeetingListItemDto[];
   readonly locale: string;
   readonly labels: MeetingGridLabels;
@@ -64,6 +74,9 @@ export interface MeetingGridProps {
   readonly onOpenSummary: (id: string) => void;
   readonly onMove: (meeting: MeetingListItemDto) => void;
   readonly onDelete: (meeting: MeetingListItemDto) => void;
+  /** A key on a focused row, other than opening it and moving. */
+  readonly onRowKey: (action: Exclude<GridKeyAction, 'open'>, id: string) => void;
+  readonly onSelectAll: () => void;
 }
 
 const COLUMN_COUNT = 3;
@@ -74,6 +87,7 @@ const COLUMN_COUNT = 3;
  * Tab goes on to the actions of the row the cursor is on.
  */
 export function MeetingGrid({
+  handle,
   meetings,
   locale,
   labels,
@@ -92,6 +106,8 @@ export function MeetingGrid({
   onOpenSummary,
   onMove,
   onDelete,
+  onRowKey,
+  onSelectAll,
 }: MeetingGridProps) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const items = useMemo(() => {
@@ -146,34 +162,65 @@ export function MeetingGrid({
     },
   });
 
+  const focusRow = useCallback((id: string | null): boolean => {
+    const rows = scrollerRef.current?.querySelectorAll<HTMLElement>('[data-row-id]') ?? [];
+    for (const row of rows) {
+      if (row.dataset.rowId === id) {
+        row.focus({ preventScroll: true });
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   const pendingFocus = useRef(false);
   useEffect(() => {
     if (!pendingFocus.current) return;
     pendingFocus.current = false;
-    const rows = scrollerRef.current?.querySelectorAll<HTMLElement>('[data-row-id]') ?? [];
-    for (const row of rows) {
-      if (row.dataset.rowId === cursorId) {
-        row.focus({ preventScroll: true });
-        return;
-      }
-    }
-  }, [cursorId]);
+    focusRow(cursorId);
+  }, [cursorId, focusRow]);
+
+  useImperativeHandle(
+    handle,
+    () => ({
+      focusCursor: () => {
+        const index = cursorIndex ?? tabStopIndex;
+        const item = items[index];
+        if (item?.kind !== 'meeting') return false;
+        virtualizer.scrollToIndex(index, { align: 'auto' });
+        if (item.meeting.id === cursorId) return focusRow(cursorId);
+        pendingFocus.current = true;
+        onCursorChange(item.meeting.id);
+        return true;
+      },
+    }),
+    [cursorId, cursorIndex, focusRow, items, onCursorChange, tabStopIndex, virtualizer],
+  );
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     // Menus are portals: their keys bubble here through React, and they are not the grid's.
     const target = event.target as HTMLElement;
     const row = target.dataset.rowId;
-    if (row === undefined || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (event.key === 'Enter') {
+    if (row === undefined) return;
+    if (matchLibraryShortcut(event) === 'librarySelectAll') {
       event.preventDefault();
-      onOpen(row);
+      onSelectAll();
       return;
     }
+    const action = gridKeyAction(event);
+    if (action !== null) {
+      event.preventDefault();
+      if (action === 'open') onOpen(row);
+      else onRowKey(action, row);
+      return;
+    }
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const next = movedIndex(items, cursorIndex ?? tabStopIndex, event.key);
     if (next === null) return;
     event.preventDefault();
     const item = items[next];
     if (item?.kind !== 'meeting') return;
+    if (event.shiftKey) onExtendChecks(row, item.meeting.id);
     pendingFocus.current = true;
     onCursorChange(item.meeting.id);
     virtualizer.scrollToIndex(next, { align: 'auto' });
