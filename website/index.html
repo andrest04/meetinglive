@@ -71,7 +71,7 @@
   .i18n-pending body { visibility: hidden; }
 
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 84px; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 92px; }
   body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/24px var(--sans); -webkit-font-smoothing: antialiased; }
   h1, h2, h3, p, ul, ol, figure, dl, dd { margin: 0; padding: 0; }
   ul, ol { list-style: none; }
@@ -88,16 +88,16 @@
   /* Header */
   /* The shell keeps its height in the page, so turning into a pill never moves the content. */
   .top-sentinel { position: absolute; top: 24px; width: 1px; height: 1px; pointer-events: none; }
-  .top-shell { position: sticky; top: 0; z-index: 50; height: 72px; pointer-events: none; }
+  .top-shell { display: flow-root; position: sticky; top: 0; z-index: 50; height: 72px; pointer-events: none; }
   .top {
     display: flex; align-items: center; justify-content: space-between;
     height: 72px; max-width: 100%; margin: 0 auto; padding-inline: 0;
     pointer-events: auto;
     border: 1px solid transparent; border-radius: 999px;
-    transition: max-width .42s cubic-bezier(.22, .8, .24, 1), height .42s cubic-bezier(.22, .8, .24, 1), margin-top .42s cubic-bezier(.22, .8, .24, 1), padding .42s cubic-bezier(.22, .8, .24, 1), background-color .28s ease, border-color .28s ease, box-shadow .28s ease;
+    transition: max-width .8s cubic-bezier(.22, .8, .24, 1), height .8s cubic-bezier(.22, .8, .24, 1), margin-top .8s cubic-bezier(.22, .8, .24, 1), padding .8s cubic-bezier(.22, .8, .24, 1), background-color .55s ease, border-color .55s ease, box-shadow .55s ease;
   }
   .top.is-pill {
-    max-width: 780px; height: 54px; margin-top: 10px; padding-inline: 20px 10px;
+    max-width: 780px; height: 54px; margin-top: 16px; padding-inline: 20px 10px;
     /* Matte glass: enough paper to keep the labels readable, blurred hard so nothing sharp shows through. */
     background-color: color-mix(in srgb, var(--paper) 76%, transparent);
     -webkit-backdrop-filter: blur(22px) saturate(130%);
