@@ -75,13 +75,16 @@
   body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/24px var(--sans); -webkit-font-smoothing: antialiased; }
   h1, h2, h3, p, ul, ol, figure, dl, dd { margin: 0; padding: 0; }
   ul, ol { list-style: none; }
-  a { color: inherit; }
+  a { color: inherit; text-underline-offset: 3px; }
+  ::selection { background: var(--ink); color: var(--paper); }
+  .on-ink ::selection { background: var(--paper); color: var(--ink); }
   :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .wrap { max-width: 1320px; margin: 0 auto; padding-inline: var(--gutter); }
   .mono { font: 400 13px/20px var(--mono); font-variant-numeric: tabular-nums; }
 
-  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 4px; font: 500 14px/20px var(--sans); text-decoration: none; background: var(--ink); color: var(--on-ink); border: 0; cursor: pointer; transition: opacity 160ms; }
-  .btn:hover { opacity: .82; }
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 4px; font: 500 14px/20px var(--sans); text-decoration: none; background: var(--ink); color: var(--on-ink); border: 0; cursor: pointer; transition: opacity 150ms cubic-bezier(.2, .7, .2, 1); }
+  .btn:hover { opacity: .85; }
+  .btn:active { opacity: .7; }
   .btn .win { width: 14px; height: 14px; margin-inline-start: 8px; flex: none; }
   .on-ink .btn { background: var(--on-ink); color: var(--ink); }
   .on-ink :focus-visible { outline-color: var(--on-ink); }
@@ -150,7 +153,7 @@
 
   /* Hero */
   .hero { padding-block: clamp(40px, 7vw, 88px) clamp(32px, 4vw, 56px); }
-  h1 { font: 600 clamp(56px, 11.4vw, 164px)/.92 var(--sans); letter-spacing: -.05em; text-wrap: balance; }
+  h1 { font: 600 clamp(56px, 11.4vw, 164px)/.92 var(--sans); letter-spacing: -.04em; text-wrap: balance; }
   .hero-foot { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-top: clamp(24px, 3vw, 40px); }
   .lead { max-width: 34em; font-size: 20px; line-height: 30px; color: var(--ink-muted); }
   .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
@@ -194,13 +197,16 @@
 
   .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 12px; }
   .steps .sample { color: var(--ink-faint); margin-right: auto; }
-  .steps button { min-height: 40px; padding: 0 4px; background: none; border: 0; cursor: pointer; font: 500 14px/20px var(--sans); color: var(--ink-faint); border-bottom: 2px solid transparent; }
+  .steps button { min-height: 40px; padding: 0 4px; background: none; border: 0; cursor: pointer; font: 500 14px/20px var(--sans); color: var(--ink-faint); border-bottom: 2px solid transparent; transition: color 150ms cubic-bezier(.2, .7, .2, 1), border-color 150ms cubic-bezier(.2, .7, .2, 1); }
+  .steps button:hover { color: var(--ink); }
   .steps button[aria-current="step"] { color: var(--ink); border-bottom-color: var(--ink); }
 
   /* The timeline */
   .timeline { padding-block: clamp(56px, 9vw, 120px) clamp(48px, 7vw, 96px); }
   .moment { display: grid; grid-template-columns: var(--stamp-col) minmax(0, 5fr) minmax(0, 6fr); gap: 24px clamp(24px, 4vw, 64px); padding-block: clamp(32px, 5vw, 64px); border-top: 1px solid var(--ink); align-items: start; }
-  .stamp { font: 400 15px/40px var(--mono); font-variant-numeric: tabular-nums; }
+  .stamp { font: 400 15px/20px var(--mono); font-variant-numeric: tabular-nums; }
+  /* The stamp shares the heading's first baseline, like a timestamp in the margin. */
+  .moment > .stamp, .moment > .stamp + div { align-self: first baseline; }
   h2 { font: 600 clamp(32px, 4.4vw, 56px)/1.04 var(--sans); letter-spacing: -.03em; text-wrap: balance; }
   .moment p.copy { margin-top: 16px; max-width: 46ch; font-size: 18px; line-height: 28px; color: var(--ink-muted); }
 
@@ -210,7 +216,7 @@
   .toast strong { font-weight: 600; display: block; }
   .toast div span { color: var(--ink-muted); font-size: 14px; line-height: 20px; display: block; }
   .toast .btn { grid-column: 2; justify-self: start; min-height: 32px; padding: 0 12px; font-size: 13px; cursor: default; }
-  .toast .btn:hover { opacity: 1; }
+  .toast .btn:hover, .toast .btn:active { opacity: 1; }
   .rows { background: var(--paper); border: 1px solid var(--hairline); border-radius: 4px; }
   .rows li { display: flex; justify-content: space-between; gap: 16px; padding: 12px 16px; border-top: 1px solid var(--hairline); font-size: 14px; line-height: 20px; }
   .rows li:first-child { border-top: 0; }
@@ -239,10 +245,9 @@
   .hang { display: block; width: 100%; height: clamp(180px, 34vw, 500px); }
   .hang rect { fill: var(--on-ink); }
   .slab-body { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 32px clamp(24px, 5vw, 80px); padding-block: clamp(32px, 5vw, 72px) clamp(56px, 8vw, 112px); align-items: start; }
-  .slab h2 { font-size: clamp(44px, 7.4vw, 104px); line-height: .96; letter-spacing: -.045em; }
+  .slab h2 { font-size: clamp(44px, 7.4vw, 104px); line-height: .96; letter-spacing: -.04em; }
   .slab p.copy { margin-top: 24px; max-width: 42ch; font-size: 18px; line-height: 28px; opacity: .74; }
   .file { border: 1px solid var(--hairline-on-ink); border-radius: 4px; padding: 16px; font: 400 13px/22px var(--mono); overflow-x: auto; white-space: pre; }
-  .file em { font-style: normal; opacity: .62; }
 
   /* Engines */
   .engines { padding-block: clamp(56px, 8vw, 112px); }
@@ -263,7 +268,6 @@
 
   @media (max-width: 900px) {
     .moment { grid-template-columns: minmax(0, 1fr); }
-    .stamp { line-height: 20px; }
     .slab-body, .engine-grid { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 640px) {
@@ -277,7 +281,7 @@
     .app-nav { display: flex; overflow: hidden; padding: 8px; }
     .app-nav li { padding: 4px 10px; font-size: 13px; }
     .app-nav .wide { display: none; }
-    .stage { min-height: 560px; }
+    .stage { min-height: 0; }
     .polish { padding-top: 48px; }
     .line { grid-template-columns: 52px minmax(0, 1fr); }
     .steps .sample { width: 100%; }
