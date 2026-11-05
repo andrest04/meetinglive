@@ -1026,6 +1026,196 @@ describe('searching inside meetings', () => {
   });
 });
 
+describe('checking several meetings', () => {
+  const check = (name: RegExp): HTMLElement =>
+    within(rowOf(name)).getByRole('checkbox', { name: /Select/ });
+  const bar = (): HTMLElement => screen.getByRole('toolbar', { name: 'Checked meetings' });
+  const seedMany = ({ meetings, folders }: ReturnType<typeof installFakeApi>): void => {
+    folders.folders = [folderRecord(UNI, 'Universidad')];
+    for (const [id, title, day] of [
+      ['a', 'First', '03'],
+      ['b', 'Second', '03'],
+      ['c', 'Third', '02'],
+      ['d', 'Fourth', '01'],
+    ] as const) {
+      meetings.records.set(id, meetingRecord(id, title, `2026-09-${day}T09:00:00.0000000+00:00`));
+    }
+  };
+
+  it('a check marks the row as selected and shows the bar; a click does not disturb it', async () => {
+    const { user } = await mount(seedMany);
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'false');
+    await user.click(check(/First/));
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+    expect(check(/First/)).toHaveAttribute('aria-checked', 'true');
+    expect(within(bar()).getByText('Checked: 1')).toBeInTheDocument();
+    await user.click(rowOf(/Second/));
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Second/)).toHaveAttribute('aria-selected', 'false');
+    expect(rowOf(/Second/)).toHaveAttribute('data-cursor', 'true');
+    await user.click(within(bar()).getByRole('button', { name: 'Clear checks' }));
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+  });
+
+  it('Ctrl and Shift clicks check, without opening, also below the narrow width', async () => {
+    pageWidth = 759;
+    const { api, user } = await mount(seedMany);
+    await user.keyboard('{Control>}');
+    await user.click(rowOf(/First/));
+    await user.keyboard('{/Control}{Shift>}');
+    await user.click(rowOf(/Third/));
+    await user.keyboard('{/Shift}');
+    expect(within(bar()).getByText('Checked: 3')).toBeInTheDocument();
+    expect(rowOf(/Second/)).toHaveAttribute('aria-selected', 'true');
+    expect(rowOf(/Fourth/)).toHaveAttribute('aria-selected', 'false');
+    expect(api.actions).not.toContainEqual({ type: 'openSession', tab: 'Transcript' });
+  });
+
+  it('the day header checks its day, and shows when only part of it is', async () => {
+    const { user } = await mount(seedMany);
+    const day = screen.getAllByRole('checkbox', { name: /Select all from/ })[0];
+    if (!day) throw new Error('no day check');
+    await user.click(check(/First/));
+    expect(day).toHaveAttribute('aria-checked', 'mixed');
+    await user.click(day);
+    expect(day).toHaveAttribute('aria-checked', 'true');
+    expect(within(bar()).getByText('Checked: 2')).toBeInTheDocument();
+    await user.click(day);
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+  });
+
+  it('moves the checked meetings together, in one request', async () => {
+    const { api, user } = await mount(seedMany);
+    await user.click(check(/First/));
+    await user.click(check(/Third/));
+    await user.click(within(bar()).getByRole('button', { name: 'Move' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Move 2 meetings' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Universidad' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    await waitFor(() => {
+      expect(api.meetings.records.get('c')?.folderId).toBe(UNI);
+    });
+    expect(api.meetings.records.get('a')?.folderId).toBe(UNI);
+    expect(api.meetings.records.get('b')?.folderId).toBeNull();
+    expect(api.calls.filter((c) => c.name === 'library.moveMeetings')).toHaveLength(1);
+    await waitFor(() => {
+      expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    });
+  });
+
+  it('says how many could not move, and leaves those checked', async () => {
+    const { api, user } = await mount(seedMany);
+    api.busy.register({ isBusy: (id) => id === 'a' });
+    await user.click(check(/First/));
+    await user.click(check(/Second/));
+    await user.click(within(bar()).getByRole('button', { name: 'Move' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Move 2 meetings' });
+    await user.click(within(dialog).getByRole('radio', { name: 'Universidad' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Move' }));
+    expect(await screen.findByText('1 of 2 meetings could not be moved.')).toBeInTheDocument();
+    expect(rowOf(/First/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('shows the work under way and holds the actions until it ends', async () => {
+    const { api, user } = await mount(seedMany);
+    let release: () => void = () => undefined;
+    const run = api.service.deleteMeetings.bind(api.service);
+    vi.spyOn(api.service, 'deleteMeetings').mockImplementationOnce(async (input) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return run(input);
+    });
+    await user.click(check(/First/));
+    await user.click(check(/Second/));
+    await user.click(within(bar()).getByRole('button', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Delete 2 meetings?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(await within(bar()).findByText('Deleting 2 meetings')).toBeInTheDocument();
+    expect(within(bar()).getByRole('button', { name: 'Delete' })).toBeDisabled();
+    expect(within(bar()).getByRole('button', { name: 'Move' })).toBeDisabled();
+    release();
+    await waitFor(() => {
+      expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    });
+    expect(api.meetings.records.has('a')).toBe(false);
+  });
+
+  it('offers a permanent delete only for the meetings the Recycle Bin refused', async () => {
+    const { api, user } = await mount(seedMany);
+    api.meetings.trashRefusedIds.add('b');
+    await user.click(check(/First/));
+    await user.click(check(/Second/));
+    await user.click(within(bar()).getByRole('button', { name: 'Delete' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Delete 2 meetings?' });
+    expect(
+      within(dialog).getByText('This moves them and their recordings to the Recycle Bin.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    dialog = await screen.findByRole('dialog', { name: 'Delete permanently?' });
+    expect(
+      within(dialog).getByText(
+        '1 of these meetings could not go to the Recycle Bin. A permanent delete cannot be undone.',
+      ),
+    ).toBeInTheDocument();
+    expect(api.meetings.records.has('a')).toBe(false);
+    expect(api.meetings.records.has('b')).toBe(true);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => {
+      expect(api.meetings.records.has('b')).toBe(false);
+    });
+    expect(
+      api.calls.filter((c) => c.name === 'library.deleteMeetings').map((c) => c.input),
+    ).toEqual([
+      { meetingIds: ['a', 'b'], mode: 'trash' },
+      { meetingIds: ['b'], mode: 'permanent' },
+    ]);
+  });
+
+  it('the row menu acts on the whole set from a checked row, and alone from another', async () => {
+    const { user } = await mount(seedMany);
+    await user.click(check(/First/));
+    await user.click(check(/Second/));
+    await user.click(within(rowOf(/First/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Delete 2 meetings?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    await user.click(within(rowOf(/Third/)).getByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    dialog = await screen.findByRole('dialog', { name: 'Delete this meeting?' });
+    expect(within(dialog).getByText(/"Third"/)).toBeInTheDocument();
+  });
+
+  it('forgets the checks on another view or another search', async () => {
+    const { user } = await mount(seedMany);
+    await user.click(check(/First/));
+    await user.type(screen.getByRole('searchbox'), 'f');
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    await user.clear(screen.getByRole('searchbox'));
+    await user.click(check(/First/));
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+  });
+
+  it('a refresh keeps the checks of the meetings still there', async () => {
+    const { api, user } = await mount(seedMany);
+    await user.click(check(/First/));
+    await user.click(check(/Second/));
+    api.meetings.records.delete('a');
+    api.emit('library.changed', { reason: 'meeting' });
+    await waitFor(() => {
+      expect(within(bar()).getByText('Checked: 1')).toBeInTheDocument();
+    });
+    expect(rowOf(/Second/)).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
 describe('the note and the debounced reload', () => {
   it('B16: a character typed while the debounced reload is really in flight is kept', async () => {
     const { api, user } = await mount(seed);

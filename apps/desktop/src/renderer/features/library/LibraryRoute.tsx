@@ -1,10 +1,11 @@
 import { resolveAccentKey, resolveIconKey } from '@vozella/core';
 import type { MeetingListItemDto } from '@vozella/contracts';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { Button, EmptyState, Notice, Skeleton, cn } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
+import { BulkBar } from './BulkBar';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
 import {
   clearFolderRequest,
@@ -15,6 +16,14 @@ import {
 } from './library-store';
 import { folderIdOfView } from './library-store';
 import { folderMenuEntries } from './LibraryFolders';
+import {
+  EMPTY_CHECKS,
+  extendChecks,
+  keepLive,
+  setGroup,
+  toggleCheck,
+  type Checks,
+} from './library-selection';
 import { ListHeader } from './ListHeader';
 import { MeetingGrid } from './MeetingGrid';
 import { MeetingPreview } from './MeetingPreview';
@@ -31,7 +40,12 @@ type DialogState =
   | { readonly kind: 'deleteFolder'; readonly folderId: string; readonly name: string }
   | { readonly kind: 'move'; readonly meeting: MeetingListItemDto }
   | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
-  | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto };
+  | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto }
+  | { readonly kind: 'moveMany'; readonly meetings: readonly MeetingListItemDto[] }
+  | { readonly kind: 'deleteMany'; readonly meetingIds: readonly string[] }
+  | { readonly kind: 'deleteManyPermanently'; readonly meetingIds: readonly string[] };
+
+type BulkWork = { readonly kind: 'moving' | 'deleting'; readonly count: number } | null;
 
 /** From this width of the content the preview sits beside the list; below it a click opens. */
 export const PANED_LAYOUT_PX = 760;
@@ -140,6 +154,75 @@ export function LibraryRoute() {
     const next = nextCursor(useLibraryStore.getState().cursorId, previous, listedIds);
     if (next !== useLibraryStore.getState().cursorId) setCursor(next);
   }, [listedIds, wide, library.isLoading, cursorId]);
+  // Checks belong to one list: another view or another search starts with none.
+  const [checks, setChecks] = useState<Checks>(EMPTY_CHECKS);
+  const [bulkWork, setBulkWork] = useState<BulkWork>(null);
+  const viewKey = `${library.view.kind}-${String(folderIdOfView(library.view))}`;
+  useEffect(() => {
+    setChecks(EMPTY_CHECKS);
+  }, [viewKey, library.query]);
+  useEffect(() => {
+    setChecks((current) => keepLive(current, listedIds));
+  }, [listedIds]);
+  const checkedMeetings = useMemo(
+    () => library.meetings.filter((m) => checks.checked.has(m.id)),
+    [library.meetings, checks.checked],
+  );
+
+  const onExtendChecks = useCallback(
+    (fromId: string, toId: string): void => {
+      setChecks((current) => extendChecks(current, listedIds, fromId, toId));
+    },
+    [listedIds],
+  );
+
+  /** A row action from a checked row applies to all the checked ones, and alone otherwise. */
+  const targetsOf = (meeting: MeetingListItemDto): readonly MeetingListItemDto[] =>
+    checks.checked.has(meeting.id) ? checkedMeetings : [meeting];
+
+  const askMove = (targets: readonly MeetingListItemDto[]): void => {
+    const [only] = targets;
+    if (!only) return;
+    if (targets.length === 1) setDialog({ kind: 'move', meeting: only });
+    else setDialog({ kind: 'moveMany', meetings: targets });
+  };
+
+  const askDelete = (targets: readonly MeetingListItemDto[]): void => {
+    const [only] = targets;
+    if (!only) return;
+    if (targets.length > 1) {
+      setDialog({ kind: 'deleteMany', meetingIds: targets.map((m) => m.id) });
+      return;
+    }
+    void library.beginDelete(only.id).then((allowed) => {
+      if (allowed) setDialog({ kind: 'deleteMeeting', meeting: only });
+    });
+  };
+
+  const runMoveMany = async (
+    meetings: readonly MeetingListItemDto[],
+    folderId: string | null,
+  ): Promise<void> => {
+    setBulkWork({ kind: 'moving', count: meetings.length });
+    const failed = await library.moveMeetings(
+      meetings.map((m) => m.id),
+      folderId,
+    );
+    setBulkWork(null);
+    setChecks((current) => keepLive(current, failed));
+  };
+
+  const runDeleteMany = async (
+    meetingIds: readonly string[],
+    mode: 'trash' | 'permanent',
+  ): Promise<void> => {
+    setBulkWork({ kind: 'deleting', count: meetingIds.length });
+    const { failed, refused } = await library.deleteMeetings(meetingIds, mode);
+    setBulkWork(null);
+    setChecks((current) => keepLive(current, [...failed, ...refused]));
+    if (refused.length > 0) setDialog({ kind: 'deleteManyPermanently', meetingIds: refused });
+  };
+
   const previewId = wide && cursorId !== null && listedIds.includes(cursorId) ? cursorId : null;
   const preview = useMeetingPreview(previewId);
 
@@ -155,6 +238,8 @@ export function LibraryRoute() {
       yesterday: t('Ui_LibraryYesterday'),
       noDate: t('Ui_LibraryNoDate'),
       duration: (minutes: number) => t('Ui_LibraryDurationMinutes', String(minutes)),
+      checkMeeting: (title: string) => t('Ui_LibraryCheckMeeting', title),
+      checkDay: (day: string) => t('Ui_LibraryCheckDay', day),
     }),
     [t],
   );
@@ -255,6 +340,33 @@ export function LibraryRoute() {
           ) : null}
         </div>
 
+        {checks.checked.size > 0 ? (
+          <BulkBar
+            label={t('Ui_LibraryBulkLabel')}
+            status={
+              bulkWork === null
+                ? t('Ui_LibraryBulkChecked', String(checks.checked.size))
+                : t(
+                    bulkWork.kind === 'moving' ? 'Ui_LibraryBulkMoving' : 'Ui_LibraryBulkDeleting',
+                    String(bulkWork.count),
+                  )
+            }
+            busy={bulkWork !== null}
+            moveLabel={t('HistoryRow_Move')}
+            deleteLabel={t('HistoryRow_Delete')}
+            clearLabel={t('Ui_LibraryBulkClear')}
+            onMove={() => {
+              askMove(checkedMeetings);
+            }}
+            onDelete={() => {
+              askDelete(checkedMeetings);
+            }}
+            onClear={() => {
+              setChecks(EMPTY_CHECKS);
+            }}
+          />
+        ) : null}
+
         <div className="flex min-h-0 flex-1 flex-col">
           {library.isLoading ? (
             <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col">
@@ -279,6 +391,14 @@ export function LibraryRoute() {
               cursorId={cursorId}
               clickOpens={!wide}
               initialScrollOffset={useLibraryStore.getState().scrollOffset}
+              checked={checks.checked}
+              onToggleCheck={(id) => {
+                setChecks((current) => toggleCheck(current, id));
+              }}
+              onExtendChecks={onExtendChecks}
+              onSetDayChecks={(ids, on) => {
+                setChecks((current) => setGroup(current, ids, on));
+              }}
               onCursorChange={setCursor}
               onScrollOffsetChange={rememberScroll}
               onOpen={(id) => {
@@ -288,12 +408,10 @@ export function LibraryRoute() {
                 library.openMeeting(id, 'Summary');
               }}
               onMove={(meeting) => {
-                setDialog({ kind: 'move', meeting });
+                askMove(targetsOf(meeting));
               }}
               onDelete={(meeting) => {
-                void library.beginDelete(meeting.id).then((allowed) => {
-                  if (allowed) setDialog({ kind: 'deleteMeeting', meeting });
-                });
+                askDelete(targetsOf(meeting));
               }}
             />
           ) : emptyMessage ? (
@@ -394,6 +512,51 @@ export function LibraryRoute() {
         currentFolderId={shown?.kind === 'move' ? shown.meeting.folderId : null}
         onMove={(folderId) => {
           if (dialog?.kind === 'move') void library.moveMeeting(dialog.meeting.id, folderId);
+        }}
+      />
+      <MoveDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'moveMany'}
+        title={t(
+          'Ui_LibraryMoveManyTitle',
+          String(shown?.kind === 'moveMany' ? shown.meetings.length : 0),
+        )}
+        cancelLabel={t('LibraryMove_Cancel')}
+        primaryLabel={t('LibraryMove_Primary')}
+        destinations={library.destinations}
+        currentFolderId={null}
+        onMove={(folderId) => {
+          if (dialog?.kind === 'moveMany') void runMoveMany(dialog.meetings, folderId);
+        }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteMany'}
+        title={t(
+          'Ui_LibraryDeleteManyTitle',
+          String(shown?.kind === 'deleteMany' ? shown.meetingIds.length : 0),
+        )}
+        description={t('Ui_LibraryDeleteManyContent')}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('HistoryDelete_Primary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteMany') void runDeleteMany(dialog.meetingIds, 'trash');
+        }}
+      />
+      <ConfirmDialog
+        {...dialogChrome}
+        open={dialog?.kind === 'deleteManyPermanently'}
+        title={t('Ui_LibraryDeletePermanentTitle')}
+        description={t(
+          'Ui_LibraryDeleteManyRefused',
+          String(shown?.kind === 'deleteManyPermanently' ? shown.meetingIds.length : 0),
+        )}
+        cancelLabel={t('HistoryDelete_Cancel')}
+        primaryLabel={t('Ui_LibraryDeletePermanentPrimary')}
+        onConfirm={() => {
+          if (dialog?.kind === 'deleteManyPermanently') {
+            void runDeleteMany(dialog.meetingIds, 'permanent');
+          }
         }}
       />
       <ConfirmDialog

@@ -1,6 +1,6 @@
 import type { MeetingListItemDto } from '@vozella/contracts';
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
-import { Ellipsis, FileText, FolderInput, Trash } from 'lucide-react';
+import { Check, Ellipsis, FileText, FolderInput, Minus, Trash } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -9,8 +9,9 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from 'react';
-import { ContextMenu, IconButton, Menu, cn, type MenuEntry } from '../../ui';
+import { ContextMenu, Icon, IconButton, Menu, cn, type MenuEntry } from '../../ui';
 import { formatDayHeader, formatMeetingDate, formatMeetingTime } from './format';
+import { groupState } from './library-selection';
 import { highlightParts, type SearchHits } from './search-results';
 import {
   activeHeaderIndex,
@@ -18,6 +19,7 @@ import {
   durationMinutes,
   HEADER_ROW_PX,
   MEETING_ROW_PX,
+  meetingsOfDay,
   movedIndex,
   rulingWidthPx,
   withPinned,
@@ -35,6 +37,8 @@ export interface MeetingGridLabels {
   readonly yesterday: string;
   readonly noDate: string;
   readonly duration: (minutes: number) => string;
+  readonly checkMeeting: (title: string) => string;
+  readonly checkDay: (day: string) => string;
 }
 
 export interface MeetingGridProps {
@@ -48,6 +52,12 @@ export interface MeetingGridProps {
   readonly initialScrollOffset: number;
   /** With no preview beside the list, a click has nothing else to do but open. */
   readonly clickOpens: boolean;
+  /** The checked meetings: `aria-selected` in the grid, and what the actions apply to. */
+  readonly checked: ReadonlySet<string>;
+  readonly onToggleCheck: (id: string) => void;
+  /** A Shift range, from the cursor if no check is the anchor yet. */
+  readonly onExtendChecks: (fromId: string, toId: string) => void;
+  readonly onSetDayChecks: (ids: readonly string[], on: boolean) => void;
   readonly onCursorChange: (id: string) => void;
   readonly onScrollOffsetChange: (offset: number) => void;
   readonly onOpen: (id: string) => void;
@@ -72,6 +82,10 @@ export function MeetingGrid({
   cursorId,
   initialScrollOffset,
   clickOpens,
+  checked,
+  onToggleCheck,
+  onExtendChecks,
+  onSetDayChecks,
   onCursorChange,
   onScrollOffsetChange,
   onOpen,
@@ -192,6 +206,13 @@ export function MeetingGrid({
               rowIndex={virtual.index + 1}
               sticky={virtual.index === activeHeader.current}
               offset={virtual.start}
+              checkLabel={labels.checkDay(item.label)}
+              anyChecked={checked.size > 0}
+              checkState={groupState(checked, meetingsOfDay(items, virtual.index))}
+              onToggle={() => {
+                const ids = meetingsOfDay(items, virtual.index);
+                onSetDayChecks(ids, groupState(checked, ids) !== true);
+              }}
             />
           ) : (
             <MeetingRow
@@ -206,6 +227,12 @@ export function MeetingGrid({
               isCursor={virtual.index === cursorIndex}
               isTabStop={virtual.index === tabStopIndex}
               clickOpens={clickOpens}
+              isChecked={checked.has(item.meeting.id)}
+              anyChecked={checked.size > 0}
+              onToggleCheck={onToggleCheck}
+              onExtendChecks={(toId) => {
+                onExtendChecks(cursorId ?? toId, toId);
+              }}
               onCursorChange={onCursorChange}
               onOpen={onOpen}
               onOpenSummary={onOpenSummary}
@@ -219,16 +246,79 @@ export function MeetingGrid({
   );
 }
 
+/**
+ * A check of the row or the day. Only the pointer and assistive tech reach it: the keyboard checks
+ * with Space on the row, so the grid keeps its one tab stop. Pressing it leaves the focus where it
+ * was, and the click stops here, so it does not count as a click on the row.
+ */
+function RowCheck({
+  label,
+  state,
+  anyChecked,
+  onToggle,
+}: {
+  readonly label: string;
+  readonly state: boolean | 'mixed';
+  readonly anyChecked: boolean;
+  readonly onToggle: (event: MouseEvent<HTMLSpanElement>) => void;
+}) {
+  return (
+    <span
+      role="checkbox"
+      aria-label={label}
+      aria-checked={state}
+      tabIndex={-1}
+      title={label}
+      onMouseDown={(event) => {
+        event.preventDefault();
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle(event);
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+      }}
+      className={cn(
+        'flex size-6 shrink-0 items-center justify-center transition-opacity duration-150 ease-out-quick forced-colors:opacity-100',
+        anyChecked || state !== false
+          ? 'opacity-100'
+          : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex size-4 items-center justify-center rounded-control border text-on-ink forced-colors:text-[HighlightText]',
+          state === false
+            ? 'border-border-control bg-paper'
+            : 'border-ink bg-ink forced-colors:bg-[Highlight]',
+        )}
+      >
+        {state === false ? null : <Icon icon={state === 'mixed' ? Minus : Check} size={12} />}
+      </span>
+    </span>
+  );
+}
+
 function DayHeader({
   item,
   rowIndex,
   sticky,
   offset,
+  checkLabel,
+  checkState,
+  anyChecked,
+  onToggle,
 }: {
   readonly item: Extract<GridItem, { kind: 'header' }>;
   readonly rowIndex: number;
   readonly sticky: boolean;
   readonly offset: number;
+  readonly checkLabel: string;
+  readonly checkState: boolean | 'mixed';
+  readonly anyChecked: boolean;
+  readonly onToggle: () => void;
 }) {
   return (
     <div
@@ -237,16 +327,25 @@ function DayHeader({
       data-sticky={sticky ? 'true' : undefined}
       style={sticky ? undefined : { transform: `translateY(${String(offset)}px)` }}
       className={cn(
-        'flex h-8 w-full items-center border-b border-hairline bg-paper px-4',
+        'group flex h-8 w-full items-center border-b border-hairline bg-paper ps-4 pe-1.5',
         sticky ? 'sticky top-0 z-10' : 'absolute start-0 top-0',
       )}
     >
       <div
         role="rowheader"
         aria-colspan={COLUMN_COUNT}
-        className="truncate text-ui font-medium text-ink"
+        className="flex min-w-0 flex-1 items-center justify-between gap-2 text-ui font-medium text-ink"
       >
-        {item.label}
+        <span className="truncate">{item.label}</span>
+        {/* The margin is the width of the row's More actions, so the checks line up. */}
+        <span className="me-8 flex">
+          <RowCheck
+            label={checkLabel}
+            state={checkState}
+            anyChecked={anyChecked}
+            onToggle={onToggle}
+          />
+        </span>
       </div>
     </div>
   );
@@ -280,6 +379,10 @@ interface MeetingRowProps {
   readonly isCursor: boolean;
   readonly isTabStop: boolean;
   readonly clickOpens: boolean;
+  readonly isChecked: boolean;
+  readonly anyChecked: boolean;
+  readonly onToggleCheck: (id: string) => void;
+  readonly onExtendChecks: (toId: string) => void;
   readonly onCursorChange: (id: string) => void;
   readonly onOpen: (id: string) => void;
   readonly onOpenSummary: (id: string) => void;
@@ -298,6 +401,10 @@ function MeetingRow({
   isCursor,
   isTabStop,
   clickOpens,
+  isChecked,
+  anyChecked,
+  onToggleCheck,
+  onExtendChecks,
   onCursorChange,
   onOpen,
   onOpenSummary,
@@ -338,11 +445,22 @@ function MeetingRow({
   };
   const onClick = (event: MouseEvent<HTMLDivElement>): void => {
     if (!isRowClick(event)) return;
+    if (event.shiftKey) {
+      onExtendChecks(meeting.id);
+      onCursorChange(meeting.id);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey) {
+      onToggleCheck(meeting.id);
+      onCursorChange(meeting.id);
+      return;
+    }
     onCursorChange(meeting.id);
     if (clickOpens) onOpen(meeting.id);
   };
   const onDoubleClick = (event: MouseEvent<HTMLDivElement>): void => {
-    if (isRowClick(event) && !clickOpens) onOpen(meeting.id);
+    const plain = !event.shiftKey && !event.ctrlKey && !event.metaKey;
+    if (isRowClick(event) && plain && !clickOpens) onOpen(meeting.id);
   };
   return (
     <ContextMenu
@@ -351,7 +469,7 @@ function MeetingRow({
         <div
           role="row"
           aria-rowindex={rowIndex}
-          aria-selected={false}
+          aria-selected={isChecked}
           tabIndex={isTabStop ? 0 : -1}
           data-row-id={meeting.id}
           data-cursor={isCursor ? 'true' : undefined}
@@ -365,13 +483,13 @@ function MeetingRow({
       }
       className={cn(
         'group absolute start-0 top-0 flex h-16 w-full cursor-default items-stretch border-b border-hairline ps-4 pe-1.5 outline-offset-[-2px] select-none',
-        'transition-colors duration-150 ease-out-quick hover:bg-hover',
+        'transition-colors duration-150 ease-out-quick hover:bg-hover not-data-cursor:aria-selected:bg-hover',
         'data-cursor:bg-pressed forced-colors:data-cursor:bg-[Highlight] forced-colors:data-cursor:text-[HighlightText]',
       )}
     >
       <div
         role="gridcell"
-        className="tabular flex w-16 shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint group-data-cursor:text-ink-muted forced-colors:text-[CanvasText]"
+        className="tabular flex w-16 shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint group-hover:text-ink-muted group-aria-selected:text-ink-muted group-data-cursor:text-ink-muted forced-colors:text-[CanvasText]"
       >
         <time dateTime={meeting.recordedAt} title={formatMeetingDate(meeting.recordedAt, locale)}>
           {formatMeetingTime(meeting.recordedAt, locale)}
@@ -387,6 +505,15 @@ function MeetingRow({
         </span>
       </div>
       <div role="gridcell" className="flex shrink-0 items-center">
+        <RowCheck
+          label={labels.checkMeeting(meeting.title)}
+          state={isChecked}
+          anyChecked={anyChecked}
+          onToggle={(event) => {
+            if (event.shiftKey) onExtendChecks(meeting.id);
+            else onToggleCheck(meeting.id);
+          }}
+        />
         <Menu
           align="end"
           entries={entries}

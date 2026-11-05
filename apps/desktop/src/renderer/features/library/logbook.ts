@@ -57,6 +57,17 @@ export function buildGridItems(
   return items;
 }
 
+/** The meetings under the header at this index, up to the next header. */
+export function meetingsOfDay(items: readonly GridItem[], headerIndex: number): readonly string[] {
+  const ids: string[] = [];
+  for (let index = headerIndex + 1; index < items.length; index += 1) {
+    const item = items[index];
+    if (item?.kind !== 'meeting') break;
+    ids.push(item.meeting.id);
+  }
+  return ids;
+}
+
 /** The header that sticks: the last one at or before the first row in view. */
 export function activeHeaderIndex(items: readonly GridItem[], startIndex: number): number | null {
   for (let index = Math.min(startIndex, items.length - 1); index >= 0; index -= 1) {

@@ -138,6 +138,16 @@ export function installFakeApi(options: { startupError?: string | null } = {}) {
         if (result.ok) emit('library.changed', { reason: 'meeting' });
         return result;
       }
+      case 'library.moveMeetings': {
+        const results = await service.moveMeetings(input as never);
+        if (results.some((r) => r.ok)) emit('library.changed', { reason: 'meeting' });
+        return { results };
+      }
+      case 'library.deleteMeetings': {
+        const results = await service.deleteMeetings(input as never);
+        if (results.some((r) => r.ok)) emit('library.changed', { reason: 'meeting' });
+        return { results };
+      }
       case 'library.search':
         return service.search(input as never);
       case 'library.isMeetingBusy':

@@ -93,9 +93,22 @@ export interface LibraryModel {
     meetingId: string,
     mode?: MeetingDeleteModeDto,
   ) => Promise<'deleted' | 'trash-failed' | 'failed'>;
+  /** Moves several in one request. Returns the ids that did not move. */
+  readonly moveMeetings: (
+    meetingIds: readonly string[],
+    folderId: string | null,
+  ) => Promise<readonly string[]>;
+  /** Deletes several in one request. Failed ids stay; refused ids can go permanently instead. */
+  readonly deleteMeetings: (
+    meetingIds: readonly string[],
+    mode: MeetingDeleteModeDto,
+  ) => Promise<{ readonly failed: readonly string[]; readonly refused: readonly string[] }>;
   readonly openMeeting: (meetingId: string, tab: 'Transcript' | 'Summary') => void;
   readonly goRecord: () => void;
 }
+
+const messageOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 /**
  * What the Library route works with: the store's last load seen through the current view and search
@@ -255,6 +268,51 @@ export function useLibrary(locale: string, inboxLabel: string): LibraryModel {
       await refreshLibrary();
       if (result.ok) return 'deleted';
       return result.reason === 'trash-failed' ? 'trash-failed' : 'failed';
+    },
+    moveMeetings: async (meetingIds, folderId) => {
+      try {
+        const { results } = await window.vozella.invoke('library.moveMeetings', {
+          meetingIds,
+          folderId,
+        });
+        const failed = results.filter((r) => !r.ok).map((r) => r.meetingId);
+        if (failed.length > 0) {
+          setStatus({
+            key: 'Ui_LibraryBulkMoveFailed',
+            args: [String(failed.length), String(meetingIds.length)],
+          });
+        }
+        await refreshLibrary();
+        return failed;
+      } catch (error) {
+        setStatus({ key: 'Ui_LibraryMoveFailed', args: [messageOf(error)] });
+        return meetingIds;
+      }
+    },
+    deleteMeetings: async (meetingIds, mode) => {
+      try {
+        const { results } = await window.vozella.invoke('library.deleteMeetings', {
+          meetingIds,
+          mode,
+        });
+        const refused = results
+          .filter((r) => !r.ok && r.reason === 'trash-failed')
+          .map((r) => r.meetingId);
+        const failed = results
+          .filter((r) => !r.ok && r.reason !== 'trash-failed')
+          .map((r) => r.meetingId);
+        if (failed.length > 0) {
+          setStatus({
+            key: 'Ui_LibraryBulkDeleteFailed',
+            args: [String(failed.length), String(meetingIds.length)],
+          });
+        }
+        await refreshLibrary();
+        return { failed, refused };
+      } catch (error) {
+        setStatus({ key: 'HistoryDelete_Failed', args: [messageOf(error)] });
+        return { failed: meetingIds, refused: [] };
+      }
     },
     openMeeting: (meetingId, tab) => {
       void (async () => {

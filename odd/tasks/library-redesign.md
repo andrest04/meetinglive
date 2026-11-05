@@ -108,7 +108,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 ### Batch 3: preview, search UI, bulk, keyboard, drag (about 1,250)
 - [x] T3.1 Preview pane
 - [x] T3.2 Two-stage search UI
-- [ ] T3.3 Multi-select and bulk bar
+- [x] T3.3 Multi-select and bulk bar
 - [ ] T3.4 Keyboard
 - [ ] T3.5 Drag to folders, Undo
 
@@ -163,7 +163,8 @@ Each batch writer records its commit hashes and observed check results here. A c
 
 ### Batch 3 (`feat/library-redesign-b3-interactions`)
 - T3.1 `feat(library): a click previews the meeting beside the list`.  `2714bb0` RED: 18 of 108 focused tests failed on the missing preview, `formatMeetingSpan` and `nextCursor`, then passed. Focused unit: 108 passed. `playwright test` with `VOZELLA_E2E_BACKGROUND=1` over `library-grid`, `library-ui`, `session-shell`, `chat-bar`, `chat-recipes`, `transcription-ui`: 36 passed, 3 skipped, 1 failed on the first run. The failure was real: the time on the cursor row was `ink-faint` on `pressed`, under AA, and autoselect now always shows such a row. The cursor row uses `ink-muted` for it, and `library-ui.spec.ts` then passed, 8 of 8. `transcription-screens.spec.ts` was edited for double click and did not run, because it is gated on screenshots. Choices: Open meeting opens the tab the preview shows; a row that goes away moves the cursor to the next row; the audit test at item 117 now finds the row by role, because the preview repeats the title (its only change).
-- T3.2 `feat(library): search reads inside meetings as well as titles`. RED: 8 route tests failed and `search-results.test.ts` failed on the missing module, then passed. Focused unit: 124 passed. `playwright test e2e/library-ui.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 8 passed, 2.5 min, including a word found only in a transcript through the real channel, with its `<mark>`. Choices: while the second stage reads, the list holds title matches only, because an answer for other text says nothing about this one; "No meetings match your search." waits for that answer; if the second stage fails the title matches stay and the line says only titles were searched; a change in the library asks again without flicker.
+- T3.2 `feat(library): search reads inside meetings as well as titles`.  `d655c8f` RED: 8 route tests failed and `search-results.test.ts` failed on the missing module, then passed. Focused unit: 124 passed. `playwright test e2e/library-ui.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: 8 passed, 2.5 min, including a word found only in a transcript through the real channel, with its `<mark>`. Choices: while the second stage reads, the list holds title matches only, because an answer for other text says nothing about this one; "No meetings match your search." waits for that answer; if the second stage fails the title matches stay and the line says only titles were searched; a change in the library asks again without flicker.
+- T3.3 `feat(library): check several meetings and act on them together`. RED: 10 route tests failed and `library-selection.test.ts` failed on the missing module, then passed. Focused unit: 143 passed. New `library-interactions.spec.ts` with `VOZELLA_E2E_BACKGROUND=1`: failed first on `color-contrast`, because `ink-faint` time on a checked row is under AA, then 1 passed (30 s), with the files checked on disk and axe run with the bar up. Choices: the row and day checks are not tab stops, because Space checks from the row and the grid keeps its one stop; the day checks therefore have no keyboard route of their own, and Shift+arrow gives the same result; a plain click never clears checks; a row action from a checked row applies to the set; meetings that failed stay checked.
 
 ## Next step
 
