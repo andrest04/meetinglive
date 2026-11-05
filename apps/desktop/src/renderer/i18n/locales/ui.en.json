@@ -25,6 +25,7 @@
   "Ui_LibraryResetFolder": "Use the default folder",
   "Ui_LibraryFolderRefused": "That folder cannot be used. {0}",
   "Ui_LibraryFolderShared": "This folder holds a library from an earlier version. Both versions read and write the same files.",
+  "Ui_LibraryAll": "All",
   "Ui_LibraryFolders": "Folders",
   "Ui_LibraryFolderActions": "Folder actions",
   "Ui_LibraryOpenFailed": "The folder could not be opened: {0}",

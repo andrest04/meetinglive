@@ -1,5 +1,12 @@
 import { ChevronRight } from 'lucide-react';
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { cn } from './cn';
 import { Icon } from './Icon';
 import { ContextMenu, type MenuEntry } from './Menu';
@@ -19,6 +26,12 @@ export interface TreeProps {
   readonly onExpandedChange?: (ids: ReadonlySet<string>) => void;
   /** Right click or the Menu key on a row. Return nothing for rows without a menu. */
   readonly nodeMenu?: (id: string) => readonly MenuEntry[] | undefined;
+  /** A row with a menu is selected before the menu opens, unless this is false. */
+  readonly selectOnContextMenu?: boolean;
+  /** Extra attributes for a row, for example drop targets. The tree's own role and state win. */
+  readonly rowProps?: (id: string) => HTMLAttributes<HTMLLIElement> | undefined;
+  /** Drawn at the end of a row, for example a count. */
+  readonly trailing?: (id: string) => ReactNode;
   readonly className?: string;
 }
 
@@ -32,6 +45,9 @@ export function Tree({
   expandedIds: controlledIds,
   onExpandedChange,
   nodeMenu,
+  selectOnContextMenu = true,
+  rowProps: extraRowProps,
+  trailing,
   className,
 }: TreeProps) {
   const [ownIds, setOwnIds] = useState<ReadonlySet<string>>(() => new Set(defaultExpandedIds));
@@ -78,7 +94,10 @@ export function Tree({
     >
       {items.map((item) => {
         const selected = item.node.id === selectedId;
+        const extra = extraRowProps?.(item.node.id);
+        const end = trailing?.(item.node.id);
         const rowProps = {
+          ...extra,
           role: 'treeitem',
           'aria-level': item.level,
           'aria-posinset': item.posInSet,
@@ -102,6 +121,7 @@ export function Tree({
             'transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink',
             selected && 'bg-pressed font-medium text-ink',
             'forced-colors:aria-selected:bg-[Highlight] forced-colors:aria-selected:text-[HighlightText]',
+            extra?.className,
           ),
         } as const;
         const content = (
@@ -147,6 +167,8 @@ export function Tree({
               />
             ) : null}
             <span className="truncate">{item.node.label}</span>
+            {/* The space keeps the end text a separate word in the accessible name. */}
+            {end ? <> {end}</> : null}
           </>
         );
         const menu = nodeMenu?.(item.node.id);
@@ -159,7 +181,7 @@ export function Tree({
                 {...rowProps}
                 // A row with a menu is selected first, so the menu acts on what is selected.
                 onContextMenu={() => {
-                  if (!selected) onSelect(item.node.id);
+                  if (selectOnContextMenu && !selected) onSelect(item.node.id);
                 }}
               />
             }

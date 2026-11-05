@@ -1,7 +1,7 @@
 import { resolveAccentKey, resolveIconKey } from '@vozella/core';
 import type { MeetingListItemDto } from '@vozella/contracts';
-import { FolderPlus, Ellipsis, PanelLeft, Palette, Pencil, Search, Trash } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Ellipsis, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import {
@@ -13,22 +13,17 @@ import {
   SectionHeader,
   Skeleton,
   Textarea,
-  Tree,
   Icon,
   Menu,
   Field,
-  cn,
-  type MenuEntry,
 } from '../../ui';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ConfirmDialog, MoveDialog, NameDialog, PersonalityDialog } from './dialogs';
-import { INBOX_NODE_ID, buildTreeNodes } from './folder-visuals';
+import { clearFolderRequest, useLibraryStore, type FolderRequest } from './library-store';
+import { folderMenuEntries } from './LibraryFolders';
 import { MeetingList } from './MeetingList';
 import { describeSkipped } from './format';
 import { useLibrary, type StatusMessage } from './use-library';
-
-/** At or above this width of the page area the folder pane stays open beside the list. */
-const WIDE_LAYOUT_PX = 600;
 
 type DialogState =
   | { readonly kind: 'newFolder' }
@@ -39,31 +34,10 @@ type DialogState =
   | { readonly kind: 'deleteMeeting'; readonly meeting: MeetingListItemDto }
   | { readonly kind: 'deleteMeetingPermanently'; readonly meeting: MeetingListItemDto };
 
-function useWideLayout(): { ref: React.RefObject<HTMLDivElement | null>; wide: boolean } {
-  const ref = useRef<HTMLDivElement>(null);
-  const [wide, setWide] = useState(true);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const measure = (): void => {
-      setWide(element.clientWidth >= WIDE_LAYOUT_PX);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-  return { ref, wide };
-}
-
-/** The Library page: folder tree, breadcrumbs, search, the meeting list and the folder dialogs. */
+/** The Library page: breadcrumbs, search, the meeting list and the dialogs of the folders. */
 export function LibraryRoute() {
   const { t, locale } = useI18n();
   const library = useLibrary(locale, t('Library_Inbox'));
-  const { ref: layoutRef, wide } = useWideLayout();
-  const [paneOpen, setPaneOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [skippedDismissed, setSkippedDismissed] = useState(false);
@@ -75,8 +49,6 @@ export function LibraryRoute() {
   }, []);
 
   const text = (message: StatusMessage): string => t(message.key, ...message.args);
-  const nodes = useMemo(() => buildTreeNodes(library.tree, t('Library_Inbox')), [library.tree, t]);
-  const treeSelected = library.selectedId ?? INBOX_NODE_ID;
   const folderName = (id: string): string => library.folders.find((f) => f.id === id)?.name ?? '';
 
   const crumbs = library.breadcrumbs.map((crumb) => ({
@@ -84,55 +56,32 @@ export function LibraryRoute() {
     label: crumb.folderId === null ? t('Library_Inbox') : folderName(crumb.folderId),
   }));
 
-  const folderEntries = (folderId: string): MenuEntry[] => [
-    {
-      id: 'rename',
-      label: t('LibraryContext_Rename'),
-      icon: Pencil,
-      onSelect: () => {
-        setDialog({ kind: 'rename', folderId, name: folderName(folderId) });
-      },
-    },
-    {
-      id: 'personality',
-      label: t('LibraryContext_Personality'),
-      icon: Palette,
-      onSelect: () => {
-        setDialog({ kind: 'personality', folderId });
-      },
-    },
-    {
-      id: 'delete',
-      label: t('LibraryContext_Delete'),
-      icon: Trash,
-      onSelect: () => {
-        if (library.canDeleteFolder(folderId)) {
-          setDialog({ kind: 'deleteFolder', folderId, name: folderName(folderId) });
-        } else {
-          library.showStatus({ key: 'LibraryDeleteFolder_NotEmpty', args: [] });
-        }
-      },
-    },
-  ];
-
-  const select = (id: string | null): void => {
-    library.selectFolder(id);
-    setPaneOpen(false);
+  const runFolderAction = (request: FolderRequest): void => {
+    if (request.kind === 'new') setDialog({ kind: 'newFolder' });
+    else if (request.kind === 'rename') {
+      setDialog({ kind: 'rename', folderId: request.folderId, name: folderName(request.folderId) });
+    } else if (request.kind === 'personality') {
+      setDialog({ kind: 'personality', folderId: request.folderId });
+    } else if (library.canDeleteFolder(request.folderId)) {
+      setDialog({
+        kind: 'deleteFolder',
+        folderId: request.folderId,
+        name: folderName(request.folderId),
+      });
+    } else {
+      library.showStatus({ key: 'LibraryDeleteFolder_NotEmpty', args: [] });
+    }
   };
 
-  const tree = (
-    <Tree
-      label={t('Ui_LibraryFolders')}
-      nodes={nodes}
-      selectedId={treeSelected}
-      expandedIds={library.expandedIds}
-      onExpandedChange={library.setExpandedIds}
-      onSelect={(id) => {
-        select(id === INBOX_NODE_ID ? null : id);
-      }}
-      nodeMenu={(id) => (id === INBOX_NODE_ID ? undefined : folderEntries(id))}
-    />
-  );
+  // The sidebar cannot open dialogs: it leaves the request here, also from another screen.
+  const folderRequest = useLibraryStore((state) => state.folderRequest);
+  const runRequest = useRef(runFolderAction);
+  runRequest.current = runFolderAction;
+  useEffect(() => {
+    if (!folderRequest) return;
+    clearFolderRequest();
+    runRequest.current(folderRequest);
+  }, [folderRequest]);
 
   const closeDialog = (): void => {
     setDialog(null);
@@ -170,30 +119,9 @@ export function LibraryRoute() {
           : null;
 
   return (
-    <section ref={layoutRef} className="relative flex flex-col gap-5">
+    <section className="relative flex flex-col gap-5">
       <div className="flex items-end justify-between gap-4">
         <SectionHeader level={1} quiet title={t('HistoryPage_Title.Text')} />
-        <div className="flex shrink-0 items-center gap-2">
-          {wide ? null : (
-            <IconButton
-              label={t('Chat_ScopeFolder')}
-              icon={PanelLeft}
-              variant="secondary"
-              aria-expanded={paneOpen}
-              onClick={() => {
-                setPaneOpen((open) => !open);
-              }}
-            />
-          )}
-          <Button
-            icon={FolderPlus}
-            onClick={() => {
-              setDialog({ kind: 'newFolder' });
-            }}
-          >
-            {t('Library_NewFolderLabel.Text')}
-          </Button>
-        </div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -224,27 +152,19 @@ export function LibraryRoute() {
         ) : null}
       </div>
 
-      <div className={cn('relative grid gap-x-8', wide && 'grid-cols-[12.5rem_minmax(0,1fr)]')}>
-        {wide ? <aside className="min-w-0">{tree}</aside> : null}
-        {!wide && paneOpen ? (
-          <aside
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setPaneOpen(false);
-            }}
-            className="absolute start-0 top-12 z-20 max-h-[60vh] w-60 overflow-y-auto rounded-overlay border border-hairline bg-paper-raised p-1.5 shadow-overlay"
-          >
-            {tree}
-          </aside>
-        ) : null}
-
+      <div className="relative">
         <div className="flex min-w-0 flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex min-w-0 items-center gap-1">
-              <Breadcrumbs crumbs={crumbs} label={t('Chat_ScopeFolder')} onSelect={select} />
+              <Breadcrumbs
+                crumbs={crumbs}
+                label={t('Chat_ScopeFolder')}
+                onSelect={library.selectFolder}
+              />
               {library.selectedFolder ? (
                 <Menu
                   align="start"
-                  entries={folderEntries(library.selectedFolder.id)}
+                  entries={folderMenuEntries(t, library.selectedFolder.id, runFolderAction)}
                   trigger={
                     <IconButton label={t('Ui_LibraryFolderActions')} icon={Ellipsis} size="sm" />
                   }

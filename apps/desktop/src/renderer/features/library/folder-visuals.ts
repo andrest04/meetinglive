@@ -22,6 +22,7 @@ import {
   Mail,
   MessageSquare,
   Pin,
+  Rows3,
   Star,
   Tag,
   Toolbox,
@@ -56,6 +57,7 @@ export const FOLDER_ICONS: Readonly<Record<IconKey, LucideIcon>> = {
   toolbox: Toolbox,
 };
 
+export const ALL_NODE_ID = '__all__';
 export const INBOX_NODE_ID = '__inbox__';
 
 /** CSS color for an accent key. The values live in tokens.css, per theme. */
@@ -77,8 +79,12 @@ export function folderIcon(folder: FolderLike): LucideIcon {
   return FOLDER_ICONS[resolveIconKey(folder.iconKey)];
 }
 
-/** Inbox first and always virtual, then the real folders as the tree wants them. */
-export function buildTreeNodes(tree: readonly FolderNode[], inboxLabel: string): TreeNode[] {
+/** All and Inbox first and always virtual, then the real folders as the tree wants them. */
+export function buildTreeNodes(
+  tree: readonly FolderNode[],
+  inboxLabel: string,
+  allLabel: string,
+): TreeNode[] {
   const toNode = (node: FolderNode): TreeNode => ({
     id: node.folder.id,
     label: node.folder.name,
@@ -86,5 +92,9 @@ export function buildTreeNodes(tree: readonly FolderNode[], inboxLabel: string):
     accent: folderAccent(node.folder),
     children: node.children.map(toNode),
   });
-  return [{ id: INBOX_NODE_ID, label: inboxLabel, icon: Inbox, accent: null }, ...tree.map(toNode)];
+  return [
+    { id: ALL_NODE_ID, label: allLabel, icon: Rows3, accent: null },
+    { id: INBOX_NODE_ID, label: inboxLabel, icon: Inbox, accent: null },
+    ...tree.map(toNode),
+  ];
 }

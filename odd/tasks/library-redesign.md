@@ -101,7 +101,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 - [x] T1.4 Full-text search with timing harness
 
 ### Batch 2: shell, sidebar, list (about 1,250)
-- [ ] T2.1 Folders move to the sidebar, with store and counts
+- [x] T2.1 Folders move to the sidebar, with store and counts
 - [ ] T2.2 Paned layout and folder header
 - [ ] T2.3 Date-grouped virtual grid (`pnpm --filter @vozella/desktop add -E @tanstack/react-virtual`)
 
@@ -149,6 +149,10 @@ Each batch writer records its commit hashes and observed check results here. A c
     - `library.load` first run: 985 ms at 13 MB, about 2 s at 78 MB, about 2.7 s at 156 MB; second run about 70 ms.
   - Choices the document left open: indexing keeps the folded text it already parsed, so a search after `library.load` reads nothing twice; the cache will not evict what the last two searches used, because a repeated full scan otherwise gets no hits at all once the library outgrows the cap; stamps and speaker tags are not searchable; `summary` also holds action items, follow up and project plan, `notes` also holds brief and attendees; a query shorter than 2 characters returns no hits.
   - The e2e for T1.3's bulk channels landed with this commit, in `library.spec.ts`.
+
+### Batch 2 (`feat/library-redesign-b2-shell`)
+
+- T2.1 `feat(library): folders live in the sidebar, backed by a shared store`. RED: the new store and sidebar tests failed on the missing modules and the three new `Tree` tests failed, then passed. Focused unit and e2e results are in this batch's closing report. Choices: an empty All shows the empty library copy with its Record action, even when folders exist; a stored folder that no longer exists lands on the Inbox; opening the route still reloads, because a store that outlives the route would otherwise miss files that appeared with no change event; counts of zero are not drawn; `LibraryRoute.audit.test.tsx` changed only in the mount line and import, since the tree no longer lives inside the route. The `TreeNode` type stays as it was: counts come through a `trailing` prop.
 
 ## Next step
 

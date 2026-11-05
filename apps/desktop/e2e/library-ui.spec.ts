@@ -60,6 +60,7 @@ test('browse, search, open a meeting and its summary', async () => {
   });
   await goTo('Settings');
   await goTo('Library');
+  await page.getByRole('treeitem', { name: /Inbox/ }).click();
 
   const list = page.getByRole('list', { name: 'Library' });
   await expect(list.getByRole('listitem')).toHaveCount(2);
@@ -115,7 +116,7 @@ test('folders: create, note, move a meeting into it, rename, restyle, keep a ful
     'aria-selected',
     'true',
   );
-  await page.getByRole('treeitem', { name: /^Universidad$/ }).click();
+  await page.getByRole('treeitem', { name: /^Universidad/ }).click();
   await page.getByRole('button', { name: 'New folder' }).click();
   const dup = page.getByRole('dialog', { name: 'New folder in Universidad' });
   await dup.getByRole('textbox', { name: 'Name' }).fill('calculo');
@@ -145,7 +146,7 @@ test('folders: create, note, move a meeting into it, rename, restyle, keep a ful
   expect(fs.existsSync(path.join(libraryRoot, 'Inbox', '2026-09-03 Planning.md'))).toBe(false);
 
   // Rename from the context menu: the directory follows.
-  await page.getByRole('treeitem', { name: /^Universidad$/ }).click({ button: 'right' });
+  await page.getByRole('treeitem', { name: /^Universidad/ }).click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Rename' }).click();
   const rename = page.getByRole('dialog', { name: 'Rename folder' });
   await rename.getByRole('textbox', { name: 'Name' }).fill('Estudios');

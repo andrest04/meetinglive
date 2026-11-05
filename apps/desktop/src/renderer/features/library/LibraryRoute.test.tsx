@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { LibraryRoute } from './LibraryRoute';
-import { Providers, folderRecord, installFakeApi, meetingRecord } from './library-test-kit';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { useLibraryStore } from './library-store';
+import {
+  LibraryScreen,
+  Providers,
+  folderRecord,
+  installFakeApi,
+  meetingRecord,
+} from './library-test-kit';
 
 beforeAll(() => {
   // jsdom has no layout: report a wide page so the folder pane is inline.
@@ -51,7 +57,7 @@ async function mount(setup?: (api: ReturnType<typeof installFakeApi>) => void) {
   const user = userEvent.setup();
   render(
     <Providers>
-      <LibraryRoute />
+      <LibraryScreen />
     </Providers>,
   );
   await waitFor(() => {
@@ -104,7 +110,8 @@ describe('empty states', () => {
 
 describe('the list', () => {
   it('lists the inbox newest first, with unknown folders filed there, and a snippet', async () => {
-    await mount(seed);
+    const { user } = await mount(seed);
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
     const list = screen.getByRole('list', { name: 'Library' });
     const rows = within(list).getAllByRole('listitem');
     expect(rows.map((row) => within(row).getAllByRole('button')[0]?.textContent)).toEqual([
@@ -144,11 +151,11 @@ describe('the list', () => {
 });
 
 describe('folders', () => {
-  it('shows the tree with Inbox first and expands only what leads to the selection', async () => {
+  it('shows All, then Inbox, and expands only what leads to the selection', async () => {
     await mount(seed);
     const items = screen.getAllByRole('treeitem');
-    expect(items.map((item) => item.textContent)).toEqual(['Inbox', 'Universidad']);
-    expect(items[1]).toHaveAttribute('aria-expanded', 'false');
+    expect(items.map((item) => item.textContent)).toEqual(['All 3', 'Inbox 2', 'Universidad 1']);
+    expect(items[2]).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('selects a folder, shows its path and its note', async () => {
@@ -246,15 +253,6 @@ describe('folders', () => {
       'aria-selected',
       'true',
     );
-  });
-
-  it('has no folder menu on Inbox', async () => {
-    const { user } = await mount(seed);
-    await user.pointer({
-      keys: '[MouseRight]',
-      target: screen.getByRole('treeitem', { name: /Inbox/ }),
-    });
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('saves the personality with the picked color and icon', async () => {
@@ -385,6 +383,7 @@ describe('folder note', () => {
 describe('moving and deleting a meeting', () => {
   it('moves to a folder path, preselecting the current folder', async () => {
     const { api, user } = await mount(seed);
+    await user.click(screen.getByRole('treeitem', { name: /Inbox/ }));
     const row = rowOf(/Standup/);
     await user.click(within(row).getByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Move' }));
@@ -491,23 +490,57 @@ describe('moving and deleting a meeting', () => {
   });
 });
 
-describe('narrow layout', () => {
-  it('keeps the folder pane closed until asked, and closes it after a choice', async () => {
-    pageWidth = 480;
-    const { user } = await mount(seed);
-    expect(screen.queryByRole('tree')).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: 'Folder' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    await user.click(toggle);
-    expect(screen.getByRole('tree', { name: 'Folders' })).toBeInTheDocument();
-    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
-    expect(screen.queryByRole('tree')).not.toBeInTheDocument();
+describe('the All view', () => {
+  it('opens on All with every meeting', async () => {
+    await mount(seed);
     expect(screen.getByText('Planning')).toBeInTheDocument();
+    expect(screen.getByText('Standup')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
   });
 
-  it('shows no toggle when the page is wide', async () => {
-    await mount(seed);
-    expect(screen.queryByRole('button', { name: 'Folder' })).not.toBeInTheDocument();
-    expect(screen.getByRole('tree')).toBeInTheDocument();
+  it('asks to record when nothing is recorded, even with folders', async () => {
+    await mount((api) => {
+      api.folders.folders = [folderRecord(UNI, 'Universidad')];
+    });
+    expect(screen.getByText('No meetings recorded yet.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record a meeting' })).toBeInTheDocument();
+  });
+
+  it('carries out a folder action asked for from the sidebar', async () => {
+    const { user } = await mount(seed);
+    await user.click(screen.getByRole('button', { name: 'New folder' }));
+    expect(await screen.findByRole('dialog', { name: 'New folder' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(useLibraryStore.getState().folderRequest).toBeNull();
+    });
+  });
+});
+
+describe('the note and the debounced reload', () => {
+  it('B16: a character typed while the debounced reload is really in flight is kept', async () => {
+    const { api, user } = await mount(seed);
+    await user.click(screen.getByRole('treeitem', { name: /Universidad/ }));
+    let release: (() => void) | null = null;
+    const original = api.service.load.bind(api.service);
+    vi.spyOn(api.service, 'load').mockImplementationOnce(async () => {
+      const stale = await original();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return stale;
+    });
+    const note = screen.getByRole('textbox', { name: 'Folder notes' });
+    await user.type(note, 'A');
+    // Unlike the audit test, wait until the reload has passed the debounce and sits on the gate.
+    await waitFor(
+      () => {
+        expect(release).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
+    await user.type(note, 'B');
+    (release as unknown as () => void)();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole('textbox', { name: 'Folder notes' })).toHaveValue('Fall termAB');
   });
 });

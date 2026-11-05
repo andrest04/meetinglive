@@ -3,8 +3,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { formatMeetingDate } from './format';
-import { LibraryRoute } from './LibraryRoute';
-import { Providers, folderRecord, installFakeApi, meetingRecord } from './library-test-kit';
+import {
+  LibraryScreen,
+  Providers,
+  folderRecord,
+  installFakeApi,
+  meetingRecord,
+} from './library-test-kit';
 
 beforeAll(() => {
   class FakeResizeObserver {
@@ -39,7 +44,7 @@ async function mount(
   const user = userEvent.setup();
   const { unmount } = render(
     <Providers>
-      <LibraryRoute />
+      <LibraryScreen />
     </Providers>,
   );
   if (options.waitForLoad !== false) {

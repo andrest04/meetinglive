@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { CloseDialogs } from '../record/CloseDialogs';
 import { connectLiveAsk } from '../record/use-live-ask';
+import { connectLibrary } from '../library/library-store';
+import { LibraryFolders, type SidebarLocation } from '../library/LibraryFolders';
 import { ChatBar } from '../chat/ChatBar';
 import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
@@ -40,6 +42,8 @@ export function AppShell() {
   useWorkspaceNavigation();
   // The live answer and the close dialogs belong to the window, not to one page.
   useEffect(() => connectLiveAsk(), []);
+  // The sidebar shows the folders on every route, so the library store belongs to the window too.
+  useEffect(() => connectLibrary(), []);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   // The library has a folder pane beside its list, so it gets a wider column than the documents.
   const wide = pathname === '/library' || pathname === '/record';
@@ -82,8 +86,14 @@ export function AppShell() {
   );
 }
 
+function sidebarLocation(pathname: string): SidebarLocation {
+  if (pathname === '/library') return 'library';
+  return pathname === '/session' ? 'session' : 'elsewhere';
+}
+
 function Sidebar() {
   const t = useT();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
     <aside className="flex h-full flex-col bg-paper-raised">
       <div className="app-drag flex h-10 shrink-0 items-center gap-2 px-4">
@@ -92,7 +102,7 @@ function Sidebar() {
           {t('AppTitleBar.Title')}
         </span>
       </div>
-      <NavRail />
+      <NavRail librarySlot={<LibraryFolders location={sidebarLocation(pathname)} />} />
     </aside>
   );
 }

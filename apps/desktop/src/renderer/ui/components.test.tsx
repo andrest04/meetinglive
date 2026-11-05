@@ -294,6 +294,75 @@ describe('Tree controlled expansion and row menus', () => {
   });
 });
 
+describe('Tree extension points', () => {
+  const nodes: TreeNode[] = [
+    { id: 'inbox', label: 'Inbox', accent: null },
+    { id: 'clients', label: 'Clients', accent: 'red' },
+  ];
+  const menu = (id: string) =>
+    id === 'clients' ? [{ id: 'rename', label: 'Rename', onSelect: () => undefined }] : undefined;
+
+  it('selects on right click by default, and not when told otherwise', async () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <Tree label="Folders" nodes={nodes} selectedId={null} onSelect={onSelect} nodeMenu={menu} />,
+    );
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: 'Clients' }),
+    });
+    expect(onSelect).toHaveBeenCalledWith('clients');
+    await userEvent.keyboard('{Escape}');
+    onSelect.mockClear();
+    rerender(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={onSelect}
+        nodeMenu={menu}
+        selectOnContextMenu={false}
+      />,
+    );
+    await userEvent.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: 'Clients' }),
+    });
+    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('passes extra row props through and keeps its own class', () => {
+    render(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={() => undefined}
+        rowProps={(id) => (id === 'inbox' ? { className: 'mb-3', title: 'drop here' } : undefined)}
+      />,
+    );
+    const row = screen.getByRole('treeitem', { name: 'Inbox' });
+    expect(row).toHaveAttribute('title', 'drop here');
+    expect(row.className).toContain('mb-3');
+    expect(row.className).toContain('rounded-control');
+    expect(row).toHaveAttribute('role', 'treeitem');
+  });
+
+  it('draws what the owner puts at the end of a row', () => {
+    render(
+      <Tree
+        label="Folders"
+        nodes={nodes}
+        selectedId={null}
+        onSelect={() => undefined}
+        trailing={(id) => (id === 'inbox' ? <span>3</span> : null)}
+      />,
+    );
+    expect(screen.getByRole('treeitem', { name: 'Inbox 3' })).toBeInTheDocument();
+  });
+});
+
 describe('Notice', () => {
   it('speaks politely, and closes only when it was given a way to', async () => {
     const onDismiss = vi.fn();
