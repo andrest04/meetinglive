@@ -54,3 +54,6 @@ target/
 *.node
 *.tsbuildinfo
 .vite/
+
+# Impeccable critique snapshots (local working state)
+.impeccable/critique/
