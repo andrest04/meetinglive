@@ -1,34 +1,37 @@
 name: Release
 
-# Pushing a tag such as v0.9.0 builds the Windows installer and creates a draft release.
-# Nothing is public until someone reviews the draft and publishes it.
+# Every push to main that touches the app builds the Windows installer and publishes it as the
+# latest release. The landing page links to releases/latest/download/Vozella-Setup.exe, so that
+# link always serves the newest build. Run it by hand from the Actions tab to publish without a push.
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - "apps/desktop/**"
+      - "packages/**"
+      - "native/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+# A newer push replaces a build that has not finished.
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  group: release
+  cancel-in-progress: true
 
 jobs:
   windows:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
+      # Full history and tags, to list what changed since the previous release.
       - uses: actions/checkout@v7
-
-      - name: Check that the tag matches the app version
-        shell: pwsh
-        run: |
-          $version = (Get-Content apps/desktop/package.json -Raw | ConvertFrom-Json).version
-          if ($env:GITHUB_REF_NAME -ne "v$version") {
-            Write-Error "Tag $env:GITHUB_REF_NAME does not match apps/desktop/package.json version $version."
-            exit 1
-          }
+        with:
+          fetch-depth: 0
 
       # Uses the version pinned by packageManager in package.json.
       - uses: pnpm/action-setup@v6
@@ -47,20 +50,42 @@ jobs:
 
       - run: pnpm check
 
+      # package.json holds major.minor; the patch counts the builds. Run 2 is the first release, 0.9.0.
+      - name: Set the build version
+        shell: pwsh
+        run: |
+          $file = "apps/desktop/package.json"
+          $manifest = Get-Content $file -Raw | ConvertFrom-Json
+          $parts = $manifest.version.Split(".")
+          $version = "$($parts[0]).$($parts[1]).$([int]$env:GITHUB_RUN_NUMBER - 2)"
+          node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('$file','utf8'));m.version='$version';fs.writeFileSync('$file',JSON.stringify(m,null,2)+'\n')"
+          "VERSION=$version" >> $env:GITHUB_ENV
+
       - run: pnpm package
 
-      - name: Create the draft release
+      - name: Publish the release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $installer = Get-ChildItem apps/desktop/release/Vozella-Setup-*.exe | Select-Object -First 1
-          if (-not $installer) {
-            Write-Error "No installer found in apps/desktop/release."
+          $source = "apps/desktop/release/Vozella-Setup-$env:VERSION.exe"
+          if (-not (Test-Path $source)) {
+            Write-Error "Installer not found: $source"
             exit 1
           }
-          $checksum = "$($installer.FullName).sha256"
-          "$((Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower())  $($installer.Name)" |
-            Set-Content $checksum -Encoding ascii
-          gh release create $env:GITHUB_REF_NAME $installer.FullName $checksum `
-            --draft --generate-notes --title "Vozella $($env:GITHUB_REF_NAME)"
+          # The name stays the same across versions, so the landing page link never changes.
+          $installer = "apps/desktop/release/Vozella-Setup.exe"
+          Copy-Item $source $installer
+          "$((Get-FileHash $installer -Algorithm SHA256).Hash.ToLower())  Vozella-Setup.exe" |
+            Set-Content "$installer.sha256" -Encoding ascii
+          # The notes list feat and fix commits since the previous tag, in plain words.
+          $previous = git tag --list "v*" --sort=-creatordate | Select-Object -First 1
+          $pattern = "^(feat|fix)(\([^)]+\))?!?: "
+          $subjects = git log "$previous..HEAD" --no-merges --format=%s | Where-Object { $_ -match $pattern }
+          $changes = ($subjects | ForEach-Object { "- " + ($_ -replace $pattern, "") }) -join "`n"
+          if (-not $previous) { $changes = "First public beta." }
+          elseif (-not $changes) { $changes = "Maintenance and internal improvements." }
+          $notes = (Get-Content .github/release-notes.md -Raw).Replace("{{VERSION}}", $env:VERSION).Replace("{{CHANGES}}", $changes)
+          Set-Content release-notes.generated.md $notes -Encoding utf8
+          gh release create "v$env:VERSION" $installer "$installer.sha256" `
+            --target $env:GITHUB_SHA --latest --notes-file release-notes.generated.md --title "Vozella $env:VERSION"
