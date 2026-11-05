@@ -97,7 +97,7 @@
     transition: max-width .8s cubic-bezier(.22, .8, .24, 1), height .8s cubic-bezier(.22, .8, .24, 1), margin-top .8s cubic-bezier(.22, .8, .24, 1), padding .8s cubic-bezier(.22, .8, .24, 1), background-color .55s ease, border-color .55s ease, box-shadow .55s ease;
   }
   .top.is-pill {
-    max-width: 780px; height: 54px; margin-top: 16px; padding-inline: 20px 10px;
+    max-width: 780px; height: 54px; margin-top: 16px; padding-inline: 20px;
     /* Matte glass: enough paper to keep the labels readable, blurred hard so nothing sharp shows through. */
     background-color: color-mix(in srgb, var(--paper) 76%, transparent);
     -webkit-backdrop-filter: blur(22px) saturate(130%);
@@ -108,6 +108,8 @@
   .top.is-pill nav a:not(.btn), .top.is-pill .repo { color: var(--ink); }
   .top.is-pill nav a:not(.btn) { opacity: .78; }
   .top.is-pill nav a:not(.btn):hover { opacity: 1; }
+  /* A shorter underline keeps clear of the rounded end of the pill. */
+  .top.is-pill .lang { --lang-inset: 8px; }
   .top.is-pill .lang button { min-height: 34px; }
   .top.is-pill .lang button:not([aria-pressed="true"]) { color: color-mix(in srgb, var(--ink) 72%, transparent); }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -136,9 +138,9 @@
   /* One underline slides between the two languages. */
   .lang { --lang-width: 40px; position: relative; display: flex; gap: 4px; }
   .lang::after {
-    content: ""; position: absolute; left: 0; bottom: 0; width: var(--lang-width);
+    content: ""; position: absolute; left: var(--lang-inset, 0px); bottom: 0; width: calc(var(--lang-width) - 2 * var(--lang-inset, 0px));
     border-bottom: 2px solid var(--ink); pointer-events: none;
-    transition: transform .35s cubic-bezier(.22, .8, .24, 1);
+    transition: transform .35s cubic-bezier(.22, .8, .24, 1), left .35s ease, width .35s ease;
   }
   .lang:has([data-lang="es"][aria-pressed="true"])::after { transform: translateX(calc(var(--lang-width) + 4px)); }
   .lang button { width: var(--lang-width); min-height: 40px; padding: 0 4px; transition: color .25s ease; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; font: 500 13px/20px var(--mono); color: var(--ink-faint); }
@@ -267,7 +269,7 @@
     html:lang(es) { --seq-col: 116px; }
     .top nav a:not(.btn) { display: none; }
     .top-end { gap: 12px; }
-    .top.is-pill { padding-inline: 14px 6px; }
+    .top.is-pill { padding-inline: 14px; }
     .top.is-pill .top-end { gap: 6px; }
     .top.is-pill .lang { --lang-width: 32px; }
     .app-body { grid-template-columns: minmax(0, 1fr); }
