@@ -222,6 +222,17 @@ describe('Settings page', () => {
     expect(closed).toBeGreaterThan(1);
   });
 
+  it('keeps Set up as the only primary action beside the Download buttons', async () => {
+    install({ 'settings.getPage': () => pageDto() });
+    mount();
+    const setUp = await screen.findByRole('button', { name: 'Set up' });
+    expect(setUp).toHaveClass('bg-ink');
+    const group = screen.getByRole('radiogroup', { name: 'Summary models' });
+    for (const button of within(group).getAllByRole('button')) {
+      expect(button).not.toHaveClass('bg-ink');
+    }
+  });
+
   it('hides Set up once a model is active, and for the CLI providers (S20)', async () => {
     install({
       'settings.getPage': () =>
@@ -300,6 +311,14 @@ describe('Settings page', () => {
     expect(
       within(group).getAllByText('Fast · Quality Very good · 3.1 GB download', { exact: false })[0],
     ).toBeInTheDocument();
+    // A model that is not on this PC says why it cannot be picked, not only by being disabled.
+    expect(within(group).getAllByText('Download to use')).toHaveLength(1);
+    expect(within(group).getByRole('radio', { name: /Model A/ })).toHaveAccessibleName(
+      /Download to use/,
+    );
+    expect(within(group).getByRole('radio', { name: /Model B/ })).not.toHaveAccessibleName(
+      /Download to use/,
+    );
 
     await user.click(within(group).getByRole('button', { name: 'Download' }));
     expect(

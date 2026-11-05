@@ -6,7 +6,7 @@ import { Badge, Button, Progress, RadioGroup, type RadioOption } from '../../ui'
 
 /**
  * The local summary models, in catalog order: which one is active, and download, cancel and delete
- * (spec 2.4). A model can be chosen only once its file is on this PC. Deleting asks nothing, as in
+ * (spec 2.4). A model can be chosen only once its file is on this PC, and its row says so. Deleting asks nothing, as in
  * the WinUI page; a running download can be cancelled.
  */
 export function LocalModels({
@@ -50,6 +50,7 @@ export function LocalModels({
       description: (
         <span className="flex flex-col gap-1.5">
           <span>{speedQuality}</span>
+          {!row.downloaded && !row.downloading ? <span>{t('Ui_ModelDownloadToUse')}</span> : null}
           {percent !== null ? (
             <Progress
               className="w-56"

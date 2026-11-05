@@ -172,5 +172,6 @@
   "Ui_LibraryFilterResults": "Resultado de los filtros",
   "Ui_LibraryFilterResultsLine": "Se muestran {0} de {1} reuniones",
   "Ui_About": "Acerca de",
-  "Ui_AboutVersion": "Versión"
+  "Ui_AboutVersion": "Versión",
+  "Ui_ModelDownloadToUse": "Descárgalo para usarlo"
 }

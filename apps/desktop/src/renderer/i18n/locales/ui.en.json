@@ -172,5 +172,6 @@
   "Ui_LibraryFilterResults": "Filter results",
   "Ui_LibraryFilterResultsLine": "Showing {0} of {1} meetings",
   "Ui_About": "About",
-  "Ui_AboutVersion": "Version"
+  "Ui_AboutVersion": "Version",
+  "Ui_ModelDownloadToUse": "Download to use"
 }

@@ -50,6 +50,7 @@ test('a local model downloads, becomes active and is removed', async () => {
   const gemma = group.getByRole('radio', { name: /Gemma 4 E2B Instruct/ });
   await expect(gemma).toBeDisabled();
   await expect(group.getByText('Recommended').first()).toBeVisible();
+  await expect(group.getByText('Download to use').first()).toBeVisible();
   await expect(group.getByText('Fast · Quality Very good · 3.1 GB download')).toBeVisible();
 
   const row = group
