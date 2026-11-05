@@ -180,16 +180,19 @@ export function TranscriptionSection() {
         >
           {t('Settings_DownloadEngine.Content')}
         </Button>
-        <Button
-          variant="quiet"
-          disabled={!anyEngineFile || installing || speakerBusy !== null}
-          aria-label={`${t('Settings_DeleteEngine.Content')} ${t('Settings_NemotronCard.Header')}`}
-          onClick={() => {
-            ask('engine');
-          }}
-        >
-          {t('Settings_DeleteEngine.Content')}
-        </Button>
+        {/* Delete is offered only for files that are on this PC, as in the model list. */}
+        {anyEngineFile ? (
+          <Button
+            variant="quiet"
+            disabled={installing || speakerBusy !== null}
+            aria-label={`${t('Settings_DeleteEngine.Content')} ${t('Settings_NemotronCard.Header')}`}
+            onClick={() => {
+              ask('engine');
+            }}
+          >
+            {t('Settings_DeleteEngine.Content')}
+          </Button>
+        ) : null}
       </SettingRow>
 
       {installing ? (
@@ -240,16 +243,18 @@ export function TranscriptionSection() {
             >
               {t('Settings_DownloadSpeakers.Content')}
             </Button>
-            <Button
-              variant="quiet"
-              disabled={status === null || !status.speakerModelInstalled || speakerBusy !== null}
-              aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
-              onClick={() => {
-                ask('speaker');
-              }}
-            >
-              {t('Settings_DeleteSpeakers.Content')}
-            </Button>
+            {status?.speakerModelInstalled ? (
+              <Button
+                variant="quiet"
+                disabled={speakerBusy !== null}
+                aria-label={`${t('Settings_DeleteSpeakers.Content')} ${t('Ui_SpeakerModel')}`}
+                onClick={() => {
+                  ask('speaker');
+                }}
+              >
+                {t('Settings_DeleteSpeakers.Content')}
+              </Button>
+            ) : null}
             <Switch
               aria-labelledby={titleId}
               className="pl-2"

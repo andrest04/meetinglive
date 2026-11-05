@@ -376,7 +376,7 @@ describe('TranscriptionSection status pushes', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: `Download ${ENGINE}` })).toBeEnabled();
     });
-    expect(screen.getByRole('button', { name: `Delete ${ENGINE}` })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: `Delete ${ENGINE}` })).toBeNull();
   });
 });
 
@@ -471,7 +471,24 @@ describe('TranscriptionSection clarity', () => {
     const row = await screen.findByRole('group', { name: 'Speaker labels' });
     expect(within(row).getByRole('switch', { name: 'Speaker labels' })).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: 'Download Speaker model' })).toBeEnabled();
-    expect(within(row).getByRole('button', { name: 'Delete Speaker model' })).toBeDisabled();
+    expect(within(row).queryByRole('button', { name: 'Delete Speaker model' })).toBeNull();
     expect(screen.queryByRole('group', { name: 'Speaker model' })).toBeNull();
+  });
+});
+
+describe('TranscriptionSection delete buttons', () => {
+  it('offers Delete only for files that are on this PC', async () => {
+    installTranscriptionApi({ 'transcription.getStatus': () => notReady });
+    mount();
+    await screen.findByText('Not installed');
+    expect(screen.queryByRole('button', { name: `Delete ${ENGINE}` })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete Speaker model' })).toBeNull();
+    cleanup();
+    installTranscriptionApi({
+      'transcription.getStatus': () => ({ ...baseStatus, speakerModelInstalled: true }),
+    });
+    mount();
+    expect(await screen.findByRole('button', { name: `Delete ${ENGINE}` })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete Speaker model' })).toBeEnabled();
   });
 });
