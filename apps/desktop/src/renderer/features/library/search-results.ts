@@ -23,6 +23,26 @@ export function tabOfHit(hit: SearchHitDto | undefined): MeetingTab | null {
   return hit.field === 'title' ? null : 'Summary';
 }
 
+/** Characters kept before a match when the text is cut to bring the match into a narrow row. */
+const LEAD_CHARS = 12;
+
+/**
+ * A row shows only the start of its snippet, and the words found can sit past where it ends. This
+ * cuts the text at a word just before the first match. Nothing changes when none is found.
+ */
+export function snippetAroundMatch(snippet: string, query: string): string {
+  let at = 0;
+  for (const part of highlightParts(snippet, query)) {
+    if (part.mark) {
+      if (at <= LEAD_CHARS) return snippet;
+      const space = snippet.indexOf(' ', at - LEAD_CHARS);
+      return `…${snippet.slice(space === -1 || space >= at ? at : space + 1)}`;
+    }
+    at += part.text.length;
+  }
+  return snippet;
+}
+
 export interface HighlightPart {
   readonly text: string;
   readonly mark: boolean;

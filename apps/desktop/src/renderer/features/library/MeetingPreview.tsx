@@ -97,7 +97,7 @@ function PreviewBody({
   }
 
   return (
-    <div className="flex flex-col gap-4 px-8 py-6">
+    <div className="flex flex-col gap-4 px-8 pb-6">
       <header className="flex flex-col gap-2">
         <h2 className="line-clamp-3 text-title font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] text-ink">
           {record.title}
@@ -172,11 +172,11 @@ export function MeetingPreview({
   const { record, phase } = state;
   if (phase === 'idle') return null;
   if (phase === 'unreadable') {
-    return <p className="px-8 py-6 text-ui text-ink-muted">{t('Ui_LibraryPreviewUnreadable')}</p>;
+    return <p className="px-8 pb-6 text-ui text-ink-muted">{t('Ui_LibraryPreviewUnreadable')}</p>;
   }
   if (phase === 'skeleton') {
     return (
-      <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col gap-4 px-8 py-6">
+      <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col gap-4 px-8 pb-6">
         <Skeleton className="h-9 w-3/5" />
         <Skeleton className="h-3.5 w-2/5" />
         <Skeleton className="mt-4 h-3.5 w-full max-w-[62ch]" />

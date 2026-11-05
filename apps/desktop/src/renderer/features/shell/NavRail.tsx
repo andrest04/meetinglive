@@ -32,8 +32,10 @@ export function NavRail({ librarySlot }: { readonly librarySlot?: ReactNode }) {
               className={cn(
                 'flex h-8 shrink-0 items-center gap-2.5 rounded-control px-2.5 text-ui-lg text-ink-muted',
                 'transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink',
-                'aria-[current=page]:bg-pressed aria-[current=page]:font-medium aria-[current=page]:text-ink',
-                'forced-colors:aria-[current=page]:bg-[Highlight] forced-colors:aria-[current=page]:text-[HighlightText]',
+                'aria-[current=page]:font-medium aria-[current=page]:text-ink',
+                // The folder tree right under Library holds the selection, and one mark is enough.
+                (entry.to !== '/library' || librarySlot === undefined) &&
+                  'aria-[current=page]:bg-pressed forced-colors:aria-[current=page]:outline-2 forced-colors:aria-[current=page]:-outline-offset-2 forced-colors:aria-[current=page]:outline-[Highlight]',
               )}
             >
               <Icon icon={entry.icon} />

@@ -33,7 +33,7 @@ import { ListHeader } from './ListHeader';
 import { MeetingGrid, type MeetingGridHandle } from './MeetingGrid';
 import { MeetingPreview } from './MeetingPreview';
 import { describeSkipped } from './format';
-import { nextCursor } from './logbook';
+import { HEADER_ROW_PX, MEETING_ROW_PX, nextCursor } from './logbook';
 import { tabOfHit } from './search-results';
 import { UndoOffer } from './UndoOffer';
 import { useMeetingPreview } from './use-meeting-preview';
@@ -177,10 +177,12 @@ export function LibraryRoute() {
   useEffect(() => {
     const previous = lastListed.current;
     lastListed.current = listedIds;
-    if (!wide || library.isLoading) return;
+    // `wide` starts true, and a list already loaded gets here before that measure takes effect.
+    const width = layoutRef.current?.clientWidth ?? PANED_LAYOUT_PX;
+    if (!wide || width < PANED_LAYOUT_PX || library.isLoading) return;
     const next = nextCursor(useLibraryStore.getState().cursorId, previous, listedIds);
     if (next !== useLibraryStore.getState().cursorId) setCursor(next);
-  }, [listedIds, wide, library.isLoading, cursorId]);
+  }, [listedIds, wide, library.isLoading, cursorId, layoutRef]);
   // Checks belong to one list: another view or another search starts with none.
   const [checks, setChecks] = useState<Checks>(EMPTY_CHECKS);
   const [bulkWork, setBulkWork] = useState<BulkWork>(null);
@@ -591,13 +593,23 @@ export function LibraryRoute() {
           ) : null}
           {library.isLoading ? (
             <div role="status" aria-label={t('Ui_Loading')} className="flex flex-col">
+              <div
+                style={{ height: HEADER_ROW_PX }}
+                className="flex items-center border-b border-hairline ps-4"
+              >
+                <Skeleton className="h-3 w-24" />
+              </div>
               {[0, 1, 2, 3, 4].map((row) => (
                 <div
                   key={row}
-                  className="flex h-16 items-center gap-4 border-b border-hairline ps-4 pe-4"
+                  style={{ height: MEETING_ROW_PX }}
+                  className="flex items-center border-b border-hairline ps-4 pe-3"
                 >
-                  <Skeleton className="h-3.5 w-12 shrink-0" />
-                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3 w-10 shrink-0" />
+                  <div className="ms-8 flex min-w-0 flex-1 flex-col gap-2">
+                    <Skeleton className="h-3 w-2/5" />
+                    <Skeleton className="h-3 w-4/5" />
+                  </div>
                 </div>
               ))}
             </div>

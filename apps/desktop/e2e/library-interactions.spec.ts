@@ -203,3 +203,39 @@ test('a meeting dragged to a folder moves on disk, and Undo brings it back', asy
   await expect.poll(() => fs.existsSync(onDisk('Inbox', 'Drag one', '29'))).toBe(true);
   await expect(row('Drag one')).toBeVisible();
 });
+
+test('with forced colors, what is selected keeps its text on the canvas, inside an outline', async () => {
+  seed('Forced one', '18');
+  await reopenLibrary();
+  await row('Forced one').click();
+  await page.emulateMedia({ forcedColors: 'active' });
+  try {
+    const look = (selector: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((el) => {
+          const style = getComputedStyle(el);
+          const probe = document.createElement('div');
+          probe.style.backgroundColor = 'Highlight';
+          document.body.append(probe);
+          const highlight = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return {
+            filled: style.backgroundColor === highlight,
+            outlined: style.outlineStyle !== 'none' && style.outlineColor === highlight,
+          };
+        });
+    // Chromium draws a Canvas backplate behind text, so light text on a Highlight fill disappears.
+    for (const selector of ['[role="treeitem"][aria-selected="true"]', '[data-cursor="true"]']) {
+      await expect.poll(() => look(selector)).toEqual({ filled: false, outlined: true });
+    }
+    await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+    await expect
+      .poll(() => look('a[aria-current="page"]'))
+      .toEqual({ filled: false, outlined: true });
+    await page.getByRole('navigation').getByRole('link', { name: 'Library' }).click();
+  } finally {
+    await page.emulateMedia({ forcedColors: 'none' });
+  }
+});

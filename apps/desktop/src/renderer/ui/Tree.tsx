@@ -122,7 +122,8 @@ export function Tree({
             'flex h-7 cursor-default items-center gap-1.5 rounded-control pe-2 text-ui-lg text-ink-muted select-none',
             'transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink',
             selected && 'bg-pressed font-medium text-ink',
-            'forced-colors:aria-selected:bg-[Highlight] forced-colors:aria-selected:text-[HighlightText]',
+            // A fill would sit under the backplate forced colors draws behind text, and hide the text.
+            'forced-colors:aria-selected:outline-2 forced-colors:aria-selected:-outline-offset-2 forced-colors:aria-selected:outline-[Highlight]',
             extra?.className,
           ),
         } as const;
@@ -148,7 +149,8 @@ export function Tree({
                 />
               ) : null}
             </span>
-            {item.node.accent !== undefined ? (
+            {/* A row with an icon carries its accent there, and needs no second mark. */}
+            {item.node.accent !== undefined && !item.node.icon ? (
               <span
                 aria-hidden="true"
                 style={

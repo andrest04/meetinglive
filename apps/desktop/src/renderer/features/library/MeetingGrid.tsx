@@ -18,7 +18,7 @@ import { formatDayHeader, formatMeetingDate, formatMeetingTime } from './format'
 import { gridKeyAction, type GridKeyAction } from './library-keys';
 import { MEETINGS_DRAG_TYPE, setDragged, useLibraryStore } from './library-store';
 import { groupState } from './library-selection';
-import { highlightParts, type SearchHits } from './search-results';
+import { highlightParts, snippetAroundMatch, type SearchHits } from './search-results';
 import {
   activeHeaderIndex,
   buildGridItems,
@@ -287,7 +287,10 @@ export function MeetingGrid({
               locale={locale}
               labels={labels}
               query={query}
-              snippet={hits.get(item.meeting.id)?.snippet ?? item.meeting.snippet}
+              snippet={snippetAroundMatch(
+                hits.get(item.meeting.id)?.snippet ?? item.meeting.snippet,
+                query,
+              )}
               rowIndex={virtual.index + 1}
               offset={virtual.start}
               isCursor={virtual.index === cursorIndex}
@@ -403,9 +406,12 @@ function DayHeader({
       role="row"
       aria-rowindex={rowIndex}
       data-sticky={sticky ? 'true' : undefined}
-      style={sticky ? undefined : { transform: `translateY(${String(offset)}px)` }}
+      style={{
+        height: HEADER_ROW_PX,
+        ...(sticky ? {} : { transform: `translateY(${String(offset)}px)` }),
+      }}
       className={cn(
-        'group flex h-8 w-full items-center border-b border-hairline bg-paper ps-4 pe-1.5',
+        'group flex w-full items-center border-b border-hairline bg-paper ps-4 pe-1.5',
         sticky ? 'sticky top-0 z-10' : 'absolute start-0 top-0',
       )}
     >
@@ -569,7 +575,7 @@ function MeetingRow({
           tabIndex={isTabStop ? 0 : -1}
           data-row-id={meeting.id}
           data-cursor={isCursor ? 'true' : undefined}
-          style={{ transform: `translateY(${String(offset)}px)` }}
+          style={{ height: MEETING_ROW_PX, transform: `translateY(${String(offset)}px)` }}
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           draggable
@@ -581,21 +587,28 @@ function MeetingRow({
         />
       }
       className={cn(
-        'group absolute start-0 top-0 flex h-16 w-full cursor-default items-stretch border-b border-hairline ps-4 pe-1.5 outline-offset-[-2px] select-none',
+        'group absolute start-0 top-0 flex w-full cursor-default items-stretch border-b border-hairline ps-4 outline-offset-[-2px] select-none',
         'transition-colors duration-150 ease-out-quick hover:bg-hover not-data-cursor:aria-selected:bg-hover',
-        'data-cursor:bg-pressed forced-colors:data-cursor:bg-[Highlight] forced-colors:data-cursor:text-[HighlightText]',
+        // A fill would sit under the backplate forced colors draws behind text, and hide the text.
+        'data-cursor:bg-pressed forced-colors:data-cursor:outline-2 forced-colors:data-cursor:outline-[Highlight]',
       )}
     >
       <div
         role="gridcell"
-        className="tabular flex w-16 shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint group-hover:text-ink-muted group-aria-selected:text-ink-muted group-data-cursor:text-ink-muted forced-colors:text-[CanvasText]"
+        className="tabular flex w-[72px] shrink-0 flex-col justify-center font-mono text-caption/5 text-ink-faint group-hover:text-ink-muted group-aria-selected:text-ink-muted group-data-cursor:text-ink-muted forced-colors:text-[CanvasText]"
       >
         <time dateTime={meeting.recordedAt} title={formatMeetingDate(meeting.recordedAt, locale)}>
           {formatMeetingTime(meeting.recordedAt, locale)}
         </time>
         {minutes === null ? null : <span>{labels.duration(minutes)}</span>}
       </div>
-      <div role="gridcell" className="flex min-w-0 flex-1 flex-col justify-center">
+      <div
+        role="gridcell"
+        className={cn(
+          'flex min-w-0 flex-1 flex-col justify-center forced-colors:pe-[60px]',
+          anyChecked ? 'pe-[60px]' : 'pe-3',
+        )}
+      >
         <span data-title className="truncate text-ui-lg font-medium text-ink">
           <Highlighted text={meeting.title} query={query} />
         </span>
@@ -603,7 +616,16 @@ function MeetingRow({
           {snippet === '' ? labels.noContent : <Highlighted text={snippet} query={query} />}
         </span>
       </div>
-      <div role="gridcell" className="flex shrink-0 items-center">
+      {/* It covers the end of the text only while its controls show, so the text gets the width. */}
+      <div
+        role="gridcell"
+        className={cn(
+          'absolute inset-y-0 end-0 flex items-center ps-1 pe-1.5 transition-colors duration-150 ease-out-quick forced-colors:inset-y-[2px] forced-colors:end-[2px] forced-colors:bg-[Canvas] forced-colors:pe-1',
+          isCursor
+            ? 'bg-transparent group-focus-within:bg-[color-mix(in_srgb,var(--ink)_12%,var(--paper))] group-hover:bg-[color-mix(in_srgb,var(--ink)_12%,var(--paper))]'
+            : 'group-focus-within:bg-[color-mix(in_srgb,var(--ink)_6%,var(--paper))] group-hover:bg-[color-mix(in_srgb,var(--ink)_6%,var(--paper))]',
+        )}
+      >
         <RowCheck
           label={labels.checkMeeting(meeting.title)}
           state={isChecked}
@@ -631,7 +653,7 @@ function MeetingRow({
           aria-hidden="true"
           data-ruling
           style={{ width: rulingWidthPx(minutes) }}
-          className="absolute start-0 -bottom-px h-px bg-ink-muted forced-colors:bg-[CanvasText]"
+          className="absolute start-0 -bottom-px h-[2px] bg-ink-muted forced-colors:bg-[CanvasText]"
         />
       )}
     </ContextMenu>

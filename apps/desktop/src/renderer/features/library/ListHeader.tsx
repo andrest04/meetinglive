@@ -60,12 +60,15 @@ export function ListHeader({
           <Icon icon={folderIcon(folder)} size={16} style={{ color: folderAccent(folder) }} />
         ) : null}
         <h1 className="truncate text-heading font-semibold tracking-[-0.01em]">{title}</h1>
-        <span
-          data-testid="library-view-count"
-          className="tabular shrink-0 pt-1 font-mono text-caption text-ink-faint"
-        >
-          {count}
-        </span>
+        {/* While loading it is not yet known, and with nothing listed the list says so itself. */}
+        {count === 0 ? null : (
+          <span
+            data-testid="library-view-count"
+            className="tabular shrink-0 pt-1 font-mono text-caption text-ink-faint"
+          >
+            {count}
+          </span>
+        )}
         {folder ? (
           <span className="ms-auto shrink-0">
             <Menu

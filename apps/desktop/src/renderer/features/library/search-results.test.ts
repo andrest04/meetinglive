@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { highlightParts, mergeMatches, tabOfHit } from './search-results';
+import { highlightParts, mergeMatches, snippetAroundMatch, tabOfHit } from './search-results';
 
 const item = (id: string) => ({ id }) as never;
 const hit = (meetingId: string, field: 'title' | 'summary' | 'notes' | 'transcript') => ({
@@ -55,5 +55,29 @@ describe('highlightParts', () => {
 
   it('is the plain text with no words', () => {
     expect(highlightParts('Standup', '   ')).toEqual([{ text: 'Standup', mark: false }]);
+  });
+});
+
+describe('snippetAroundMatch', () => {
+  const text = 'the team agreed that Luis checks the installer on a clean machine';
+
+  it('brings a match far along the text to the start, so a narrow row still shows it', () => {
+    const shown = snippetAroundMatch(text, 'installer');
+    expect(shown.startsWith('…')).toBe(true);
+    expect(shown.indexOf('installer')).toBeLessThan(16);
+    expect(shown.endsWith('clean machine')).toBe(true);
+  });
+
+  it('cuts at a word, never inside one', () => {
+    expect(snippetAroundMatch(text, 'installer')).toBe('…checks the installer on a clean machine');
+  });
+
+  it('leaves the text alone when the match is already near the start', () => {
+    expect(snippetAroundMatch(text, 'team')).toBe(text);
+  });
+
+  it('leaves the text alone with no query or no match', () => {
+    expect(snippetAroundMatch(text, '')).toBe(text);
+    expect(snippetAroundMatch(text, 'absent')).toBe(text);
   });
 });

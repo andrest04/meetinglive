@@ -5,6 +5,9 @@ export interface SeedMeeting {
   readonly id: string;
   readonly title: string;
   readonly recordedAt: string;
+  /** The ruling and the duration in the row come from this; absent means no length is known. */
+  readonly endedAt?: string;
+  readonly attendees?: readonly string[];
   readonly summary?: string;
   readonly transcript?: string;
   /** Directory under the library root; Inbox by default. */
@@ -21,6 +24,8 @@ export function writeMeeting(libraryRoot: string, meeting: SeedMeeting): string 
     `id: ${meeting.id}`,
     `title: ${meeting.title}`,
     `recordedAt: ${meeting.recordedAt}`,
+    ...(meeting.endedAt ? [`endedAt: ${meeting.endedAt}`] : []),
+    ...(meeting.attendees?.length ? [`attendees: ${meeting.attendees.join(' | ')}`] : []),
     'audioFilePath: ',
     ...(meeting.folderId ? [`folderId: ${meeting.folderId}`] : []),
     '---',

@@ -51,7 +51,7 @@ Direction: a meeting logbook, ruled like a ledger and reading like a document.
 +------------------------------------------------------------------+
 ```
 
-- Memorable element: each row's bottom ruling is the data. It darkens from the left in proportion to duration: square-root scale, capped at 120 min and 64 px. `aria-hidden`; the duration is also in the row text. No `endedAt` means no darkened ruling and no duration. Stroke of 1 or 2 px is decided from real screenshots in batch 4.
+- Memorable element: each row's bottom ruling is the data. It darkens from the left in proportion to duration: square-root scale, capped at 120 min and 64 px. `aria-hidden`; the duration is also in the row text. No `endedAt` means no darkened ruling and no duration. Stroke is 2 px, decided from the real screenshots in T4.1.
 - Color: existing tokens only. `paper` for list and preview, `paper-raised` for sidebar, `hairline` for structure, `pressed` for the cursor row and `<mark>`. Forced colors: `Highlight`, `Mark`, `CanvasText`.
 - Type: `heading` 20/28 semibold for the view name; `ui-lg` medium for row titles; `ui` 13/20 medium for day headers and plain for snippets; Plex Mono `caption` for time, duration and counts; `title` 30/36 semibold -0.02em for the preview title, up to 3 lines (`features/session/SessionHeader.tsx:49`); `read` 15/24 at about 62ch for body. The meta line is a plain sentence: "Tuesday 3 November, 10:30 to 11:15".
 - Rejected as generic: card rows, status pills, all-caps group labels, avatars, colored tags, dotted meta strings, waveform thumbnails, a tinted preview panel, a page-level "Library" title.
@@ -113,7 +113,7 @@ Route: delegated direct through a Workflow requested by the owner, one writer at
 - [x] T3.5 Drag to folders, Undo
 
 ### Batch 4: visual critique and close-out (about 300)
-- [ ] T4.1 Screenshots and critique: light and dark, en and es, 960 and 1180 wide, empty, loading, search, bulk, forced colors, 3,000 meetings; fix what fails; remove one accessory
+- [x] T4.1 Screenshots and critique: light and dark, en and es, 960 and 1180 wide, empty, loading, search, bulk, forced colors, 3,000 meetings; fix what fails; remove one accessory
 - [ ] T4.2 Axe e2e pass over grid and tree
 - [ ] T4.3 Update `docs/port/parity/library-storage.md` (improved: 82, 84, 94, 96, 98, 100, 109, 111, 113, 114, 119, 120; must stay true: 86, 87, 88, 105, 107, 110/B16, 115, 123; rewrite the "Layout" and "Shell" notes, add search and trash decisions) and regenerate `docs/port/screens/library-storage/`
 
@@ -170,6 +170,26 @@ Each batch writer records its commit hashes and observed check results here. A c
 - Batch close, on `49642a1`. Right after T3.5 was committed, the focused unit run failed 1 of 172 and repeats failed 1 or 2 of 95, always `toHaveFocus` on a dialog's Cancel, read in the same tick the dialog appeared; Base UI moves the focus just after that. `49642a1` `test(library): wait for a dialog to move the focus` makes all five such assertions in `LibraryRoute.test.tsx` wait. Then 6 focused runs of 172 passed in a row. `pnpm check`: passed; contracts 44 tests, core 1681, platform 447 passed and 17 skipped, desktop 2012 passed and 6 skipped.
   - Batch 4's full e2e run is the first proof of these together: `library-ui.spec.ts` last ran at T3.2 and `session-shell`, `chat-bar`, `chat-recipes`, `transcription-ui` last ran at T3.1. `transcription-screens.spec.ts` and `library-screens.spec.ts` did not run; the first was edited for double click.
   - For T4.1: judge the bulk bar, the row and day checks, the Undo offer and the `<mark>` on the cursor row, where it is an underline because the row is already `pressed`. Day checks have no keyboard route of their own; Shift+arrow reaches the same result. For T4.3: the Undo offer is not the toast the decision named.
+
+### Batch 4 (`feat/library-redesign-b4-polish`)
+- T4.1 `feat(library): what the screenshots showed`. Off-screen capture works: the first PNG is a real render, not blank, and a sampled run reported the window at [-32000, -32000], visible, not focused. RED: `snippetAroundMatch` (4 tests failed on the missing function), then passed; `library-grid.spec.ts` failed "each row fills the slot" (Expected 140, Received 144) and "the smallest window ... no cursor" (Expected 0, Received 1); `library-interactions.spec.ts` failed the forced colors test (`outlined: false`); all passed after the fixes. Focused unit with `ui/components` and `NavRail`: 200 passed. `library-grid` and `library-interactions` with `VOZELLA_E2E_BACKGROUND=1`: 11 passed, 1 failed on a mid-transition read, which then polls and passes. `library-screens.spec.ts`: 15 passed.
+  - What the pictures showed and what changed:
+    - The root font is 14 px, so `h-16` and `h-8` drew 56 and 28 px inside slots of 64 and 32: an 8 px void between rows and 4 px under each day. Heights now come from the slot constants, so the rows sit edge to edge at the documented 64 and 32.
+    - The time column was 56 px for the same reason, and "120 min" touched the title. It is 72 px, a little wider than the 64 px ruling under it.
+    - The ruling at 1 px read as a stray dash and vanished into the hairline in forced colors. At 2 px it reads as a measure, in light, dark and forced colors. It earns its place: nothing else in the row is ornament.
+    - 56 px was held empty at the end of every row for controls that show only on hover, and the snippets stopped at about 30 characters at 1180. The controls now cover the end of the text only while they show, and the text gets the width unless something is checked.
+    - A word found far along a snippet could be cut off before its mark. `snippetAroundMatch` brings the match near the start.
+    - Forced colors: Chromium draws a Canvas backplate behind text, so `HighlightText` on a `Highlight` fill was white on white in the rail, the tree and the cursor row. All three now keep the canvas and carry a 2 px `Highlight` outline.
+    - The header said "All 0" while loading, which was false, and repeated the empty line. A count of zero is not drawn, as in the sidebar.
+    - The loading skeleton was one line per row with no day header; it now has the real layout.
+    - The preview title sat 24 px below the view name for no reason; the cap heights now line up across the panes.
+    - A return to the Library in the smallest window put a cursor on a row with no preview beside it, because `wide` starts true.
+    - Removed accessory: the colored dot beside each folder, since its icon already carries the accent. A tree row with no icon keeps the dot. The indent shrinks with it.
+    - Library in the rail no longer fills when the tree under it holds the selection; two stacked fills said the same thing twice.
+  - Density: 960 (976 CSS px at the minimum, 744 of content) is a single list with long snippets and reads well. 1180 gives about 9 rows beside the preview. Spanish overflow: "Bandeja de entrada" and its count fit the 232 px sidebar, "Todas las reuniones" and the bulk bar fit at 960. Dark: `ink-faint` time on paper, `ink-muted` on hovered, checked and cursor rows.
+  - Window zoom cannot take the CSS width below the minimum: with `Menu.setApplicationMenu(null)` (`main/index.ts:566`) and no zoom call in `src`, Ctrl+=, Ctrl+Shift+= and Ctrl+wheel left `getZoomFactor()` at 1 and `innerWidth` at 960 in a probe. Only a programmatic `setZoomFactor(1.5)` gave 640, and nothing in the app calls it. A shown window at the minimum measured up to 16 px over what was asked.
+  - Left as they are: "Inbox > Trabajo" in the path, which is parity item 88; "Matches: 0" above the empty line, because it is the live status a screen reader hears; after Esc from a row menu, its tooltip stays while the focus stays on that button, including while checks are clicked, because a check does not take the focus.
+  - Forced colors in Playwright is emulation with one fixed palette, so a real High Contrast theme stays manual.
 
 ## Next step
 

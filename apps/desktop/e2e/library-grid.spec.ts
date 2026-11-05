@@ -60,6 +60,42 @@ const rowIndexes = (): Promise<number[]> =>
     .locator('[role="row"]')
     .evaluateAll((rows) => rows.map((row) => Number(row.getAttribute('aria-rowindex'))));
 
+test('each row fills the slot the list gives it, so the rows sit edge to edge', async () => {
+  await scrollTo(0);
+  const edges = await grid
+    .locator('[role="row"]')
+    .evaluateAll((rows) =>
+      rows
+        .slice(0, 8)
+        .map((row) => [row.getBoundingClientRect().top, row.getBoundingClientRect().bottom]),
+    );
+  for (let index = 1; index < edges.length; index += 1) {
+    expect(edges[index]?.[0]).toBe(edges[index - 1]?.[1]);
+  }
+});
+
+test('the smallest window has no preview, so it puts no cursor on a row', async () => {
+  const resize = (width: number) =>
+    launched.app.evaluate(({ BrowserWindow }, value) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(value, 760);
+    }, width);
+  await resize(960);
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThan(992);
+  await page.reload();
+  await expect(grid).toBeVisible();
+  await expect(grid.locator('[data-row-id]').first()).toBeVisible();
+  // Coming back finds the list already loaded, before the route has measured its width.
+  await page.getByRole('navigation').getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('navigation').getByRole('link', { name: 'Library' }).click();
+  await expect(grid.locator('[data-row-id]').first()).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(grid.locator('[data-cursor]')).toHaveCount(0);
+  await resize(1180);
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeGreaterThan(1100);
+  await page.reload();
+  await expect(grid.locator('[data-cursor]')).toHaveCount(1);
+});
+
 test('virtualizes: a few rows in the DOM out of many, with a count for assistive tech', async () => {
   const total = DAYS * (PER_DAY + 1);
   await expect(grid).toHaveAttribute('aria-rowcount', String(total));
