@@ -322,5 +322,6 @@
   "Ui_ChatPromptsExportFailed": "Could not write the file.",
   "Ui_ChatPromptsFileFilter": "Vozella prompts",
   "Ui_ChatPromptsFileName": "My prompts",
-  "Ui_ChatPromptRunsWith": "Answers with {0}"
+  "Ui_ChatPromptRunsWith": "Answers with {0}",
+  "Ui_ChatLivePaused": "Paused"
 }

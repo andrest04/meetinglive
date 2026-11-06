@@ -12,7 +12,7 @@ type Listener = (payload: unknown) => void;
 const MEETING = '11111111-1111-4111-8111-111111111111';
 const FOLDER = '22222222-2222-4222-8222-222222222222';
 
-function install(initial: Partial<WorkspaceStateDto> = {}) {
+function install(initial: Partial<WorkspaceStateDto> = {}, recording = { isPaused: false }) {
   let state: WorkspaceStateDto = {
     selectedMeetingId: null,
     lastProcessedMeetingId: null,
@@ -44,6 +44,8 @@ function install(initial: Partial<WorkspaceStateDto> = {}) {
         return { canStartNewChat: true };
       case 'chat.newChat':
         return { started: true };
+      case 'recording.getState':
+        return { ...recording, liveText: '' };
       default:
         throw new Error(`unhandled ${name}`);
     }
@@ -66,6 +68,14 @@ function install(initial: Partial<WorkspaceStateDto> = {}) {
   return {
     calls,
     titles,
+    emit: async (name: string, payload: unknown) => {
+      await act(async () => {
+        listeners.get(name)?.forEach((listener) => {
+          listener(payload);
+        });
+        await Promise.resolve();
+      });
+    },
     change: async (next: Partial<WorkspaceStateDto>) => {
       state = { ...state, ...next };
       await act(async () => {
@@ -192,6 +202,24 @@ describe('AiPanel scope chip (items 6 to 11)', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('BadgeChatLive')).toBeNull();
     });
+  });
+
+  it('a paused recording shows a still dot and the paused label, in Spanish too', async () => {
+    const api = install({ isCaptureActive: true }, { isPaused: true });
+    mount('es');
+    const badge = await screen.findByTestId('BadgeChatLive');
+    await waitFor(() => {
+      expect(within(badge).getByTestId('pulse').dataset.active).toBe('false');
+    });
+    expect(within(badge).getByTestId('pulse-halo').style.animation).toBe('');
+    expect(within(badge).getByTestId('LblChatLivePaused').textContent).toBe('En pausa');
+    expect(chip().textContent).toBe('En vivo');
+    await api.emit('recording.state', { isPaused: false });
+    expect(within(badge).getByTestId('pulse').dataset.active).toBe('true');
+    expect(within(badge).getByTestId('pulse-halo').style.animation).toContain('halo-pulse');
+    expect(within(badge).queryByTestId('LblChatLivePaused')).toBeNull();
+    await api.emit('recording.state', { isPaused: true });
+    expect(within(badge).getByTestId('pulse').dataset.active).toBe('false');
   });
 
   it('the Live badge holds still under reduced motion', async () => {

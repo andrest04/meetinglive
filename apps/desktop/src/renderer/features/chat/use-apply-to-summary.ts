@@ -7,9 +7,17 @@ interface SummaryContent {
   readonly actionItems: readonly { readonly text: string; readonly isDone: boolean }[];
 }
 
-/** The line under the transcript after an apply: what happened, with Undo while it can. */
+/**
+ * The line under the transcript after an apply: what happened, with Undo while it can. A failed
+ * Undo keeps the previous content (`undoError` says why), so Undo can be tried again.
+ */
 export type ApplyNotice =
-  | { readonly kind: 'applied'; readonly meetingId: string; readonly previous: SummaryContent }
+  | {
+      readonly kind: 'applied';
+      readonly meetingId: string;
+      readonly previous: SummaryContent;
+      readonly undoError?: string;
+    }
   | { readonly kind: 'restored' }
   | { readonly kind: 'error'; readonly message: string };
 
@@ -42,12 +50,19 @@ export function useApplyToSummary(meetingId: string | null): ApplyToSummary {
     setNotice(null);
   }, [meetingId]);
 
-  const failure = useCallback((status: string, detail = ''): ApplyNotice => {
+  const failureText = useCallback((status: string, detail = ''): string => {
     const tr = latest.current.t;
-    if (status === 'busy') return { kind: 'error', message: tr('Ui_ChatSummaryBusy') };
-    if (status === 'empty') return { kind: 'error', message: tr('Ui_ChatSummaryEmpty') };
-    return { kind: 'error', message: tr('Ui_ChatSummaryFailed', detail || status) };
+    if (status === 'busy') return tr('Ui_ChatSummaryBusy');
+    if (status === 'empty') return tr('Ui_ChatSummaryEmpty');
+    return tr('Ui_ChatSummaryFailed', detail || status);
   }, []);
+  const failure = useCallback(
+    (status: string, detail = ''): ApplyNotice => ({
+      kind: 'error',
+      message: failureText(status, detail),
+    }),
+    [failureText],
+  );
 
   const apply = useCallback(
     async (answer: string): Promise<void> => {
@@ -93,17 +108,18 @@ export function useApplyToSummary(meetingId: string | null): ApplyToSummary {
           actionItems: notice.previous.actionItems.map((item) => ({ ...item })),
         },
       });
-      setNotice(
-        result.status === 'saved'
-          ? { kind: 'restored' }
-          : failure(result.status, result.status === 'failed' ? result.detail : ''),
-      );
+      if (result.status === 'saved') {
+        setNotice({ kind: 'restored' });
+      } else {
+        const detail = result.status === 'failed' ? result.detail : '';
+        setNotice({ ...notice, undoError: failureText(result.status, detail) });
+      }
     } catch (error) {
-      setNotice(failure('failed', errorText(error)));
+      setNotice({ ...notice, undoError: failureText('failed', errorText(error)) });
     } finally {
       busy.current = false;
     }
-  }, [notice, failure]);
+  }, [notice, failureText]);
 
   const dismiss = useCallback(() => {
     setNotice(null);

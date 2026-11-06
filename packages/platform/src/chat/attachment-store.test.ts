@@ -87,6 +87,26 @@ describe('checkAttachmentPath', () => {
 });
 
 describe('ChatAttachmentStore', () => {
+  it('hands documents to the injected extractor, with the size and text limits', async () => {
+    const calls: { kind: string; bytes: number; maxChars: number }[] = [];
+    const s = store({
+      maxChars: 1234,
+      extractor: (kind, data, maxChars) => {
+        calls.push({ kind, bytes: data.byteLength, maxChars });
+        return Promise.resolve({
+          ok: true,
+          pages: 7,
+          truncated: false,
+          sections: [{ location: { kind: 'page', n: 1 }, text: 'From the worker' }],
+        });
+      },
+    });
+    await s.add([write('big.pdf', buildPdf(['Budget ten']))]);
+    await s.settled();
+    expect(calls).toEqual([{ kind: 'pdf', bytes: expect.any(Number) as number, maxChars: 1234 }]);
+    expect(s.list()[0]).toMatchObject({ status: 'ready', pages: 7 });
+  });
+
   it('shows a file as reading, then ready with its page count', async () => {
     const s = store();
     await s.add([write('plan.pdf', buildPdf(['Budget ten', 'Launch May']))]);

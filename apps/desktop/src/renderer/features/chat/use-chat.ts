@@ -19,10 +19,10 @@ export interface ChatController {
   readonly isSending: boolean;
   readonly showScopeMismatch: boolean;
   /**
-   * Sends `text` (the composer draft or a chip prompt). Resolves when the answer is settled. A
-   * saved prompt's `engine` answers this send only, also after the setup gate.
+   * Sends `text` (the composer draft or a chip prompt). Resolves when the answer is settled, with
+   * how it ended. A saved prompt's `engine` answers this send only, also after the setup gate.
    */
-  readonly send: (text: string, options?: ChatSendRequestOptions) => Promise<void>;
+  readonly send: (text: string, options?: ChatSendRequestOptions) => Promise<ChatSendResult>;
   readonly stop: () => void;
   readonly copy: (text: string) => Promise<boolean>;
   readonly dismissError: () => void;
@@ -32,6 +32,39 @@ export interface ChatController {
 
 export interface ChatSendRequestOptions {
   readonly engine?: ChatEngineDto;
+}
+
+/**
+ * How a send ended for the page: `answered`, `restored` (stopped or failed, the text went back to
+ * the composer), or `ignored` (blank, already sending, or no scope; nothing was sent).
+ */
+export type ChatSendResult = 'answered' | 'restored' | 'ignored';
+
+/** The default engine in Settings, or undefined when it cannot be read. */
+async function readDefaultEngine(): Promise<string | null | undefined> {
+  try {
+    return (await window.vozella.invoke('settings.get', {})).selectedSummaryProvider;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Finishing the setup gate saves the gated engine as the default (the CLI dialog and the model
+ * wizard are Settings flows). A saved prompt's engine answers one send only, so the default it
+ * replaced is put back. A failed write leaves the new default; the send still goes on.
+ */
+async function restoreDefaultEngine(previous: string | null | undefined): Promise<void> {
+  if (previous === undefined) return;
+  try {
+    const now = await window.vozella.invoke('settings.get', {});
+    if (now.selectedSummaryProvider === previous) return;
+    await window.vozella.invoke('settings.update', {
+      patch: { selectedSummaryProvider: previous },
+    });
+  } catch {
+    // Kept as the gate left it.
+  }
 }
 
 const newRequestId = (): string => `req-${crypto.randomUUID()}`;
@@ -96,9 +129,9 @@ export function useChat(
   }, []);
 
   const send = useCallback(
-    async (raw: string, options: ChatSendRequestOptions = {}): Promise<void> => {
+    async (raw: string, options: ChatSendRequestOptions = {}): Promise<ChatSendResult> => {
       const text = raw.trim();
-      if (text === '' || sendingRef.current || !latest.current.scope.isVisible) return;
+      if (text === '' || sendingRef.current || !latest.current.scope.isVisible) return 'ignored';
       sendingRef.current = true;
       setLocalSendActive(true);
       stopEarly.current = false;
@@ -130,10 +163,13 @@ export function useChat(
       try {
         let outcome = await request();
         if (outcome.status === 'setup-required') {
+          // Only a prompt's own engine keeps the default; a normal send sets it up on purpose.
+          const keptDefault = options.engine === undefined ? undefined : await readDefaultEngine();
           const result = await latest.current.gate.runSetup({
             kind: outcome.kind,
             reason: outcome.kind === 'Local' ? 'model-missing' : 'cli-missing',
           });
+          if (options.engine !== undefined) await restoreDefaultEngine(keptDefault);
           if (result === 'completed') {
             requestId = newRequestId();
             dispatch({ type: 'resend', requestId });
@@ -145,7 +181,7 @@ export function useChat(
               type: 'failed',
               error: { message: latest.current.t('Status_SetupCancelled'), titled: false },
             });
-            return;
+            return 'restored';
           }
         }
         switch (outcome.status) {
@@ -157,18 +193,18 @@ export function useChat(
               user: outcome.user,
               assistant: outcome.assistant,
             });
-            break;
+            return 'answered';
           case 'failed':
             rollBack();
             dispatch({
               type: 'failed',
               error: { message: outcome.message, titled: outcome.kind !== 'setup-cancelled' },
             });
-            break;
+            return 'restored';
           case 'cancelled':
           case 'empty':
             rollBack();
-            break;
+            return 'restored';
         }
       } catch (error) {
         rollBack();
@@ -179,6 +215,7 @@ export function useChat(
             titled: true,
           },
         });
+        return 'restored';
       } finally {
         sendingRef.current = false;
         setLocalSendActive(false);

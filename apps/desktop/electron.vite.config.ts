@@ -34,6 +34,8 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           'workers/audio': resolve(__dirname, 'src/workers/audio/index.ts'),
           'workers/asr': resolve(__dirname, 'src/workers/asr/index.ts'),
+          // Chat attachment text, parsed off the main thread (worker_threads).
+          'workers/extract': resolve(__dirname, 'src/main/chat/extract-worker.ts'),
         },
       },
     },

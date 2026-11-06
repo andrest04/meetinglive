@@ -126,6 +126,24 @@ export function codexImageArgs(paths: readonly string[]): string[] {
   });
 }
 
+/** The last segment of a Windows or POSIX path. */
+const fileNameOf = (path: string): string =>
+  path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
+
+/**
+ * How Codex receives the images of one send. Absolute `-i` paths as long as none has a comma.
+ * When the folder has one (a Windows user name such as "Smith, John"), Codex runs in that folder
+ * and gets the bare file names instead, which the store keeps free of commas, so `-i` cannot
+ * split them.
+ */
+export function codexImageInvocation(
+  directory: string,
+  paths: readonly string[],
+): { args: string[]; cwd?: string } {
+  if (!paths.some((path) => path.includes(','))) return { args: codexImageArgs(paths) };
+  return { args: codexImageArgs(paths.map(fileNameOf)), cwd: directory };
+}
+
 /** The WinUI quoting: double quotes only when the value has a space, no escaping. */
 const quoteIfSpaced = (value: string): string => (value.includes(' ') ? `"${value}"` : value);
 const isBlank = (value: string | null | undefined): value is null | undefined =>
