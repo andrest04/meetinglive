@@ -10,6 +10,7 @@ import type {
   ChatProviderResolution,
   ChatSendOutcome,
   ChatService,
+  LiveContextSnapshot,
   Logger,
   ProviderSource,
   SummaryProviderResolver,
@@ -35,6 +36,15 @@ export interface ChatControllerDeps {
   readonly logger: Logger;
   /** Maps an unexpected error to a sentence; without it the failure text is generic, never raw. */
   readonly translate?: TranslateFn;
+  /**
+   * Live scope (T2): the rolling digest and the session context of the take, read when a send
+   * starts, next to the renderer's transcript snapshot (B5). Unset sends the transcript alone.
+   */
+  readonly liveContext?: () => {
+    readonly digest: string | null;
+    readonly title: string | null;
+    readonly notes: string | null;
+  };
 }
 
 /** S2: only http and https leave the app. Anything else, or a string that is not a URL, is refused. */
@@ -102,7 +112,7 @@ export class ChatController {
       broadcast(chatChunk, { requestId: input.requestId, text });
     });
     try {
-      const outcome = await service.send(input.draft, input.scope, input.liveTranscript);
+      const outcome = await service.send(input.draft, input.scope, this.liveSnapshot(input));
       return this.toDto(outcome);
     } catch (error) {
       // The service answers values; this guards a bug, not a normal outcome.
@@ -117,6 +127,21 @@ export class ChatController {
       };
     } finally {
       stopListening();
+    }
+  }
+
+  /** B5: the digest and session context are read once, here, as the send starts. */
+  private liveSnapshot(input: {
+    readonly scope: ChatScopeDto;
+    readonly liveTranscript: string | null;
+  }): string | LiveContextSnapshot | null {
+    const read = this.deps.liveContext;
+    if (input.scope.kind !== 'Live' || read === undefined) return input.liveTranscript;
+    try {
+      return { transcript: input.liveTranscript, ...read() };
+    } catch (error) {
+      this.deps.logger.warn('live chat context unavailable', { error });
+      return input.liveTranscript;
     }
   }
 

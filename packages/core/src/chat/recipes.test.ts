@@ -4,6 +4,7 @@ import {
   builtInRecipes,
   filterRecipes,
   isBuiltInRecipe,
+  liveRecipes,
   recipesForScope,
   starterRecipes,
 } from './recipes';
@@ -18,6 +19,7 @@ const esT = { ...es, ...uiEs } as Record<string, string>;
 const t = (key: string): string => enT[key] ?? `?${key}`;
 const MEETING_FIRST = ['101', '102', '103', '104', '105', '106', '107', '108', '109'];
 const CONTENT_FIRST = ['106', '107', '108', '101', '109', '102', '103', '104', '105'];
+const LIVE = ['301', '302', '303', '304'];
 const suffix = (list: readonly { id: string }[]): string[] => list.map((r) => r.id.slice(-3));
 
 describe('built-in recipe catalog', () => {
@@ -143,7 +145,7 @@ describe('recipe scope lists', () => {
 
   it('ForScope returns built-ins of the scope in catalog order', () => {
     expect(suffix(recipesForScope('Meeting', t))).toEqual(MEETING_FIRST);
-    expect(suffix(recipesForScope('Live', t))).toEqual(MEETING_FIRST);
+    expect(suffix(recipesForScope('Live', t))).toEqual([...LIVE, ...MEETING_FIRST]);
     expect(suffix(recipesForScope('Folder', t))).toEqual(['201', '202', '203']);
     expect(recipesForScope('AllMeetings', t)).toHaveLength(3);
   });
@@ -178,7 +180,7 @@ describe('recipe scope lists', () => {
 
   it('only a meeting scope reacts to the action items; live and multi scopes do not', () => {
     const context = { hasActionItems: false };
-    expect(suffix(recipesForScope('Live', t, context))).toEqual(MEETING_FIRST);
+    expect(suffix(recipesForScope('Live', t, context))).toEqual([...LIVE, ...MEETING_FIRST]);
     expect(suffix(recipesForScope('Folder', t, context))).toEqual(['201', '202', '203']);
     expect(suffix(starterRecipes('AllMeetings', t, context))).toEqual(['201', '202', '203']);
   });
@@ -190,5 +192,48 @@ describe('recipe scope lists', () => {
     expect(suffix(filterRecipes(list, '/ACTION'))).toEqual(['102']);
     expect(suffix(filterRecipes(list, '/ concise follow'))).toEqual(['103']);
     expect(filterRecipes(list, '/zzz')).toEqual([]);
+  });
+});
+
+describe('live recipes (T2)', () => {
+  it('only the Live scope gets them, first, so they are the starter chips', () => {
+    expect(suffix(starterRecipes('Live', t))).toEqual(LIVE);
+    expect(starterRecipes('Live', t).map((r) => r.name)).toEqual([
+      'Catch me up (last 2 min)',
+      'Summary so far',
+      'Suggest questions',
+      'Decisions and tasks',
+    ]);
+    for (const kind of ['Meeting', 'Folder', 'AllMeetings'] as const) {
+      expect(suffix(recipesForScope(kind, t)).some((id) => LIVE.includes(id))).toBe(false);
+    }
+    expect(builtInRecipes(t)).toHaveLength(12);
+  });
+
+  it('are localized: Spanish names and prompts from ui.es.json', () => {
+    const tEs = (k: string): string => esT[k] ?? `?${k}`;
+    const list = starterRecipes('Live', tEs);
+    expect(list.map((r) => r.name)).toEqual([
+      'Ponme al día (últimos 2 min)',
+      'Resumen hasta ahora',
+      'Sugiere preguntas',
+      'Decisiones y tareas',
+    ]);
+    const keys = liveRecipes((k) => k);
+    for (const r of keys) {
+      expect(r.name).toMatch(/^Ui_RecipeLive\w+Name$/);
+      expect(r.prompt).toMatch(/^Ui_RecipeLive\w+Prompt$/);
+      expect(uiEn[r.prompt as keyof typeof uiEn]).toBeTruthy();
+      expect(uiEs[r.prompt as keyof typeof uiEs]).toBeTruthy();
+      expect(uiEs[r.prompt as keyof typeof uiEs]).not.toBe(uiEn[r.prompt as keyof typeof uiEn]);
+      expect(isBuiltInRecipe(r.id)).toBe(true);
+    }
+  });
+
+  it('prompts ask for (mm:ss) times and stay grounded in the live context', () => {
+    for (const r of liveRecipes(t)) {
+      expect(r.prompt).toContain('(mm:ss)');
+      expect(r.prompt).not.toMatch(/^\?/);
+    }
   });
 });

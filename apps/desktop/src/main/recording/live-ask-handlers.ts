@@ -9,12 +9,17 @@ import {
   type PayloadInputOf,
 } from '@vozella/contracts';
 import {
+  DIGEST_INPUT_CLI_CHARS,
+  DIGEST_INPUT_LOCAL_CHARS,
   LiveAskSession,
   LiveQuestionTracker,
+  RollingDigest,
+  liveAnswerLanguageName,
   resolveLiveQuestionsMode,
   resolveSummaryLanguage,
   parseSummaryProvider,
   type CancelSignal,
+  type DigestEngine,
   type SettingsStore,
   type SummaryProviderResolver,
 } from '@vozella/core';
@@ -26,8 +31,17 @@ type Broadcast = <C extends EventChannel>(channel: C, payload: PayloadInputOf<C>
 export interface LiveAskDeps {
   readonly settings: Pick<SettingsStore, 'load'>;
   readonly resolver: Pick<SummaryProviderResolver, 'resolveSummaryProvider'>;
-  /** Asking is allowed only while a take records; the title feeds the session context. */
-  readonly recording: () => { readonly recording: boolean; readonly title: string };
+  /** Asking is allowed only while a take records; title and notes feed the session context. */
+  readonly recording: () => {
+    readonly recording: boolean;
+    readonly title: string;
+    readonly notes?: string;
+  };
+  /**
+   * True while the local model is already loaded. The rolling digest uses the local engine only
+   * then: it never loads the model by itself. Unset counts as not loaded.
+   */
+  readonly localModelLoaded?: () => boolean;
   readonly broadcast: Broadcast;
   readonly formatFailure: (error: unknown) => string;
   readonly nowMs: () => number;
@@ -43,11 +57,20 @@ const defaultTimer = (run: () => void, ms: number): (() => void) => {
   };
 };
 
+/** What the live chat packs besides the transcript (T2), read when a send starts (B5). */
+export interface LiveChatContext {
+  readonly digest: string | null;
+  readonly title: string | null;
+  readonly notes: string | null;
+}
+
 /** The live ask of one take: the session, the hooks the recording service calls, and the asks. */
 export class LiveAsk {
   readonly session: LiveAskSession;
   /** Live question detection: cards for spoken questions, never answered on their own. */
   readonly questions: LiveQuestionTracker;
+  /** The running summary the live chat reads (T2). */
+  readonly digest: RollingDigest;
   private committedText = '';
   private providerChosen = true;
 
@@ -81,9 +104,15 @@ export class LiveAsk {
       // Provider setup is a page flow; the main process cannot open it from here.
       setupWired: false,
     });
+    this.digest = new RollingDigest({
+      nowMs: deps.nowMs,
+      engine: () => this.digestEngine(),
+      complete: (prompt, cancel) => this.complete(prompt, cancel),
+      setTimer: deps.setTimer ?? defaultTimer,
+    });
     this.questions = new LiveQuestionTracker({
       mode: async () => resolveLiveQuestionsMode(await deps.settings.load()),
-      confirm: (prompt, cancel) => this.checkQuestion(prompt, cancel),
+      confirm: (prompt, cancel) => this.complete(prompt, cancel),
       detected: (event) => {
         deps.broadcast(recordingQuestionDetected, event);
       },
@@ -96,8 +125,40 @@ export class LiveAsk {
     });
   }
 
-  /** The optional yes or no check, through the selected summary engine without web search. */
-  private async checkQuestion(prompt: string, cancel: CancelSignal): Promise<string> {
+  /**
+   * The digest runs with a CLI engine, or with the local engine only when its model is already
+   * loaded. Read before every update, so a change in Settings applies to the next one.
+   */
+  private async digestEngine(): Promise<DigestEngine | null> {
+    const settings = await this.deps.settings.load();
+    const kind = parseSummaryProvider(settings.selectedSummaryProvider);
+    if (kind === null) return null;
+    const language = liveAnswerLanguageName(resolveSummaryLanguage(settings));
+    if (kind === 'Local') {
+      return this.deps.localModelLoaded?.() === true
+        ? { language, maxInputChars: DIGEST_INPUT_LOCAL_CHARS }
+        : null;
+    }
+    return { language, maxInputChars: DIGEST_INPUT_CLI_CHARS };
+  }
+
+  /** The live chat's extra context: the digest and the session context, read at send start. */
+  chatContext(): LiveChatContext {
+    const take = this.deps.recording();
+    const blankToNull = (value: string | undefined): string | null =>
+      value === undefined || value.trim() === '' ? null : value;
+    return {
+      digest: this.digest.current,
+      title: blankToNull(take.title),
+      notes: blankToNull(take.notes),
+    };
+  }
+
+  /**
+   * One prompt through the selected summary engine without web search: the question check and
+   * the rolling digest.
+   */
+  private async complete(prompt: string, cancel: CancelSignal): Promise<string> {
     const settings = await this.deps.settings.load();
     const kind = parseSummaryProvider(settings.selectedSummaryProvider);
     if (kind === null) throw new Error('no summary engine');
@@ -114,14 +175,17 @@ export class LiveAsk {
       this.committedText = '';
       this.session.reset();
       this.questions.reset();
+      this.digest.reset();
     },
     cancel: () => {
       this.session.cancel();
       this.questions.reset();
+      this.digest.reset();
     },
     committed: (text) => {
       this.committedText = text;
       this.questions.committed(text);
+      this.digest.committed(text);
     },
   };
 

@@ -14,6 +14,7 @@ import { useT } from '../../i18n/I18nProvider';
 import { Icon, IconButton, Splitter, cn } from '../../ui';
 import { clampSize } from '../../ui/splitter-logic';
 import { AiLauncher } from './AiLauncher';
+import { LiveBadge } from './LiveBadge';
 import {
   DOCK_MIN_CONTENT_WIDTH,
   PANEL_DEFAULT_WIDTH,
@@ -187,13 +188,21 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
       {/* Empty chrome: drags the window and sits behind the caption buttons. */}
       <div className="app-drag h-10 shrink-0" />
       <div className="flex h-10 shrink-0 items-center gap-1 ps-4 pe-2">
-        <Icon icon={SCOPE_ICON[decision.kind]} className="text-ink-muted" />
-        <span
-          data-testid="LblMeetingChatScope"
-          className="min-w-0 flex-1 truncate text-ui-lg font-medium"
-        >
-          {label}
-        </span>
+        {decision.kind === 'Live' ? (
+          <span className="flex min-w-0 flex-1">
+            <LiveBadge label={label} />
+          </span>
+        ) : (
+          <>
+            <Icon icon={SCOPE_ICON[decision.kind]} className="text-ink-muted" />
+            <span
+              data-testid="LblMeetingChatScope"
+              className="min-w-0 flex-1 truncate text-ui-lg font-medium"
+            >
+              {label}
+            </span>
+          </>
+        )}
         <IconButton
           id="BtnMeetingChatNew"
           data-testid="BtnMeetingChatNew"

@@ -19,6 +19,7 @@ import {
   type ContextBudget,
   type ContextFolder,
   type ContextMeeting,
+  type LiveContextSnapshot,
 } from './context-packer';
 import { answerLanguageName, buildPrompt, priorTurnLimitsFor } from './prompt-builder';
 import { matchesOpenThread, type ChatScopeDecision } from './scope-resolver';
@@ -216,14 +217,19 @@ export class ChatService {
   async send(
     draft: string,
     decision: ChatScopeDecision,
-    liveTranscriptSnapshot: string | null,
+    /** Live scope: the transcript alone, or with the digest and session context (T2). */
+    liveTranscriptSnapshot: string | LiveContextSnapshot | null,
     options: SendOptions = {},
   ): Promise<ChatSendOutcome> {
     const userText = draft.trim();
     if (this.sending || !decision.isVisible || userText === '') return { status: 'ignored' };
 
-    // B5: the scope and the live transcript are fixed here, not read again later.
+    // B5: the scope and the live snapshot are fixed here, not read again later.
     const scope = { ...decision };
+    const live =
+      liveTranscriptSnapshot !== null && typeof liveTranscriptSnapshot === 'object'
+        ? { ...liveTranscriptSnapshot }
+        : liveTranscriptSnapshot;
     const t = this.deps.translate;
     const userCreatedAt = this.deps.clock.now();
     const cancelSource = new CancelSource();
@@ -265,7 +271,7 @@ export class ChatService {
       const lastUserTurn = prior.findLast((m) => m.role === 'user')?.text ?? '';
       const context = await this.pack(
         scope,
-        liveTranscriptSnapshot,
+        live,
         contextBudgetFor(provider.id),
         `${userText}\n${lastUserTurn}`,
       );
@@ -316,7 +322,7 @@ export class ChatService {
 
   private async pack(
     scope: ChatScopeDecision,
-    live: string | null,
+    live: string | LiveContextSnapshot | null,
     budget: ContextBudget,
     query: string,
   ): Promise<string> {

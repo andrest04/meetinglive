@@ -109,7 +109,10 @@ test('pause hides the LIVE badge and stops the pulse, resume brings them back', 
   await page.keyboard.press('Control+p');
   await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
   await expect(page.getByTestId('live-badge')).toHaveCount(0);
-  await expect(page.getByTestId('pulse')).toHaveAttribute('data-active', 'false');
+  await expect(page.getByTestId('recording-bar').getByTestId('pulse')).toHaveAttribute(
+    'data-active',
+    'false',
+  );
   await expect(page.getByRole('meter', { name: 'Mic level' })).toHaveAttribute(
     'aria-valuenow',
     '0',
@@ -122,12 +125,15 @@ test('pause hides the LIVE badge and stops the pulse, resume brings them back', 
   await page.keyboard.press('Control+p');
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
   await expect(page.getByTestId('live-badge')).toBeVisible();
-  await expect(page.getByTestId('pulse')).toHaveAttribute('data-active', 'true');
+  await expect(page.getByTestId('recording-bar').getByTestId('pulse')).toHaveAttribute(
+    'data-active',
+    'true',
+  );
 });
 
 test('the halo is static under reduced motion', async () => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const halo = page.getByTestId('pulse-halo');
+  const halo = page.getByTestId('recording-bar').getByTestId('pulse-halo');
   await expect(halo).toHaveCSS('opacity', '0.3');
   await expect(halo).toHaveCSS('animation-name', 'none');
   await page.emulateMedia({ reducedMotion: 'no-preference' });

@@ -716,9 +716,9 @@ export class RecordingService {
 
   // -- capture events ----------------------------------------------------------------------------
 
-  /** The title and phase the live ask reads. Asking is allowed only while recording. */
-  get liveAskContext(): { recording: boolean; title: string } {
-    return { recording: this.gate.phase === 'Recording', title: this.title };
+  /** The title, notes and phase the live ask reads. Asking is allowed only while recording. */
+  get liveAskContext(): { recording: boolean; title: string; notes: string } {
+    return { recording: this.gate.phase === 'Recording', title: this.title, notes: this.notes };
   }
 
   private onCaptureEvent(event: RecordingNoticeDto): void {

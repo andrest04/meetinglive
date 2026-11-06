@@ -139,3 +139,35 @@ test('Ctrl+Enter outside a text box answers the card of a new take', async () =>
   await expect(card()).toHaveCount(0);
   await endTake();
 });
+
+test('the AI panel shows the Live badge and the live chips; Summary so far answers', async () => {
+  await startTake('Live panel check');
+  const launcher = page.getByTestId('BtnAiPanelOpen');
+  const composer = page.getByTestId('TxtMeetingChat');
+  // The panel remembers whether it was open; only the visible control counts.
+  await expect(launcher.or(composer).filter({ visible: true })).toBeVisible();
+  if (await launcher.isVisible()) await launcher.click();
+  await expect(composer).toBeVisible();
+
+  await expect(page.getByTestId('BadgeChatLive')).toHaveText('Live');
+  const chips = page.getByTestId('ListMeetingChatStarters');
+  await expect(chips.getByRole('button')).toHaveText([
+    'Catch me up (last 2 min)',
+    'Summary so far',
+    'Suggest questions',
+    'Decisions and tasks',
+  ]);
+  expect(await serious()).toEqual([]);
+  if (shots) {
+    fs.mkdirSync(outDir, { recursive: true });
+    await page.screenshot({ path: path.join(outDir, 'live-ai-panel.png') });
+  }
+
+  await chips.getByRole('button', { name: 'Summary so far' }).click();
+  const list = page.getByTestId('ListMeetingChat');
+  await expect(list.getByText(/^Summarize the recording so far/)).toBeVisible();
+  await expect(list.getByText('The team went over the plan')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('BtnMeetingChatStop')).toHaveCount(0);
+  await endTake();
+  await expect(page.getByTestId('BadgeChatLive')).toHaveCount(0);
+});

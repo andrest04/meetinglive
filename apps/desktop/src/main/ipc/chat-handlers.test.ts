@@ -4,6 +4,7 @@ import type {
   ChatScopeDecision,
   ChatSendOutcome,
   ChatState,
+  LiveContextSnapshot,
   Logger,
 } from '@vozella/core';
 import { describe, expect, it, vi } from 'vitest';
@@ -11,6 +12,7 @@ import {
   allowedExternalUrl,
   ChatController,
   chatProviderSource,
+  type ChatControllerDeps,
   type ChatServicePort,
 } from '../chat/chat-controller';
 import type { IpcEventLike } from '../security/trusted-origin';
@@ -34,7 +36,11 @@ const message = (id: string, role: 'user' | 'assistant', text: string): ChatMess
 
 /** A service double: the test scripts what a send streams and answers. */
 class FakeChatService implements ChatServicePort {
-  sendCalls: { draft: string; scope: ChatScopeDecision; live: string | null }[] = [];
+  sendCalls: {
+    draft: string;
+    scope: ChatScopeDecision;
+    live: string | LiveContextSnapshot | null;
+  }[] = [];
   chunks: string[] = [];
   outcome: (draft: string) => ChatSendOutcome = (draft) => ({
     status: 'sent',
@@ -93,7 +99,7 @@ class FakeChatService implements ChatServicePort {
   async send(
     draft: string,
     scope: ChatScopeDecision,
-    live: string | null,
+    live: string | LiveContextSnapshot | null,
   ): Promise<ChatSendOutcome> {
     this.sendCalls.push({ draft, scope, live });
     this.sending = true;
@@ -118,7 +124,12 @@ class FakeChatService implements ChatServicePort {
   }
 }
 
-function setup(options: { findMeetingId?: (id: string) => Promise<string | null> } = {}) {
+function setup(
+  options: {
+    findMeetingId?: (id: string) => Promise<string | null>;
+    liveContext?: ChatControllerDeps['liveContext'];
+  } = {},
+) {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (name, listener) => void handlers.set(name, listener) };
   const service = new FakeChatService();
@@ -140,6 +151,7 @@ function setup(options: { findMeetingId?: (id: string) => Promise<string | null>
     },
     broadcast: (channel, payload) => events.push({ name: channel.name, payload }),
     logger: logger(),
+    ...(options.liveContext ? { liveContext: options.liveContext } : {}),
   });
   registerChatHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
@@ -184,6 +196,30 @@ describe('chat handlers', () => {
       { requestId: 'r1', text: 'We decided' },
       { requestId: 'r1', text: 'We decided to ship' },
     ]);
+  });
+
+  it('Live scope: adds the digest, title and notes read at send start (T2)', async () => {
+    let digest = '- Budget agreed (02:10)';
+    const { call, service } = setup({
+      liveContext: () => ({ digest, title: 'Weekly sync', notes: 'launch date?' }),
+    });
+    const sending = call(
+      'chat.send',
+      sendInput({
+        scope: { isVisible: true, kind: 'Live', folderId: null, meetingId: null },
+        liveTranscript: 'Ana: we ship on Friday',
+      }),
+    );
+    digest = '- changed later';
+    await sending;
+    expect(service.sendCalls[0]?.live).toEqual({
+      transcript: 'Ana: we ship on Friday',
+      digest: '- Budget agreed (02:10)',
+      title: 'Weekly sync',
+      notes: 'launch date?',
+    });
+    await call('chat.send', sendInput({ liveTranscript: null }));
+    expect(service.sendCalls[1]?.live).toBeNull();
   });
 
   it('passes the scope and the live transcript snapshot to the service as sent (item 21)', async () => {

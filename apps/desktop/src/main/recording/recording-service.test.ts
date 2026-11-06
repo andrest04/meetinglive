@@ -638,7 +638,7 @@ describe('RecordingService live ask hooks (127)', () => {
     const t = build();
     await t.service.start(sources);
     expect(t.liveAskCalls).toEqual(['reset']);
-    expect(t.service.liveAskContext).toEqual({ recording: true, title: 'Standup' });
+    expect(t.service.liveAskContext).toEqual({ recording: true, title: 'Standup', notes: '' });
     for (const listener of t.liveListeners) listener('shown', 'committed text');
     expect(t.liveAskCalls).toContain('committed:committed text');
     await t.service.stop();

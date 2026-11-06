@@ -1,5 +1,5 @@
 import { recordingAnswer, recordingAnswerSchema, requestChannels } from '@vozella/contracts';
-import type { Logger } from '@vozella/core';
+import { DIGEST_INTERVAL_MS, type Logger } from '@vozella/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { IpcMainLike } from '../ipc/ipc-server';
 import { LiveAsk, registerLiveAskHandlers } from './live-ask-handlers';
@@ -7,7 +7,11 @@ import { LiveAsk, registerLiveAskHandlers } from './live-ask-handlers';
 const logger = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() });
 const event = { sender: { id: 1 }, senderFrame: { url: 'vozella://app/index.html', parent: null } };
 
-function setup(recording = true, provider: string | null = 'Codex') {
+function setup(
+  recording = true,
+  provider: string | null = 'Codex',
+  extra: { now?: () => number; localModelLoaded?: () => boolean } = {},
+) {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (name, listener) => void handlers.set(name, listener) };
   const sent: { channel: string; payload: unknown }[] = [];
@@ -34,12 +38,13 @@ function setup(recording = true, provider: string | null = 'Codex') {
         } as never);
       },
     },
-    recording: () => ({ recording, title: 'Algebra' }),
+    recording: () => ({ recording, title: 'Algebra', notes: 'ask about limits' }),
     broadcast: (channel, payload) => {
       sent.push({ channel: channel.name, payload });
     },
     formatFailure: String,
-    nowMs: () => 0,
+    nowMs: extra.now ?? (() => 0),
+    ...(extra.localModelLoaded ? { localModelLoaded: extra.localModelLoaded } : {}),
   });
   registerLiveAskHandlers({ ipc, logger: logger(), isTrusted: () => true }, liveAsk);
   const call = (name: string, input: unknown): Promise<unknown> => {
@@ -310,5 +315,52 @@ describe('live question detection', () => {
     t.liveAsk.hooks.committed(line(0, QUESTION));
     await flush();
     expect(t.on('recording.questionDetected')).toEqual([]);
+  });
+});
+
+describe('rolling digest (T2)', () => {
+  const lines = (count: number): string =>
+    Array.from(
+      { length: count },
+      (_, i) =>
+        `[00:${String(i).padStart(2, '0')}.00-00:${String(i).padStart(2, '0')}.50] we keep talking about the budget for the quarter`,
+    ).join('\n');
+
+  it('updates the digest through the selected engine and exposes it with the session context', async () => {
+    let now = 0;
+    const t = setup(true, 'Codex', { now: () => now });
+    t.liveAsk.hooks.reset();
+    now = DIGEST_INTERVAL_MS;
+    t.liveAsk.hooks.committed(lines(20));
+    await settle();
+    await settle();
+    expect(t.prompts.some((p) => p.includes('running summary'))).toBe(true);
+    expect(t.liveAsk.chatContext()).toEqual({
+      digest: 'Because it does.',
+      title: 'Algebra',
+      notes: 'ask about limits',
+    });
+    t.liveAsk.hooks.cancel();
+    expect(t.liveAsk.chatContext().digest).toBeNull();
+  });
+
+  it('never loads the local model for a digest', async () => {
+    let now = 0;
+    let loaded = false;
+    const t = setup(true, 'Local', { now: () => now, localModelLoaded: () => loaded });
+    t.liveAsk.hooks.reset();
+    now = DIGEST_INTERVAL_MS;
+    t.liveAsk.hooks.committed(lines(20));
+    await settle();
+    expect(t.resolved).toEqual([]);
+    expect(t.liveAsk.chatContext().digest).toBeNull();
+
+    loaded = true;
+    now = 2 * DIGEST_INTERVAL_MS;
+    t.liveAsk.hooks.committed(lines(30));
+    await settle();
+    await settle();
+    expect(t.resolved).toEqual([{ kind: 'Local', webSearch: false }]);
+    expect(t.liveAsk.chatContext().digest).toBe('Because it does.');
   });
 });
