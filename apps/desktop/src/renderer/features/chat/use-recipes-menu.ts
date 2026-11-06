@@ -18,6 +18,8 @@ export interface UseRecipesMenuInput {
   /** Every built-in recipe of the scope, already named in the current language (B8). */
   readonly recipes: readonly ChatRecipe[];
   readonly field: RefObject<HTMLTextAreaElement | null>;
+  /** Told about every pick, after the draft is filled (a saved prompt arms its engine). */
+  readonly onPicked?: (recipe: ChatRecipe) => void;
 }
 
 export interface RecipesMenuState {
@@ -41,6 +43,7 @@ export function useRecipesMenu({
   onDraftChange,
   recipes,
   field,
+  onPicked,
 }: UseRecipesMenuInput): RecipesMenuState {
   const [mode, setMode] = useState<RecipesOpenMode | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -95,11 +98,13 @@ export function useRecipesMenu({
           el.focus();
           el.setSelectionRange(el.value.length, el.value.length);
         }
+        onPicked?.(recipe);
         return;
       }
       onDraftChange(recipe.prompt);
+      onPicked?.(recipe);
     },
-    [close, draft, field, onDraftChange],
+    [close, draft, field, onDraftChange, onPicked],
   );
 
   const isOpen = mode !== null;

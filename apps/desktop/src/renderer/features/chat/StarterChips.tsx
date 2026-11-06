@@ -4,10 +4,11 @@ import { Tooltip } from '../../ui';
 
 export interface StarterChipsProps {
   readonly recipes: readonly ChatRecipe[];
-  readonly onPick: (prompt: string) => void;
+  /** Sends the recipe's prompt at once (with a saved prompt's engine). */
+  readonly onPick: (recipe: ChatRecipe) => void;
 }
 
-/** Four suggested questions for an empty chat. A click sends the recipe prompt at once. */
+/** Four suggested questions for an empty chat; saved prompts lead. A click sends at once. */
 export function StarterChips({ recipes, onPick }: StarterChipsProps) {
   const t = useT();
   if (recipes.length === 0) return null;
@@ -23,7 +24,7 @@ export function StarterChips({ recipes, onPick }: StarterChipsProps) {
             <button
               type="button"
               onClick={() => {
-                onPick(recipe.prompt);
+                onPick(recipe);
               }}
               className="h-7 rounded-control border border-hairline px-3 text-ui text-ink transition-colors duration-150 ease-out-quick hover:bg-hover active:bg-pressed"
             >

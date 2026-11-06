@@ -33,6 +33,7 @@ import {
 import { answerLanguageName, buildPrompt, priorTurnLimitsFor } from './prompt-builder';
 import { matchesOpenThread, type ChatScopeDecision } from './scope-resolver';
 import { StreamCoalescer } from './stream-coalescer';
+import type { ChatEngine } from './user-prompts';
 
 /**
  * Core ports for chat. Each query is scoped by id or folder (B17), so a send never loads every
@@ -68,7 +69,8 @@ export type ChatProviderResolution =
   | { readonly status: 'unavailable' };
 
 export interface ProviderSource {
-  resolve(): Promise<ChatProviderResolution>;
+  /** `engine` is a saved prompt's engine for this send only; unset uses the one from Settings. */
+  resolve(engine?: ChatEngine): Promise<ChatProviderResolution>;
 }
 
 /**
@@ -143,6 +145,8 @@ export interface SendOptions {
   readonly setupGate?: SetupGate;
   /** Attachment ids the page holds for this conversation; only ready ones are used. */
   readonly attachmentIds?: readonly string[];
+  /** A saved prompt's engine (Phase 5). Used for this send only, with the usual setup outcomes. */
+  readonly engine?: ChatEngine;
 }
 
 const NO_FILES: ResolvedAttachments = { documents: [], imageNames: [] };
@@ -279,7 +283,10 @@ export class ChatService {
           : [];
 
       // T2: the engine decides the context size, so it is resolved before packing.
-      const resolution = await this.deps.providers.resolve();
+      const resolution =
+        options.engine === undefined
+          ? await this.deps.providers.resolve()
+          : await this.deps.providers.resolve(options.engine);
       let provider: ChatStreamProvider;
       if (resolution.status === 'unavailable') return fail(providerRemovedFailure(t));
       if (resolution.status === 'needs-setup') {

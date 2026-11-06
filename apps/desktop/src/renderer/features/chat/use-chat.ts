@@ -1,4 +1,9 @@
-import type { ChatScopeDto, ChatSendOutcomeDto, ChatStateDto } from '@vozella/contracts';
+import type {
+  ChatEngineDto,
+  ChatScopeDto,
+  ChatSendOutcomeDto,
+  ChatStateDto,
+} from '@vozella/contracts';
 import { sendFailedFailure } from '@vozella/core';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { toCoreT } from './chat-core-t';
@@ -13,13 +18,20 @@ export interface ChatController {
   readonly setDraft: (value: string) => void;
   readonly isSending: boolean;
   readonly showScopeMismatch: boolean;
-  /** Sends `text` (the composer draft or a chip prompt). Resolves when the answer is settled. */
-  readonly send: (text: string) => Promise<void>;
+  /**
+   * Sends `text` (the composer draft or a chip prompt). Resolves when the answer is settled. A
+   * saved prompt's `engine` answers this send only, also after the setup gate.
+   */
+  readonly send: (text: string, options?: ChatSendRequestOptions) => Promise<void>;
   readonly stop: () => void;
   readonly copy: (text: string) => Promise<boolean>;
   readonly dismissError: () => void;
   /** Puts a plain line in the error notice (a failed link, for example). */
   readonly reportError: (message: string) => void;
+}
+
+export interface ChatSendRequestOptions {
+  readonly engine?: ChatEngineDto;
 }
 
 const newRequestId = (): string => `req-${crypto.randomUUID()}`;
@@ -84,7 +96,7 @@ export function useChat(
   }, []);
 
   const send = useCallback(
-    async (raw: string): Promise<void> => {
+    async (raw: string, options: ChatSendRequestOptions = {}): Promise<void> => {
       const text = raw.trim();
       if (text === '' || sendingRef.current || !latest.current.scope.isVisible) return;
       sendingRef.current = true;
@@ -111,6 +123,7 @@ export function useChat(
           scope: latest.current.scope,
           liveTranscript: workspace.liveTranscript === '' ? null : workspace.liveTranscript,
           ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+          ...(options.engine === undefined ? {} : { engine: options.engine }),
         });
       };
 

@@ -10,11 +10,13 @@ export function MessageList({
   onCopy,
   onLink,
   onApply,
+  onSaveAsPrompt,
 }: {
   readonly rows: readonly ChatRow[];
   readonly onCopy: (text: string) => Promise<boolean>;
   readonly onLink: LinkHandler;
   readonly onApply?: (text: string) => void;
+  readonly onSaveAsPrompt?: (text: string) => void;
 }) {
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
@@ -39,6 +41,7 @@ export function MessageList({
             onCopy={onCopy}
             onLink={onLink}
             {...(onApply ? { onApply } : {})}
+            {...(onSaveAsPrompt ? { onSaveAsPrompt } : {})}
           />
         ))}
       </ul>
