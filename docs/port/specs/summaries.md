@@ -429,21 +429,23 @@ The port must keep key parity between the English and Spanish catalogs. The sele
 
 Used verbatim by Local (direct path and final map-reduce step), Claude Code, Codex, and xAI. Inputs: title, recordedAt, transcript, outputLanguage, endedAt, enhancement.
 
+**Port divergence (adaptive structure, 2026-11-05).** The Electron port intentionally no longer uses the WinUI prompt text. WinUI forced four fixed `###` subheadings (`What this was` / `Key points` / `Decisions` / `Open questions`, localized only for `en` and `es`). The port asks for a one-or-two-sentence gist, then lets the model infer the content type (meeting, class, talk, podcast, interview, tutorial, video) and write 2–5 `###` sections of its own, in the output language, grouped by topic with mm:ss ranges. Checkboxes and `##` headings are forbidden in the Summary body; `## Action Items` holds only real follow-ups. The `## Title` / `## Summary` / `## Action Items` contract is unchanged, so the splitter (3.3) and storage are unaffected. The text below is the port's; `packages/core/src/summaries/prompt-builders.test.ts` asserts the two agree.
+
 Derived values:
 
 - `languageName = ToEnglishLanguageName(code)`: null/blank gives `Spanish`; otherwise trim and lowercase: `es` Spanish, `en` English, `pt` Portuguese, `fr` French, `de` German, `it` Italian, `nl` Dutch, `ja` Japanese, `zh` Chinese, anything else `Spanish`.
-- `IsEnglish(code)` = trimmed code equals `en` (case-insensitive). Subheadings: English `What this was` / `Key points` / `Decisions` / `Open questions`. Every non-English code (including `fr`, `de`) uses Spanish: `Qué fue esto` / `Puntos clave` / `Decisiones` / `Preguntas abiertas`.
+- `IsEnglish(code)` = trimmed code equals `en` (case-insensitive). It now selects only the action examples; there are no fixed subheadings.
 - Action examples: English `- [ ] Send the revised deck — Owner: Ana — Due: Friday` and `- [ ] Review the API contract` (two lines). Non-English: `- [ ] Enviar el deck revisado — Owner: Ana — Due: viernes` and `- [ ] Revisar el contrato de la API`.
-- `endedAtBlock`: when `endedAt` is set, a newline, 12 spaces, `<ended_at>` + ISO 8601 round-trip string (`O` format, invariant culture, for example `2026-11-02T15:30:00.0000000-05:00`) + `</ended_at>`. Else empty.
+- `endedAtBlock`: when `endedAt` is set, a newline, then `<ended_at>` + ISO 8601 round-trip string (`O` format, invariant culture, for example `2026-11-02T15:30:00.0000000-05:00`) + `</ended_at>`. Else empty. (WinUI also indented it by 12 spaces; the port does not.)
 
-Prompt text. `{languageName}`, `{headings.*}`, `{actionExamples}`, `{title}`, `{recordedAt}`, `{endedAtBlock}`, `{transcript}` are the substitutions. The en dash in "3–8" is U+2013. Verbatim:
+Prompt text. `{languageName}`, `{actionExamples}`, `{title}`, `{recordedAt}`, `{endedAtBlock}`, `{transcript}` are the substitutions. The en dashes in "3–8", "2–5" and "12:05–18:40" are U+2013. Newlines are LF. Verbatim:
 
 ```text
 # Identity
 
-You extract meeting and lecture notes from an automatic-speech-recognition transcript.
-The transcript may contain ASR errors, false starts, and filler. You are a note-taker,
-not a novelist.
+You take notes from an automatic-speech-recognition transcript of any spoken recording:
+meeting, class, talk, podcast, interview, tutorial, or video. The transcript may contain
+ASR errors, false starts, and filler. You are a note-taker, not a novelist.
 
 # Instructions
 
@@ -459,37 +461,37 @@ describes the content. Ground it in the transcript; do not invent.
 
 ## Summary
 
-Use these subheadings inside the Summary body, verbatim (omit a subheading if that
-content is not in the transcript):
+Open with one or two sentences: what the recording is and its single most important
+takeaway. If it is an informal ASR test or rambling, say so; do not dress it up.
 
-### {headings.WhatThisWas}
-One or two sentences: meeting, class, informal test, or unclear.
+Then silently decide the content type and add the 2–5 ### sections that serve it best,
+with headings written in {languageName}. For example:
+- meeting: decisions, topics, open questions
+- class: key concepts with a short explanation each, examples, what to review
+- talk, podcast, or interview: main thesis, arguments, notable quotes, takeaways
+- tutorial: goal, numbered steps, tips and pitfalls
 
-### {headings.KeyPoints}
-Bullet list of substantive points actually said.
-
-### {headings.Decisions}
-Bullet list of decisions that were explicitly made. If none, omit this subheading.
-
-### {headings.OpenQuestions}
-Unresolved questions or disagreements. If none, omit this subheading.
+Group by topic, not chronology. Append the elapsed range in mm:ss to each point or
+heading, e.g. (12:05–18:40). Use bullets, numbered lists, tables for comparisons, and
+blockquotes (>) for verbatim quotes. No checkboxes and no ## headings in this body.
+Omit a section with no content; do not pad.
 
 ## Action Items
 
-Each follow-up as a Markdown checkbox. Include owner and due date only when the
-transcript states them. If priority was stated, append it. Examples:
+Only real follow-ups that were stated or clearly agreed, each as a Markdown checkbox.
+Include owner and due date only when the transcript states them. If priority was
+stated, append it. Examples:
 {actionExamples}
 
-If there are no action items, leave this section empty (keep the heading).
+If there are none, leave this section empty (keep the heading); talks, classes, and
+videos often have none.
 
 Rules:
 - Ground every sentence in the transcript. Do not invent attendees, dates, companies, or tasks.
-- If the recording is an informal ASR test or rambling, say so in "{headings.WhatThisWas}". Do not dress it up as a formal meeting.
 - If a name or number is unclear because of ASR noise, paraphrase without guessing the spelling.
-- Transcript lines are stamped [mm:ss.ff-mm:ss.ff] elapsed ranges from recording start, with optional [ Speaker-N ] labels. When placing a key point, decision, or quote in time, use that elapsed range (and Recorded/Ended for wall-clock meeting bounds).
+- Transcript lines are stamped [mm:ss.ff-mm:ss.ff] elapsed ranges from recording start, with optional [ Speaker-N ] labels. Use those ranges to place points in time (and Recorded/Ended for wall-clock bounds).
 - Transcript may start with Recorded and Ended local stamps (yyyy-MM-dd HH:mm). Use those / <ended_at> as the meeting end. Never write that the end time was not recorded when Ended or <ended_at> is present. If missing, omit end time (do not invent, do not say "not recorded").
 - Write the Title, the Summary body, and action-item text in {languageName}.
-- Use the ### subheadings above verbatim — do not translate them.
 - Keep the Markdown headings exactly "## Title", "## Summary", and "## Action Items" in English.
 
 # Context
@@ -501,17 +503,18 @@ Rules:
 </transcript>
 ```
 
-Note: the last rule contradicts "Use the ### subheadings above verbatim — do not translate them" when combined with `{languageName}`; the subheadings are already localized by the substitution, so the two rules are consistent only for `es` and `en`.
+Note: the WinUI note about "Use the ### subheadings above verbatim — do not translate them" contradicting `{languageName}` no longer applies; that rule and the fixed subheadings are gone.
 
 **Enhancement suffix** (`enhancement` present and `HasAny`): the final string is `prompt + "\n" + rules + blocks`, with no trailing newline on `prompt`.
 
-Rules text (the raw-notes line is present only when `HasRawNotes`; in the original it is preceded by a newline and 12 literal spaces, which is a harmless indentation artefact that the port may normalize):
+Rules text (the raw-notes line is present only when `HasRawNotes`; the template line, a port addition, only when `HasTemplateInstructions`; in the WinUI original each optional line is preceded by a newline and 12 literal spaces, which the port normalizes away):
 
 ```text
 Extra rules for the supplied context:
 - Do not invent attendees, dates, quotes, or tasks that are not in the transcript or the supplied context.
 - Still emit exactly "## Title", "## Summary", and "## Action Items" in that order, and nothing else.
 - Treat the raw notes as important. Include those points. Fix typos. Fill structure from the transcript.
+- <template_instructions> sets the Summary body structure: it replaces the inferred ### sections. The three ## headings still apply.
 ```
 
 Blocks, appended in this order, each only when present, each preceded by a blank line (except that the first block directly follows the rules line), and each tag line indented by 12 spaces in the original:
@@ -629,19 +632,21 @@ Definitions: `RoomFor(prompt, maxOut) = 4096 - 128 - maxOut - tokens(prompt)`. `
 
 `GroupToBudget(notes, maxTokens)`: iterate notes; `cost = tokens(note) + 2` (the blank line between notes); start a new group when there is none yet or `used + cost > maxTokens`; append the note to the last group; add cost. A single oversized note ends up alone in its own group.
 
-`BuildPartPrompt(part, number, total, language)` verbatim:
+`BuildPartPrompt(part, number, total, language)` verbatim. Port divergence (2026-11-05): unlike WinUI, which kept only points, decisions, questions, and tasks, the part and merge notes record the content type on a `Type:` first line and keep type-relevant material (concepts with definitions, steps in order, arguments, verbatim quotes), so long classes, talks, and tutorials keep it until the final step (3.1). The `- [ ]` follow-ups here are intermediate notes; the final prompt forbids checkboxes in the Summary body.
 
 ```text
 You take notes on part {number} of {total} of an automatic-speech-recognition transcript.
 Another step combines the notes from all parts, so anything you leave out is lost.
 
-Respond only with Markdown bullets in {language}, about 300 words at most, with no preamble:
-- The substantive points actually said.
-- Decisions explicitly made, starting with "Decision:".
-- Unresolved questions, starting with "Question:".
+Respond only in {language}, about 300 words at most, no preamble.
+First line: "Type:" and the content type (meeting, class, talk, podcast, interview, tutorial, other).
+Then Markdown bullets:
+- Points; concepts with their definitions; steps in order; arguments.
+- Notable quotes, verbatim.
+- Decisions as "Decision:", unresolved questions as "Question:".
 - Follow-ups as "- [ ] task", with an owner and a due date only when stated.
 
-Keep the [mm:ss.ff-mm:ss.ff] range on decisions and follow-ups, and any Recorded or Ended stamp.
+Keep the [mm:ss.ff-mm:ss.ff] range on every bullet, and any Recorded or Ended stamp.
 Ground every bullet in the text. Do not invent names, dates, or tasks.
 If this part has nothing substantive, respond with one bullet that says so.
 
@@ -655,10 +660,10 @@ If this part has nothing substantive, respond with one bullet that says so.
 ```text
 These are consecutive notes on a recording, in time order. Combine them into one shorter set.
 
-Respond only with Markdown bullets in {language}, about 300 words at most, with no preamble.
-Remove repetition and minor detail. Keep every decision, open question, and follow-up,
-with their "Decision:", "Question:", and "- [ ]" forms and their time ranges.
-Do not invent anything that is not in the notes.
+Respond only in {language}, about 300 words at most, no preamble: one "Type:" line, then
+Markdown bullets. Drop repetition and minor detail. Keep concepts with definitions,
+steps in order, arguments, verbatim quotes, and every "Decision:", "Question:", and
+follow-up ("- [ ]"), with their time ranges. Do not invent anything not in the notes.
 
 <notes_part>
 {notes}

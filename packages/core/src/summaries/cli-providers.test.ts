@@ -129,15 +129,13 @@ for (const f of flavors) {
       expect(noEnd.calls[0]?.stdin).not.toContain('</ended_at>');
     });
 
-    it('asks for English output and Spanish subheadings by language code', async () => {
+    it('asks for section headings in the output language by language code', async () => {
       const en = new FakeCliProcessRunner(REPLY);
       await f.make(en).summarize(request, cancel());
-      expect(en.calls[0]?.stdin).toContain('English');
-      expect(en.calls[0]?.stdin).toContain('### Key points');
+      expect(en.calls[0]?.stdin).toContain('with headings written in English.');
       const es = new FakeCliProcessRunner(REPLY);
       await f.make(es).summarize({ ...request, outputLanguage: 'es' }, cancel());
-      expect(es.calls[0]?.stdin).toContain('Spanish');
-      expect(es.calls[0]?.stdin).toContain('### Puntos clave');
+      expect(es.calls[0]?.stdin).toContain('with headings written in Spanish.');
     });
 
     it('sets the suggested title from the summary reply', async () => {
