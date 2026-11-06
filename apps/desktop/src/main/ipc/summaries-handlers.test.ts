@@ -133,7 +133,7 @@ describe('summaries handlers', () => {
   it('registers every summaries request channel', () => {
     const { handlers } = setup();
     const expected = Object.keys(requestChannels).filter((name) => name.startsWith('summaries.'));
-    expect(expected).toHaveLength(15);
+    expect(expected).toHaveLength(16);
     for (const name of expected) expect(handlers.has(name)).toBe(true);
   });
 
@@ -227,6 +227,46 @@ describe('summaries handlers', () => {
       ok(await call('summaries.setTemplate', { meetingId: ID, templateId: 'standup' })),
     ).toEqual({ status: 'saved' });
     expect(repo.records.get(ID)?.noteTemplateId).toBe('standup');
+  });
+
+  it('replaceSummary applies an answer, tells open pages, and a restore undoes it (T4)', async () => {
+    const { call, repo, events } = setup();
+    const items = [{ text: 'Ana sends the deck', isDone: true }];
+    repo.records.set(ID, record({ summary: 'Old.', actionItems: items }));
+    const applied = ok(
+      await call('summaries.replaceSummary', {
+        meetingId: ID,
+        source: { kind: 'answer', text: 'More **detail**.' },
+      }),
+    );
+    expect(applied).toEqual({ status: 'saved', previous: { summary: 'Old.', actionItems: items } });
+    expect(repo.records.get(ID)).toMatchObject({ summary: 'More **detail**.', actionItems: items });
+    // The Summary tab refreshes on this event, as after a run.
+    expect(events.map((e) => e.payload)).toEqual([{ meetingId: ID, running: false }]);
+    const undone = ok(
+      await call('summaries.replaceSummary', {
+        meetingId: ID,
+        source: { kind: 'restore', summary: 'Old.', actionItems: items },
+      }),
+    );
+    expect(undone).toMatchObject({ status: 'saved' });
+    expect(repo.records.get(ID)).toMatchObject({ summary: 'Old.', actionItems: items });
+  });
+
+  it('replaceSummary answers busy while a summary runs and writes nothing', async () => {
+    const { call, repo } = setup({ fake: { delayMs: 150, failWith: null } });
+    const run = call('summaries.generate', { meetingId: ID, regenerate: false });
+    await Promise.resolve();
+    expect(
+      ok(
+        await call('summaries.replaceSummary', {
+          meetingId: ID,
+          source: { kind: 'answer', text: 'x' },
+        }),
+      ),
+    ).toEqual({ status: 'busy' });
+    await run;
+    expect(repo.records.get(ID)?.summary).not.toBe('x');
   });
 
   it('writes the clipboard from main and answers a failed write as a value', async () => {

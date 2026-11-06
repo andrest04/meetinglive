@@ -225,5 +225,16 @@
   "Ui_RecipeRecurringThemesPrompt": "Identifica patrones comunes en las reuniones incluidas.",
   "Ui_RecipeWeeklyUpdatePrompt": "Escribe viñetas con las decisiones, los bloqueos y los próximos pasos. Solo un borrador. No lo envíes.",
   "Ui_SomethingWentWrong": "Algo salió mal",
-  "Ui_Reload": "Recargar"
+  "Ui_Reload": "Recargar",
+  "Ui_ChatApplySummary": "Aplicar al resumen",
+  "Ui_ChatApplySummaryTitle": "¿Reemplazar el resumen?",
+  "Ui_ChatApplySummaryBody": "Esta respuesta reemplazará el resumen actual de la reunión. Si incluye elementos de acción, también reemplazarán los actuales. Puedes deshacerlo justo después.",
+  "Ui_ChatApplySummaryConfirm": "Reemplazar",
+  "Ui_ChatApplySummaryCancel": "Cancelar",
+  "Ui_ChatSummaryUpdated": "Resumen actualizado",
+  "Ui_ChatSummaryRestored": "Resumen restaurado",
+  "Ui_ChatSummaryUndo": "Deshacer",
+  "Ui_ChatSummaryBusy": "Se está generando un resumen de esta reunión. Vuelve a intentarlo cuando termine.",
+  "Ui_ChatSummaryEmpty": "Esta respuesta no tiene texto para usar como resumen.",
+  "Ui_ChatSummaryFailed": "No se cambió el resumen: {0}"
 }

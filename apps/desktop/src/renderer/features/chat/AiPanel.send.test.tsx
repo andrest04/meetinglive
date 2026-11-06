@@ -4,6 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
+import { DialogHost } from '../shell/dialog-service';
 import { AiPanelArea } from './AiPanel';
 import { ChatBody } from './ChatBody';
 
@@ -87,7 +88,9 @@ afterEach(() => {
 const mount = () =>
   render(
     <Providers locale="en">
-      <AiPanelArea body={(scope) => <ChatBody scope={scope} />}>{null}</AiPanelArea>
+      <DialogHost>
+        <AiPanelArea body={(scope) => <ChatBody scope={scope} />}>{null}</AiPanelArea>
+      </DialogHost>
     </Providers>,
   );
 

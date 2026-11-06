@@ -23,7 +23,7 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 - [x] T1 — Real streaming for Claude Code and Codex chat (runner variant, event parsers, fallback, timing logs). Route: delegated.
 - [x] T2 — Full-meeting context: full transcript for CLI engines, BM25 excerpts for local, `cachePrompt: true` for chat, answer in UI language. Route: delegated.
 - [x] T3 — Citations: prompt contract, link scheme, open transcript at line + play. Route: delegated.
-- [ ] T4 — Apply answer to summary (confirm + undo). Route: delegated.
+- [x] T4 — Apply answer to summary (confirm + undo). Route: delegated. (commit pending)
 - [x] T5 — Run all chat/shell e2e incl. Phase 1 pending (`record-idle.spec.ts` fix), with the user's go-ahead. Route: delegated.
 
 ## Acceptance criteria
@@ -62,8 +62,17 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 - RED observed: core prompt/citation/prior-turn tests (23 failing) + service local prior turns (1); renderer markdown (5), chip (1), `lineAtSeconds` (7), transcript-reveal/use-chat-links suites (module missing). Folder exact-layout test updated for the new rule line.
 - Checks (2026-11-05): core 1817/1817; desktop 2140 pass + notepad-markdown flake (passes alone) + `ChatBody` "a click sends the prompt at once and hides the chips" failing, pre-existing from T2 (recipe drafts now end with "Answer in the app language."; not touched by T3); `pnpm typecheck` clean; prettier + eslint clean on touched files. E2E skipped (user request).
 
+### T4 (implemented, commit pending; route: delegated writer)
+- Save path: no IPC replaced a summary before (only `saveNotes`, `toggleAction`, `setTemplate`, and the generate run). Added one contract `summaries.replaceSummary` (`source: answer | restore`; output `saved { previous } | busy | empty | not-found | failed`), `SummaryTabService.replaceSummary` (PatchQueue, fresh read, only `summary` + `actionItems`), `SummariesController.replaceSummary` (busy while a run or pipeline run holds the meeting; broadcasts `summaries.progress running:false` so the open Summary tab reloads), one handler line.
+- Parsing: core `summaryFromAnswer` (`summaries/answer-to-summary.ts`) reuses `splitSummaryResponse`; plain answers keep the stored action items. Escaping comes from `renderMeetingMarkdown` (round-trip test).
+- Citations: kept as links. The Summary tab's `MarkdownView` had no link handler (chips were dead, `preventDefault`), so `SummaryTab` now passes `useChatLinks` (errors go to its status line).
+- Undo: inline status line in the panel (`ApplySummaryNotice`, role status) with Undo; the shared `Toast` has no action slot and `ui/` was outside the edit surface. Previous content is kept in the renderer for the session.
+- Strings: `Ui_ChatApplySummary*`, `Ui_ChatSummary*` (en/es). Spec: `docs/port/specs/chat.md` 2.7a.
+- RED observed: tab-service replaceSummary (5 failing), contract (2), handlers (3), ChatBody apply suite (5, wiring removed), SummaryTab time chip (1, link handler removed). `summaryFromAnswer` tests were written alongside the function (not run RED separately).
+- Checks (2026-11-05): core 1832/1832; contracts 46/46; desktop 2172 pass / 6 skipped; `pnpm typecheck` clean; prettier + eslint clean on touched files. E2E not run (no app window).
+
 ## Next step
-Decide the ChatBody chip test (T2 recipe suffix shown in the user bubble); commit T3; then T4.
+Decide the ChatBody chip test (T2 recipe suffix shown in the user bubble); commit T3 and T4.
 
 ### T5 (done, commit pending; route: delegated writer/verifier)
 - Test fixes (old UI encoded, no product change): `record-idle.spec.ts` measures the row against `#content` and the window bottom (no docked bar), adds `controlsUnderLauncher()` (no row button/link/input under `BtnAiPanelOpen`) at 1196x768, 1196x480 and 800x768, and the focus test uses a 300 px window (the taller content column put the radio above the row at 340). `chat-recipes.spec.ts`: a meeting scope lists 9 recipes (5 meeting + 4 content), slash filter `/action` (`/ac` also hits "each" in the content prompts). `library-ui.spec.ts:307` comment updated. Deleted `docs/port/screens/chat/chat-bar-*.png` (5, unreferenced).

@@ -225,5 +225,16 @@
   "Ui_RecipeRecurringThemesPrompt": "Identify patterns across the packed meetings.",
   "Ui_RecipeWeeklyUpdatePrompt": "Write bullets of decisions, blockers, and next steps. Draft only. Do not send it.",
   "Ui_SomethingWentWrong": "Something went wrong",
-  "Ui_Reload": "Reload"
+  "Ui_Reload": "Reload",
+  "Ui_ChatApplySummary": "Apply to summary",
+  "Ui_ChatApplySummaryTitle": "Replace the summary?",
+  "Ui_ChatApplySummaryBody": "This answer will replace the meeting's current summary. If it has action items, they replace the current ones too. You can undo it right after.",
+  "Ui_ChatApplySummaryConfirm": "Replace",
+  "Ui_ChatApplySummaryCancel": "Cancel",
+  "Ui_ChatSummaryUpdated": "Summary updated",
+  "Ui_ChatSummaryRestored": "Summary restored",
+  "Ui_ChatSummaryUndo": "Undo",
+  "Ui_ChatSummaryBusy": "A summary is being generated for this meeting. Try again when it finishes.",
+  "Ui_ChatSummaryEmpty": "This answer has no text to use as a summary.",
+  "Ui_ChatSummaryFailed": "The summary was not changed: {0}"
 }

@@ -1,4 +1,4 @@
-import { Check, Copy, Loader2 } from 'lucide-react';
+import { Check, Copy, FilePen, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, IconButton, cn } from '../../ui';
@@ -9,13 +9,16 @@ export interface MessageRowProps {
   readonly row: ChatRow;
   readonly onCopy: (text: string) => Promise<boolean>;
   readonly onLink: LinkHandler;
+  /** T4: present in a meeting scope only; puts the answer in the meeting's summary. */
+  readonly onApply?: (text: string) => void;
 }
 
 /**
  * One message. The user's words sit right in a quiet bubble; the assistant's answer reads as a
- * document under a small role label. The copy button appears only once the answer is complete.
+ * document under a small role label. The copy button, and in a meeting scope the "Apply to
+ * summary" button, appear only once the answer is complete.
  */
-export function MessageRow({ row, onCopy, onLink }: MessageRowProps) {
+export function MessageRow({ row, onCopy, onLink, onApply }: MessageRowProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -66,7 +69,7 @@ export function MessageRow({ row, onCopy, onLink }: MessageRowProps) {
         />
       )}
       {!row.pending ? (
-        <div className="mt-1 h-7">
+        <div className="mt-1 flex h-7 items-center gap-0.5">
           <IconButton
             label={t('Chat_Copy.AutomationProperties.Name')}
             icon={copied ? Check : Copy}
@@ -79,6 +82,18 @@ export function MessageRow({ row, onCopy, onLink }: MessageRowProps) {
             }}
             className="text-ink-muted"
           />
+          {onApply ? (
+            <IconButton
+              label={t('Ui_ChatApplySummary')}
+              icon={FilePen}
+              size="sm"
+              data-testid="BtnMeetingChatApplySummary"
+              onClick={() => {
+                onApply(row.text);
+              }}
+              className="text-ink-muted"
+            />
+          ) : null}
         </div>
       ) : null}
     </li>

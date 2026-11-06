@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Button, Notice, Skeleton, SkeletonText, Textarea } from '../../ui';
 import { ActionItemsList } from './ActionItemsList';
-import { MarkdownView } from './MarkdownView';
+import { MarkdownView, type LinkHandler } from './MarkdownView';
 import { ModeSwitch } from './ModeSwitch';
 import { RelatedMeetings, type RelatedMeetingView } from './RelatedMeetings';
 import type { ActionItemDto, NotesMode } from './summary-tab-model';
@@ -42,6 +42,8 @@ export interface SummaryTabViewProps {
   readonly related: readonly RelatedMeetingView[];
   readonly onOpenRelated: (id: string) => void;
   readonly onRecord: () => void;
+  /** Clicks on links in the summary (meeting and time citations, web links). */
+  readonly onLink?: LinkHandler;
   /** A short message under the toolbar (a failed save). */
   readonly status: string | null;
   readonly onDismissStatus: () => void;
@@ -117,7 +119,11 @@ export function SummaryTabView(props: SummaryTabViewProps) {
         <p className="max-w-[44ch] py-6 text-read text-ink-muted">{labels.readyToGenerate}</p>
       ) : (
         <article className="pb-6">
-          <MarkdownView source={props.summary} testId="TxtSummaryContent" />
+          <MarkdownView
+            source={props.summary}
+            testId="TxtSummaryContent"
+            {...(props.onLink ? { onLink: props.onLink } : {})}
+          />
           <ActionItemsList
             items={props.actionItems}
             heading={labels.actionItems}

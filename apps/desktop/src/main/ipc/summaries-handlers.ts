@@ -10,6 +10,7 @@ import {
   summariesHardware,
   summariesLoadTab,
   summariesProviderStatus,
+  summariesReplaceSummary,
   summariesSaveNotes,
   summariesSetTemplate,
   summariesToggleAction,
@@ -39,6 +40,9 @@ export function registerSummariesHandlers(deps: SummariesHandlerDeps): void {
   );
   registerRequest(server, summariesToggleAction, ({ meetingId, index, done }) =>
     controller.toggleAction(meetingId, index, done),
+  );
+  registerRequest(server, summariesReplaceSummary, ({ meetingId, source }) =>
+    controller.replaceSummary(meetingId, source),
   );
   registerRequest(server, summariesCopyActions, ({ meetingId }) =>
     controller.copyActions(meetingId),

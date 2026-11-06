@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
+import { useChatLinks } from '../chat/use-chat-links';
 import { formatMeetingDate } from '../library/format';
 import { DraftMessage } from './DraftMessage';
 import { RegenerateDialog } from './RegenerateDialog';
@@ -38,6 +39,9 @@ export function SummaryTab({
   });
   const { flags } = generation;
   const [missingRelated, setMissingRelated] = useState(false);
+  // A summary applied from the chat (T4) keeps its citations; they work here as in the chat.
+  const [linkProblem, setLinkProblem] = useState<string | null>(null);
+  const onLink = useChatLinks(setLinkProblem);
   const copyMode = model.mode === 'notes' ? 'notes' : 'summary';
   useEffect(() => {
     if (!copySourceRef || meetingId === null) return;
@@ -128,9 +132,13 @@ export function SummaryTab({
         related={related}
         onOpenRelated={onOpenRelated}
         onRecord={onRecord}
-        status={model.status ?? (missingRelated ? t('Chat_MeetingLinkMissing') : null)}
+        onLink={onLink}
+        status={
+          model.status ?? linkProblem ?? (missingRelated ? t('Chat_MeetingLinkMissing') : null)
+        }
         onDismissStatus={() => {
           setMissingRelated(false);
+          setLinkProblem(null);
           model.dismissStatus();
         }}
         toolbarEnd={

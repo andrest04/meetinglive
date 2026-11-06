@@ -4,10 +4,12 @@ import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { ProviderGateDialogs } from '../summaries/ProviderGateDialogs';
 import { useProviderGate } from '../summaries/use-provider-gate';
+import { ApplySummaryNotice } from './ApplySummaryNotice';
 import { ChatErrorNotice } from './ChatErrorNotice';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { StarterChips } from './StarterChips';
+import { useApplyToSummary } from './use-apply-to-summary';
 import { useChat } from './use-chat';
 import { useChatLinks } from './use-chat-links';
 import { useRecipeContext } from './use-recipe-context';
@@ -22,6 +24,8 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const chat = useChat(scope, gate);
   const { rows, error } = chat.view;
   const onLink = useChatLinks(chat.reportError);
+  const summary = useApplyToSummary(scope.kind === 'Meeting' ? scope.meetingId : null);
+  const { apply } = summary;
   // A meeting without action items (a talk, a video, a class) leads with the content recipes.
   const context = useRecipeContext(scope);
 
@@ -39,7 +43,12 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       {rows.length > 0 ? (
-        <MessageList rows={rows} onCopy={chat.copy} onLink={onLink} />
+        <MessageList
+          rows={rows}
+          onCopy={chat.copy}
+          onLink={onLink}
+          {...(apply ? { onApply: (text: string) => void apply(text) } : {})}
+        />
       ) : (
         // An empty chat keeps the suggestions and the composer at the bottom of the panel.
         <div className="min-h-0 flex-1" />
@@ -52,6 +61,13 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
         >
           {t('Chat_ScopeMismatch.Text')}
         </p>
+      ) : null}
+      {summary.notice ? (
+        <ApplySummaryNotice
+          notice={summary.notice}
+          onUndo={() => void summary.undo()}
+          onDismiss={summary.dismiss}
+        />
       ) : null}
       {error ? <ChatErrorNotice error={error} onDismiss={chat.dismissError} /> : null}
       {!chat.isSending && rows.length === 0 ? (

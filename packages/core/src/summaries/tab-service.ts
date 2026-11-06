@@ -3,6 +3,7 @@ import type { ActionItem, MeetingRecord } from '../library/meeting';
 import type { MeetingRepository } from '../library/ports';
 import { noteTemplateOptions } from '../settings/note-templates';
 import { renderActionItems } from './action-items';
+import { summaryFromAnswer, type SummaryContent } from './answer-to-summary';
 import { templateIdToStore } from './template-instructions';
 import { PatchQueue } from './patch-queue';
 import {
@@ -40,6 +41,20 @@ export type ToggleResult =
 
 export type SetTemplateResult =
   | { readonly status: 'saved' | 'unchanged' | 'not-found' }
+  | { readonly status: 'failed'; readonly detail: string };
+
+export type ReplaceSummaryRequest =
+  | { readonly kind: 'answer'; readonly text: string }
+  | {
+      readonly kind: 'restore';
+      readonly summary: string | null;
+      readonly actionItems: readonly ActionItem[];
+    };
+
+export type ReplaceSummaryResult =
+  | { readonly status: 'saved'; readonly previous: SummaryContent }
+  /** The answer left nothing to save. */
+  | { readonly status: 'empty' | 'not-found' }
   | { readonly status: 'failed'; readonly detail: string };
 
 export type CopyActionItemsResult =
@@ -212,6 +227,41 @@ export class SummaryTabService {
         return { status: 'saved' };
       })
       .catch((error: unknown): SetTemplateResult => ({
+        status: 'failed',
+        detail: errorText(error),
+      }));
+  }
+
+  /**
+   * T4: replaces the summary and action items with a chat answer, or puts back what an earlier
+   * replace returned (undo). Answers the previous content so the caller can offer the undo.
+   * Queued with the other writes (B5); every other field of the record stays.
+   */
+  replaceSummary(meetingId: string, request: ReplaceSummaryRequest): Promise<ReplaceSummaryResult> {
+    return this.queue
+      .run(meetingId, async (): Promise<ReplaceSummaryResult> => {
+        const fresh = await this.deps.meetings.get(meetingId);
+        if (fresh === null) return { status: 'not-found' };
+        const previous: SummaryContent = {
+          summary: fresh.summary,
+          actionItems: fresh.actionItems.map((item) => ({ ...item })),
+        };
+        const next =
+          request.kind === 'answer'
+            ? summaryFromAnswer(request.text, previous)
+            : {
+                summary: request.summary,
+                actionItems: request.actionItems.map((item) => ({ ...item })),
+              };
+        if (next === null) return { status: 'empty' };
+        await this.deps.meetings.save({
+          ...fresh,
+          summary: next.summary,
+          actionItems: next.actionItems,
+        });
+        return { status: 'saved', previous };
+      })
+      .catch((error: unknown): ReplaceSummaryResult => ({
         status: 'failed',
         detail: errorText(error),
       }));

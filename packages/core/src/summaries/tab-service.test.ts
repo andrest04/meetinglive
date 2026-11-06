@@ -356,3 +356,74 @@ describe('setTemplate (S15)', () => {
     expect(await service.setTemplate('zzz', 'sales')).toEqual({ status: 'not-found' });
   });
 });
+
+describe('replaceSummary (T4: apply a chat answer, undo)', () => {
+  const items = [{ text: 'Ana sends the deck', isDone: true }];
+
+  it('an answer replaces the summary, keeps the action items and returns the previous content', async () => {
+    const { repo, service } = setup([rec('a', { actionItems: items, summaryProvider: 'codex' })]);
+    const result = await service.replaceSummary('a', { kind: 'answer', text: 'New **text**.' });
+    expect(result).toEqual({
+      status: 'saved',
+      previous: { summary: '### Summary\nTalked.', actionItems: items },
+    });
+    expect(repo.records.get('a')).toMatchObject({
+      summary: 'New **text**.',
+      actionItems: items,
+      summaryProvider: 'codex',
+      brief: 'Brief text',
+      notes: null,
+    });
+  });
+
+  it('a summary-shaped answer replaces the action items too', async () => {
+    const { repo, service } = setup([rec('a', { actionItems: items })]);
+    await service.replaceSummary('a', {
+      kind: 'answer',
+      text: '## Summary\nShort.\n## Action Items\n- [ ] Luis books the room',
+    });
+    expect(repo.records.get('a')).toMatchObject({
+      summary: 'Short.',
+      actionItems: [{ text: 'Luis books the room', isDone: false }],
+    });
+  });
+
+  it('restore puts the previous summary and action items back exactly', async () => {
+    const { repo, service } = setup([rec('a', { actionItems: items })]);
+    const applied = await service.replaceSummary('a', {
+      kind: 'answer',
+      text: '## Summary\nX\n## Action Items\n- [ ] Y',
+    });
+    if (applied.status !== 'saved') throw new Error('not saved');
+    const undone = await service.replaceSummary('a', { kind: 'restore', ...applied.previous });
+    expect(undone.status).toBe('saved');
+    expect(repo.records.get('a')).toMatchObject({
+      summary: '### Summary\nTalked.',
+      actionItems: items,
+    });
+  });
+
+  it('restore of a meeting that had no summary writes null back', async () => {
+    const { repo, service } = setup([rec('a', { summary: null })]);
+    const applied = await service.replaceSummary('a', { kind: 'answer', text: 'Now one.' });
+    if (applied.status !== 'saved') throw new Error('not saved');
+    expect(applied.previous.summary).toBeNull();
+    await service.replaceSummary('a', { kind: 'restore', ...applied.previous });
+    expect(repo.records.get('a')?.summary).toBeNull();
+  });
+
+  it('a blank answer, a missing meeting and a failing save answer values', async () => {
+    const { repo, service } = setup([rec('a')]);
+    expect(await service.replaceSummary('a', { kind: 'answer', text: '  ' })).toEqual({
+      status: 'empty',
+    });
+    expect(await service.replaceSummary('zzz', { kind: 'answer', text: 'x' })).toEqual({
+      status: 'not-found',
+    });
+    repo.save = () => Promise.reject(new Error('locked'));
+    expect(await service.replaceSummary('a', { kind: 'answer', text: 'x' })).toEqual({
+      status: 'failed',
+      detail: 'locked',
+    });
+  });
+});

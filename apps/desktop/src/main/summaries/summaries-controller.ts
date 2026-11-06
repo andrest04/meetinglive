@@ -22,6 +22,7 @@ import {
   type LocalModelsService,
   type Logger,
   type RecordingPipelineRequest,
+  type ReplaceSummaryRequest,
   type SettingsStore,
   type SummaryProviderResolver,
   type SummaryService,
@@ -35,7 +36,13 @@ export interface SummariesControllerDeps {
   readonly service: Pick<SummaryService, 'generate' | 'isGenerating'>;
   readonly tab: Pick<
     SummaryTabService,
-    'loadTab' | 'saveNotes' | 'toggleActionItem' | 'copyActionItems' | 'copyText' | 'setTemplate'
+    | 'loadTab'
+    | 'saveNotes'
+    | 'toggleActionItem'
+    | 'copyActionItems'
+    | 'copyText'
+    | 'setTemplate'
+    | 'replaceSummary'
   >;
   readonly resolver: Pick<SummaryProviderResolver, 'resolveSummaryProvider'>;
   readonly models: Pick<LocalModelsService, 'rows' | 'download' | 'cancel'>;
@@ -109,6 +116,24 @@ export class SummariesController {
 
   setTemplate(meetingId: string, templateId: string | null) {
     return this.deps.tab.setTemplate(meetingId, templateId);
+  }
+
+  /**
+   * T4: a chat answer replaces the summary, or a restore puts the previous one back. Refused while
+   * a run writes the same meeting. A saved replace sends the progress event the Summary tab
+   * already reloads on.
+   */
+  async replaceSummary(meetingId: string, source: ReplaceSummaryRequest) {
+    if (
+      this.running.has(meetingId) ||
+      this.pipelineRuns.has(meetingId) ||
+      this.deps.service.isGenerating(meetingId)
+    ) {
+      return { status: 'busy' as const };
+    }
+    const result = await this.deps.tab.replaceSummary(meetingId, source);
+    if (result.status === 'saved') this.announce(meetingId, false);
+    return result;
   }
 
   // ------------------------------------------------------------- generation
