@@ -236,5 +236,16 @@
   "Ui_ChatSummaryUndo": "Undo",
   "Ui_ChatSummaryBusy": "A summary is being generated for this meeting. Try again when it finishes.",
   "Ui_ChatSummaryEmpty": "This answer has no text to use as a summary.",
-  "Ui_ChatSummaryFailed": "The summary was not changed: {0}"
+  "Ui_ChatSummaryFailed": "The summary was not changed: {0}",
+  "Ui_LiveQuestionTitle": "Question detected",
+  "Ui_LiveQuestionChecking": "Checking…",
+  "Ui_LiveQuestionAnswer": "Answer",
+  "Ui_LiveQuestionDismiss": "Dismiss",
+  "Ui_LiveQuestionAnnounce": "Question detected: {0}",
+  "Ui_LiveQuestionsHeader": "Detect questions while recording",
+  "Ui_LiveQuestionsDescription": "Shows a card when someone asks a question in the meeting, so you can answer it with one click. Nothing is answered until you choose Answer.",
+  "Ui_LiveQuestionsLabel": "Question detection",
+  "Ui_LiveQuestionsOff": "Off",
+  "Ui_LiveQuestionsRules": "On",
+  "Ui_LiveQuestionsRulesAi": "On, checked by the summary engine"
 }

@@ -7,6 +7,7 @@ import en from '../../i18n/locales/en.json';
 import es from '../../i18n/locales/es.json';
 import type { Locale } from '../../i18n/translate';
 import { applyAnswer, IDLE_ANSWER, resetLiveAskStore } from '../record/use-live-ask';
+import { applyQuestionDetected, resetLiveQuestionsStore } from '../record/use-live-questions';
 import { ChatPanelContainer, withoutLeadingEmoji } from './ChatPanelContainer';
 import { classifyPillLink } from './pill-links';
 
@@ -18,6 +19,7 @@ beforeEach(() => {
   accept = true;
   window.localStorage.clear();
   resetLiveAskStore();
+  resetLiveQuestionsStore();
   Object.defineProperty(window, 'vozella', {
     configurable: true,
     writable: true,
@@ -527,5 +529,26 @@ describe('string and control audit', () => {
     for (const control of Array.from(panel.querySelectorAll('button, input'))) {
       expect(control.classList.contains('pill-no-drag')).toBe(true);
     }
+  });
+});
+
+describe('detected question', () => {
+  it('shows the card above the chips and answers it through the live ask', async () => {
+    render(<Panel locale="es" />);
+    expect(screen.queryByTestId('LiveQuestionCard')).toBeNull();
+    act(() => {
+      applyQuestionDetected({ id: 'q1', body: '¿Qué es Scrum?', atMs: 0, confirmed: true });
+    });
+    const card = screen.getByRole('region', { name: 'Pregunta detectada' });
+    expect(card.compareDocumentPosition(screen.getByTestId('BtnLiveCopilotChipMissed'))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    await userEvent.click(within(card).getByRole('button', { name: 'Responder' }));
+    await settle();
+    expect(asks()).toEqual([
+      { name: 'recording.ask', input: { question: '¿Qué es Scrum?', webSearch: false } },
+    ]);
+    expect(calls.at(-1)).toEqual({ name: 'recording.dismissQuestion', input: { id: 'q1' } });
+    expect(screen.queryByTestId('LiveQuestionCard')).toBeNull();
   });
 });

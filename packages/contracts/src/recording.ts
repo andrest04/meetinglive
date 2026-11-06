@@ -250,3 +250,29 @@ export const recordingAnswerSchema = z.object({
 });
 export type RecordingAnswerDto = z.infer<typeof recordingAnswerSchema>;
 export const recordingAnswer = defineEvent('recording.answer', { payload: recordingAnswerSchema });
+
+/**
+ * A question spoken in the take (live question detection). Sent again with `confirmed: true` when
+ * the optional engine check agrees or fails; `confirmed` is false only while that check runs.
+ * The newest card replaces the previous one. Nothing is answered until the user asks.
+ */
+export const recordingQuestionSchema = z.object({
+  id: z.string(),
+  body: z.string(),
+  /** Start of the line in the take. */
+  atMs: z.number(),
+  confirmed: z.boolean(),
+});
+export type RecordingQuestionDto = z.infer<typeof recordingQuestionSchema>;
+export const recordingQuestionDetected = defineEvent('recording.questionDetected', {
+  payload: recordingQuestionSchema,
+});
+/** The card goes: the check said no, it was dismissed or answered, or the take ended. */
+export const recordingQuestionWithdrawn = defineEvent('recording.questionWithdrawn', {
+  payload: z.object({ id: z.string() }),
+});
+/** Dismiss or Answer on a card: it leaves every window and does not return in this take. */
+export const recordingDismissQuestion = defineRequest('recording.dismissQuestion', {
+  input: z.object({ id: z.string() }),
+  output: z.object({ dismissed: z.boolean() }),
+});

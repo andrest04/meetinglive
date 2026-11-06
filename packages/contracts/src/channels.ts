@@ -178,6 +178,7 @@ export const requestChannels = {
   [recording.recordingCloseAnswer.name]: recording.recordingCloseAnswer,
   [recording.recordingAsk.name]: recording.recordingAsk,
   [recording.recordingCancelAsk.name]: recording.recordingCancelAsk,
+  [recording.recordingDismissQuestion.name]: recording.recordingDismissQuestion,
   [chat.chatSend.name]: chat.chatSend,
   [chat.chatCancel.name]: chat.chatCancel,
   [chat.chatNewChat.name]: chat.chatNewChat,
@@ -227,6 +228,8 @@ export const eventChannels = {
   [recording.recordingCloseRequest.name]: recording.recordingCloseRequest,
   [recording.recordingLiveText.name]: recording.recordingLiveText,
   [recording.recordingAnswer.name]: recording.recordingAnswer,
+  [recording.recordingQuestionDetected.name]: recording.recordingQuestionDetected,
+  [recording.recordingQuestionWithdrawn.name]: recording.recordingQuestionWithdrawn,
   [chat.chatChunk.name]: chat.chatChunk,
   [chat.chatStateChanged.name]: chat.chatStateChanged,
 } as const;

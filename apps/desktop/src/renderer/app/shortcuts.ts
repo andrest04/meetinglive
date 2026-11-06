@@ -5,8 +5,10 @@
  * and Ctrl+Enter exists in two regions that never see each other's events (the live ask box and
  * the chat composer), because each handler is attached to its own element.
  *
- * Dropped: the live answer button (Ctrl+Enter) belonged to armed questions, which depend on the
- * cut automatic live-question detection (owner decision 2026-11-03, may return later).
+ * The detected question card (live question detection, returned 2026-11-05) answers on the same
+ * Ctrl+Enter chord as the live ask box (`isAnswerQuestionShortcut`). It is window-wide, so it
+ * yields to the two text boxes above: their handlers mark the event handled, and a key pressed in
+ * any text field is left to that field.
  */
 export type ShortcutId =
   'stop' | 'pause' | 'discard' | 'liveAsk' | 'chatSend' | 'librarySearch' | 'librarySelectAll';
@@ -85,6 +87,17 @@ export function matchLibraryShortcut(event: KeyLike): LibraryShortcut | null {
 
 /** True for Ctrl+Enter, the chord of the live ask box and of the chat composer. */
 export const isCtrlEnter = (event: KeyLike): boolean => matches('liveAsk', event);
+
+/** Ctrl+Enter outside any text field, not already handled: answers the detected question. */
+export function isAnswerQuestionShortcut(
+  event: KeyLike & { readonly defaultPrevented: boolean; readonly target: EventTarget | null },
+): boolean {
+  if (event.defaultPrevented || !matches('liveAsk', event)) return false;
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return true;
+  if (target.isContentEditable) return false;
+  return !target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]');
+}
 
 /** What Enter and Ctrl+Enter do in the chat composer (spec 2.3, S1). */
 export type ComposerIntent = 'send' | 'newline' | 'ignore' | 'swallow';

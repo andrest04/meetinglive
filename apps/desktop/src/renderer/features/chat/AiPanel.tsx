@@ -29,6 +29,8 @@ import {
 import { SCOPE_ICON, scopeLabel } from './chat-scope-label';
 import { useLocalSendActive } from './chat-local-send';
 import { useChatScope } from './use-chat-scope';
+import { LiveQuestionSlot } from '../record/LiveQuestionSlot';
+import { useLiveQuestionsStore } from '../record/use-live-questions';
 
 /** Kept from the chat bar so automation and tests keep finding the chat by the same id. */
 const PANEL_ID = 'BarMeetingChat';
@@ -79,6 +81,8 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
   const launcher = useRef<HTMLButtonElement>(null);
   const focusAfter = useRef<FocusAfter>(null);
   const available = useObservedWidth(area);
+  // In Live scope the panel shows the detected question, unless the Record dock already does.
+  const dockShowsQuestion = useLiveQuestionsStore((s) => s.docks > 0);
 
   const visible = decision.isVisible;
   const showing = visible && open;
@@ -211,6 +215,9 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
+        {decision.kind === 'Live' ? (
+          <LiveQuestionSlot show={showing && !dockShowsQuestion} className="mb-3" />
+        ) : null}
         <Fragment key={epoch}>{body(decision)}</Fragment>
       </div>
     </aside>

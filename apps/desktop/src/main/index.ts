@@ -34,6 +34,7 @@ import {
   FileFakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
+  fakeAsrPhrasesFromEnv,
   FakeSummaryProvider,
   JsonWindowStateStore,
   fakeSummaryOptionsFromEnv,
@@ -853,6 +854,7 @@ function main(): void {
         engine: fakeNative
           ? new FakeSpeechEngine(
               Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
+              fakeAsrPhrasesFromEnv(process.env),
             )
           : asr,
         hardware: () => hardware.detect(),

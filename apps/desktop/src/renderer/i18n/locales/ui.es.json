@@ -236,5 +236,16 @@
   "Ui_ChatSummaryUndo": "Deshacer",
   "Ui_ChatSummaryBusy": "Se está generando un resumen de esta reunión. Vuelve a intentarlo cuando termine.",
   "Ui_ChatSummaryEmpty": "Esta respuesta no tiene texto para usar como resumen.",
-  "Ui_ChatSummaryFailed": "No se cambió el resumen: {0}"
+  "Ui_ChatSummaryFailed": "No se cambió el resumen: {0}",
+  "Ui_LiveQuestionTitle": "Pregunta detectada",
+  "Ui_LiveQuestionChecking": "Comprobando…",
+  "Ui_LiveQuestionAnswer": "Responder",
+  "Ui_LiveQuestionDismiss": "Descartar",
+  "Ui_LiveQuestionAnnounce": "Pregunta detectada: {0}",
+  "Ui_LiveQuestionsHeader": "Detectar preguntas mientras grabas",
+  "Ui_LiveQuestionsDescription": "Muestra una tarjeta cuando alguien hace una pregunta en la reunión, para responderla con un clic. No se responde nada hasta que eliges Responder.",
+  "Ui_LiveQuestionsLabel": "Detección de preguntas",
+  "Ui_LiveQuestionsOff": "Desactivada",
+  "Ui_LiveQuestionsRules": "Activada",
+  "Ui_LiveQuestionsRulesAi": "Activada, comprobada por el motor de resúmenes"
 }

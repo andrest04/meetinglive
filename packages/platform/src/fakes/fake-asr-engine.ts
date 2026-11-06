@@ -7,11 +7,26 @@ import type {
   StreamOptions,
 } from '@vozella/core';
 
-const PHRASES = [
+const PHRASES: readonly string[] = [
   'Buenos días a todos y gracias por venir.',
   'Hoy revisamos el presupuesto del trimestre.',
   'Quedamos en cerrar las fechas de entrega esta semana.',
 ];
+
+/** A direct question for the live question detection e2e. */
+export const FAKE_QUESTION_PHRASE = '¿Cuál es el tercer principio del manifiesto ágil?';
+
+/**
+ * The script the fake engine reads. `VOZELLA_FAKE_ASR_QUESTION=1` puts the question second
+ * (3 to 6 s of audio); without it the script is the three statements every other test expects.
+ */
+export function fakeAsrPhrasesFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+): readonly string[] {
+  if (env.VOZELLA_FAKE_ASR_QUESTION !== '1') return PHRASES;
+  const [first = '', ...rest] = PHRASES;
+  return [first, FAKE_QUESTION_PHRASE, ...rest];
+}
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -24,13 +39,16 @@ export class FakeSpeechEngine implements AsrEngine {
    * `offlinePushMs` slows the offline pass only, so a test can cancel it while it runs. The live
    * preview is never slowed.
    */
-  constructor(private readonly offlinePushMs = 0) {}
+  constructor(
+    private readonly offlinePushMs = 0,
+    private readonly phrases: readonly string[] = PHRASES,
+  ) {}
 
   createRecognizer(settings: RecognizerSettings): Promise<AsrRecognizer> {
     const delay = settings.latency === 'offline' ? this.offlinePushMs : 0;
     return Promise.resolve({
       startStream: (options: StreamOptions) =>
-        Promise.resolve(new FakeSpeechStream(options, delay)),
+        Promise.resolve(new FakeSpeechStream(options, delay, this.phrases)),
       dispose: () => Promise.resolve(),
     });
   }
@@ -45,6 +63,7 @@ class FakeSpeechStream implements AsrStream {
   constructor(
     private readonly options: StreamOptions,
     private readonly pushDelayMs: number,
+    private readonly phrases: readonly string[],
   ) {}
 
   async push(samples: Float32Array, sampleRate: number): Promise<void> {
@@ -53,7 +72,7 @@ class FakeSpeechStream implements AsrStream {
     const completed = Math.floor(this.audioMs / 3000);
     while (this.emittedPhrases < completed) {
       const index = this.emittedPhrases;
-      const phrase = PHRASES[index % PHRASES.length] ?? '';
+      const phrase = this.phrases[index % this.phrases.length] ?? '';
       const words = phrase.split(' ');
       const start = index * 3000;
       const step = 2800 / words.length;
@@ -71,7 +90,7 @@ class FakeSpeechStream implements AsrStream {
       this.emittedPhrases += 1;
     }
     if (this.options.interimResults) {
-      const next = (PHRASES[this.emittedPhrases % PHRASES.length] ?? '').split(' ');
+      const next = (this.phrases[this.emittedPhrases % this.phrases.length] ?? '').split(' ');
       const into = Math.max(1, Math.floor(((this.audioMs % 3000) / 3000) * next.length));
       this.pending.push({
         isFinal: false,

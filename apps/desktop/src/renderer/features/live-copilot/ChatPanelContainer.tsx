@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { askLive, connectLiveAsk, setWebSearch, useLiveAskStore } from '../record/use-live-ask';
 import { answerErrorMessage } from '../record/LiveAskDock';
+import { LiveQuestionSlot } from '../record/LiveQuestionSlot';
 import { ChatPanel } from './ChatPanel';
 import { classifyPillLink } from './pill-links';
 import type { MouseEvent } from 'react';
@@ -111,6 +112,7 @@ export function ChatPanelContainer({
       }}
       onOpenApp={onOpenApp}
       onLink={onLink}
+      question={<LiveQuestionSlot className="pill-no-drag" />}
     />
   );
 }

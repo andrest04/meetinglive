@@ -8,6 +8,7 @@ import { AboutSection } from './AboutSection';
 import { CallDetectionSection } from './CallDetectionSection';
 import { DataSection } from './DataSection';
 import { LanguageSection } from './LanguageSection';
+import { LiveQuestionsSection } from './LiveQuestionsSection';
 import { MeetingLanguageSection } from './MeetingLanguageSection';
 import { ProviderSection } from './ProviderSection';
 import { TranscriptionSection } from '../transcription/TranscriptionSection';
@@ -59,7 +60,13 @@ export function SettingsRoute() {
       case 'language':
         return <LanguageSection current={page.uiLanguage} onChange={model.setUiLanguage} />;
       case 'summaryProvider':
-        return <ProviderSection page={page} model={model} />;
+        // Question detection sits with the engine: its optional check runs on that engine.
+        return (
+          <>
+            <ProviderSection page={page} model={model} />
+            <LiveQuestionsSection selectedProvider={page.provider} />
+          </>
+        );
       case 'microphone':
         return <MicrophoneSection />;
       case 'meetingLanguage':
