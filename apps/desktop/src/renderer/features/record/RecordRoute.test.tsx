@@ -743,6 +743,135 @@ describe('RecordRoute import (spec 2.12)', () => {
   });
 });
 
+describe('RecordRoute import from YouTube', () => {
+  const LINK = 'https://youtu.be/dQw4w9WgXcQ?si=abc';
+  const NORMAL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+  it('sits next to Import audio and is disabled with it while a take starts', async () => {
+    installApi({ 'recording.start': () => new Promise(() => undefined) });
+    mount();
+    const youtube = await screen.findByRole('button', { name: 'From YouTube' });
+    expect(youtube).toHaveAttribute('data-testid', 'BtnImportYouTube');
+    expect(within(screen.getByTestId('record-hero')).getByTestId('BtnImportYouTube')).toBe(youtube);
+    await userEvent.click(screen.getByRole('button', { name: 'Record' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'From YouTube' })).toBeDisabled();
+    });
+    expect(screen.getByRole('button', { name: 'Import audio' })).toBeDisabled();
+  });
+
+  it('is hidden with Import audio when the setup is not ready', async () => {
+    installApi({ 'recording.getSetup': () => needsSetup });
+    mount();
+    await screen.findByTestId('BtnSetUpToRecord');
+    expect(screen.queryByTestId('BtnImportYouTube')).toBeNull();
+  });
+
+  it('asks for a link, holds the import until it is a YouTube video, then imports the normal form', async () => {
+    const api = installApi({ 'recording.importUrl': () => ({ started: true, meetingId: 'm3' }) });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'From YouTube' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import from YouTube' });
+    const input = within(dialog).getByRole('textbox', { name: 'Video link' });
+    await waitFor(() => {
+      expect(input).toHaveFocus();
+    });
+    const submit = within(dialog).getByRole('button', { name: 'Import' });
+    expect(submit).toBeDisabled();
+
+    await userEvent.type(input, 'https://vimeo.com/1');
+    expect(submit).toBeDisabled();
+    await userEvent.keyboard('{Enter}');
+    expect(within(dialog).getByText("That isn't a YouTube video link.")).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input.getAttribute('aria-describedby') ?? '').not.toBe('');
+    expect(api.named('recording.importUrl')).toHaveLength(0);
+
+    await userEvent.clear(input);
+    await userEvent.click(input);
+    await userEvent.paste(LINK);
+    expect(submit).toBeEnabled();
+    expect(within(dialog).queryByText("That isn't a YouTube video link.")).toBeNull();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(api.named('recording.importUrl')).toHaveLength(1);
+    });
+    expect(api.named('recording.importUrl')[0]?.input).toMatchObject({
+      folderId: null,
+      url: NORMAL,
+    });
+    expect(String(api.named('recording.importUrl')[0]?.input.title)).not.toBe('');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('closes on Escape without importing', async () => {
+    const api = installApi({ 'recording.importUrl': () => ({ started: true, meetingId: 'm3' }) });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'From YouTube' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import from YouTube' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Video link' }), NORMAL);
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(api.named('recording.importUrl')).toHaveLength(0);
+  });
+
+  it('offers Cancel while the audio downloads and cancels the import', async () => {
+    const api = installApi({
+      'recording.importUrl': () => new Promise(() => undefined),
+      'recording.cancelProcessing': () => ({ cancelled: true }),
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'From YouTube' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import from YouTube' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Video link' }), NORMAL);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    await waitFor(() => {
+      expect(api.named('recording.importUrl')).toHaveLength(1);
+    });
+    api.emit('recording.state', {
+      ...idleState,
+      phase: 'Preparing',
+      status: [{ key: 'Ui_StatusDownloadingYouTube', args: [], severity: 'info' }],
+    });
+    expect(await screen.findByTestId('recording-status')).toHaveTextContent(
+      'Downloading audio from YouTube…',
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel transcription or summary' }));
+    expect(api.named('recording.cancelProcessing')[0]?.input).toEqual({ meetingId: null });
+  });
+
+  it('shows the download status from main and a refusal as an error', async () => {
+    const api = installApi({
+      'recording.getState': () => ({
+        ...idleState,
+        status: [{ key: 'Ui_StatusDownloadingYouTube', args: [], severity: 'info' }],
+        liveText: '',
+      }),
+      'recording.importUrl': () => ({
+        started: false,
+        reason: 'failed',
+        message: { key: 'Ui_ErrorYouTubeDownload', args: ['private video'], severity: 'error' },
+      }),
+    });
+    mount();
+    expect(await screen.findByTestId('status-text')).toHaveTextContent(
+      'Downloading audio from YouTube…',
+    );
+    api.emit('recording.state', idleState);
+    await userEvent.click(await screen.findByRole('button', { name: 'From YouTube' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Import from YouTube' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'Video link' }), NORMAL);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't download the video's audio: private video",
+    );
+  });
+});
+
 describe('RecordRoute take notes request', () => {
   it('starts a blank recording when the request is pending and the page is idle', async () => {
     const api = installApi({

@@ -3,6 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import en from './locales/en.json';
 import es from './locales/es.json';
+import uiEn from './locales/ui.en.json';
+import uiEs from './locales/ui.es.json';
 
 // R12, items 192 and 194. The spec file is the source of truth for the strings and the control
 // names of the Record page; this reads it, so a new key in the spec fails here until both
@@ -10,8 +12,9 @@ import es from './locales/es.json';
 
 const root = path.resolve(__dirname, '../../../../..');
 const spec = fs.readFileSync(path.join(root, 'docs/port/specs/recording.md'), 'utf8');
-const catalogEn = en as Record<string, string>;
-const catalogEs = es as Record<string, string>;
+// The page reads the converted keys and the hand-written `Ui_` keys from one merged catalog.
+const catalogEn: Record<string, string> = { ...en, ...uiEn };
+const catalogEs: Record<string, string> = { ...es, ...uiEs };
 
 /** Section 2 of the spec, "User-facing features". */
 function section2(): string {

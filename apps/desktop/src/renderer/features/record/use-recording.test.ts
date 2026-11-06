@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyRecordingState,
   connectRecording,
+  importFromYouTube,
   importRecording,
   resetRecordingStore,
   setFolderId,
@@ -132,6 +133,58 @@ describe('the recording store', () => {
     expect(await importRecording('t')).toBe(false);
     expect(api.calls).toEqual(['audio.import.pickFile']);
     expect(useRecordingStore.getState().notice).toBeNull();
+  });
+
+  it('imports a YouTube link into the destination without opening the file picker', async () => {
+    const inputs: Record<string, unknown>[] = [];
+    const api = install({
+      'recording.importUrl': (input) => {
+        inputs.push(input);
+        return { started: true, meetingId: 'm' };
+      },
+    });
+    setFolderId('f1');
+    expect(await importFromYouTube('t', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(true);
+    expect(api.calls).toEqual(['recording.importUrl']);
+    expect(inputs[0]).toEqual({
+      title: 't',
+      folderId: 'f1',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    });
+    expect(useRecordingStore.getState().busy).toBeNull();
+  });
+
+  it('refreshes the setup when a YouTube import is not ready and stays silent when cancelled', async () => {
+    let result: unknown = { started: false, reason: 'not-ready', message: null };
+    const api = install({
+      'recording.importUrl': () => result,
+      'recording.getSetup': () => ({ canRecord: false }),
+    });
+    expect(await importFromYouTube('t', 'https://youtu.be/x')).toBe(false);
+    expect(api.calls).toContain('recording.getSetup');
+    result = {
+      started: false,
+      reason: 'cancelled',
+      message: { key: 'Status_Cancelled', args: [], severity: 'info' },
+    };
+    expect(await importFromYouTube('t', 'https://youtu.be/x')).toBe(false);
+    expect(useRecordingStore.getState().notice).toBeNull();
+  });
+
+  it('keeps the message of a failed YouTube import, and a thrown one as an import error', async () => {
+    const failed = { key: 'Ui_ErrorYouTubeDownload', args: ['private video'], severity: 'error' };
+    let fail = true;
+    install({
+      'recording.importUrl': () => {
+        if (fail) return { started: false, reason: 'failed', message: failed };
+        throw new Error('ipc down');
+      },
+    });
+    expect(await importFromYouTube('t', 'https://youtu.be/x')).toBe(false);
+    expect(useRecordingStore.getState().notice).toEqual(failed);
+    fail = false;
+    expect(await importFromYouTube('t', 'https://youtu.be/x')).toBe(false);
+    expect(useRecordingStore.getState().notice?.key).toBe('Error_ImportAudio');
   });
 
   it('listens once for any number of pages and lets go with the last one', () => {

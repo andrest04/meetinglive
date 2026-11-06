@@ -1,5 +1,5 @@
 import { defaultMeetingTitle } from '@vozella/core';
-import { FileUp, Mic } from 'lucide-react';
+import { FileUp, Link, Mic } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { Button, SectionHeader, cn } from '../../ui';
@@ -25,10 +25,12 @@ import { ResultCard } from './ResultCard';
 import { SetupChecklist } from './SetupChecklist';
 import { StatusBars, useStatusText } from './StatusBars';
 import { useEnsureReady } from './use-ensure-ready';
+import { YouTubeImportDialog } from './YouTubeImportDialog';
 import {
   cancelBackgroundSummary,
   cancelProcessing,
   connectRecording,
+  importFromYouTube,
   importRecording,
   retryProcessing,
   setFolderId,
@@ -83,6 +85,7 @@ export function RecordRoute() {
   const store = useRecordingStore();
   const { state, setup, busy } = store;
   const [selection, setSelection] = useState<SourcesSelection>(NO_SELECTION);
+  const [youTubeOpen, setYouTubeOpen] = useState(false);
   const { status: engine } = useEngineStatus();
   const { ensureReady, dialogs } = useEnsureReady();
   const answer = useLiveAskStore((s) => s.answer);
@@ -129,6 +132,11 @@ export function RecordRoute() {
   const importAudio = async (): Promise<void> => {
     if (!(await ensureReady())) return;
     await importRecording(title);
+  };
+
+  const importYouTube = async (url: string): Promise<void> => {
+    if (!(await ensureReady())) return;
+    await importFromYouTube(title, url);
   };
 
   // Ctrl+R starts a take from the idle page (2.5); once recording, the session binds it to Stop.
@@ -366,6 +374,18 @@ export function RecordRoute() {
                     {t('Record_Import')}
                   </Button>
                 ) : null}
+                {flags.showImportAudio ? (
+                  <Button
+                    icon={Link}
+                    disabled={busy !== null}
+                    data-testid="BtnImportYouTube"
+                    onClick={() => {
+                      setYouTubeOpen(true);
+                    }}
+                  >
+                    {t('Ui_ImportYouTube')}
+                  </Button>
+                ) : null}
               </div>
               <p className="text-ui text-ink-muted">{t('Ui_RecordHelper')}</p>
             </div>
@@ -373,6 +393,11 @@ export function RecordRoute() {
         </div>
       ) : null}
 
+      <YouTubeImportDialog
+        open={youTubeOpen}
+        onOpenChange={setYouTubeOpen}
+        onImport={(url) => void importYouTube(url)}
+      />
       {dialogs}
     </section>
   );
