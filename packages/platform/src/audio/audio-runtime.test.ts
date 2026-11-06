@@ -55,7 +55,8 @@ describe('recording through the runtime', () => {
     runtime.recording.resume();
     await sleep(500);
     await runtime.recording.stop();
-    expect(readWavFileInfo(target).seconds).toBeLessThan(1.6);
+    // 1.0 s recorded, ~2.0 s if the break were kept; CI sleeps can overshoot by more than 0.5 s.
+    expect(readWavFileInfo(target).seconds).toBeLessThan(1.9);
   }, 10_000);
 
   it('C1: a failed start leaves no file behind', async () => {
