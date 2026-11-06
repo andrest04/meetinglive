@@ -28,8 +28,8 @@ Review: RDD is off (global) → ordinary checks only.
 ## Tasks
 - [x] T1 — Platform: `YtDlpManager` (ensure binary in app data, sha256 verify, self-update) and `YtDlpDownloader` (spawn, cancel, error mapping) + unit tests. Route: delegated (multi-file). `parseYouTubeUrl` lives in `@vozella/core`.
 - [x] T2 — Main: `recording.importUrl` contract + channel, `RecordingService.importUrl` (download → convertForImport → pipeline, temp cleanup, cancel), IPC handler, composition wiring + tests. Route: delegated.
-- [ ] T3 — Renderer: "Import from YouTube" action with URL input on Record screen, store action, `Ui_` strings (en/es) + tests. Route: delegated.
-- [ ] T4 — Docs: `docs/port/specs/recording.md` §2.12 and `docs/port/parity/recording.md`. Route: delegated with T3.
+- [x] T3 — Renderer: "Import from YouTube" action with URL input on Record screen, store action, `Ui_` strings (en/es) + tests. Route: delegated.
+- [x] T4 — Docs: `docs/port/specs/recording.md` §2.12 and `docs/port/parity/recording.md`. Route: delegated with T3.
 
 ## Acceptance criteria
 - Pasting a valid YouTube URL creates a meeting with transcript and summary.
@@ -47,5 +47,8 @@ Review: RDD is off (global) → ordinary checks only.
 
 - T2: `recording.importUrl` contract (shares the `recording.import` result schema), `RecordingService.importUrl` over a shared private `runImport` (file and link sources; `importAudio` behavior unchanged), `YouTubeAudioPort` + `createYouTubeAudio` adapter in `main/recording/youtube-import.ts`, yt-dlp bin dir `appData/yt-dlp`, temp `os.tmpdir()/vozella-youtube/<meetingId>` removed in `finally`. `Ui_Error*` keys map to error severity. RED: 8 failing (7 service + 1 handler) before implementation; GREEN: desktop 2071 passed / 6 skipped, contracts 44 passed, typecheck + prettier + eslint clean. Commit: pending (parent).
 
+- T3: store `importFromYouTube(title, url)` sharing a private `runImport` with `importRecording` (busy `importing`, `not-ready` refreshes setup, `cancelled` silent, else notice; thrown → `Error_ImportAudio`). "From YouTube" (`BtnImportYouTube`, lucide `Link`, no brand icon in lucide 1.x) next to Import audio with the same flag and busy rule; `YouTubeImportDialog` (Dialog + Field + Input; autofocus, Import disabled until `parseYouTubeUrl` accepts, inline `Ui_ErrorYouTubeUrl` with aria-invalid/aria-describedby after paste, blur or Enter, Enter submits, Esc closes). Six `Ui_ImportYouTube*` keys en/es. Status: `Ui_` keys already translate (merged catalog); Cancel during download already works (gate Preparing + busy `importing`), now pinned by a test. RED: 7 failing (3 store + 4 route) before implementation. `recording-strings.test.ts` now reads the merged catalog (converted + `Ui_`), since spec §2 names `Ui_` keys. GREEN: desktop 2090 passed / 6 skipped, typecheck clean, prettier + eslint clean on touched code. Commit: pending (parent).
+- T4: spec `docs/port/specs/recording.md` §2.12.1 (validation, yt-dlp first-use download + SHA2-256SUMS, `-U` once per session, m4a for Media Foundation, temp folder + cleanup, `fileTimeMs: null`, cancel, errors); parity `docs/port/parity/recording.md` "Port-only additions" P-1..P-4. Both docs were already not prettier-clean at HEAD; only the new sections were added. Commit: pending (parent).
+
 ## Next step
-T3.
+Parent: commit T3/T4, run `pnpm check`.
