@@ -149,6 +149,14 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('heading', { level: 2, name: 'Summary provider' })).toBeVisible();
     await page.getByRole('radio', { name: 'Local (on this device)' }).click();
     await expect(page.getByRole('radiogroup', { name: 'Summary models' })).toBeVisible();
+    // Axe reads computed colors, so it must see the settled page. A button that turns enabled when
+    // the transcription status arrives fades from the disabled 50% opacity, and in this hidden test
+    // window that fade can sit at its first frame for seconds; finish every finite transition first.
+    await page.evaluate(() => {
+      for (const animation of document.getAnimations()) {
+        if (animation.effect?.getComputedTiming().endTime !== Infinity) animation.finish();
+      }
+    });
     await page.evaluate(axe.source);
     const violations = await page.evaluate(async () => {
       const axe = (

@@ -22,18 +22,46 @@ let page: Page;
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
-async function resize(width: number, height: number): Promise<void> {
+const viewport = (): Promise<[number, number]> =>
+  page.evaluate(() => [window.innerWidth, window.innerHeight]);
+
+/** Sets the window's content size and waits until the page has seen the resize (or 1 s passed). */
+async function setContentSize(width: number, height: number): Promise<void> {
+  await page.evaluate(() => {
+    const target = window as unknown as { resized?: Promise<void> };
+    target.resized = new Promise<void>((resolve) => {
+      window.addEventListener('resize', () => resolve(), { once: true });
+      setTimeout(resolve, 1000);
+    });
+  });
   await launched.app.evaluate(
     ({ BrowserWindow }, size) => {
       const main = BrowserWindow.getAllWindows()[0];
-      // The window's own minimum is 960x680; the narrow and short cases go under it on purpose.
-      main?.setMinimumSize(300, 300);
+      // The window's own minimum is 960x680; the narrow and short cases go under it on purpose,
+      // with room below 300 for the rounding correction in resize().
+      main?.setMinimumSize(200, 200);
       main?.setContentSize(size.width, size.height);
     },
     { width, height },
   );
-  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(width);
-  await expect.poll(() => page.evaluate(() => window.innerHeight)).toBe(height);
+  await page.evaluate(() => (window as unknown as { resized?: Promise<void> }).resized);
+}
+
+/**
+ * At a fractional display scale (125% on the dev machine) Windows rounds the frameless client
+ * area, so the page comes out a pixel or two off the size asked for, and not by a fixed amount
+ * (768 gives 770, 767 gives 768). Ask again by the difference until the page has the exact
+ * viewport the checks name.
+ */
+async function resize(width: number, height: number): Promise<void> {
+  let ask: [number, number] = [width, height];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await setContentSize(...ask);
+    const [actualWidth, actualHeight] = await viewport();
+    if (actualWidth === width && actualHeight === height) break;
+    ask = [ask[0] + width - actualWidth, ask[1] + height - actualHeight];
+  }
+  expect(await viewport()).toEqual([width, height]);
 }
 
 async function setTheme(theme: 'light' | 'dark'): Promise<void> {
@@ -106,7 +134,7 @@ function controlsUnderLauncher(): Promise<string[]> {
         if (r.width === 0 || r.height === 0) return false;
         return r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top;
       })
-      .map((el) => el.getAttribute('data-testid') ?? el.textContent?.trim() ?? el.tagName);
+      .map((el) => el.getAttribute('data-testid') ?? el.textContent.trim());
   });
 }
 
