@@ -40,9 +40,9 @@ interface ThemeValue {
 
 // Hot reload re-runs this module; reuse the context so consumers stay bound to the Provider.
 const ThemeContext: Context<ThemeValue | null> =
-  (import.meta.hot?.data.themeContext as Context<ThemeValue | null> | undefined) ??
-  createContext<ThemeValue | null>(null);
-if (import.meta.hot) import.meta.hot.data.themeContext = ThemeContext;
+  ((import.meta.hot?.data as Record<string, unknown> | undefined)?.themeContext as
+    Context<ThemeValue | null> | undefined) ?? createContext<ThemeValue | null>(null);
+if (import.meta.hot) (import.meta.hot.data as Record<string, unknown>).themeContext = ThemeContext;
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 

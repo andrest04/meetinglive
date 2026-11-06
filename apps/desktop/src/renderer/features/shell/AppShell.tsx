@@ -111,9 +111,7 @@ function Sidebar() {
     <aside className="flex h-full flex-col bg-paper-raised">
       <div className="app-drag flex h-10 shrink-0 items-center gap-2 px-4">
         <Mark size={20} />
-        <span className="text-ui-lg font-medium tracking-[-0.01em]">
-          {t('AppTitleBar.Title')}
-        </span>
+        <span className="text-ui-lg font-medium tracking-[-0.01em]">{t('AppTitleBar.Title')}</span>
       </div>
       <NavRail librarySlot={<LibraryFolders location={sidebarLocation(pathname)} />} />
     </aside>

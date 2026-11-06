@@ -27,9 +27,9 @@ interface I18nValue {
 // Hot reload re-runs this module. A fresh context would orphan every consumer still
 // bound to the old one, so useI18n would throw and blank the window. Reuse it instead.
 const I18nContext: Context<I18nValue | null> =
-  (import.meta.hot?.data.i18nContext as Context<I18nValue | null> | undefined) ??
-  createContext<I18nValue | null>(null);
-if (import.meta.hot) import.meta.hot.data.i18nContext = I18nContext;
+  ((import.meta.hot?.data as Record<string, unknown> | undefined)?.i18nContext as
+    Context<I18nValue | null> | undefined) ?? createContext<I18nValue | null>(null);
+if (import.meta.hot) (import.meta.hot.data as Record<string, unknown>).i18nContext = I18nContext;
 
 export function I18nProvider({
   children,
