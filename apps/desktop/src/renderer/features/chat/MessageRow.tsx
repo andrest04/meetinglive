@@ -1,4 +1,4 @@
-import { Check, Copy, FilePen, Loader2 } from 'lucide-react';
+import { BookmarkPlus, Check, Copy, FilePen, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { Icon, IconButton, cn } from '../../ui';
@@ -11,6 +11,8 @@ export interface MessageRowProps {
   readonly onLink: LinkHandler;
   /** T4: present in a meeting scope only; puts the answer in the meeting's summary. */
   readonly onApply?: (text: string) => void;
+  /** Phase 5: on the user's own messages, opens the saved prompt dialog with this text. */
+  readonly onSaveAsPrompt?: (text: string) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface MessageRowProps {
  * document under a small role label. The copy button, and in a meeting scope the "Apply to
  * summary" button, appear only once the answer is complete.
  */
-export function MessageRow({ row, onCopy, onLink, onApply }: MessageRowProps) {
+export function MessageRow({ row, onCopy, onLink, onApply, onSaveAsPrompt }: MessageRowProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -34,7 +36,26 @@ export function MessageRow({ row, onCopy, onLink, onApply }: MessageRowProps) {
   if (row.role === 'user') {
     const label = t('Chat_RoleUser');
     return (
-      <li aria-label={accessibleMessageText(label, row.text)} className="flex justify-end ps-10">
+      <li
+        aria-label={accessibleMessageText(label, row.text)}
+        className="group flex items-start justify-end gap-1 ps-10"
+      >
+        {onSaveAsPrompt ? (
+          // Quiet until the row is hovered or the button has focus, like the answer's actions.
+          <IconButton
+            label={t('Ui_ChatSaveAsPrompt')}
+            icon={BookmarkPlus}
+            size="sm"
+            data-testid="BtnMeetingChatSaveAsPrompt"
+            onClick={() => {
+              onSaveAsPrompt(row.text);
+            }}
+            className={cn(
+              'shrink-0 text-ink-muted opacity-0 transition-opacity duration-150 ease-out-quick',
+              'group-hover:opacity-100 focus-visible:opacity-100 motion-reduce:transition-none',
+            )}
+          />
+        ) : null}
         <p
           className={cn(
             'max-w-[75%] rounded-card bg-hover px-3 py-1.5 text-ui-lg break-words whitespace-pre-wrap text-ink',

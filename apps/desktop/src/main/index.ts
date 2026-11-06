@@ -39,6 +39,8 @@ import {
   fakeAsrPhrasesFromEnv,
   FakeSummaryProvider,
   JsonWindowStateStore,
+  JsonChatPromptStore,
+  writeFileAtomic,
   fakeSummaryOptionsFromEnv,
   FileLocalModelStore,
   PathCliProbe,
@@ -105,7 +107,9 @@ import { ObservedSummaryService } from './summaries/observed-summary-service';
 import { SummariesController } from './summaries/summaries-controller';
 import { ChatController, chatProviderSource } from './chat/chat-controller';
 import { recordingProviderSource } from './chat/chat-prompt-log';
+import { ChatPromptsController } from './chat/chat-prompts-controller';
 import { registerChatHandlers } from './ipc/chat-handlers';
+import { registerChatPromptHandlers } from './ipc/chat-prompts-handlers';
 import {
   fakeModelScriptFromEnv,
   ScriptedFakeModelStore,
@@ -824,9 +828,12 @@ function main(): void {
       });
       const chatPromptLog = fakeNative ? process.env.VOZELLA_FAKE_CHAT_PROMPT_LOG : undefined;
       const chatProviders = chatPromptLog
-        ? // E2E double: each prompt is appended to a file the spec reads.
-          recordingProviderSource(chatProviderSource(summaryRuntime.resolver), (prompt) => {
-            fs.appendFileSync(chatPromptLog, `${prompt}\n<<<END>>>\n`);
+        ? // E2E double: each prompt and the engine that answers it go to a file the spec reads.
+          recordingProviderSource(chatProviderSource(summaryRuntime.resolver), (prompt, engine) => {
+            fs.appendFileSync(
+              chatPromptLog,
+              `${prompt}\n<<<ENGINE ${engine ?? 'local'}>>>\n<<<END>>>\n`,
+            );
           })
         : chatProviderSource(summaryRuntime.resolver);
       const chat = new ChatController({
@@ -881,6 +888,53 @@ function main(): void {
           isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
         },
         controller: chat,
+      });
+
+      // Saved prompts (Phase 5): chat-prompts.json in app data, export and import through dialogs.
+      const promptsFilter = { name: locale.t('Ui_ChatPromptsFileFilter'), extensions: ['json'] };
+      const chatPrompts = new ChatPromptsController({
+        store: new JsonChatPromptStore({
+          filePath: library.paths.chatPromptsFilePath,
+          newId: () => randomUUID(),
+          logger: logger.child('chat'),
+        }),
+        broadcast,
+        logger: logger.child('chat'),
+        pickExportPath: async () => {
+          const options = {
+            defaultPath: path.join(
+              app.getPath('documents'),
+              `${locale.t('Ui_ChatPromptsFileName')}.vozella-prompts.json`,
+            ),
+            filters: [promptsFilter],
+          };
+          const result = mainWindow
+            ? await dialog.showSaveDialog(mainWindow, options)
+            : await dialog.showSaveDialog(options);
+          return result.canceled || !result.filePath ? null : result.filePath;
+        },
+        pickImportPath: async () => {
+          const options = { properties: ['openFile' as const], filters: [promptsFilter] };
+          const result = mainWindow
+            ? await dialog.showOpenDialog(mainWindow, options)
+            : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+        readText: async (file) => {
+          // A prompts file is small; anything over 2 MB is refused before it is read.
+          const stat = await fs.promises.stat(file);
+          if (!stat.isFile() || stat.size > 2_000_000) throw new Error('not a prompts file');
+          return fs.promises.readFile(file, 'utf8');
+        },
+        writeText: (file, text) => writeFileAtomic(file, text),
+      });
+      registerChatPromptHandlers({
+        server: {
+          ipc: ipcMain,
+          logger,
+          isTrusted: (event: IpcEventLike) => isTrustedIpcSender(event, windowIds, trusted),
+        },
+        controller: chatPrompts,
       });
 
       // Transcription: the engine runs in its own process; the controller serves the pages and

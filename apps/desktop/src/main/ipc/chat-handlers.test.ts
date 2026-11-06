@@ -43,6 +43,7 @@ class FakeChatService implements ChatServicePort {
     scope: ChatScopeDecision;
     live: string | LiveContextSnapshot | null;
     attachmentIds?: readonly string[];
+    engine?: string;
   }[] = [];
   chunks: string[] = [];
   outcome: (draft: string) => ChatSendOutcome = (draft) => ({
@@ -104,13 +105,14 @@ class FakeChatService implements ChatServicePort {
     draft: string,
     scope: ChatScopeDecision,
     live: string | LiveContextSnapshot | null,
-    options?: { readonly attachmentIds?: readonly string[] },
+    options?: { readonly attachmentIds?: readonly string[]; readonly engine?: string },
   ): Promise<ChatSendOutcome> {
     this.sendCalls.push({
       draft,
       scope,
       live,
       ...(options?.attachmentIds ? { attachmentIds: options.attachmentIds } : {}),
+      ...(options?.engine ? { engine: options.engine } : {}),
     });
     this.sending = true;
     this.pending = { userText: draft, assistantText: '' };
@@ -191,7 +193,10 @@ const sendInput = (over: Record<string, unknown> = {}) => ({
 describe('chat handlers', () => {
   it('registers every chat request channel', () => {
     const { handlers } = setup();
-    const expected = Object.keys(requestChannels).filter((name) => name.startsWith('chat.'));
+    // Saved prompts have their own registration (chat-prompts-handlers.ts).
+    const expected = Object.keys(requestChannels).filter(
+      (name) => name.startsWith('chat.') && !name.startsWith('chat.prompts.'),
+    );
     expect(expected).toHaveLength(12);
     for (const name of expected) expect(handlers.has(name)).toBe(true);
   });
@@ -210,6 +215,13 @@ describe('chat handlers', () => {
       { requestId: 'r1', text: 'We decided' },
       { requestId: 'r1', text: 'We decided to ship' },
     ]);
+  });
+
+  it('send passes a saved prompt engine for that send only (Phase 5)', async () => {
+    const { call, service } = setup();
+    await call('chat.send', sendInput({ engine: 'codex' }));
+    await call('chat.send', sendInput());
+    expect(service.sendCalls.map((c) => c.engine)).toEqual(['codex', undefined]);
   });
 
   it('Live scope: adds the digest, title and notes read at send start (T2)', async () => {
@@ -442,6 +454,26 @@ describe('chatProviderSource', () => {
     expect(
       await source({ status: 'unavailable', kind: 'Xai', reason: 'xai-removed' }).resolve(),
     ).toEqual({ status: 'unavailable' });
+  });
+
+  it('a saved prompt engine asks the gate for that kind; none asks for the default', async () => {
+    const asked: unknown[] = [];
+    const source = chatProviderSource({
+      resolveSummaryProvider: (request?: unknown) => {
+        asked.push(request);
+        return Promise.resolve({ status: 'needs-setup', kind: 'Codex', reason: 'cli-missing' });
+      },
+    });
+    await source.resolve('codex');
+    await source.resolve('claude-code');
+    await source.resolve('local');
+    await source.resolve();
+    expect(asked).toEqual([
+      { kind: 'Codex' },
+      { kind: 'ClaudeCode' },
+      { kind: 'Local' },
+      undefined,
+    ]);
   });
 });
 

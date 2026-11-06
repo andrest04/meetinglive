@@ -11,6 +11,7 @@ import {
 } from './chat-service';
 import type { ContextFolder, ContextMeeting } from './context-packer';
 import type { ChatScopeDecision } from './scope-resolver';
+import type { ChatEngine } from './user-prompts';
 
 /** A clock tests move by hand (core cannot import the platform fake). */
 export class ManualClock implements Clock {
@@ -119,10 +120,13 @@ export class ScriptedChatProvider implements ChatStreamProvider {
 
 export class FakeProviderSource implements ProviderSource {
   resolutions = 0;
+  /** The engine each resolve asked for; undefined is the engine from Settings. */
+  readonly engines: (ChatEngine | undefined)[] = [];
   constructor(public resolution: ChatProviderResolution) {}
 
-  resolve(): Promise<ChatProviderResolution> {
+  resolve(engine?: ChatEngine): Promise<ChatProviderResolution> {
     this.resolutions += 1;
+    this.engines.push(engine);
     return Promise.resolve(this.resolution);
   }
 }

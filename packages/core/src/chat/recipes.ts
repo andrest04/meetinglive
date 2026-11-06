@@ -1,14 +1,19 @@
 import type { ChatScopeKind } from './scope-resolver';
+import type { ChatEngine } from './user-prompts';
 
 /** `live`: only while a take records (T2), listed before the single-meeting recipes. */
 export type RecipeAvailability = 'single' | 'multiple' | 'live';
 
-/** A built-in recipe. User recipes are not ported (owner decision 2026-11-03, may return later). */
+/** A recipe of the list: a built-in, or a saved prompt (`owner: 'user'`, see user-prompts.ts). */
 export interface ChatRecipe {
   readonly id: string;
   readonly name: string;
   readonly prompt: string;
   readonly availability: RecipeAvailability;
+  /** Set on saved prompts only. */
+  readonly owner?: 'user';
+  /** A saved prompt's engine for its own send; null or unset uses the engine from Settings. */
+  readonly engine?: ChatEngine | null;
 }
 
 /** Looks a localized string up by key at call time (B8): recipe names and prompts. */

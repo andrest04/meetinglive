@@ -36,6 +36,8 @@ export interface AppPaths {
   readonly summaryModelsDirectory: string;
   readonly chatThreadsFilePath: string;
   readonly chatRecipesFilePath: string;
+  /** Saved chat prompts of this app (Phase 5). The WinUI `chat-recipes.json` is left alone. */
+  readonly chatPromptsFilePath: string;
   /** Kept for on-disk compatibility with the WinUI app. Nothing reads or deletes this file (xAI was removed). */
   readonly xaiCredentialsFilePath: string;
   readonly typeSafeCredentialsFilePath: string;
@@ -63,6 +65,7 @@ export function createAppPaths(roots: AppPathRoots, path: PathJoiner): AppPaths 
     summaryModelsDirectory: path.join(root, 'SummaryModels'),
     chatThreadsFilePath: path.join(root, 'chat-threads.json'),
     chatRecipesFilePath: path.join(root, 'chat-recipes.json'),
+    chatPromptsFilePath: path.join(root, 'chat-prompts.json'),
     xaiCredentialsFilePath: path.join(root, 'xai-credentials.bin'),
     typeSafeCredentialsFilePath: path.join(root, 'typesafe-credentials.bin'),
     customNoteTemplateFilePath: path.join(root, 'custom-note-template.json'),

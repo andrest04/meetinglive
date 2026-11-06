@@ -109,6 +109,10 @@ export const chatStateSchema = z.object({
 });
 export type ChatStateDto = z.infer<typeof chatStateSchema>;
 
+/** Engines a saved prompt can name (Phase 5). */
+export const chatEngineSchema = z.enum(['claude-code', 'codex', 'local']);
+export type ChatEngineDto = z.infer<typeof chatEngineSchema>;
+
 export const chatSend = defineRequest('chat.send', {
   input: z.object({
     requestId,
@@ -118,8 +122,95 @@ export const chatSend = defineRequest('chat.send', {
     liveTranscript: z.string().max(2_000_000).nullable(),
     /** Ids from `chat.attach.*`. Unknown or failed ids are skipped by main. */
     attachmentIds: z.array(z.string().min(1).max(100)).max(CHAT_ATTACHMENT_MAX).default([]),
+    /** A saved prompt's engine, for this send only. Unset uses the engine from Settings. */
+    engine: chatEngineSchema.optional(),
   }),
   output: chatSendOutcomeSchema,
+});
+
+// Saved prompts (Phase 5). The same limits as core's `user-prompts.ts`.
+export const CHAT_PROMPT_NAME_MAX = 60;
+export const CHAT_PROMPT_TEXT_MAX = 4_000;
+export const CHAT_PROMPT_LIMIT = 100;
+
+/** What the create and edit dialog sends. Text is trimmed before the limits apply. */
+export const chatPromptDraftSchema = z.object({
+  name: z.string().trim().min(1).max(CHAT_PROMPT_NAME_MAX),
+  prompt: z.string().trim().min(1).max(CHAT_PROMPT_TEXT_MAX),
+  availability: z.enum(['single', 'multiple']),
+  /** Null: the engine chosen in Settings. */
+  engine: chatEngineSchema.nullable(),
+});
+export type ChatPromptDraftDto = z.infer<typeof chatPromptDraftSchema>;
+
+export const chatPromptSchema = chatPromptDraftSchema.extend({ id: z.string().min(1).max(100) });
+export type ChatPromptDto = z.infer<typeof chatPromptSchema>;
+
+const promptList = z.array(chatPromptSchema).max(CHAT_PROMPT_LIMIT);
+
+const promptSaveOutcome = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('saved'), prompt: chatPromptSchema }),
+  /** Already 100 saved prompts. */
+  z.object({ status: z.literal('limit') }),
+  /** The prompt was deleted meanwhile. */
+  z.object({ status: z.literal('not-found') }),
+  z.object({ status: z.literal('failed') }),
+]);
+export type ChatPromptSaveOutcomeDto = z.infer<typeof promptSaveOutcome>;
+
+/** The saved prompts, in saved order. */
+export const chatPromptsList = defineRequest('chat.prompts.list', {
+  input: empty,
+  output: z.object({ prompts: promptList }),
+});
+
+export const chatPromptsCreate = defineRequest('chat.prompts.create', {
+  input: z.object({ draft: chatPromptDraftSchema }),
+  output: promptSaveOutcome,
+});
+
+export const chatPromptsUpdate = defineRequest('chat.prompts.update', {
+  input: z.object({ id: z.string().min(1).max(100), draft: chatPromptDraftSchema }),
+  output: promptSaveOutcome,
+});
+
+export const chatPromptsDelete = defineRequest('chat.prompts.delete', {
+  input: z.object({ id: z.string().min(1).max(100) }),
+  output: z.object({ status: z.enum(['deleted', 'not-found', 'failed']) }),
+});
+
+/** Opens the save dialog and writes `.vozella-prompts.json` (`{ version: 1, prompts }`). */
+export const chatPromptsExport = defineRequest('chat.prompts.export', {
+  input: empty,
+  output: z.discriminatedUnion('status', [
+    z.object({ status: z.literal('exported'), count: z.number().int().nonnegative() }),
+    z.object({ status: z.literal('cancelled') }),
+    z.object({ status: z.literal('failed') }),
+  ]),
+});
+export type ChatPromptsExportOutcomeDto = z.infer<typeof chatPromptsExport.output>;
+
+/** Opens the file dialog, checks the file and adds its prompts; taken names get "(2)". */
+export const chatPromptsImport = defineRequest('chat.prompts.import', {
+  input: empty,
+  output: z.discriminatedUnion('status', [
+    z.object({
+      status: z.literal('imported'),
+      added: z.number().int().nonnegative(),
+      renamed: z.number().int().nonnegative(),
+      skipped: z.number().int().nonnegative(),
+    }),
+    z.object({ status: z.literal('cancelled') }),
+    /** Not a prompts file, or one entry breaks the rules: nothing was added. */
+    z.object({ status: z.literal('invalid') }),
+    z.object({ status: z.literal('failed') }),
+  ]),
+});
+export type ChatPromptsImportOutcomeDto = z.infer<typeof chatPromptsImport.output>;
+
+/** Any change to the saved prompts, from any window. */
+export const chatPromptsChanged = defineEvent('chat.promptsChanged', {
+  payload: z.object({ prompts: promptList }),
 });
 
 /** Opens the file dialog (several files). Main remembers the paths; the answer is the chip list. */

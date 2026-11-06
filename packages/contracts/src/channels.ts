@@ -191,6 +191,12 @@ export const requestChannels = {
   [chat.chatAttachDrop.name]: chat.chatAttachDrop,
   [chat.chatAttachRemove.name]: chat.chatAttachRemove,
   [chat.chatAttachList.name]: chat.chatAttachList,
+  [chat.chatPromptsList.name]: chat.chatPromptsList,
+  [chat.chatPromptsCreate.name]: chat.chatPromptsCreate,
+  [chat.chatPromptsUpdate.name]: chat.chatPromptsUpdate,
+  [chat.chatPromptsDelete.name]: chat.chatPromptsDelete,
+  [chat.chatPromptsExport.name]: chat.chatPromptsExport,
+  [chat.chatPromptsImport.name]: chat.chatPromptsImport,
   [liveCopilot.pillTogglePause.name]: liveCopilot.pillTogglePause,
   [liveCopilot.pillStop.name]: liveCopilot.pillStop,
   [liveCopilot.pillOpenApp.name]: liveCopilot.pillOpenApp,
@@ -236,6 +242,7 @@ export const eventChannels = {
   [recording.recordingQuestionWithdrawn.name]: recording.recordingQuestionWithdrawn,
   [chat.chatChunk.name]: chat.chatChunk,
   [chat.chatStateChanged.name]: chat.chatStateChanged,
+  [chat.chatPromptsChanged.name]: chat.chatPromptsChanged,
 } as const;
 
 export type RequestChannels = typeof requestChannels;

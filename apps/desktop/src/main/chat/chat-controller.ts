@@ -8,6 +8,7 @@ import {
   type ChatStateDto,
 } from '@vozella/contracts';
 import type {
+  ChatEngine,
   ChatMessage,
   ChatProviderResolution,
   ChatSendOutcome,
@@ -71,13 +72,21 @@ export function allowedExternalUrl(raw: string): string | null {
   return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
 }
 
-/** Chat's provider comes from the summaries resolver, so one setting picks the engine for both. */
+const ENGINE_KIND = { 'claude-code': 'ClaudeCode', codex: 'Codex', local: 'Local' } as const;
+
+/**
+ * Chat's provider comes from the summaries resolver, so one setting picks the engine for both. A
+ * saved prompt's engine asks the resolver for that kind instead, for that send only (Phase 5).
+ */
 export function chatProviderSource(
   resolver: Pick<SummaryProviderResolver, 'resolveSummaryProvider'>,
 ): ProviderSource {
   return {
-    resolve: async (): Promise<ChatProviderResolution> => {
-      const gate = await resolver.resolveSummaryProvider();
+    resolve: async (engine?: ChatEngine): Promise<ChatProviderResolution> => {
+      const gate =
+        engine === undefined
+          ? await resolver.resolveSummaryProvider()
+          : await resolver.resolveSummaryProvider({ kind: ENGINE_KIND[engine] });
       if (gate.status === 'ready') return { status: 'ready', provider: gate.provider };
       if (gate.status === 'needs-setup') return { status: 'needs-setup', kind: gate.kind };
       return { status: 'unavailable' };
@@ -118,6 +127,8 @@ export class ChatController {
     readonly scope: ChatScopeDto;
     readonly liveTranscript: string | null;
     readonly attachmentIds?: readonly string[];
+    /** A saved prompt's engine, for this send only. */
+    readonly engine?: ChatEngine;
   }): Promise<ChatSendOutcomeDto> {
     const { service, broadcast } = this.deps;
     let lastText = '';
@@ -131,10 +142,14 @@ export class ChatController {
     try {
       const ids = input.attachmentIds ?? [];
       const live = this.liveSnapshot(input);
+      const options = {
+        ...(ids.length > 0 ? { attachmentIds: ids } : {}),
+        ...(input.engine === undefined ? {} : { engine: input.engine }),
+      };
       const outcome =
-        ids.length === 0
+        Object.keys(options).length === 0
           ? await service.send(input.draft, input.scope, live)
-          : await service.send(input.draft, input.scope, live, { attachmentIds: ids });
+          : await service.send(input.draft, input.scope, live, options);
       return this.toDto(outcome);
     } catch (error) {
       // The service answers values; this guards a bug, not a normal outcome.

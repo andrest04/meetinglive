@@ -1,6 +1,6 @@
-import { STARTER_COUNT, recipesForScope, type ChatScopeDecision } from '@vozella/core';
+import type { ChatEngine, ChatScopeDecision } from '@vozella/core';
 import { Paperclip } from 'lucide-react';
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { ProviderGateDialogs } from '../summaries/ProviderGateDialogs';
@@ -10,13 +10,16 @@ import { ApplySummaryNotice } from './ApplySummaryNotice';
 import { AttachmentChips } from './AttachmentChips';
 import { dragHasFiles, sendableAttachmentIds } from './chat-attachments-view';
 import { ChatErrorNotice } from './ChatErrorNotice';
+import { ENGINE_LABEL } from './chat-prompts-view';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
+import { SavedPromptDialogs } from './SavedPromptDialogs';
 import { StarterChips } from './StarterChips';
 import { useApplyToSummary } from './use-apply-to-summary';
 import { useChat } from './use-chat';
 import { useChatAttachments } from './use-chat-attachments';
 import { useChatLinks } from './use-chat-links';
+import { usePromptLibrary } from './use-prompt-library';
 import { useRecipeContext } from './use-recipe-context';
 
 /**
@@ -41,16 +44,21 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   // A meeting without action items (a talk, a video, a class) leads with the content recipes.
   const context = useRecipeContext(scope);
 
-  // Names are looked up on every render, so a language change relabels the chips (B8).
-  const recipes = useMemo(
-    () => recipesForScope(scope.kind, (key) => t(key as StringKey), context ?? {}),
-    [scope.kind, t, context],
-  );
-  // No chips until the meeting is read, so they never flip from one set to the other.
-  const starters = useMemo(
-    () => (context === null ? [] : recipes.slice(0, STARTER_COUNT)),
-    [recipes, context],
-  );
+  // Saved prompts lead the `/` list and the chips (Phase 5). Built-in names are looked up on every
+  // render, so a language change relabels the chips (B8).
+  const lookup = useCallback((key: string) => t(key as StringKey), [t]);
+  const library = usePromptLibrary({ kind: scope.kind, context, draft: chat.draft, lookup });
+  const { armed, disarm } = library;
+  const { setDraft, send } = chat;
+  const onDraftChange = (value: string): void => {
+    setDraft(value);
+    if (value.trim() === '') disarm();
+  };
+  /** A saved prompt's engine answers this send only. */
+  const sendWith = (text: string, engine: ChatEngine | null | undefined): void => {
+    disarm();
+    void send(text, engine ? { engine } : {});
+  };
 
   return (
     <div
@@ -75,6 +83,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
           onCopy={chat.copy}
           onLink={onLink}
           {...(apply ? { onApply: (text: string) => void apply(text) } : {})}
+          onSaveAsPrompt={library.saveFromMessage}
         />
       ) : (
         // An empty chat keeps the suggestions and the composer at the bottom of the panel.
@@ -109,8 +118,25 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
           </Notice>
         </div>
       ) : null}
+      {library.notice ? (
+        <div data-testid="InfoChatPromptsNotice">
+          <Notice onDismiss={library.dismissNotice} dismissLabel={t('Ui_Close')}>
+            <p>{library.notice}</p>
+          </Notice>
+        </div>
+      ) : null}
       {!chat.isSending && rows.length === 0 ? (
-        <StarterChips recipes={starters} onPick={(prompt) => void chat.send(prompt)} />
+        <StarterChips
+          recipes={library.starters}
+          onPick={(recipe) => {
+            sendWith(recipe.prompt, recipe.engine);
+          }}
+        />
+      ) : null}
+      {armed?.engine ? (
+        <p data-testid="TxtChatPromptEngine" className="text-ui text-ink-muted">
+          {t('Ui_ChatPromptRunsWith', t(ENGINE_LABEL[armed.engine]))}
+        </p>
       ) : null}
       <AttachmentChips
         items={files.items}
@@ -123,13 +149,18 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
       <Composer
         onAttach={() => void files.pick()}
         draft={chat.draft}
-        onDraftChange={chat.setDraft}
-        onSend={() => void chat.send(chat.draft)}
+        onDraftChange={onDraftChange}
+        onSend={() => {
+          sendWith(chat.draft, armed?.engine);
+        }}
         onStop={chat.stop}
         isSending={chat.isSending}
-        recipes={recipes}
+        recipes={library.recipes}
+        promptActions={library.actions}
+        onRecipePicked={library.arm}
       />
       <ProviderGateDialogs gate={gate} />
+      <SavedPromptDialogs library={library} />
     </div>
   );
 }

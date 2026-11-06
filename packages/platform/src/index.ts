@@ -55,3 +55,5 @@ export * from './youtube/yt-dlp-manager';
 export * from './youtube/yt-dlp-downloader';
 export * from './chat/attachment-extractors';
 export * from './chat/attachment-store';
+export * from './chat/chat-prompt-store';
+export { writeFileAtomic } from './fs/atomic-write';
