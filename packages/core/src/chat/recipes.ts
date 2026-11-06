@@ -55,6 +55,35 @@ const CATALOG: readonly Entry[] = [
     prompt:
       'Draft a short project plan from this meeting: outcome, steps, owners, open questions. Do not invent owners.',
   },
+  // Content recipes: for a talk, a video or a class, where the meeting recipes make no sense.
+  {
+    id: `${ID_BASE}106`,
+    nameKey: 'Ui_RecipeKeyIdeasName',
+    availability: 'single',
+    prompt:
+      'List the main ideas of this recording in order. For each one, give its time range and one or two sentences. Use only what is in the recording. Answer in the language of the recording.',
+  },
+  {
+    id: `${ID_BASE}107`,
+    nameKey: 'Ui_RecipeExplainName',
+    availability: 'single',
+    prompt:
+      'Find the hardest concepts in this recording and explain each one simply, with a concrete example. Stay faithful to what was said and mark any example of your own. Answer in the language of the recording.',
+  },
+  {
+    id: `${ID_BASE}108`,
+    nameKey: 'Ui_RecipeQuotesName',
+    availability: 'single',
+    prompt:
+      'Quote the most notable lines of this recording word for word, each with its timestamp and the speaker when known. Do not paraphrase or invent quotes. Answer in the language of the recording.',
+  },
+  {
+    id: `${ID_BASE}109`,
+    nameKey: 'Ui_RecipeStudyName',
+    availability: 'single',
+    prompt:
+      'Write 5 review questions about this recording, each followed by its answer taken from the content. Answer in the language of the recording.',
+  },
   {
     id: `${ID_BASE}201`,
     nameKey: 'RecipeFeatureRequestsName',
@@ -102,17 +131,52 @@ export function availabilityFor(kind: ChatScopeKind): RecipeAvailability {
   }
 }
 
-/** Built-ins whose availability matches the scope, in catalog order. */
-export function recipesForScope(kind: ChatScopeKind, t: RecipeNameLookup): ChatRecipe[] {
+/** What the renderer knows about the scoped content; unknown keeps the meeting order. */
+export interface RecipeContext {
+  /** The scoped meeting has at least one action item. */
+  readonly hasActionItems?: boolean;
+}
+
+/**
+ * Single-meeting list order when the content is a talk, a video or a class: the content recipes
+ * lead and "What's been discussed" closes the starters; the meeting recipes follow.
+ */
+const CONTENT_FIRST_ORDER: readonly string[] = ['106', '107', '108', '101', '109'].map(
+  (n) => `${ID_BASE}${n}`,
+);
+
+/** A meeting scope without action items reads as content, not as a meeting. */
+export const prefersContentRecipes = (kind: ChatScopeKind, context: RecipeContext): boolean =>
+  kind === 'Meeting' && context.hasActionItems === false;
+
+const rank = (id: string): number => {
+  const at = CONTENT_FIRST_ORDER.indexOf(id);
+  return at === -1 ? CONTENT_FIRST_ORDER.length : at;
+};
+
+/**
+ * Built-ins whose availability matches the scope. Catalog order (meeting recipes first), except a
+ * meeting without action items, which puts the content recipes first. The sort is stable, so the
+ * remaining recipes keep catalog order.
+ */
+export function recipesForScope(
+  kind: ChatScopeKind,
+  t: RecipeNameLookup,
+  context: RecipeContext = {},
+): ChatRecipe[] {
   const wanted = availabilityFor(kind);
-  return builtInRecipes(t).filter((r) => r.availability === wanted);
+  const list = builtInRecipes(t).filter((r) => r.availability === wanted);
+  return prefersContentRecipes(kind, context) ? list.sort((a, b) => rank(a.id) - rank(b.id)) : list;
 }
 
 export const STARTER_COUNT = 4;
 
 /** The chips above the composer: the first four recipes of the scope list. */
-export const starterRecipes = (kind: ChatScopeKind, t: RecipeNameLookup): ChatRecipe[] =>
-  recipesForScope(kind, t).slice(0, STARTER_COUNT);
+export const starterRecipes = (
+  kind: ChatScopeKind,
+  t: RecipeNameLookup,
+  context: RecipeContext = {},
+): ChatRecipe[] => recipesForScope(kind, t, context).slice(0, STARTER_COUNT);
 
 /** Slash filter: case-insensitive substring of `draft.slice(1).trim()` in name or prompt; empty keeps all. */
 export function filterRecipes(list: readonly ChatRecipe[], draft: string): ChatRecipe[] {

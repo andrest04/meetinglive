@@ -21,7 +21,7 @@ Out (later phases): real streaming, citations, attachments, live chips, saved pr
 
 ## Tasks
 - [x] T1 — Panel shell: `AiPanel`, `AiLauncher`, Splitter end-pane option, overlay mode, Ctrl+J, persistence, scope chip, remove bottom bar; unit + e2e + DESIGN.md/spec. Route: delegated (multi-file).
-- [ ] T2 — Content-type starter chips (video/talk/class vs meeting vs multi). Route: delegated.
+- [x] T2 — Content-type starter chips (video/talk/class vs meeting vs multi). Route: delegated (core + renderer, 2+ non-trivial files).
 
 ## Acceptance criteria
 - Launcher visible bottom-right when panel closed; click or Ctrl+J toggles; panel docks right, resizes 320–520px, remembers width/open state across restarts.
@@ -38,6 +38,10 @@ Out (later phases): real streaming, citations, attachments, live chips, saved pr
 - RED observed: splitter-logic end-pane (3 fail), Splitter end-pane (3 fail), ai-panel-layout and AiPanel (module missing). GREEN: all pass.
 - Checks: `pnpm typecheck` pass; `pnpm --filter @vozella/desktop test` 2113 passed / 6 skipped; prettier + eslint clean on touched code. e2e: `chat-panel.spec.ts` 8/8 passed in one run before the stop; the other chat specs and shell-chrome were updated but not re-run (skipped, user request: no app windows).
 - Known breakage outside T1 surface: `e2e/record-idle.spec.ts` reads `#content.nextElementSibling` as the chat bar (now gone); `e2e/library-ui.spec.ts:307` comment only. `Ctrl+J` is not in `app/shortcuts.ts` (outside surface); it lives in `ai-panel-layout.ts`.
+- T2 implemented (delegated writer), commit pending. Core `recipes.ts`: 4 content recipes (ids `…106`–`…109`, name keys `Ui_Recipe{KeyIdeas,Explain,Quotes,Study}Name`, English prompts that answer in the language of the recording), `RecipeContext { hasActionItems? }`, `prefersContentRecipes`, `recipesForScope`/`starterRecipes` take an optional context. A Meeting scope with `hasActionItems === false` orders key-ideas, explain, quotes, discussed, study, then the meeting recipes; otherwise catalog order (meeting first, content after). Live/Folder/AllMeetings unchanged (Live menu now also lists the content recipes after the meeting ones). Renderer: `features/chat/use-recipe-context.ts` reads the scoped meeting through the existing `library.getMeeting` IPC (no new IPC), re-reads on `library.changed`, unreadable meeting = content; `ChatBody` shows no chips until it is known. i18n keys in `ui.{en,es}.json`.
+- RED observed: core `recipes.test.ts` 9 failed; `ChatBody.test.tsx` 5 failed. GREEN: all pass.
+- Checks: `pnpm --filter @vozella/core test` 1733 passed; `pnpm typecheck` pass; prettier + eslint clean on touched files; `pnpm --filter @vozella/desktop test` 2118 passed / 6 skipped. e2e skipped (user request: no app windows).
+- Outside surface, not updated: `docs/port/parity/chat.md` (items 106, recipe API line) still says "first 4 of the scope list" / old signature.
 
 ## Next step
-T1.
+Commit T2; update `docs/port/parity/chat.md`; run chat e2e when the user allows app windows.

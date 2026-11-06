@@ -1,4 +1,4 @@
-import { recipesForScope, type ChatScopeDecision } from '@vozella/core';
+import { STARTER_COUNT, recipesForScope, type ChatScopeDecision } from '@vozella/core';
 import { useMemo } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
@@ -10,8 +10,7 @@ import { MessageList } from './MessageList';
 import { StarterChips } from './StarterChips';
 import { useChat } from './use-chat';
 import { useChatLinks } from './use-chat-links';
-
-const STARTER_COUNT = 4;
+import { useRecipeContext } from './use-recipe-context';
 
 /**
  * The AI panel's chat: transcript, suggested questions, the error line and the composer pinned to
@@ -23,13 +22,19 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const chat = useChat(scope, gate);
   const { rows, error } = chat.view;
   const onLink = useChatLinks(chat.reportError);
+  // A meeting without action items (a talk, a video, a class) leads with the content recipes.
+  const context = useRecipeContext(scope);
 
   // Names are looked up on every render, so a language change relabels the chips (B8).
   const recipes = useMemo(
-    () => recipesForScope(scope.kind, (key) => t(key as StringKey)),
-    [scope.kind, t],
+    () => recipesForScope(scope.kind, (key) => t(key as StringKey), context ?? {}),
+    [scope.kind, t, context],
   );
-  const starters = useMemo(() => recipes.slice(0, STARTER_COUNT), [recipes]);
+  // No chips until the meeting is read, so they never flip from one set to the other.
+  const starters = useMemo(
+    () => (context === null ? [] : recipes.slice(0, STARTER_COUNT)),
+    [recipes, context],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">

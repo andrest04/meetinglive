@@ -206,5 +206,9 @@
   "Ui_ImportYouTubeCancel": "Cancelar",
   "Ui_AiPanelOpen": "Preguntar a la IA",
   "Ui_AiPanelClose": "Cerrar panel de IA",
-  "Ui_AiPanelResize": "Cambiar el ancho del panel de IA"
+  "Ui_AiPanelResize": "Cambiar el ancho del panel de IA",
+  "Ui_RecipeKeyIdeasName": "Ideas principales",
+  "Ui_RecipeExplainName": "Explícame lo más difícil",
+  "Ui_RecipeQuotesName": "Citas destacadas",
+  "Ui_RecipeStudyName": "Preguntas de repaso"
 }
