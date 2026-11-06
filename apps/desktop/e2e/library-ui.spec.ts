@@ -304,7 +304,7 @@ test('the library is panes that scroll on their own, under the title bar and ove
   // clamp(340px, 38%, 440px) of the 948 px beside the 232 px sidebar.
   const list = page.getByTestId('library-list-pane');
   await expect.poll(async () => (await list.boundingBox())?.width).toBeCloseTo(360.24, 0);
-  // The chat bar sits under the panes, not over them.
+  // The panes start inside the content area; the AI panel docks beside it, never over it.
   const paneBottom = (await list.boundingBox())?.y ?? 0;
   const mainBox = await main.boundingBox();
   expect(paneBottom).toBeGreaterThanOrEqual(mainBox?.y ?? Infinity);

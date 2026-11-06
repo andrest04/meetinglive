@@ -24,7 +24,7 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 - [x] T2 — Full-meeting context: full transcript for CLI engines, BM25 excerpts for local, `cachePrompt: true` for chat, answer in UI language. Route: delegated.
 - [x] T3 — Citations: prompt contract, link scheme, open transcript at line + play. Route: delegated.
 - [ ] T4 — Apply answer to summary (confirm + undo). Route: delegated.
-- [ ] T5 — Run all chat/shell e2e incl. Phase 1 pending (`record-idle.spec.ts` fix), with the user's go-ahead. Route: delegated.
+- [x] T5 — Run all chat/shell e2e incl. Phase 1 pending (`record-idle.spec.ts` fix), with the user's go-ahead. Route: delegated.
 
 ## Acceptance criteria
 - First tokens appear progressively on Claude Code and Codex; cancel still kills the process tree.
@@ -64,3 +64,9 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 
 ## Next step
 Decide the ChatBody chip test (T2 recipe suffix shown in the user bubble); commit T3; then T4.
+
+### T5 (done, commit pending; route: delegated writer/verifier)
+- Test fixes (old UI encoded, no product change): `record-idle.spec.ts` measures the row against `#content` and the window bottom (no docked bar), adds `controlsUnderLauncher()` (no row button/link/input under `BtnAiPanelOpen`) at 1196x768, 1196x480 and 800x768, and the focus test uses a 300 px window (the taller content column put the radio above the row at 340). `chat-recipes.spec.ts`: a meeting scope lists 9 recipes (5 meeting + 4 content), slash filter `/action` (`/ac` also hits "each" in the content prompts). `library-ui.spec.ts:307` comment updated. Deleted `docs/port/screens/chat/chat-bar-*.png` (5, unreferenced).
+- Targeted run (build once, `pnpm build`): chat-*, shell-chrome, record-idle, library-ui, session-shell, summaries-*: first 94 passed / 4 failed / 14 skipped; after fixes all chat, record-idle and library specs green (re-run 25/25 for the three failing files).
+- Full suite (24.4 min): 269 passed, 6 failed, 67 skipped, 19 did not run. Failures unrelated to the chat panel: `audio-sources` (settings.json ENOENT in the temp data root), `meeting-popup` "Do not notify me again" (menu item not found), `pill-capsule` radius, `pill-panel` drag collapse, `pill-window` real mouse drag, `summaries-generate` "a page opened during a run…" (status never shows "Generating"; 3 of 4 repeats fail alone; no file on its path changed on this branch or `feat/ai-side-panel`).
+- `pnpm --filter @vozella/desktop test` 2144 passed / 6 skipped; `pnpm typecheck` clean; prettier clean on touched specs.
