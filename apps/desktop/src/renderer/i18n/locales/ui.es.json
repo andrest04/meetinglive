@@ -193,5 +193,15 @@
   "Ui_SpeakerDownloading": "Descargando el modelo de hablantes",
   "Ui_FitRunsWell": "Funciona bien en este PC",
   "Ui_FitMayBeSlow": "Puede ir lento",
-  "Ui_FitTooHeavy": "Demasiado pesado para este PC"
+  "Ui_FitTooHeavy": "Demasiado pesado para este PC",
+  "Ui_ErrorYouTubeUrl": "Ese enlace no es de un video de YouTube.",
+  "Ui_StatusDownloadingYouTube": "Descargando el audio de YouTube…",
+  "Ui_ErrorYtDlpInstall": "No se pudo preparar el descargador de YouTube. Revisa tu conexión e inténtalo de nuevo.",
+  "Ui_ErrorYouTubeDownload": "No se pudo descargar el audio del video: {0}",
+  "Ui_ImportYouTube": "Desde YouTube",
+  "Ui_ImportYouTubeTitle": "Importar desde YouTube",
+  "Ui_ImportYouTubeLabel": "Enlace del video",
+  "Ui_ImportYouTubePlaceholder": "https://www.youtube.com/watch?v=…",
+  "Ui_ImportYouTubeSubmit": "Importar",
+  "Ui_ImportYouTubeCancel": "Cancelar"
 }

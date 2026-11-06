@@ -6,6 +6,7 @@ import {
   recordingGetState,
   recordingHighlight,
   recordingImport,
+  recordingImportUrl,
   recordingPause,
   recordingRetryProcessing,
   recordingResume,
@@ -52,6 +53,7 @@ export function registerRecordingHandlers({
   }));
   registerRequest(server, recordingRetryProcessing, () => ({ started: service.retryProcessing() }));
   registerRequest(server, recordingImport, (input) => service.importAudio(input));
+  registerRequest(server, recordingImportUrl, (input) => service.importUrl(input));
   registerRequest(server, recordingCloseAnswer, ({ requestId, accepted }) => ({
     received: closeDialogs.answer(requestId, accepted),
   }));

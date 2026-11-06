@@ -1,9 +1,11 @@
 import type {
   FolderDto,
   MicrophoneChoiceDto,
+  OutputOf,
   RecordingMessageDto,
   RecordingSetupDto,
   RecordingStateDto,
+  recordingImport,
 } from '@vozella/contracts';
 import { create } from 'zustand';
 
@@ -210,17 +212,34 @@ export async function startRecording(input: StartInput): Promise<boolean> {
 }
 
 /** Spec 2.12: pick a file, then run it through the pipeline. Cancelling the picker is silent. */
-export async function importRecording(title: string): Promise<boolean> {
-  if (get().busy !== null || !isIdle()) return false;
-  set({ busy: 'importing', notice: null });
-  try {
+export function importRecording(title: string): Promise<boolean> {
+  return runImport(async () => {
     const picked = await window.vozella.invoke('audio.import.pickFile', {});
-    if (picked === null) return false;
-    const result = await window.vozella.invoke('recording.import', {
+    if (picked === null) return null;
+    return window.vozella.invoke('recording.import', {
       title,
       folderId: get().folderId,
       path: picked.path,
     });
+  });
+}
+
+/** Spec 2.12.1: the same import for a YouTube link; main downloads the audio first. */
+export function importFromYouTube(title: string, url: string): Promise<boolean> {
+  return runImport(() =>
+    window.vozella.invoke('recording.importUrl', { title, folderId: get().folderId, url }),
+  );
+}
+
+type ImportResult = OutputOf<typeof recordingImport>;
+
+/** One import at a time; `request` returns null when the user backed out before main was asked. */
+async function runImport(request: () => Promise<ImportResult | null>): Promise<boolean> {
+  if (get().busy !== null || !isIdle()) return false;
+  set({ busy: 'importing', notice: null });
+  try {
+    const result = await request();
+    if (result === null) return false;
     if (result.started) return true;
     if (result.reason === 'not-ready') await refreshSetup();
     if (result.reason !== 'cancelled') set({ notice: result.message });

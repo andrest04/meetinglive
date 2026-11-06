@@ -51,3 +51,5 @@ export * from './summaries/summary-runtime';
 export * from './fakes/fake-summary-provider';
 export * from './chat/library-chat-reader';
 export * from './shell/json-window-state-store';
+export * from './youtube/yt-dlp-manager';
+export * from './youtube/yt-dlp-downloader';

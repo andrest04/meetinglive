@@ -254,6 +254,21 @@ Sequence (`ImportAudioAsync`):
 
 No live transcription, no pause time, no highlights for an import. The same processing bar, cancel and statuses apply.
 
+#### 2.12.1 Import from a YouTube link (port only)
+
+No WinUI counterpart: the Electron port adds it. Button "From YouTube" (`Ui_ImportYouTube`, lucide `Link` icon) sits after Import audio, with the same visibility (`showImportAudio`) and enablement (page not busy). It opens a dialog "Import from YouTube" (`Ui_ImportYouTubeTitle`) with one field "Video link" (`Ui_ImportYouTubeLabel`, placeholder `Ui_ImportYouTubePlaceholder`), focused on open; Enter submits, Escape or Cancel (`Ui_ImportYouTubeCancel`) closes without importing.
+
+- Validation: `parseYouTubeUrl` (`@vozella/core`) accepts `watch?v=`, `youtu.be/<id>`, `shorts/<id>` and `live/<id>` on the www, m and music hosts (scheme optional, http or https) and returns the normal form `https://www.youtube.com/watch?v=<id>`. Anything else (other sites, playlists with no video, ports, user info) is refused. Import (`Ui_ImportYouTubeSubmit`) stays disabled until the link parses. The inline error "That isn't a YouTube video link." (`Ui_ErrorYouTubeUrl`, `aria-invalid` plus `aria-describedby`) appears after a paste, a blur or Enter on a link that does not parse, so a link being typed is not flagged halfway. Main parses again and refuses with the same key.
+- Submit closes the dialog, runs `ensureReady` (2.5 steps 2-3), then `recording.importUrl` `{ title, folderId, url }` with the normal url and the title from the title box (or the default title). The result is the `recording.import` union: `not-ready` refreshes the setup, `cancelled` is silent, anything else shows its message.
+- Sequence in main (`RecordingService.importUrl`, the same `runImport` as 2.12): gate Preparing, readiness, status "Downloading audio from YouTube…" (`Ui_StatusDownloadingYouTube`), idle preview stopped. Then:
+  1. yt-dlp is not bundled. On first use `yt-dlp.exe` is downloaded from the latest GitHub release into `appData/yt-dlp`, checked against the release's `SHA2-256SUMS`; a missing line or a mismatch deletes the file. Failure: `Ui_ErrorYtDlpInstall`. A failure is not cached; the next import retries.
+  2. `yt-dlp -U` runs once per session, best effort (never fails the import), because YouTube changes often break older versions.
+  3. The audio downloads with `-f bestaudio[ext=m4a]/bestaudio --no-playlist --no-part` into `os.tmpdir()/vozella-youtube/<meetingId>`. m4a comes first because the native decoder is Media Foundation, which may not read webm or opus. `shell: false`, hidden window. Failure: `Ui_ErrorYouTubeDownload` with the last yt-dlp error line as `{0}`.
+  4. The file goes through the 2.12 conversion and pipeline unchanged, with `fileTimeMs: null`: the meeting time is the import time (the downloaded file's time means nothing).
+  5. The temp folder is always removed when the import ends (success, failure or cancel).
+- Cancel: the processing bar's Cancel during the download sends `recording.cancelProcessing { meetingId: null }`, which kills the yt-dlp process tree; the result is `cancelled` with `Status_ProcessingCancelled`, not an error, and no temp or partial file is left.
+- Out of scope: playlists, live streams, sites other than YouTube, a download percentage.
+
 ### 2.13 Result card
 
 After a run saves the meeting, the page shows (idle and `LastMeeting` set) a card with an accent left edge (3 px), a success check glyph (U+E73E), the meeting title (strong, ellipsis) and an accent "Open" button (`RecordPage_Open.Content`). Open: select the meeting in the workspace and open the Session page on the Summary tab if the meeting has a summary, else on the Transcript tab. `LastMeeting` is cleared when the workspace reports that meeting deleted. The transcript canvas shows the saved transcript while the result card is up.
