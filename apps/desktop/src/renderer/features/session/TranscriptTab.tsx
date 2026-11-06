@@ -1,7 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useT } from '../../i18n/I18nProvider';
-import { Button, Notice, SkeletonText, cn } from '../../ui';
-import { hasTranscriptContent, toLines, type TranscriptLine } from './transcript-lines';
+import { Button, Notice, SkeletonText, cn, useReducedMotion } from '../../ui';
+import {
+  hasTranscriptContent,
+  lineAtSeconds,
+  toLines,
+  type TranscriptLine,
+} from './transcript-lines';
+import { completeTranscriptReveal, usePendingTranscriptReveal } from './transcript-reveal';
 import { AudioBar } from './AudioBar';
 import { audioUrl, useAudioPlayer } from './use-audio-player';
 import { useTranscript } from './use-transcript';
@@ -17,18 +23,30 @@ const partClass = {
 } as const;
 
 /** Off-screen lines skip layout and paint, so a multi-megabyte transcript stays responsive (B20). */
+/** How long a revealed line stays highlighted (T3). */
+export const REVEAL_HIGHLIGHT_MS = 2400;
+
 const Line = memo(function Line({
   line,
   onSeek,
+  revealed = false,
+  highlighted = false,
 }: {
   readonly line: TranscriptLine;
   /** Set when the audio plays and the line has a stamp: a click starts playback there. */
   readonly onSeek: ((seconds: number) => void) | undefined;
+  /** The line a chat citation opened: it can take focus. */
+  readonly revealed?: boolean;
+  /** Briefly true after a reveal. */
+  readonly highlighted?: boolean;
 }) {
   const start = line.startSeconds;
   const seekable = onSeek !== undefined && start !== null;
   return (
     <p
+      data-line-key={line.key}
+      data-highlighted={highlighted ? 'true' : undefined}
+      tabIndex={revealed ? -1 : undefined}
       onClick={
         seekable
           ? (event) => {
@@ -42,6 +60,8 @@ const Line = memo(function Line({
         seekable && 'cursor-pointer hover:bg-hover',
         '[content-visibility:auto] [contain-intrinsic-size:auto_2rem] min-h-6 pb-1.5 whitespace-pre-wrap break-words ps-3 -ms-3',
         line.starred && 'border-s-2 border-ink ps-[10px]',
+        'rounded-control transition-colors duration-700 motion-reduce:transition-none focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1',
+        highlighted && 'bg-pressed duration-150',
       )}
     >
       {line.blank ? (
@@ -97,6 +117,48 @@ export function TranscriptTab({
     [playFrom],
   );
 
+  // T3: a chat time citation asked to show a moment. Shown once the text is here, then dropped.
+  const reveal = usePendingTranscriptReveal(meetingId);
+  const ready = model.phase !== 'loading' && model.phase !== 'error';
+  const handled = useRef<number | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const still = useReducedMotion();
+  const [revealed, setRevealed] = useState<{ key: number; on: boolean; nonce: number } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (reveal === null || !ready || handled.current === reveal.nonce) return;
+    handled.current = reveal.nonce;
+    completeTranscriptReveal(reveal.nonce);
+    const line = lineAtSeconds(lines, reveal.seconds);
+    if (line === null) {
+      boxRef.current?.focus();
+      return;
+    }
+    setRevealed({ key: line.key, on: true, nonce: reveal.nonce });
+    if (audioOn && line.startSeconds !== null) onSeek(line.startSeconds);
+  }, [reveal, ready, lines, audioOn, onSeek]);
+
+  useEffect(() => {
+    if (!revealed?.on) return;
+    const element = boxRef.current?.querySelector<HTMLElement>(
+      `[data-line-key="${String(revealed.key)}"]`,
+    );
+    // Test DOMs lack scrollIntoView; the reveal still focuses the line.
+    if (element !== undefined && element !== null && 'scrollIntoView' in element) {
+      element.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    }
+    element?.focus({ preventScroll: true });
+    const timer = window.setTimeout(() => {
+      setRevealed((current) =>
+        current?.nonce === revealed.nonce ? { ...current, on: false } : current,
+      );
+    }, REVEAL_HIGHLIGHT_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [revealed, still]);
+
   if (model.phase === 'loading') {
     return (
       <div data-testid="TranscriptLoading">
@@ -138,6 +200,7 @@ export function TranscriptTab({
     <>
       {audioOn ? <AudioBar player={player} src={audioUrl(meetingId)} /> : null}
       <div
+        ref={boxRef}
         id="TxtTranscriptContent"
         data-testid="TxtTranscriptContent"
         role="region"
@@ -146,7 +209,13 @@ export function TranscriptTab({
         className="max-h-[calc(100vh-21rem)] min-h-40 overflow-y-auto overflow-x-hidden rounded-control py-1 ps-3 pe-2 text-ui-lg leading-6 text-ink select-text focus-visible:outline-2 focus-visible:outline-offset-2"
       >
         {lines.map((line) => (
-          <Line key={line.key} line={line} onSeek={audioOn ? onSeek : undefined} />
+          <Line
+            key={line.key}
+            line={line}
+            onSeek={audioOn ? onSeek : undefined}
+            revealed={revealed?.key === line.key}
+            highlighted={revealed?.key === line.key && revealed.on}
+          />
         ))}
       </div>
     </>

@@ -45,20 +45,18 @@ describe('built-in recipe catalog', () => {
     expect(all.filter((r) => r.availability === 'single')).toHaveLength(9);
     expect(all.filter((r) => r.availability === 'multiple')).toHaveLength(3);
     expect(all.map((r) => r.prompt)).toEqual([
-      'Give a short recap of what has been discussed so far. Answer in the app language.',
-      'Extract owners and next steps. If the owner is not in the context, say unassigned. Answer in the app language.',
-      'Draft a concise follow-up email. Do not send it. Answer in the app language.',
-      'List my next steps from this meeting. Answer in the app language.',
-      'Draft a short project plan from this meeting: outcome, steps, owners, open questions. Do not invent owners. Answer in the app language.',
+      'Give a short recap of what has been discussed so far.',
+      'Extract owners and next steps. If the owner is not in the context, say unassigned.',
+      'Draft a concise follow-up email. Do not send it.',
+      'List my next steps from this meeting.',
+      'Draft a short project plan from this meeting: outcome, steps, owners, open questions. Do not invent owners.',
       ...all.slice(5, 9).map((r) => r.prompt),
-      'Group product feedback into themes. Answer in the app language.',
-      'Identify patterns across the packed meetings. Answer in the app language.',
-      'Write bullets of decisions, blockers, and next steps. Draft only. Do not send it. Answer in the app language.',
+      'Group product feedback into themes.',
+      'Identify patterns across the packed meetings.',
+      'Write bullets of decisions, blockers, and next steps. Draft only. Do not send it.',
     ]);
-    for (const r of all) expect(r.prompt.endsWith(' Answer in the app language.')).toBe(true);
     for (const r of all.slice(5, 9)) {
       expect(r.prompt).toMatch(/^[ -~]+$/);
-      expect(r.prompt).toContain('Answer in the app language.');
     }
     expect(all.every((r) => isBuiltInRecipe(r.id))).toBe(true);
     expect(isBuiltInRecipe('nope')).toBe(false);

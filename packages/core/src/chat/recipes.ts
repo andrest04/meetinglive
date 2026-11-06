@@ -108,15 +108,12 @@ const BUILT_IN_IDS: ReadonlySet<string> = new Set(CATALOG.map((e) => e.id));
 
 export const isBuiltInRecipe = (id: string): boolean => BUILT_IN_IDS.has(id);
 
-/** Every built-in recipe asks for the app language; the prompt itself is English. */
-export const APP_LANGUAGE_RULE = 'Answer in the app language.';
-
 /** B8: names are resolved on every call, so a language change shows up on the next read. */
 export function builtInRecipes(t: RecipeNameLookup): ChatRecipe[] {
   return CATALOG.map((e) => ({
     id: e.id,
     name: t(e.nameKey),
-    prompt: `${e.prompt} ${APP_LANGUAGE_RULE}`,
+    prompt: e.prompt,
     availability: e.availability,
   }));
 }

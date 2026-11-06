@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { MEETING_LINK_PREFIX, meetingLink, tryParseMeetingLink } from './meeting-link';
-import { answerLanguageName, buildPrompt } from './prompt-builder';
+import {
+  MEETING_LINK_PREFIX,
+  meetingLink,
+  meetingTimeLink,
+  tryParseMeetingCitation,
+  tryParseMeetingLink,
+} from './meeting-link';
+import {
+  LIVE_TIME_RULE,
+  MULTI_MEETING_TIME_RULE,
+  TIME_CITATION_RULE,
+  answerLanguageName,
+  buildPrompt,
+  priorTurnLimitsFor,
+} from './prompt-builder';
 import type { ChatScopeKind } from './scope-resolver';
 
 const ID = '0123456789abcdef0123456789abcdef';
@@ -28,6 +41,7 @@ describe('buildPrompt', () => {
         'Do not mention how many meetings were included or omitted unless the user asks.',
         "When you refer to a meeting, cite it as a Markdown link: [Title, readable date](https://meetinglive.local/meeting/<Id>), using the meeting's Id from the context.",
         'Only cite Ids that appear in the context. Never write a raw Id outside a link.',
+        "When a claim comes from a transcript line of one meeting, you may add ?t=<seconds> (the start of the line in whole seconds) to that meeting's link.",
         "Answer in the language of the user's message.",
         'Scope: Folder',
         '',
@@ -44,10 +58,10 @@ describe('buildPrompt', () => {
     expect(p).not.toContain(REWRITE);
   });
 
-  it('T2: falls back to the app language when the message language is unclear', () => {
+  it('answers in the app language unless the user writes in another language', () => {
     const p = buildPrompt('Meeting', 'c', [], 'ok', { answerLanguage: 'Spanish' });
     expect(p).toContain(
-      "Answer in the language of the user's message. If it is unclear, or the message asks for the app language, answer in Spanish (the app language).",
+      'Answer in Spanish (the app language). Switch only when the user writes their own message in another language or asks for one.',
     );
     expect(p.indexOf('the app language')).toBeLessThan(p.indexOf('\nScope: Meeting\n'));
   });
@@ -162,5 +176,93 @@ describe('meeting links', () => {
     const hy = '01234567-89ab-cdef-0123-456789abcdef';
     for (const rest of [ID, `${ID}/`, `${ID}///`, hy, `{${hy}}`, `(${hy})`, ID.toUpperCase()])
       expect(tryParseMeetingLink(`HTTPS://MeetingLive.Local/Meeting/${rest}`)).toBe(ID);
+  });
+});
+
+describe('T3 transcript time citations', () => {
+  it('Meeting scope asks for [mm:ss](link?t=seconds) right after the claim', () => {
+    const p = buildPrompt('Meeting', 'c', [], 'q');
+    expect(p).toContain(TIME_CITATION_RULE);
+    expect(p).toContain(`[mm:ss](${MEETING_LINK_PREFIX}<Id>?t=<seconds>)`);
+    expect(p.indexOf(TIME_CITATION_RULE)).toBeLessThan(p.indexOf('Scope: Meeting'));
+  });
+
+  it('Folder and All meetings may add ?t= to a meeting citation', () => {
+    for (const k of ['Folder', 'AllMeetings'] as const) {
+      const p = buildPrompt(k, 'c', [], 'q');
+      expect(p).toContain(MULTI_MEETING_TIME_RULE);
+      expect(p).not.toContain(TIME_CITATION_RULE);
+    }
+  });
+
+  it('Live scope has no meeting Id, so moments are plain mm:ss text', () => {
+    const p = buildPrompt('Live', 'c', [], 'q');
+    expect(p).toContain(LIVE_TIME_RULE);
+    expect(p).not.toContain('?t=');
+  });
+});
+
+describe('meeting time citations (T3)', () => {
+  it.each([
+    [`${MEETING_LINK_PREFIX}${ID}`, { meetingId: ID, seconds: null }],
+    [`${MEETING_LINK_PREFIX}${ID}/`, { meetingId: ID, seconds: null }],
+    [`${MEETING_LINK_PREFIX}${ID}?t=0`, { meetingId: ID, seconds: 0 }],
+    [`${MEETING_LINK_PREFIX}${ID}?t=725`, { meetingId: ID, seconds: 725 }],
+    [`${MEETING_LINK_PREFIX}${ID}?t=86400`, { meetingId: ID, seconds: 86_400 }],
+    [
+      'https://MeetingLive.local/meeting/01234567-89ab-cdef-0123-456789abcdef?t=5',
+      { meetingId: ID, seconds: 5 },
+    ],
+  ])('accepts %s', (link, expected) => {
+    expect(tryParseMeetingCitation(link)).toEqual(expected);
+  });
+
+  it.each([
+    `${MEETING_LINK_PREFIX}not-a-guid?t=5`,
+    `${MEETING_LINK_PREFIX}${ID}?t=-1`,
+    `${MEETING_LINK_PREFIX}${ID}?t=86401`,
+    `${MEETING_LINK_PREFIX}${ID}?t=1.5`,
+    `${MEETING_LINK_PREFIX}${ID}?t=`,
+    `${MEETING_LINK_PREFIX}${ID}?t=5&x=1`,
+    `${MEETING_LINK_PREFIX}${ID}?x=1`,
+    `${MEETING_LINK_PREFIX}${ID}#t=5`,
+    `meeting://${ID}?t=5`,
+    `https://example.com/meeting/${ID}?t=5`,
+    '',
+  ])('rejects %s', (link) => {
+    expect(tryParseMeetingCitation(link)).toBeNull();
+  });
+
+  it('meetingTimeLink builds a link the parser reads back', () => {
+    const link = meetingTimeLink('01234567-89ab-cdef-0123-456789abcdef', 725.9);
+    expect(link).toBe(`${MEETING_LINK_PREFIX}${ID}?t=725`);
+    expect(tryParseMeetingCitation(link)).toEqual({ meetingId: ID, seconds: 725 });
+  });
+});
+
+describe('engine-aware prior turns (T3)', () => {
+  const turns = Array.from({ length: 9 }, (_, i) => ({
+    role: i % 2 === 0 ? 'user' : 'assistant',
+    text: `t${String(i)} ${'y'.repeat(1000)}`,
+  }));
+
+  it('local keeps the last 4 turns of at most 600 chars', () => {
+    expect(priorTurnLimitsFor('local')).toEqual({ messages: 4, chars: 600 });
+    expect(priorTurnLimitsFor(undefined)).toEqual({ messages: 4, chars: 600 });
+    const p = buildPrompt('Meeting', 'c', turns, 'q', { priorTurns: priorTurnLimitsFor('local') });
+    expect(p).not.toContain('t4 ');
+    expect(p).toContain('t5 ');
+    expect(p).toContain('t8 ');
+    expect(p).not.toContain('y'.repeat(600));
+  });
+
+  it('CLI engines keep 8 turns of 1500 chars', () => {
+    expect(priorTurnLimitsFor('claude-code')).toEqual({ messages: 8, chars: 1500 });
+    expect(priorTurnLimitsFor('codex')).toEqual({ messages: 8, chars: 1500 });
+    const p = buildPrompt('Meeting', 'c', turns, 'q', {
+      priorTurns: priorTurnLimitsFor('codex'),
+    });
+    expect(p).toContain('t1 ');
+    expect(p).toContain('y'.repeat(990));
   });
 });

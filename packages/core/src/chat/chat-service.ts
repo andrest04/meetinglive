@@ -20,7 +20,7 @@ import {
   type ContextFolder,
   type ContextMeeting,
 } from './context-packer';
-import { answerLanguageName, buildPrompt } from './prompt-builder';
+import { answerLanguageName, buildPrompt, priorTurnLimitsFor } from './prompt-builder';
 import { matchesOpenThread, type ChatScopeDecision } from './scope-resolver';
 import { StreamCoalescer } from './stream-coalescer';
 
@@ -275,7 +275,10 @@ export class ChatService {
         context,
         prior.map((m) => ({ role: m.role, text: m.text })),
         userText,
-        { answerLanguage: answerLanguageName(this.deps.uiLanguage?.()) },
+        {
+          answerLanguage: answerLanguageName(this.deps.uiLanguage?.()),
+          priorTurns: priorTurnLimitsFor(provider.id),
+        },
       );
 
       const answer = await this.stream(provider, prompt, cancelSource);

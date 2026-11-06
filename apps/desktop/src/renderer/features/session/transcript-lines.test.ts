@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   hasTranscriptContent,
+  lineAtSeconds,
   parseLine,
   parseStartSeconds,
   splitTranscript,
@@ -66,5 +67,34 @@ describe('parseStartSeconds', () => {
   it('is exposed on parsed lines', () => {
     const lines = toLines(['[00:02.00-00:03.00] a', 'b'].join('\n'));
     expect(lines.map((l) => l.startSeconds)).toEqual([2, null]);
+  });
+});
+
+describe('lineAtSeconds (T3)', () => {
+  const lines = toLines(
+    [
+      'Recorded 2026-10-01 22:36',
+      '[00:00.00-00:04.52] [ Speaker-1 ] a',
+      '[00:04.52-00:09.10] [ Speaker-2 ] b',
+      '',
+      '[12:05.40-12:09.00] [ Speaker-1 ] c',
+    ].join('\n'),
+  );
+
+  it.each([
+    [0, 1],
+    [3, 1],
+    // A line starting at 4.52 is cited as t=4, so 4 belongs to it.
+    [4, 2],
+    [5, 2],
+    [600, 2],
+    [725, 4],
+    [9999, 4],
+  ])('second %d falls on line %d', (seconds, key) => {
+    expect(lineAtSeconds(lines, seconds)?.key).toBe(key);
+  });
+
+  it('is null without stamped lines', () => {
+    expect(lineAtSeconds(toLines('plain\ntext'), 10)).toBeNull();
   });
 });

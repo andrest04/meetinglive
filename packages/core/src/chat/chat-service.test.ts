@@ -511,7 +511,21 @@ describe('engine-aware context and answer language (T2)', () => {
     await service.send('ok', meetingScope, null);
     tag = 'en-US';
     await service.send('ok', meetingScope, null);
-    expect(rig.provider.prompts[0]).toContain('answer in Spanish (the app language)');
-    expect(rig.provider.prompts[1]).toContain('answer in English (the app language)');
+    expect(rig.provider.prompts[0]).toContain('Answer in Spanish (the app language)');
+    expect(rig.provider.prompts[1]).toContain('Answer in English (the app language)');
+  });
+});
+
+describe('engine-aware prior turns in the service (T3)', () => {
+  it('the local engine sends only the last 4 prior turns, each cut to 600 chars', async () => {
+    const rig = rigWithMeeting();
+    rig.provider.id = 'local';
+    rig.provider.chunks = ['z'.repeat(900)];
+    for (const q of ['q1', 'q2', 'q3', 'q4']) await rig.service.send(q, meetingScope, null);
+    const prompt = rig.provider.prompts[3] ?? '';
+    expect(prompt).not.toContain('user: q1\n');
+    expect(prompt).toContain('user: q2\n');
+    expect(prompt).toContain('user: q3\n');
+    expect(prompt).not.toContain('z'.repeat(601));
   });
 });

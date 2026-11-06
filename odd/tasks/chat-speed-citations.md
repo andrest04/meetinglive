@@ -22,7 +22,7 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 ## Tasks
 - [x] T1 — Real streaming for Claude Code and Codex chat (runner variant, event parsers, fallback, timing logs). Route: delegated.
 - [x] T2 — Full-meeting context: full transcript for CLI engines, BM25 excerpts for local, `cachePrompt: true` for chat, answer in UI language. Route: delegated.
-- [ ] T3 — Citations: prompt contract, link scheme, open transcript at line + play. Route: delegated.
+- [x] T3 — Citations: prompt contract, link scheme, open transcript at line + play. Route: delegated.
 - [ ] T4 — Apply answer to summary (confirm + undo). Route: delegated.
 - [ ] T5 — Run all chat/shell e2e incl. Phase 1 pending (`record-idle.spec.ts` fix), with the user's go-ahead. Route: delegated.
 
@@ -53,5 +53,14 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 - RED observed: retrieval (module missing), packer budgets (7 failing), service T2 + S8 update (5 failing), prompt-builder (parse/new export), platform cachePrompt (1 failing). Recipes test/text changed together (string swap).
 - Checks (2026-11-05): core 1793/1793; platform 473 pass + B18 + `transcription-platform` Range-download test (passes alone, 31/31: load flake); desktop 2118 pass; `pnpm typecheck` clean; prettier + eslint clean on touched files. E2E skipped (user request).
 
+### T3 (implemented, commit pending; route: delegated writer)
+- Link scheme: kept the existing fake-https citation (`https://meetinglive.local/meeting/<id>`, spec 2.7) instead of `meeting://`, plus `?t=<whole seconds>` (0..86400). Core `tryParseMeetingCitation` / `meetingTimeLink` / `hasMeetingPrefix` (`core/chat/meeting-link.ts`); any other query, fragment or bad id rejects the link.
+- Prompt: Meeting scope gets `TIME_CITATION_RULE` (`[mm:ss](<link>?t=<seconds>)` right after the claim); Folder/All meetings `MULTI_MEETING_TIME_RULE` (may add `?t=`); Live has no Id, so `LIVE_TIME_RULE` asks for plain `(mm:ss)` text.
+- Prior turns: `priorTurnLimitsFor(provider.id)`: CLI 8 × 1500, local/unknown 4 × 600; `ChatService` passes it to `buildPrompt` (`options.priorTurns`, default CLI).
+- Renderer: `safeHref` drops broken meeting citations (label stays text); `MarkdownView` renders a valid `?t=` link as a chip (`m:ss` + play icon, `rounded-control`, name `Ui_ChatCitationGoToTime` "Go to {0} in the transcript"). `classifyChatLink` returns `seconds`; a broken meeting link is ignored (never reaches the browser). Click with `t`: `chat.meetingExists` → `selectMeeting` → `requestTranscriptReveal` → `openSession Transcript`.
+- Transcript: `features/session/transcript-reveal.ts` (module store, `useSyncExternalStore`, ids compared compact); `TranscriptTab` consumes it once loaded: `lineAtSeconds` (last stamped line whose whole start second ≤ t), highlight `bg-pressed` 2.4 s, scroll to center (instant under reduced motion), focus (tabIndex -1 on that line), and `playFrom(line start)` via the existing `useAudioPlayer` when audio is on.
+- RED observed: core prompt/citation/prior-turn tests (23 failing) + service local prior turns (1); renderer markdown (5), chip (1), `lineAtSeconds` (7), transcript-reveal/use-chat-links suites (module missing). Folder exact-layout test updated for the new rule line.
+- Checks (2026-11-05): core 1817/1817; desktop 2140 pass + notepad-markdown flake (passes alone) + `ChatBody` "a click sends the prompt at once and hides the chips" failing, pre-existing from T2 (recipe drafts now end with "Answer in the app language."; not touched by T3); `pnpm typecheck` clean; prettier + eslint clean on touched files. E2E skipped (user request).
+
 ## Next step
-Commit T2; then T3 (citations).
+Decide the ChatBody chip test (T2 recipe suffix shown in the user bubble); commit T3; then T4.

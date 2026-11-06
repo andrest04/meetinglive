@@ -2,6 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from '../../i18n/I18nProvider';
 import { MarkdownView } from './MarkdownView';
 
 afterEach(cleanup);
@@ -48,5 +49,41 @@ describe('MarkdownView', () => {
     for (const source of ['**bold', '```\nfence', '[a](https://x', '| a | b |\n|---']) {
       expect(() => render(<MarkdownView source={source} />)).not.toThrow();
     }
+  });
+});
+
+describe('MarkdownView time citations (T3)', () => {
+  const ID = '0123456789abcdef0123456789abcdef';
+  it('renders a moment citation as a chip named for the transcript', async () => {
+    const onLink = vi.fn((_href: string, event: { preventDefault: () => void }) => {
+      event.preventDefault();
+    });
+    render(
+      <I18nProvider>
+        <MarkdownView
+          source={`Budget rises [12:05](https://meetinglive.local/meeting/${ID}?t=725).`}
+          onLink={onLink}
+        />
+      </I18nProvider>,
+    );
+    const chip = screen.getByRole('link', { name: 'Go to 12:05 in the transcript' });
+    expect(chip.textContent).toContain('12:05');
+    expect(chip.className).toContain('rounded-control');
+    expect(chip.getAttribute('data-citation')).toBe('time');
+    await userEvent.click(chip);
+    expect(onLink).toHaveBeenCalledWith(
+      `https://meetinglive.local/meeting/${ID}?t=725`,
+      expect.anything(),
+    );
+  });
+
+  it('a meeting citation without a moment stays a plain link', () => {
+    render(
+      <I18nProvider>
+        <MarkdownView source={`See [Sprint, Sep 1](https://meetinglive.local/meeting/${ID}).`} />
+      </I18nProvider>,
+    );
+    const link = screen.getByRole('link', { name: 'Sprint, Sep 1' });
+    expect(link.getAttribute('data-citation')).toBeNull();
   });
 });

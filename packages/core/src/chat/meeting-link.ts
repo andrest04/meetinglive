@@ -25,7 +25,46 @@ function parseGuidToHex(text: string): string | null {
  * unparseable, so the link is rejected.
  */
 export function tryParseMeetingLink(link: string | null | undefined): string | null {
-  if (link === null || link === undefined) return null;
-  if (link.slice(0, MEETING_LINK_PREFIX.length).toLowerCase() !== MEETING_LINK_PREFIX) return null;
+  if (!hasMeetingPrefix(link)) return null;
   return parseGuidToHex(link.slice(MEETING_LINK_PREFIX.length).replace(/\/+$/, ''));
 }
+
+/** Whether `link` starts with the citation prefix (case ignored), valid or not after it. */
+export function hasMeetingPrefix(link: string | null | undefined): link is string {
+  return link?.slice(0, MEETING_LINK_PREFIX.length).toLowerCase() === MEETING_LINK_PREFIX;
+}
+
+/** Upper bound of a cited moment: one day of audio. */
+export const MAX_CITATION_SECONDS = 86_400;
+
+/** A meeting citation, optionally pointing at a moment of its transcript (T3). */
+export interface MeetingCitation {
+  /** 32 lowercase hex. */
+  readonly meetingId: string;
+  /** Whole seconds from the start of the recording, or null for the meeting itself. */
+  readonly seconds: number | null;
+}
+
+const TIME_QUERY = /^t=(\d{1,5})$/;
+
+/**
+ * A meeting citation with an optional `?t=<whole seconds>` (0 to one day). Any other query, a
+ * fragment, an extra segment or a bad id rejects the whole link.
+ */
+export function tryParseMeetingCitation(link: string | null | undefined): MeetingCitation | null {
+  if (!hasMeetingPrefix(link)) return null;
+  const rest = link.slice(MEETING_LINK_PREFIX.length);
+  const queryAt = rest.indexOf('?');
+  const path = queryAt < 0 ? rest : rest.slice(0, queryAt);
+  const meetingId = parseGuidToHex(path.replace(/\/+$/, ''));
+  if (meetingId === null) return null;
+  if (queryAt < 0) return { meetingId, seconds: null };
+  const time = TIME_QUERY.exec(rest.slice(queryAt + 1));
+  if (!time) return null;
+  const seconds = Number(time[1]);
+  return seconds <= MAX_CITATION_SECONDS ? { meetingId, seconds } : null;
+}
+
+/** A citation of one moment: the meeting link plus `?t=` in whole seconds. */
+export const meetingTimeLink = (id: string, seconds: number): string =>
+  `${meetingLink(id)}?t=${String(Math.max(0, Math.floor(seconds)))}`;
