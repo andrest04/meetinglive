@@ -5,7 +5,9 @@ import './styles/index.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
-import { installRendererErrorReporting } from './app/error-reporting';
+import { installRendererErrorReporting, reportRendererError } from './app/error-reporting';
+import { installHmrRecovery, recoverFromRenderCrash } from './app/hmr-recovery';
+import { RootErrorBoundary } from './app/RootErrorBoundary';
 import type { Locale } from './i18n/translate';
 
 installRendererErrorReporting(window);
@@ -22,10 +24,24 @@ async function startupLocale(): Promise<Locale | undefined> {
 const container = document.getElementById('root');
 if (!container) throw new Error('missing #root');
 const root = createRoot(container);
+installHmrRecovery(import.meta.hot, container, (message) => {
+  reportRendererError(window.vozella, 'error', new Error(message));
+});
+
+function onRootError(error: Error): void {
+  reportRendererError(window.vozella, 'react', error);
+  recoverFromRenderCrash();
+}
 void startupLocale().then((locale) => {
   root.render(
     <StrictMode>
-      <App {...(locale ? { initialLocale: locale } : {})} />
+      <RootErrorBoundary
+        {...(locale ? { locale } : {})}
+        showDetails={import.meta.env.DEV}
+        onError={onRootError}
+      >
+        <App {...(locale ? { initialLocale: locale } : {})} />
+      </RootErrorBoundary>
     </StrictMode>,
   );
 });

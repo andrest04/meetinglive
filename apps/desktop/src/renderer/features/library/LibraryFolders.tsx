@@ -143,9 +143,10 @@ export function LibraryFolders({ location }: { readonly location: SidebarLocatio
         };
 
   return (
+    // The add button follows the last folder; the free height below keeps Settings at the bottom.
     <div className="mt-1 mb-1 flex min-h-0 flex-1 flex-col">
       <Tree
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 overflow-y-auto"
         label={t('Ui_LibraryFolders')}
         nodes={nodes}
         selectedId={location === 'elsewhere' ? null : nodeIdOf(view)}
@@ -183,11 +184,10 @@ export function LibraryFolders({ location }: { readonly location: SidebarLocatio
         onClick={() => {
           runInLibrary({ kind: 'new' });
         }}
-        className="mt-1 flex h-7 shrink-0 items-center gap-1.5 rounded-control px-1.5 text-ui text-ink-muted transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink"
+        // ps-7 lines the icon up with the folder icons: the row inset, the chevron slot and its gap.
+        className="mt-px flex h-7 shrink-0 items-center gap-1.5 rounded-control ps-7 pe-2 text-ui-lg text-ink-muted transition-colors duration-150 ease-out-quick hover:bg-hover hover:text-ink"
       >
-        <span aria-hidden="true" className="flex size-4 items-center justify-center">
-          <Icon icon={FolderPlus} size={14} />
-        </span>
+        <Icon icon={FolderPlus} size={14} />
         {t('Library_NewFolderLabel.Text')}
       </button>
     </div>

@@ -296,6 +296,16 @@ function main(): void {
         if (!fakeNative) void shell.openExternal(url);
       },
     );
+    // A page that never loads (or a broken preload) leaves an empty window; say why in the log.
+    contents.on('did-fail-load', (_e, errorCode, errorDescription, url, isMainFrame) => {
+      // -3 is ERR_ABORTED: a navigation replaced by another one, not a failure.
+      if (isMainFrame && errorCode !== -3) {
+        logger.error('page failed to load', { errorCode, errorDescription, url });
+      }
+    });
+    contents.on('preload-error', (_e, preloadPath, error) => {
+      logger.error('preload failed', { preloadPath, message: error.message });
+    });
   });
 
   app.on('render-process-gone', (_event, contents, details) => {

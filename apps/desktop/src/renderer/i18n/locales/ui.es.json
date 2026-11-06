@@ -223,5 +223,7 @@
   "Ui_RecipeStudyPrompt": "Escribe 5 preguntas de repaso sobre esta grabación, cada una seguida de su respuesta tomada del contenido.",
   "Ui_RecipeFeatureRequestsPrompt": "Agrupa los comentarios sobre el producto por temas.",
   "Ui_RecipeRecurringThemesPrompt": "Identifica patrones comunes en las reuniones incluidas.",
-  "Ui_RecipeWeeklyUpdatePrompt": "Escribe viñetas con las decisiones, los bloqueos y los próximos pasos. Solo un borrador. No lo envíes."
+  "Ui_RecipeWeeklyUpdatePrompt": "Escribe viñetas con las decisiones, los bloqueos y los próximos pasos. Solo un borrador. No lo envíes.",
+  "Ui_SomethingWentWrong": "Algo salió mal",
+  "Ui_Reload": "Recargar"
 }
