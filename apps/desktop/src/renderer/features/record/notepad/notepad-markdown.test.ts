@@ -79,6 +79,8 @@ describe('notes Markdown round trip: normalization', () => {
     expect(result).toContain('temp');
   });
 
+  // Three full TipTap round trips of a 100k-char document take ~1-5 s depending on the machine
+  // and suite load; the default 5 s timeout made it flaky in CI. It checks output, not speed.
   it('is idempotent for a long mixed document', () => {
     const paragraph =
       'Reunión **importante** con *José* sobre `build` y [plan](https://e.com) 🚀. '.repeat(40);
@@ -87,7 +89,7 @@ describe('notes Markdown round trip: normalization', () => {
     const once = canonicalNotes(long);
     expect(canonicalNotes(once)).toBe(once);
     expect(stored(long)).toBe(long);
-  });
+  }, 30_000);
 
   it('keeps the order of a heading, list, quote and code in one document', () => {
     const doc = '# Plan\n\n- [ ] one\n- [x] two\n\n> why\n\n```js\nrun();\n```\n\nEnd.';
