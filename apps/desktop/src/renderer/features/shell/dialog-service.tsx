@@ -50,9 +50,10 @@ type Pending =
 
 // Hot reload re-runs this module; reuse the context so consumers stay bound to the Provider.
 const DialogContext: Context<DialogService | null> =
-  (import.meta.hot?.data.dialogContext as Context<DialogService | null> | undefined) ??
-  createContext<DialogService | null>(null);
-if (import.meta.hot) import.meta.hot.data.dialogContext = DialogContext;
+  ((import.meta.hot?.data as Record<string, unknown> | undefined)?.dialogContext as
+    Context<DialogService | null> | undefined) ?? createContext<DialogService | null>(null);
+if (import.meta.hot)
+  (import.meta.hot.data as Record<string, unknown>).dialogContext = DialogContext;
 
 export function useDialogs(): DialogService {
   const service = useContext(DialogContext);
