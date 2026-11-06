@@ -14,8 +14,8 @@ import { useChatLinks } from './use-chat-links';
 const STARTER_COUNT = 4;
 
 /**
- * The expanded chat bar: transcript, suggested questions, the error line and the composer. It owns
- * no scope logic; the bar passes the scope it resolved.
+ * The AI panel's chat: transcript, suggested questions, the error line and the composer pinned to
+ * the bottom. It owns no scope logic; the panel passes the scope it resolved.
  */
 export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const t = useT();
@@ -33,7 +33,12 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      {rows.length > 0 ? <MessageList rows={rows} onCopy={chat.copy} onLink={onLink} /> : null}
+      {rows.length > 0 ? (
+        <MessageList rows={rows} onCopy={chat.copy} onLink={onLink} />
+      ) : (
+        // An empty chat keeps the suggestions and the composer at the bottom of the panel.
+        <div className="min-h-0 flex-1" />
+      )}
       {chat.showScopeMismatch ? (
         <p
           role="status"

@@ -4,7 +4,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
-import { ChatBar } from './ChatBar';
+import { AiPanelArea } from './AiPanel';
 import { ChatBody } from './ChatBody';
 
 vi.mock('../summaries/ProviderGateDialogs', () => ({ ProviderGateDialogs: () => null }));
@@ -79,6 +79,7 @@ function install(send: () => Promise<ChatSendOutcomeDto>) {
 }
 
 afterEach(() => {
+  window.localStorage.clear();
   cleanup();
   Reflect.deleteProperty(window, 'vozella');
 });
@@ -86,7 +87,7 @@ afterEach(() => {
 const mount = () =>
   render(
     <Providers locale="en">
-      <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
+      <AiPanelArea body={(scope) => <ChatBody scope={scope} />}>{null}</AiPanelArea>
     </Providers>,
   );
 
@@ -98,22 +99,22 @@ function deferred() {
   return { promise, settle };
 }
 
-async function startSend(text: string) {
-  const header = await screen.findByRole('button', { name: /All meetings/ });
-  await userEvent.click(header);
+const panelHidden = (): boolean => screen.getByTestId('BarMeetingChat').hasAttribute('hidden');
+
+async function startSend(text: string): Promise<void> {
+  await userEvent.click(await screen.findByRole('button', { name: 'Ask AI' }));
   await userEvent.type(await screen.findByTestId('TxtMeetingChat'), `${text}{Enter}`);
   await within(await screen.findByTestId('ListMeetingChat')).findByText('Thinking…');
-  return header;
 }
 
-describe('a send survives the bar collapsing or the scope changing (items 33, 42, 43, 45)', () => {
-  it('keeps the pending rows while collapsed and shows the failure and draft after reopening', async () => {
+describe('a send survives the panel closing or the scope changing (items 33, 42, 43, 45)', () => {
+  it('keeps the pending rows while closed and shows the failure and draft after reopening', async () => {
     const open = deferred();
     install(() => open.promise);
     mount();
-    const header = await startSend('Question');
-    await userEvent.click(header);
-    expect(header.getAttribute('aria-expanded')).toBe('false');
+    await startSend('Question');
+    await userEvent.click(screen.getByRole('button', { name: 'Close AI panel' }));
+    expect(panelHidden()).toBe(true);
     await act(async () => {
       open.settle({
         status: 'failed',
@@ -123,26 +124,24 @@ describe('a send survives the bar collapsing or the scope changing (items 33, 42
       });
       await Promise.resolve();
     });
-    await userEvent.click(header);
+    await userEvent.click(await screen.findByRole('button', { name: 'Ask AI' }));
     expect(await screen.findByText('No answer today')).toBeTruthy();
     expect(screen.getByTestId<HTMLTextAreaElement>('TxtMeetingChat').value).toBe('Question');
     expect(screen.queryByText('Thinking…')).toBeNull();
   });
 
-  it('keeps the pending turn when the scope change collapses the bar', async () => {
+  it('keeps the panel open and the pending turn when the scope changes', async () => {
     const open = deferred();
     const api = install(() => open.promise);
     mount();
     await startSend('Question');
     await api.change({ currentShellTag: 'Session', selectedMeetingId: MEETING });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Meeting: Weekly planning/ })).toBeTruthy();
+      expect(screen.getByTestId('LblMeetingChatScope').textContent).toBe(
+        'Meeting: Weekly planning',
+      );
     });
-    expect(
-      screen
-        .getByRole('button', { name: /Meeting: Weekly planning/ })
-        .getAttribute('aria-expanded'),
-    ).toBe('false');
+    expect(panelHidden()).toBe(false);
     expect(screen.getByText('Thinking…')).toBeTruthy();
     await act(async () => {
       open.settle({ status: 'cancelled', originalDraft: 'Question' });

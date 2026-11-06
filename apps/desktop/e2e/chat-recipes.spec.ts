@@ -55,9 +55,14 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: path.join(outDir, `${name}.png`) });
 }
 
-const expandBar = async (page: Page): Promise<void> => {
-  await page.getByTestId('BarMeetingChat').getByRole('button', { expanded: false }).first().click();
-  await expect(page.getByTestId('TxtMeetingChat')).toBeVisible();
+/** Opens the AI panel from the launcher; it may already be open, since the panel remembers. */
+const openPanel = async (page: Page): Promise<void> => {
+  const launcher = page.getByTestId('BtnAiPanelOpen');
+  const composer = page.getByTestId('TxtMeetingChat');
+  // The closed panel keeps its composer in the DOM, so only the visible one counts.
+  await expect(launcher.or(composer).filter({ visible: true })).toBeVisible();
+  if (await launcher.isVisible()) await launcher.click();
+  await expect(composer).toBeVisible();
 };
 
 const openMeeting = async (page: Page): Promise<void> => {
@@ -73,7 +78,7 @@ test('a meeting scope lists five recipes, a folder scope lists three', async () 
   const { launched, page } = await open();
   try {
     await openMeeting(page);
-    await expandBar(page);
+    await openPanel(page);
     const button = page.getByTestId('BtnMeetingChatRecipes');
     await expect(button).toHaveAttribute('aria-expanded', 'false');
     await button.click();
@@ -87,7 +92,7 @@ test('a meeting scope lists five recipes, a folder scope lists three', async () 
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('treeitem', { name: /Trabajo/ }).click();
     await expect(page.getByTestId('LblMeetingChatScope')).toHaveText('Folder: Trabajo');
-    await expandBar(page);
+    await openPanel(page);
     await page.getByTestId('BtnMeetingChatRecipes').click();
     await expect(page.getByTestId('ListMeetingChatRecipes').getByRole('option')).toHaveCount(3);
   } finally {
@@ -99,7 +104,7 @@ test('typing /ac filters, a click fills the draft without sending', async () => 
   const { launched, page } = await open();
   try {
     await openMeeting(page);
-    await expandBar(page);
+    await openPanel(page);
     const field = page.getByTestId('TxtMeetingChat');
     await field.click();
     await field.pressSequentially('/ac');
@@ -129,7 +134,7 @@ test('a chip click sends and streams the answer (item 107)', async () => {
   const { launched, page } = await open();
   try {
     await openMeeting(page);
-    await expandBar(page);
+    await openPanel(page);
     await page.getByTestId('ListMeetingChatStarters').getByRole('button').first().click();
     const list = page.getByTestId('ListMeetingChat');
     await expect(list.getByText('The team went over the plan')).toBeVisible();
@@ -148,7 +153,7 @@ test('dark theme and Spanish', async () => {
     });
     await page.reload();
     await expect(page.getByRole('navigation')).toBeVisible();
-    await expandBar(page);
+    await openPanel(page);
     const button = page.getByTestId('BtnMeetingChatRecipes');
     await expect(button).toHaveAccessibleName('Recetas');
     await button.click();

@@ -279,13 +279,14 @@ test('Ctrl+P pauses, Ctrl+R stops, and the tooltips show key caps (items 138, 13
   fs.rmSync(flag, { force: true });
 });
 
-test('the chat dock expands and its Send tooltip names Enter and Ctrl+Enter (items 116, 123, bug 23)', async () => {
+test('the AI panel opens and its Send tooltip names Enter and Ctrl+Enter (items 116, 123, bug 23)', async () => {
   await page.locator('#NavItemHistory').click();
-  const header = page.getByRole('button').filter({ has: page.getByTestId('LblMeetingChatScope') });
-  await expect(header).toBeVisible();
-  await header.click();
+  const launcher = page.getByRole('button', { name: 'Ask AI' });
+  await expect(launcher).toBeVisible();
+  await launcher.click();
   const composer = page.getByTestId('TxtMeetingChat');
-  await expect(composer).toBeVisible();
+  await expect(composer).toBeFocused();
+  expect(await seriousViolations()).toEqual([]);
   // Enter on an empty draft adds no line; Shift+Enter does.
   await composer.press('Enter');
   await expect(composer).toHaveValue('');
@@ -297,7 +298,8 @@ test('the chat dock expands and its Send tooltip names Enter and Ctrl+Enter (ite
   await expect(page.locator('kbd')).toHaveText(['Enter', 'Ctrl', 'Enter']);
   await shot('chat-dock-light.png');
   await composer.fill('');
-  await header.click();
+  await page.getByRole('button', { name: 'Close AI panel' }).click();
+  await expect(launcher).toBeFocused();
 });
 
 for (const theme of ['light', 'dark'] as const) {

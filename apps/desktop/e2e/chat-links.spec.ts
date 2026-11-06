@@ -37,6 +37,16 @@ const seed = (dataRoot: string): void => {
   });
 };
 
+/** Opens the AI panel from the launcher; it may already be open, since the panel remembers. */
+const openPanel = async (page: Page): Promise<void> => {
+  const launcher = page.getByTestId('BtnAiPanelOpen');
+  const composer = page.getByTestId('TxtMeetingChat');
+  // The closed panel keeps its composer in the DOM, so only the visible one counts.
+  await expect(launcher.or(composer).filter({ visible: true })).toBeVisible();
+  if (await launcher.isVisible()) await launcher.click();
+  await expect(composer).toBeVisible();
+};
+
 async function open(openedLog: string): Promise<{ launched: LaunchedApp; page: Page }> {
   const launched = await launchApp(
     {
@@ -50,7 +60,7 @@ async function open(openedLog: string): Promise<{ launched: LaunchedApp; page: P
   await expect(page.getByRole('navigation')).toBeVisible();
   await page.evaluate(() => window.vozella.invoke('summaries.chooseCli', { kind: 'ClaudeCode' }));
   await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
-  await page.getByTestId('BarMeetingChat').getByRole('button', { expanded: false }).first().click();
+  await openPanel(page);
   await page.getByTestId('TxtMeetingChat').fill('When is the release?');
   await page.getByTestId('BtnMeetingChatSend').click();
   await expect(page.getByTestId('ListMeetingChat').getByRole('table')).toBeVisible();
@@ -128,11 +138,7 @@ test('copy puts the raw Markdown on the clipboard; dark theme', async () => {
     });
     await page.reload();
     await expect(page.getByRole('navigation')).toBeVisible();
-    await page
-      .getByTestId('BarMeetingChat')
-      .getByRole('button', { expanded: false })
-      .first()
-      .click();
+    await openPanel(page);
     await shot(page, 'chat-links-answer-dark');
   } finally {
     await launched.close();

@@ -30,7 +30,7 @@ export function RecipesMenu({ recipes, activeIndex, onPick }: RecipesMenuProps) 
     <div
       data-testid="PopupMeetingChatRecipes"
       className={cn(
-        'absolute right-0 bottom-full z-30 mb-1.5 w-80 max-w-[calc(100vw-32px)]',
+        'absolute right-0 bottom-full z-30 mb-1.5 w-80 max-w-full',
         'rounded-overlay border border-hairline bg-paper-raised text-ink shadow-overlay',
         'forced-colors:border-[CanvasText]',
       )}

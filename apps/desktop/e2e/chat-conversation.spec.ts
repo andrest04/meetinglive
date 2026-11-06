@@ -36,20 +36,21 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: path.join(outDir, `${name}.png`) });
 }
 
-const expandBar = async (page: Page): Promise<void> => {
-  const header = page
-    .getByTestId('BarMeetingChat')
-    .getByRole('button', { expanded: false })
-    .first();
-  await header.click();
-  await expect(page.getByTestId('TxtMeetingChat')).toBeVisible();
+/** Opens the AI panel from the launcher; it may already be open, since the panel remembers. */
+const openPanel = async (page: Page): Promise<void> => {
+  const launcher = page.getByTestId('BtnAiPanelOpen');
+  const composer = page.getByTestId('TxtMeetingChat');
+  // The closed panel keeps its composer in the DOM, so only the visible one counts.
+  await expect(launcher.or(composer).filter({ visible: true })).toBeVisible();
+  if (await launcher.isVisible()) await launcher.click();
+  await expect(composer).toBeVisible();
 };
 
 test('ask a question: Thinking, then streamed Markdown, copy and New chat', async () => {
   const { launched, page } = await open({ VOZELLA_FAKE_SUMMARY_DELAY_MS: '1500' });
   try {
     await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
-    await expandBar(page);
+    await openPanel(page);
     await expect(page.getByTestId('ListMeetingChatStarters').getByRole('button')).toHaveCount(3);
     await expect(page.getByTestId('BtnMeetingChatSend')).toBeDisabled();
     await shot(page, 'chat-conversation-empty-light');
@@ -90,7 +91,7 @@ test('a starter chip sends its prompt at once and stop returns the draft', async
   const { launched, page } = await open({ VOZELLA_FAKE_SUMMARY_DELAY_MS: '8000' });
   try {
     await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
-    await expandBar(page);
+    await openPanel(page);
     await page.getByTestId('ListMeetingChatStarters').getByRole('button').first().click();
     const list = page.getByTestId('ListMeetingChat');
     await expect(list.getByText('Thinking…')).toBeVisible();
@@ -107,7 +108,7 @@ test('a failing provider removes the rows, restores the draft and shows a closab
   const { launched, page } = await open({ VOZELLA_FAKE_SUMMARY_FAIL: 'NotSignedIn' });
   try {
     await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
-    await expandBar(page);
+    await openPanel(page);
     await page.getByTestId('TxtMeetingChat').fill('Will this fail?');
     await page.getByTestId('BtnMeetingChatSend').click();
     const notice = page.getByTestId('InfoMeetingChatError');
@@ -132,7 +133,7 @@ test('dark theme and Spanish', async () => {
     });
     await page.reload();
     await expect(page.getByRole('navigation')).toBeVisible();
-    await expandBar(page);
+    await openPanel(page);
     await expect(page.getByTestId('TxtMeetingChat')).toHaveAttribute(
       'placeholder',
       'Pregunta sobre tus reuniones',
