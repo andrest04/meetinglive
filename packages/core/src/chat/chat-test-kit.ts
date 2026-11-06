@@ -1,6 +1,6 @@
 import type { CancelSignal } from '../cancel';
 import type { Clock } from '../clock';
-import { CancelledError } from '../summaries/provider';
+import { CancelledError, type ProviderId } from '../summaries/provider';
 import {
   ChatService,
   type ChatMeetingReader,
@@ -87,6 +87,8 @@ export class FakeChatMeetingReader implements ChatMeetingReader {
 
 /** A provider that streams scripted chunks. `beforeChunk` lets a test pause or move the clock. */
 export class ScriptedChatProvider implements ChatStreamProvider {
+  /** The engine the service sizes the context for; unset behaves as local. */
+  id: ProviderId | undefined = undefined;
   readonly prompts: string[] = [];
   chunks: string[] = [];
   failWith: unknown = null;

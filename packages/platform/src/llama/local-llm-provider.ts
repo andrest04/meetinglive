@@ -89,7 +89,8 @@ export class LocalLlmSummaryProvider implements SummaryProvider {
       const cap = await promptOutputCap(this.counter(server, cancel), prompt);
       for await (const delta of server.chatStream(
         [{ role: 'user', content: prompt }],
-        this.chatOptions(PROMPT_TEMPERATURE, cap, cancel),
+        // T2: chat and live answers resend the same instructions and context; reuse their KV cache.
+        this.chatOptions(PROMPT_TEMPERATURE, cap, cancel, true),
       )) {
         if (delta.finishReason === 'length') truncated = true;
         if (delta.content) {
@@ -125,7 +126,13 @@ export class LocalLlmSummaryProvider implements SummaryProvider {
     };
   }
 
-  private chatOptions(temperature: number, maxTokens: number, signal: CancelSignal): ChatOptions {
+  /** `cachePrompt` is only on for streamed prompts; summaries keep it off. */
+  private chatOptions(
+    temperature: number,
+    maxTokens: number,
+    signal: CancelSignal,
+    cachePrompt = false,
+  ): ChatOptions {
     return {
       maxTokens,
       temperature,
@@ -134,7 +141,7 @@ export class LocalLlmSummaryProvider implements SummaryProvider {
       minP: LOCAL_SAMPLING.minP,
       repeatPenalty: LOCAL_SAMPLING.repeatPenalty,
       seed: LOCAL_SEED,
-      cachePrompt: false,
+      cachePrompt,
       signal,
     };
   }

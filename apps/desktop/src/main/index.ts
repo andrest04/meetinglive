@@ -804,6 +804,7 @@ function main(): void {
           translate: (key, ...args) => locale.t(key, ...args),
           newId: () => randomUUID(),
           logger: logger.child('chat'),
+          uiLanguage: () => locale.tag,
         }),
         findMeetingId: (id) => chatReader.findMeetingId(id),
         writeClipboard: (text) => {

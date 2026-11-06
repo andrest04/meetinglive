@@ -3,7 +3,7 @@ import { CancelSource } from '../cancel';
 import type { Clock } from '../clock';
 import type { TranslateFn } from '../i18n/translator';
 import type { Logger } from '../logging';
-import type { PromptCallOptions } from '../summaries/provider';
+import type { PromptCallOptions, ProviderId } from '../summaries/provider';
 import type { SetupKind } from '../summaries/provider-resolver';
 import {
   emptyAnswerFailure,
@@ -13,8 +13,14 @@ import {
   setupCancelledFailure,
   type ChatFailure,
 } from './chat-errors';
-import { packContext, type ContextFolder, type ContextMeeting } from './context-packer';
-import { buildPrompt } from './prompt-builder';
+import {
+  contextBudgetFor,
+  packContext,
+  type ContextBudget,
+  type ContextFolder,
+  type ContextMeeting,
+} from './context-packer';
+import { answerLanguageName, buildPrompt } from './prompt-builder';
 import { matchesOpenThread, type ChatScopeDecision } from './scope-resolver';
 import { StreamCoalescer } from './stream-coalescer';
 
@@ -32,6 +38,8 @@ export interface ChatMeetingReader {
 
 /** The slice of `SummaryProvider` chat uses. */
 export interface ChatStreamProvider {
+  /** Sizes the packed context (T2). Unset is treated as the local engine, the smallest budget. */
+  readonly id?: ProviderId;
   streamPrompt(
     prompt: string,
     cancel: CancelSignal,
@@ -105,6 +113,8 @@ export interface ChatServiceDeps {
   readonly newId: () => string;
   /** Optional: gets one timing line per answer (time to first chunk, total). */
   readonly logger?: Logger;
+  /** UI language tag (`es`, `en-US`), read on every send: the fallback answer language (T2). */
+  readonly uiLanguage?: () => string;
 }
 
 export interface SendOptions {
@@ -236,15 +246,7 @@ export class ChatService {
           ? this.conversation.messages
           : [];
 
-      const context = await this.pack(scope, liveTranscriptSnapshot);
-      if (wasStopped()) return cancelled();
-      const prompt = buildPrompt(
-        scope.kind,
-        context,
-        prior.map((m) => ({ role: m.role, text: m.text })),
-        userText,
-      );
-
+      // T2: the engine decides the context size, so it is resolved before packing.
       const resolution = await this.deps.providers.resolve();
       let provider: ChatStreamProvider;
       if (resolution.status === 'unavailable') return fail(providerRemovedFailure(t));
@@ -259,6 +261,22 @@ export class ChatService {
         provider = resolution.provider;
       }
       if (wasStopped()) return cancelled();
+
+      const lastUserTurn = prior.findLast((m) => m.role === 'user')?.text ?? '';
+      const context = await this.pack(
+        scope,
+        liveTranscriptSnapshot,
+        contextBudgetFor(provider.id),
+        `${userText}\n${lastUserTurn}`,
+      );
+      if (wasStopped()) return cancelled();
+      const prompt = buildPrompt(
+        scope.kind,
+        context,
+        prior.map((m) => ({ role: m.role, text: m.text })),
+        userText,
+        { answerLanguage: answerLanguageName(this.deps.uiLanguage?.()) },
+      );
 
       const answer = await this.stream(provider, prompt, cancelSource);
       // B20: a stopped answer is dropped, even when the provider returned text before it noticed.
@@ -293,7 +311,12 @@ export class ChatService {
     }
   }
 
-  private async pack(scope: ChatScopeDecision, live: string | null): Promise<string> {
+  private async pack(
+    scope: ChatScopeDecision,
+    live: string | null,
+    budget: ContextBudget,
+    query: string,
+  ): Promise<string> {
     const reader = this.deps.meetings;
     let meetings: readonly ContextMeeting[] = [];
     if (scope.kind === 'Meeting' && scope.meetingId !== null) {
@@ -314,6 +337,7 @@ export class ChatService {
       meetings,
       folders,
       this.deps.translate,
+      { budget, query },
     );
   }
 

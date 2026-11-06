@@ -55,14 +55,50 @@ export function neutralizePromptSections(text: string): string {
     .join('\n');
 }
 
+const ANSWER_LANGUAGE = "Answer in the language of the user's message.";
+
+const languageNames = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' });
+
+/** The English name of a UI language tag (`es` gives `Spanish`), or null when there is none. */
+export function answerLanguageName(tag: string | null | undefined): string | null {
+  if (tag === null || tag === undefined || tag.trim() === '') return null;
+  try {
+    const language = new Intl.Locale(tag.trim().replaceAll('_', '-')).language;
+    return languageNames.of(language) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * T2 (fix for S8): the answer follows the user's language; the app language decides when that is
+ * unclear, and recipes ask for it by name ("the app language").
+ */
+function answerLanguageRule(name: string | null | undefined): string {
+  if (name === null || name === undefined || name.trim() === '') return ANSWER_LANGUAGE;
+  return `${ANSWER_LANGUAGE} If it is unclear, or the message asks for the app language, answer in ${singleLineName(name)} (the app language).`;
+}
+
+const singleLineName = (name: string): string => name.replace(/\s+/g, ' ').trim();
+
+export interface PromptOptions {
+  /** English name of the UI language, for example `Spanish`. */
+  readonly answerLanguage?: string | null;
+}
+
 /** The single string sent to the model (spec 3.4). No system/user split, no trailing newline. */
 export function buildPrompt(
   scopeKind: ChatScopeKind,
   packedContext: string,
   priorMessages: readonly ChatPromptMessage[],
   userMessage: string,
+  options: PromptOptions = {},
 ): string {
-  const lines: string[] = [...INSTRUCTIONS, `Scope: ${scopeLabel(scopeKind)}`];
+  const lines: string[] = [
+    ...INSTRUCTIONS,
+    answerLanguageRule(options.answerLanguage),
+    `Scope: ${scopeLabel(scopeKind)}`,
+  ];
   if (scopeKind === 'Meeting' && userMessage.toLowerCase().includes('rewrite')) {
     lines.push('', REWRITE_NOTES_INSTRUCTION);
   }

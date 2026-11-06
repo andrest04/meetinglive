@@ -221,6 +221,16 @@ Helpers:
 
 **Meeting**: find the meeting whose `Id == meetingId`; if `meetingId` is null or not found return `ChatMeetingNotFound`. Otherwise build the shared block (below) with Summary and Notes uncapped, then the transcript section, and return the result with trailing whitespace trimmed. Transcript section: `Tail(Transcript, 6000)`; if null append `ChatTranscriptEmpty` + NL, else `"Transcript:" + NL + tail + NL`.
 
+**Port change (T2, engine-aware context).** The chat service resolves the engine before packing and passes a budget (`contextBudgetFor(provider.id)`) plus a retrieval query (user message + last user turn). The scope and the live snapshot are still fixed at send start (B5).
+
+| Budget | Local llama (or unknown engine) | Claude Code, Codex |
+| --- | --- | --- |
+| Live tail | 2500 | 20000 |
+| Meeting block (summary + notes + transcript) | 6000 total | 120000 total |
+| Summary cap, Folder / All meetings (12 meetings) | 800 | 2000 |
+
+Meeting scope in the port: summary capped at 30 % of the block, notes at 10 %; the neutralized transcript goes in whole (`Transcript:`) when it fits what is left. Otherwise the section is `Transcript excerpts (partial; if the answer may be elsewhere in the recording, say so):` followed by `selectExcerpts` (`transcript-retrieval.ts`): ~90 s windows split by `[mm:ss.ff-mm:ss.ff]` stamps (fixed 1500-char windows when no line is stamped), BM25 over folded tokens (es + en stopwords), best windows in time order under a `[mm:ss–mm:ss]` header, then always the last ~1500 chars. Local token math: ~6000 stamped chars ≈ 2000–2400 tokens, instructions ≈ 300, so a first question leaves 1300+ of the 3968 usable tokens for the reply. The local engine sends streamed (chat and live) prompts with `cache_prompt: true`; summaries keep it off.
+
 **Folder** and **AllMeetings** (`PackMany`):
 
 1. Header. Folder scope: if `folderId` is null return `ChatFolderNotSelected` (nothing else). Else if the folder id is not in `folders`, append `ChatFolderNotFound` + NL; if found append `"Folder: {Name}" + NL + "Note: {Note or "(none)" if blank}" + NL`. AllMeetings: append `"All meetings:" + NL`.
@@ -285,6 +295,8 @@ Rewrite rule: the two lines (blank line plus instruction) are inserted after the
 Prior turns: if `priorMessages` is empty, the line `(none)`. Otherwise take the last 8 messages (not turns; 4 exchanges), oldest first; each as `"{Role}: {Text}"` where `Role` is the raw role string (`user` / `assistant`), `Text` is `message.Text ?? ""` truncated to its first 1500 characters (no ellipsis); each line ends with NL. A null element throws.
 
 Nothing in the prompt specifies an output language; the model follows the user's language.
+
+Port change (T2, fixes S8): one more instruction line goes right before `Scope:`: `Answer in the language of the user's message. If it is unclear, or the message asks for the app language, answer in {UI language name} (the app language).` The name is the English name of the UI language tag, read on every send (`ChatServiceDeps.uiLanguage`). Without a UI language only the first sentence is sent. The content recipes end with `Answer in the app language.` instead of `Answer in the language of the recording.`
 
 ### 3.5 Streaming (`MeetingChatViewModel.StreamAnswerAsync`, `:662-693`)
 

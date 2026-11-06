@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MEETING_LINK_PREFIX, meetingLink, tryParseMeetingLink } from './meeting-link';
-import { buildPrompt } from './prompt-builder';
+import { answerLanguageName, buildPrompt } from './prompt-builder';
 import type { ChatScopeKind } from './scope-resolver';
 
 const ID = '0123456789abcdef0123456789abcdef';
@@ -28,6 +28,7 @@ describe('buildPrompt', () => {
         'Do not mention how many meetings were included or omitted unless the user asks.',
         "When you refer to a meeting, cite it as a Markdown link: [Title, readable date](https://meetinglive.local/meeting/<Id>), using the meeting's Id from the context.",
         'Only cite Ids that appear in the context. Never write a raw Id outside a link.',
+        "Answer in the language of the user's message.",
         'Scope: Folder',
         '',
         '# Context',
@@ -41,6 +42,21 @@ describe('buildPrompt', () => {
       ].join('\n'),
     );
     expect(p).not.toContain(REWRITE);
+  });
+
+  it('T2: falls back to the app language when the message language is unclear', () => {
+    const p = buildPrompt('Meeting', 'c', [], 'ok', { answerLanguage: 'Spanish' });
+    expect(p).toContain(
+      "Answer in the language of the user's message. If it is unclear, or the message asks for the app language, answer in Spanish (the app language).",
+    );
+    expect(p.indexOf('the app language')).toBeLessThan(p.indexOf('\nScope: Meeting\n'));
+  });
+
+  it('T2: names the UI language in English for the prompt', () => {
+    expect(answerLanguageName('es')).toBe('Spanish');
+    expect(answerLanguageName('en-US')).toBe('English');
+    expect(answerLanguageName('')).toBeNull();
+    expect(answerLanguageName('not a tag!')).toBeNull();
   });
 
   it('uses the English scope labels for every scope', () => {

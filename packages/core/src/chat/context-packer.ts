@@ -1,14 +1,67 @@
 import type { FolderRecord } from '../library/folder';
 import type { MeetingRecord } from '../library/meeting';
 import { parseOffsetDate } from '../library/offset-date';
+import type { ProviderId } from '../summaries/provider';
 import type { ChatScopeKind } from './scope-resolver';
 import { cutPrefix, cutTail } from './text-cut';
+import { selectExcerpts } from './transcript-retrieval';
 
 export const LIVE_TRANSCRIPT_MAX_CHARS = 2500;
+/** Local engine: the whole Meeting block (summary, notes, transcript) stays under this. */
 export const MEETING_TRANSCRIPT_MAX_CHARS = 6000;
 export const SUMMARY_MAX_CHARS = 800;
 export const NOTES_MAX_CHARS = 400;
 export const MEETING_CAP = 12;
+
+/**
+ * How much meeting text one send may carry, chosen by engine (T2). `meetingChars` caps the whole
+ * Meeting scope block; `summaryChars` caps each summary in Folder and All meetings.
+ */
+export interface ContextBudget {
+  readonly liveChars: number;
+  readonly meetingChars: number;
+  readonly summaryChars: number;
+}
+
+/**
+ * Local llama has 4096 tokens for prompt and reply. ~6000 chars of stamped transcript is about
+ * 2000-2400 tokens; with ~300 tokens of instructions it leaves 1300+ tokens for the answer.
+ */
+export const LOCAL_CONTEXT_BUDGET: ContextBudget = {
+  liveChars: LIVE_TRANSCRIPT_MAX_CHARS,
+  meetingChars: MEETING_TRANSCRIPT_MAX_CHARS,
+  summaryChars: SUMMARY_MAX_CHARS,
+};
+
+/** Claude Code and Codex: 120k chars is about 30-45k tokens, far below their windows. */
+export const CLI_CONTEXT_BUDGET: ContextBudget = {
+  liveChars: 20_000,
+  meetingChars: 120_000,
+  summaryChars: 2000,
+};
+
+/** CLI engines get the large budget; local, or an engine that does not say, the small one. */
+export const contextBudgetFor = (providerId: ProviderId | undefined): ContextBudget =>
+  providerId === 'claude-code' || providerId === 'codex'
+    ? CLI_CONTEXT_BUDGET
+    : LOCAL_CONTEXT_BUDGET;
+
+export interface PackOptions {
+  /** Defaults to the local budget. */
+  readonly budget?: ContextBudget;
+  /** What the user asked: ranks transcript windows when the transcript does not fit. */
+  readonly query?: string;
+}
+
+/** Heads the transcript section when only parts of it fit. Also tells the model they are parts. */
+export const TRANSCRIPT_EXCERPTS_LABEL =
+  'Transcript excerpts (partial; if the answer may be elsewhere in the recording, say so):';
+
+/** Shares of the Meeting budget the summary and the notes may take; the rest is transcript. */
+const MEETING_SUMMARY_SHARE = 0.3;
+const MEETING_NOTES_SHARE = 0.1;
+/** The transcript always gets at least this share, even after a long action item list. */
+const MEETING_TRANSCRIPT_MIN_SHARE = 0.3;
 
 /** Only these fields can reach the model (spec 3.3). */
 export type ContextMeeting = Pick<
@@ -75,24 +128,18 @@ function recordedMs(recordedAt: string): number {
   return parseOffsetDate(recordedAt)?.ms ?? Number.NEGATIVE_INFINITY;
 }
 
-function sharedBlock(
-  m: ContextMeeting,
-  summaryMax: number | null,
-  notesMax: number | null,
-): string {
-  const cap = (value: string | null, max: number | null): string =>
-    max === null ? (isBlank(value) ? NONE : neutralizeStructure(value)) : capPrefix(value, max);
+function sharedBlock(m: ContextMeeting, summaryMax: number, notesMax: number): string {
   let out = '';
   out += `Id: ${compactMeetingId(m.id)}${NL}`;
   out += `Title: ${singleLine(m.title)}${NL}`;
   out += `Recorded: ${formatRecorded(m.recordedAt)}${NL}`;
-  out += `Summary: ${cap(m.summary, summaryMax)}${NL}`;
+  out += `Summary: ${capPrefix(m.summary, summaryMax)}${NL}`;
   out += `Action items:${NL}`;
   const items = m.actionItems.filter((item) => !isBlank(item.text));
   if (items.length === 0) out += `${NONE}${NL}`;
   else
     for (const item of items) out += `- [${item.isDone ? 'x' : ' '}] ${singleLine(item.text)}${NL}`;
-  out += `Notes: ${cap(m.notes, notesMax)}${NL}`;
+  out += `Notes: ${capPrefix(m.notes, notesMax)}${NL}`;
   return out;
 }
 
@@ -102,6 +149,7 @@ function packMany(
   meetings: readonly ContextMeeting[],
   folders: readonly ContextFolder[],
   t: ChatStringLookup,
+  summaryMax: number,
 ): string {
   let out = '';
   if (kind === 'Folder') {
@@ -142,14 +190,44 @@ function packMany(
   }
   selected.forEach((m, index) => {
     if (index > 0) out += NL;
-    out += sharedBlock(m, SUMMARY_MAX_CHARS, NOTES_MAX_CHARS);
+    out += sharedBlock(m, summaryMax, NOTES_MAX_CHARS);
   });
+  return out.trimEnd();
+}
+
+/**
+ * Meeting scope: the shared block, then the whole transcript when it fits in what the budget
+ * leaves, else BM25-ranked excerpts plus the recent tail (`selectExcerpts`).
+ */
+function packMeeting(
+  found: ContextMeeting,
+  budget: ContextBudget,
+  query: string,
+  t: ChatStringLookup,
+): string {
+  const total = budget.meetingChars;
+  let out = sharedBlock(
+    found,
+    Math.floor(total * MEETING_SUMMARY_SHARE),
+    Math.floor(total * MEETING_NOTES_SHARE),
+  );
+  if (isBlank(found.transcript)) return `${out}${t('ChatTranscriptEmpty')}`.trimEnd();
+  // Neutralized first, so the budget counts the text exactly as the model will see it.
+  const transcript = neutralizeStructure(found.transcript);
+  const fullRoom = total - out.length - 'Transcript:'.length - NL.length;
+  if (transcript.length <= fullRoom) return `${out}Transcript:${NL}${transcript}`.trimEnd();
+  const room = Math.max(
+    total - out.length - TRANSCRIPT_EXCERPTS_LABEL.length - NL.length,
+    Math.floor(total * MEETING_TRANSCRIPT_MIN_SHARE),
+  );
+  out += `${TRANSCRIPT_EXCERPTS_LABEL}${NL}${selectExcerpts(transcript, query, room)}`;
   return out.trimEnd();
 }
 
 /**
  * The only meeting text the model sees (spec 3.3). Pure: `liveTranscript` is an argument so the
  * caller snapshots it when the send starts (B5), and `t` supplies the CoreStrings messages.
+ * `options.budget` sizes the text for the engine (T2); `options.query` ranks transcript excerpts.
  * Throws TypeError for null meetings or folders and RangeError for an unknown scope.
  */
 export function packContext(
@@ -160,12 +238,14 @@ export function packContext(
   meetings: readonly ContextMeeting[] | null,
   folders: readonly ContextFolder[] | null,
   t: ChatStringLookup,
+  options: PackOptions = {},
 ): string {
+  const budget = options.budget ?? LOCAL_CONTEXT_BUDGET;
   if (meetings === null) throw new TypeError('meetings is required');
   if (folders === null) throw new TypeError('folders is required');
   switch (kind) {
     case 'Live': {
-      const text = tail(liveTranscript, LIVE_TRANSCRIPT_MAX_CHARS);
+      const text = tail(liveTranscript, budget.liveChars);
       if (text === null) return t('ChatLiveTranscriptEmpty');
       return `Live transcript:${NL}${neutralizeStructure(text)}`;
     }
@@ -173,17 +253,11 @@ export function packContext(
       const key = meetingId === null ? null : guidKey(meetingId);
       const found = key === null ? undefined : meetings.find((m) => guidKey(m.id) === key);
       if (!found) return t('ChatMeetingNotFound');
-      let out = sharedBlock(found, null, null);
-      const text = tail(found.transcript, MEETING_TRANSCRIPT_MAX_CHARS);
-      out +=
-        text === null
-          ? `${t('ChatTranscriptEmpty')}${NL}`
-          : `Transcript:${NL}${neutralizeStructure(text)}${NL}`;
-      return out.trimEnd();
+      return packMeeting(found, budget, options.query ?? '', t);
     }
     case 'Folder':
     case 'AllMeetings':
-      return packMany(kind, folderId, meetings, folders, t);
+      return packMany(kind, folderId, meetings, folders, t, budget.summaryChars);
     default:
       throw new RangeError(`Unknown chat scope: ${String(kind)}`);
   }

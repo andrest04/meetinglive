@@ -21,7 +21,7 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 
 ## Tasks
 - [x] T1 — Real streaming for Claude Code and Codex chat (runner variant, event parsers, fallback, timing logs). Route: delegated.
-- [ ] T2 — Full-meeting context: full transcript for CLI engines, BM25 excerpts for local, `cachePrompt: true` for chat, answer in UI language. Route: delegated.
+- [x] T2 — Full-meeting context: full transcript for CLI engines, BM25 excerpts for local, `cachePrompt: true` for chat, answer in UI language. Route: delegated.
 - [ ] T3 — Citations: prompt contract, link scheme, open transcript at line + play. Route: delegated.
 - [ ] T4 — Apply answer to summary (confirm + undo). Route: delegated.
 - [ ] T5 — Run all chat/shell e2e incl. Phase 1 pending (`record-idle.spec.ts` fix), with the user's go-ahead. Route: delegated.
@@ -45,5 +45,13 @@ Make the AI panel fast and trustworthy: real token streaming on every engine, th
 - RED observed: parser tests (module missing), runner `runLines` tests (7 failing), chat timing tests (2 failing). Provider/invocation tests were written before the code but not run RED separately.
 - Checks (2026-11-05): core 1770/1770; platform 473 pass + known B18 failure; desktop 2117 pass + known notepad-markdown flake (passes alone); `pnpm typecheck` clean; prettier + eslint clean on touched files. Manual headless run vs real `claude` (haiku): 12 chunks, first chunk 17.2 s, total 22.3 s (one-shot 22.0 s); startup dominates (user-level hooks/MCP on this machine).
 
+### T2 (implemented, commit pending; route: delegated writer)
+- Retrieval (`core/chat/transcript-retrieval.ts`, pure): ~90 s windows from `[mm:ss.ff-mm:ss.ff]` stamps (1500-char windows when unstamped), BM25 (k1 1.2, b 0.75) over `foldText` tokens minus es+en stopwords, best windows in time order under `[mm:ss–mm:ss]`, always the last ~1500 chars.
+- Packer: `packContext(..., { budget, query })`; `contextBudgetFor(id)`: CLI live 20k / meeting 120k / folder summary 2000; local (or unknown) 2500 / 6000 / 800. Meeting: summary ≤30 %, notes ≤10 %, whole transcript if it fits, else `Transcript excerpts (partial; ... say so):` + excerpts.
+- Service: provider resolved before packing (B5 kept: scope + live snapshot still copied at send start); query = message + last user turn; `ChatServiceDeps.uiLanguage` (wired `() => locale.tag` in desktop main). Prompt gets the answer-language rule before `Scope:`; content recipes say "Answer in the app language."
+- Local: `cache_prompt: true` for `streamPrompt` only (chat + live ask share it); `completePrompt`/summaries stay false.
+- RED observed: retrieval (module missing), packer budgets (7 failing), service T2 + S8 update (5 failing), prompt-builder (parse/new export), platform cachePrompt (1 failing). Recipes test/text changed together (string swap).
+- Checks (2026-11-05): core 1793/1793; platform 473 pass + B18 + `transcription-platform` Range-download test (passes alone, 31/31: load flake); desktop 2118 pass; `pnpm typecheck` clean; prettier + eslint clean on touched files. E2E skipped (user request).
+
 ## Next step
-Commit T1; wire `logger: logger.child('chat')` into `new ChatService` in `apps/desktop/src/main/index.ts`; then T2.
+Commit T2; then T3 (citations).
