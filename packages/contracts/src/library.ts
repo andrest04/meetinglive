@@ -295,6 +295,8 @@ export const appSettingsSchema = z.object({
   liveCopilotPillY: z.number().nullable(),
   liveCopilotPillEdge: z.string().nullable(),
   liveCopilotPillAlong: z.number().nullable(),
+  /** `off`, `rules` or `rules+ai`; null takes the default for the summary engine. */
+  liveQuestions: z.string().nullable(),
 });
 export type AppSettingsDto = z.infer<typeof appSettingsSchema>;
 

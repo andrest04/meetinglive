@@ -1,6 +1,7 @@
 import type { ChatScopeKind } from './scope-resolver';
 
-export type RecipeAvailability = 'single' | 'multiple';
+/** `live`: only while a take records (T2), listed before the single-meeting recipes. */
+export type RecipeAvailability = 'single' | 'multiple' | 'live';
 
 /** A built-in recipe. User recipes are not ported (owner decision 2026-11-03, may return later). */
 export interface ChatRecipe {
@@ -99,18 +100,58 @@ const CATALOG: readonly Entry[] = [
   },
 ];
 
-const BUILT_IN_IDS: ReadonlySet<string> = new Set(CATALOG.map((e) => e.id));
+/**
+ * Live recipes (T2): they read the session context, the rolling digest and the recent tail. They
+ * lead the Live list, so they are the starter chips while recording.
+ */
+const LIVE_CATALOG: readonly Entry[] = [
+  {
+    id: `${ID_BASE}301`,
+    nameKey: 'Ui_RecipeLiveCatchUpName',
+    availability: 'live',
+    promptKey: 'Ui_RecipeLiveCatchUpPrompt',
+  },
+  {
+    id: `${ID_BASE}302`,
+    nameKey: 'Ui_RecipeLiveSummaryName',
+    availability: 'live',
+    promptKey: 'Ui_RecipeLiveSummaryPrompt',
+  },
+  {
+    id: `${ID_BASE}303`,
+    nameKey: 'Ui_RecipeLiveQuestionsName',
+    availability: 'live',
+    promptKey: 'Ui_RecipeLiveQuestionsPrompt',
+  },
+  {
+    id: `${ID_BASE}304`,
+    nameKey: 'Ui_RecipeLiveDecisionsName',
+    availability: 'live',
+    promptKey: 'Ui_RecipeLiveDecisionsPrompt',
+  },
+];
+
+const BUILT_IN_IDS: ReadonlySet<string> = new Set([...CATALOG, ...LIVE_CATALOG].map((e) => e.id));
+
+const toRecipe =
+  (t: RecipeNameLookup) =>
+  (e: Entry): ChatRecipe => ({
+    id: e.id,
+    name: t(e.nameKey),
+    prompt: t(e.promptKey),
+    availability: e.availability,
+  });
 
 export const isBuiltInRecipe = (id: string): boolean => BUILT_IN_IDS.has(id);
 
 /** B8: names and prompts are resolved on every call, so a language change shows up on the next read. */
 export function builtInRecipes(t: RecipeNameLookup): ChatRecipe[] {
-  return CATALOG.map((e) => ({
-    id: e.id,
-    name: t(e.nameKey),
-    prompt: t(e.promptKey),
-    availability: e.availability,
-  }));
+  return CATALOG.map(toRecipe(t));
+}
+
+/** The live recipes, named in the current language (B8). */
+export function liveRecipes(t: RecipeNameLookup): ChatRecipe[] {
+  return LIVE_CATALOG.map(toRecipe(t));
 }
 
 export function availabilityFor(kind: ChatScopeKind): RecipeAvailability {
@@ -151,8 +192,8 @@ const rank = (id: string): number => {
 
 /**
  * Built-ins whose availability matches the scope. Catalog order (meeting recipes first), except a
- * meeting without action items, which puts the content recipes first. The sort is stable, so the
- * remaining recipes keep catalog order.
+ * meeting without action items, which puts the content recipes first, and Live, which puts the
+ * live recipes first. The sort is stable, so the remaining recipes keep catalog order.
  */
 export function recipesForScope(
   kind: ChatScopeKind,
@@ -161,6 +202,7 @@ export function recipesForScope(
 ): ChatRecipe[] {
   const wanted = availabilityFor(kind);
   const list = builtInRecipes(t).filter((r) => r.availability === wanted);
+  if (kind === 'Live') return [...liveRecipes(t), ...list];
   return prefersContentRecipes(kind, context) ? list.sort((a, b) => rank(a.id) - rank(b.id)) : list;
 }
 

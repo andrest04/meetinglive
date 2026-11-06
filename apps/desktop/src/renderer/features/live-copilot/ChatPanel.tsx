@@ -1,5 +1,5 @@
 import { ExternalLink, Globe, Send } from 'lucide-react';
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import {
   Badge,
   Button,
@@ -57,6 +57,8 @@ export interface ChatPanelProps {
   readonly onToggleWeb: () => void;
   readonly onOpenApp: () => void;
   readonly onLink: LinkHandler;
+  /** The detected question card, above the chips (it renders nothing without a card). */
+  readonly question?: ReactNode;
 }
 
 const OFFSET: Record<ChatPanelProps['edge'], string> = {
@@ -71,7 +73,7 @@ const NO_DRAG = 'pill-no-drag';
 /**
  * The expanded copilot (spec 2.8): header, answer area, two preset chips and the typed ask, in
  * rows with 12 DIP padding and 8 gap. Presentational: the container owns the ask and the links.
- * The detected-question card is not built (owner decision 2026-11-03).
+ * The detected-question card comes in through `question` (live question detection, 2026-11-05).
  */
 export function ChatPanel(props: ChatPanelProps) {
   const { labels } = props;
@@ -182,6 +184,8 @@ export function ChatPanel(props: ChatPanelProps) {
           ) : null}
         </div>
       </div>
+
+      {props.question}
 
       <div className="flex gap-2">
         {(

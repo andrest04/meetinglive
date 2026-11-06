@@ -9,6 +9,7 @@ import {
   resolveClaudeModelId,
   resolveCodexEffort,
   resolveCodexModelId,
+  resolveLiveQuestionsMode,
   resolveNavigationPaneLength,
   resolvePillAlong,
   resolvePillEdge,
@@ -55,6 +56,7 @@ describe('defaults', () => {
       liveCopilotPillY: null,
       liveCopilotPillEdge: null,
       liveCopilotPillAlong: null,
+      liveQuestions: null,
     });
   });
 
@@ -271,6 +273,7 @@ describe('reading and writing', () => {
     expect(text.split('\r\n')[1]).toBe('  "selectedSummaryModelId": null,');
     expect(text).toContain('  "disabledCalendarIds": [],');
     expect(text.split('\r\n').at(-2)).toBe('  "liveCopilotPillAlong": null');
+    expect(text).not.toContain('liveQuestions');
     expect(text.endsWith('\r\n}')).toBe(true);
   });
 
@@ -328,5 +331,41 @@ describe('reading and writing', () => {
     const next = applySettingsPatch(base, { uiLanguage: 'en' });
     expect(readSettings(next).summaryLanguage).toBe('en');
     expect(readSettings(next).uiLanguage).toBe('en');
+  });
+});
+
+describe('resolveLiveQuestionsMode', () => {
+  const base = { liveQuestions: null, selectedSummaryProvider: null };
+
+  it('defaults to rules+ai with a CLI engine and to rules otherwise', () => {
+    expect(resolveLiveQuestionsMode({ ...base, selectedSummaryProvider: 'ClaudeCode' })).toBe(
+      'rules+ai',
+    );
+    expect(resolveLiveQuestionsMode({ ...base, selectedSummaryProvider: 'Codex' })).toBe(
+      'rules+ai',
+    );
+    expect(resolveLiveQuestionsMode({ ...base, selectedSummaryProvider: 'Local' })).toBe('rules');
+    expect(resolveLiveQuestionsMode(base)).toBe('rules');
+  });
+
+  it('keeps a saved choice and ignores an unknown one', () => {
+    expect(
+      resolveLiveQuestionsMode({ liveQuestions: 'off', selectedSummaryProvider: 'Codex' }),
+    ).toBe('off');
+    expect(resolveLiveQuestionsMode({ ...base, liveQuestions: 'rules+ai' })).toBe('rules+ai');
+    expect(
+      resolveLiveQuestionsMode({ liveQuestions: 'Rules', selectedSummaryProvider: 'Codex' }),
+    ).toBe('rules+ai');
+  });
+
+  it('round-trips through the settings file, written last of the known properties once set', () => {
+    const text = serializeSettings(
+      applySettingsPatch({ futureThing: 1 }, { liveQuestions: 'off' }),
+    );
+    expect(parseSettingsJson(text).settings.liveQuestions).toBe('off');
+    expect(text.indexOf('"liveQuestions": "off"')).toBeGreaterThan(
+      text.indexOf('liveCopilotPillAlong'),
+    );
+    expect(text.indexOf('futureThing')).toBeGreaterThan(text.indexOf('liveQuestions'));
   });
 });

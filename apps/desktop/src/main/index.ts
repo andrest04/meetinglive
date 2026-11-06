@@ -34,6 +34,7 @@ import {
   FileFakeCliProbe,
   FakeHardwareProbe,
   FakeSpeechEngine,
+  fakeAsrPhrasesFromEnv,
   FakeSummaryProvider,
   JsonWindowStateStore,
   fakeSummaryOptionsFromEnv,
@@ -121,7 +122,7 @@ import {
   startTakeNotesRequests,
 } from './recording/entry-points';
 import { registerRecordingHandlers } from './ipc/recording-handlers';
-import { LiveAsk } from './recording/live-ask-handlers';
+import { LiveAsk, type LiveChatContext } from './recording/live-ask-handlers';
 import { bridgeWorkspace, registerLibraryHandlers } from './ipc/library-handlers';
 import { sendEvent } from './ipc/ipc-server';
 import { modelEventBridge, registerSettingsHandlers } from './ipc/settings-handlers';
@@ -806,6 +807,12 @@ function main(): void {
         meetings: library.meetings,
         folders: library.folders,
       });
+      // The live ask is built with the recording below; until then Live has no digest to add.
+      let liveChatContext: () => LiveChatContext = () => ({
+        digest: null,
+        title: null,
+        notes: null,
+      });
       const chat = new ChatController({
         service: new ChatService({
           meetings: chatReader,
@@ -835,6 +842,7 @@ function main(): void {
         broadcast,
         translate: (key, ...args) => locale.t(key, ...args),
         logger: logger.child('chat'),
+        liveContext: () => liveChatContext(),
       });
       registerChatHandlers({
         server: {
@@ -853,6 +861,7 @@ function main(): void {
         engine: fakeNative
           ? new FakeSpeechEngine(
               Math.max(0, Number(process.env.VOZELLA_FAKE_ASR_OFFLINE_PUSH_MS) || 0),
+              fakeAsrPhrasesFromEnv(process.env),
             )
           : asr,
         hardware: () => hardware.detect(),
@@ -932,7 +941,10 @@ function main(): void {
         broadcast,
         formatFailure: (error) => summaries.formatError(error),
         nowMs: () => Date.now(),
+        // The rolling digest never loads the local model; it runs only when it is already up.
+        localModelLoaded: () => summaryRuntime.host.loadedModelPath !== undefined,
       });
+      liveChatContext = () => liveAsk.chatContext();
       const recording = composeRecording({
         liveAsk: liveAsk.hooks,
         library,

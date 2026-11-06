@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { WorkspaceStateDto } from '@vozella/contracts';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
@@ -179,6 +179,40 @@ describe('AiPanel scope chip (items 6 to 11)', () => {
     await waitFor(() => {
       expect(chip().textContent).toBe('En vivo');
     });
+  });
+
+  it('Live shows a badge with the recording dot; other scopes do not (T2)', async () => {
+    const api = install({ isCaptureActive: true });
+    mount('es');
+    const badge = await screen.findByTestId('BadgeChatLive');
+    expect(badge.textContent).toBe('En vivo');
+    expect(within(badge).getByTestId('pulse').getAttribute('aria-hidden')).toBe('true');
+    expect(within(badge).getByTestId('pulse-halo').style.animation).toContain('halo-pulse');
+    await api.change({ isCaptureActive: false });
+    await waitFor(() => {
+      expect(screen.queryByTestId('BadgeChatLive')).toBeNull();
+    });
+  });
+
+  it('the Live badge holds still under reduced motion', async () => {
+    const matchMedia = vi.fn((query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    Object.defineProperty(window, 'matchMedia', {
+      value: matchMedia,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      install({ isCaptureActive: true });
+      mount();
+      const badge = await screen.findByTestId('BadgeChatLive');
+      expect(within(badge).getByTestId('pulse-halo').style.animation).toBe('none');
+    } finally {
+      Reflect.deleteProperty(window, 'matchMedia');
+    }
   });
 
   it('shows the meeting title, and the plain label when the meeting is gone', async () => {

@@ -136,6 +136,23 @@ describe('B5 snapshot', () => {
     expect(rig.provider.prompts[0]).toContain('first words');
   });
 
+  it('packs the live snapshot given at send start: session, digest and transcript (T2)', async () => {
+    const rig = createChatRig();
+    rig.provider.chunks = ['ok'];
+    const snapshot = {
+      transcript: '[00:05.00-00:06.00] latest words',
+      digest: '- Budget agreed (00:02)',
+      title: 'Weekly sync',
+      notes: 'launch date?',
+    };
+    await rig.service.send('catch me up', scopeOf({ kind: 'Live' }), snapshot);
+    const prompt = rig.provider.prompts[0] ?? '';
+    expect(prompt).toContain('Meeting: Weekly sync');
+    expect(prompt).toContain('Notes: launch date?');
+    expect(prompt).toContain('- Budget agreed (00:02)');
+    expect(prompt).toContain('latest words');
+  });
+
   it('Live scope with an empty transcript stays sendable (Section 7)', async () => {
     const rig = createChatRig();
     rig.provider.chunks = ['ok'];

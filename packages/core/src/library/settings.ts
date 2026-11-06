@@ -37,6 +37,8 @@ export interface AppSettings {
   readonly liveCopilotPillY: number | null;
   readonly liveCopilotPillEdge: string | null;
   readonly liveCopilotPillAlong: number | null;
+  /** Port addition: live question detection, `off`, `rules` or `rules+ai`. Null is the default. */
+  readonly liveQuestions: string | null;
 }
 
 type Kind = 'string' | 'bool-true' | 'bool-false' | 'strings' | 'number';
@@ -71,7 +73,14 @@ const FIELDS: readonly (readonly [keyof AppSettings, Kind])[] = [
   ['liveCopilotPillY', 'number'],
   ['liveCopilotPillEdge', 'string'],
   ['liveCopilotPillAlong', 'number'],
+  ['liveQuestions', 'string'],
 ];
+
+/**
+ * Port additions the WinUI app does not know. They are written only once set, so a file the
+ * user never changed them in keeps the WinUI property set.
+ */
+const OMITTED_WHEN_NULL: ReadonlySet<string> = new Set(['liveQuestions']);
 
 /** The raw document: every key in the file, known or not. */
 export type RawSettings = Readonly<Record<string, unknown>>;
@@ -149,11 +158,17 @@ export function applySettingsPatch(raw: RawSettings, patch: Partial<AppSettings>
   return next;
 }
 
-/** Writes every known property in order (nulls included), then any unknown keys. CRLF like .NET. */
+/**
+ * Writes every known property in order (nulls included, except unset port additions), then any
+ * unknown keys. CRLF like .NET.
+ */
 export function serializeSettings(raw: RawSettings, newline: '\r\n' | '\n' = '\r\n'): string {
   const settings = readSettings(raw);
   const known = new Set(FIELDS.map(([key]) => key.toLowerCase()));
   const doc: Record<string, unknown> = { ...settings };
+  for (const key of OMITTED_WHEN_NULL) {
+    if (doc[key] === null) Reflect.deleteProperty(doc, key);
+  }
   for (const [key, value] of Object.entries(raw)) {
     if (!known.has(key.toLowerCase())) doc[key] = value;
   }
@@ -221,6 +236,23 @@ export function resolvePillAlong(s: AppSettings): number {
   const value = s.liveCopilotPillAlong;
   if (value === null || !Number.isFinite(value)) return 0.5;
   return Math.min(1, Math.max(0, value));
+}
+
+export const LIVE_QUESTIONS_MODES = ['off', 'rules', 'rules+ai'] as const;
+export type LiveQuestionsMode = (typeof LIVE_QUESTIONS_MODES)[number];
+
+/**
+ * Live question detection. An unset or unknown value is `rules+ai` when a CLI engine (Claude Code
+ * or Codex) is the summary engine, so the check costs a few seconds of a tool already in use, and
+ * `rules` otherwise, so a local model is never loaded just to check a question.
+ */
+export function resolveLiveQuestionsMode(
+  s: Pick<AppSettings, 'liveQuestions' | 'selectedSummaryProvider'>,
+): LiveQuestionsMode {
+  const chosen = LIVE_QUESTIONS_MODES.find((mode) => mode === s.liveQuestions);
+  if (chosen !== undefined) return chosen;
+  const cli = s.selectedSummaryProvider === 'ClaudeCode' || s.selectedSummaryProvider === 'Codex';
+  return cli ? 'rules+ai' : 'rules';
 }
 
 export function disabledCalendarIdsAsSet(s: AppSettings): ReadonlySet<string> {

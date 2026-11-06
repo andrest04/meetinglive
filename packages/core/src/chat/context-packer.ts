@@ -18,7 +18,12 @@ export const MEETING_CAP = 12;
  * Meeting scope block; `summaryChars` caps each summary in Folder and All meetings.
  */
 export interface ContextBudget {
+  /** Live tail when no rolling digest exists yet. */
   readonly liveChars: number;
+  /** Live tail next to a rolling digest: the digest covers what came before (T2). */
+  readonly liveTailWithDigestChars: number;
+  /** The take's notes in Live scope. */
+  readonly liveNotesChars: number;
   readonly meetingChars: number;
   readonly summaryChars: number;
 }
@@ -29,6 +34,8 @@ export interface ContextBudget {
  */
 export const LOCAL_CONTEXT_BUDGET: ContextBudget = {
   liveChars: LIVE_TRANSCRIPT_MAX_CHARS,
+  liveTailWithDigestChars: LIVE_TRANSCRIPT_MAX_CHARS,
+  liveNotesChars: NOTES_MAX_CHARS,
   meetingChars: MEETING_TRANSCRIPT_MAX_CHARS,
   summaryChars: SUMMARY_MAX_CHARS,
 };
@@ -36,6 +43,9 @@ export const LOCAL_CONTEXT_BUDGET: ContextBudget = {
 /** Claude Code and Codex: 120k chars is about 30-45k tokens, far below their windows. */
 export const CLI_CONTEXT_BUDGET: ContextBudget = {
   liveChars: 20_000,
+  /** About 3 minutes of speech, on top of the digest. */
+  liveTailWithDigestChars: 8000,
+  liveNotesChars: 2000,
   meetingChars: 120_000,
   summaryChars: 2000,
 };
@@ -52,6 +62,23 @@ export interface PackOptions {
   /** What the user asked: ranks transcript windows when the transcript does not fit. */
   readonly query?: string;
 }
+
+/**
+ * What the chat knows about the take being recorded, fixed when the send starts (B5): the
+ * committed transcript, the rolling digest and the session context (title and notes).
+ */
+export interface LiveContextSnapshot {
+  readonly transcript: string | null;
+  readonly digest?: string | null;
+  readonly title?: string | null;
+  readonly notes?: string | null;
+}
+
+/** Heads the rolling digest in Live scope; the model learns it may lag the tail. */
+export const LIVE_DIGEST_LABEL =
+  'Running summary of the recording so far (written during the recording, may lag the latest minutes):';
+/** The digest never takes more than this, whatever the caller passes. */
+const LIVE_DIGEST_MAX_CHARS = 1500;
 
 /** Heads the transcript section when only parts of it fit. Also tells the model they are parts. */
 export const TRANSCRIPT_EXCERPTS_LABEL =
@@ -225,6 +252,28 @@ function packMeeting(
 }
 
 /**
+ * Live scope (T2): the session context (title, notes), the rolling digest when there is one, then
+ * the recent tail of the live transcript. With a digest the tail is shorter, since the digest
+ * covers what came before; without one the tail keeps the full live budget.
+ */
+function packLive(live: LiveContextSnapshot, budget: ContextBudget, t: ChatStringLookup): string {
+  const digest = isBlank(live.digest) ? null : cutPrefix(live.digest, LIVE_DIGEST_MAX_CHARS);
+  const text = tail(
+    live.transcript,
+    digest === null ? budget.liveChars : budget.liveTailWithDigestChars,
+  );
+  if (text === null && digest === null) return t('ChatLiveTranscriptEmpty');
+  const parts: string[] = [];
+  const session: string[] = [];
+  if (!isBlank(live.title)) session.push(`Meeting: ${singleLine(live.title.trim())}`);
+  if (!isBlank(live.notes)) session.push(`Notes: ${capPrefix(live.notes, budget.liveNotesChars)}`);
+  if (session.length > 0) parts.push(session.join(NL));
+  if (digest !== null) parts.push(`${LIVE_DIGEST_LABEL}${NL}${neutralizeStructure(digest)}`);
+  if (text !== null) parts.push(`Live transcript:${NL}${neutralizeStructure(text)}`);
+  return parts.join(`${NL}${NL}`);
+}
+
+/**
  * The only meeting text the model sees (spec 3.3). Pure: `liveTranscript` is an argument so the
  * caller snapshots it when the send starts (B5), and `t` supplies the CoreStrings messages.
  * `options.budget` sizes the text for the engine (T2); `options.query` ranks transcript excerpts.
@@ -234,7 +283,7 @@ export function packContext(
   kind: ChatScopeKind,
   folderId: string | null,
   meetingId: string | null,
-  liveTranscript: string | null | undefined,
+  liveTranscript: string | LiveContextSnapshot | null | undefined,
   meetings: readonly ContextMeeting[] | null,
   folders: readonly ContextFolder[] | null,
   t: ChatStringLookup,
@@ -244,11 +293,14 @@ export function packContext(
   if (meetings === null) throw new TypeError('meetings is required');
   if (folders === null) throw new TypeError('folders is required');
   switch (kind) {
-    case 'Live': {
-      const text = tail(liveTranscript, budget.liveChars);
-      if (text === null) return t('ChatLiveTranscriptEmpty');
-      return `Live transcript:${NL}${neutralizeStructure(text)}`;
-    }
+    case 'Live':
+      return packLive(
+        typeof liveTranscript === 'string' || liveTranscript == null
+          ? { transcript: liveTranscript ?? null }
+          : liveTranscript,
+        budget,
+        t,
+      );
     case 'Meeting': {
       const key = meetingId === null ? null : guidKey(meetingId);
       const found = key === null ? undefined : meetings.find((m) => guidKey(m.id) === key);

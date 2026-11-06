@@ -39,6 +39,7 @@ type Listener = (payload: unknown) => void;
 
 const ALL = { isVisible: true, kind: 'AllMeetings', folderId: null, meetingId: null } as const;
 const MEETING = { isVisible: true, kind: 'Meeting', folderId: null, meetingId: 'm1' } as const;
+const LIVE = { isVisible: true, kind: 'Live', folderId: null, meetingId: null } as const;
 
 const msg = (id: string, role: 'user' | 'assistant', text: string) => ({
   id,
@@ -146,7 +147,10 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'vozella');
 });
 
-const mount = (scope: typeof ALL | typeof MEETING = ALL, locale: 'en' | 'es' = 'en') =>
+const mount = (
+  scope: typeof ALL | typeof MEETING | typeof LIVE = ALL,
+  locale: 'en' | 'es' = 'en',
+) =>
   render(
     <Providers locale={locale}>
       <DialogHost>
@@ -455,6 +459,35 @@ describe('starter chips (items 39 to 41)', () => {
     mount(MEETING);
     await screen.findByTestId('ListMeetingChat');
     expect(screen.queryByTestId('ListMeetingChatStarters')).toBeNull();
+  });
+});
+
+describe('live chips (T2)', () => {
+  it('Live scope shows the four live chips, never the meeting ones', async () => {
+    install({});
+    mount(LIVE);
+    expect(await chipNames()).toEqual([
+      'Catch me up (last 2 min)',
+      'Summary so far',
+      'Suggest questions',
+      'Decisions and tasks',
+    ]);
+  });
+
+  it('a meeting scope never shows the live chips', async () => {
+    install({ actionItems: () => [ITEM] });
+    mount(MEETING);
+    expect(await chipNames()).not.toContain('Summary so far');
+  });
+
+  it('in Spanish the live chip sends the Spanish prompt with (mm:ss) times', async () => {
+    const api = install({});
+    mount(LIVE, 'es');
+    await userEvent.click(await screen.findByRole('button', { name: 'Resumen hasta ahora' }));
+    await waitFor(() => {
+      expect(api.sends[0]?.draft).toMatch(/^Resume la grabación hasta ahora/);
+    });
+    expect(api.sends[0]?.draft).toContain('(mm:ss)');
   });
 });
 

@@ -494,6 +494,7 @@ Shell-relevant semantics:
 | `liveCopilotPillEdge` (S) | `Left|Right|Top|Bottom` or null; null -> Right | dock edge |
 | `liveCopilotPillAlong` (S) | number 0..1 or null; null -> 0.5 | fraction along the edge |
 | `liveCopilotPillX`, `liveCopilotPillY` | int or null | legacy; no longer read, no longer written |
+| `liveQuestions` (port addition, 2026-11-05) | `off|rules|rules+ai` or null; null or unknown -> `rules+ai` with ClaudeCode or Codex, else `rules` | live question detection; written only once set, so an untouched file keeps the WinUI property set |
 | `selectedSummaryProvider` | `Local|ClaudeCode|Codex|Xai` or null | null or unparseable -> Local |
 | `transcriptionLanguage`, `summaryLanguage` | code or null | null -> `es` |
 | Claude/Codex/xAI model and effort | string or null | null -> catalog defaults; effort default low |

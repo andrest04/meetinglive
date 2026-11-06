@@ -5,7 +5,9 @@ import { isCtrlEnter } from '../../app/shortcuts';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { IconButton, Input, Notice, cn } from '../../ui';
+import { LiveQuestionSlot } from './LiveQuestionSlot';
 import { askLive, setWebSearch, useLiveAskStore } from './use-live-ask';
+import { registerQuestionDock } from './use-live-questions';
 
 export const answerErrorMessage = (
   answer: RecordingAnswerDto,
@@ -19,7 +21,8 @@ export const answerErrorMessage = (
 /**
  * The typed question under the live transcript (spec 2.8, items 2 and 3). Ctrl+Enter inside the
  * box asks; the web toggle is enabled only when the provider can search the web and keeps its
- * state between takes. Answers appear in the side panel (`AnswerCard`).
+ * state between takes. Answers appear in the side panel (`AnswerCard`). A detected question card
+ * sits above the box; while the dock is on screen the AI panel leaves its copy out.
  */
 export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
   const t = useT();
@@ -27,6 +30,7 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
   const webSearch = useLiveAskStore((s) => s.webSearch);
   const [text, setText] = useState('');
   const wasEnabled = useRef(enabled);
+  useEffect(() => registerQuestionDock(), []);
   useEffect(() => {
     // A new take starts with an empty box.
     if (enabled && !wasEnabled.current) setText('');
@@ -49,6 +53,7 @@ export function LiveAskDock({ enabled }: { readonly enabled: boolean }) {
   const message = answerErrorMessage(answer, t);
   return (
     <div className="flex flex-col gap-2" data-testid="live-ask-dock">
+      <LiveQuestionSlot />
       {answer.error !== null ? (
         <Notice tone="error" data-testid="live-answer-error">
           <p className="font-medium">{t('RecordPage_LiveAnswerError.Title')}</p>

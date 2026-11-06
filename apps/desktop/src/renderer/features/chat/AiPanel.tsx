@@ -14,6 +14,7 @@ import { useT } from '../../i18n/I18nProvider';
 import { Icon, IconButton, Splitter, cn } from '../../ui';
 import { clampSize } from '../../ui/splitter-logic';
 import { AiLauncher } from './AiLauncher';
+import { LiveBadge } from './LiveBadge';
 import {
   DOCK_MIN_CONTENT_WIDTH,
   PANEL_DEFAULT_WIDTH,
@@ -29,6 +30,8 @@ import {
 import { SCOPE_ICON, scopeLabel } from './chat-scope-label';
 import { useLocalSendActive } from './chat-local-send';
 import { useChatScope } from './use-chat-scope';
+import { LiveQuestionSlot } from '../record/LiveQuestionSlot';
+import { useLiveQuestionsStore } from '../record/use-live-questions';
 
 /** Kept from the chat bar so automation and tests keep finding the chat by the same id. */
 const PANEL_ID = 'BarMeetingChat';
@@ -79,6 +82,8 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
   const launcher = useRef<HTMLButtonElement>(null);
   const focusAfter = useRef<FocusAfter>(null);
   const available = useObservedWidth(area);
+  // In Live scope the panel shows the detected question, unless the Record dock already does.
+  const dockShowsQuestion = useLiveQuestionsStore((s) => s.docks > 0);
 
   const visible = decision.isVisible;
   const showing = visible && open;
@@ -183,13 +188,21 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
       {/* Empty chrome: drags the window and sits behind the caption buttons. */}
       <div className="app-drag h-10 shrink-0" />
       <div className="flex h-10 shrink-0 items-center gap-1 ps-4 pe-2">
-        <Icon icon={SCOPE_ICON[decision.kind]} className="text-ink-muted" />
-        <span
-          data-testid="LblMeetingChatScope"
-          className="min-w-0 flex-1 truncate text-ui-lg font-medium"
-        >
-          {label}
-        </span>
+        {decision.kind === 'Live' ? (
+          <span className="flex min-w-0 flex-1">
+            <LiveBadge label={label} />
+          </span>
+        ) : (
+          <>
+            <Icon icon={SCOPE_ICON[decision.kind]} className="text-ink-muted" />
+            <span
+              data-testid="LblMeetingChatScope"
+              className="min-w-0 flex-1 truncate text-ui-lg font-medium"
+            >
+              {label}
+            </span>
+          </>
+        )}
         <IconButton
           id="BtnMeetingChatNew"
           data-testid="BtnMeetingChatNew"
@@ -211,6 +224,9 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
         />
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
+        {decision.kind === 'Live' ? (
+          <LiveQuestionSlot show={showing && !dockShowsQuestion} className="mb-3" />
+        ) : null}
         <Fragment key={epoch}>{body(decision)}</Fragment>
       </div>
     </aside>
