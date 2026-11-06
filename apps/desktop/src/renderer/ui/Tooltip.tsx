@@ -18,9 +18,13 @@ export function Tooltip({ content, children, side = 'bottom' }: TooltipProps) {
     <BaseTooltip.Root>
       <BaseTooltip.Trigger render={children} />
       <BaseTooltip.Portal>
-        <BaseTooltip.Positioner side={side} sideOffset={6}>
+        {/* z-50 like menus: a floating AI panel (z-30) must not cover its own tooltips. */}
+        <BaseTooltip.Positioner side={side} sideOffset={6} collisionPadding={8} className="z-50">
           <BaseTooltip.Popup
-            className={cn(popupSurface, 'border-ink bg-ink px-2 py-1 text-ui text-on-ink')}
+            className={cn(
+              popupSurface,
+              'max-w-80 border-ink bg-ink px-2 py-1 text-ui text-pretty text-on-ink',
+            )}
           >
             {content}
           </BaseTooltip.Popup>
