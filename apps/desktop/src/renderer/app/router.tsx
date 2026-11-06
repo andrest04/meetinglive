@@ -11,8 +11,9 @@ import { RecordRoute } from '../features/record/RecordRoute';
 import { SessionRoute } from '../features/session/SessionRoute';
 import { SettingsRoute } from '../features/settings/SettingsRoute';
 import { AppShell } from '../features/shell/AppShell';
+import { RouteCrash } from './RootErrorBoundary';
 
-const rootRoute = createRootRoute({ component: AppShell });
+const rootRoute = createRootRoute({ component: AppShell, errorComponent: RouteCrash });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -67,8 +68,30 @@ const routeTree = rootRoute.addChildren([
   galleryRoute,
 ]);
 
+type AppRouter = ReturnType<typeof createAppRouter>;
+
 // Hash history: the page is served from a custom scheme, so path routing has nothing to resolve.
-export const router = createRouter({ routeTree, history: createHashHistory() });
+function createAppRouter() {
+  return createRouter({ routeTree, history: createHashHistory() });
+}
+
+/**
+ * Hot reload re-runs this module whenever a route component cannot be fast refreshed. A
+ * fresh router mounted into the live RouterProvider is never loaded (its matches stay
+ * empty), so the window went blank. Keep the first router and hand it the new route tree.
+ */
+function stableRouter(hotData: { router?: AppRouter } | undefined): AppRouter {
+  const previous = hotData?.router;
+  const next = previous ?? createAppRouter();
+  if (previous) {
+    previous.update({ ...previous.options, routeTree });
+    void previous.invalidate();
+  }
+  if (hotData) hotData.router = next;
+  return next;
+}
+
+export const router = stableRouter(import.meta.hot?.data as { router?: AppRouter } | undefined);
 
 declare module '@tanstack/react-router' {
   interface Register {

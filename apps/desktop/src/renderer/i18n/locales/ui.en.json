@@ -223,5 +223,7 @@
   "Ui_RecipeStudyPrompt": "Write 5 review questions about this recording, each followed by its answer taken from the content.",
   "Ui_RecipeFeatureRequestsPrompt": "Group product feedback into themes.",
   "Ui_RecipeRecurringThemesPrompt": "Identify patterns across the packed meetings.",
-  "Ui_RecipeWeeklyUpdatePrompt": "Write bullets of decisions, blockers, and next steps. Draft only. Do not send it."
+  "Ui_RecipeWeeklyUpdatePrompt": "Write bullets of decisions, blockers, and next steps. Draft only. Do not send it.",
+  "Ui_SomethingWentWrong": "Something went wrong",
+  "Ui_Reload": "Reload"
 }
