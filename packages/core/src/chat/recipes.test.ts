@@ -71,6 +71,36 @@ describe('built-in recipe catalog', () => {
     }
   });
 
+  it('every recipe prompt comes from the lookup and its key exists in ui.en.json and ui.es.json', () => {
+    const keys = builtInRecipes((k) => k).map((r) => r.prompt);
+    expect(keys).toHaveLength(12);
+    expect(new Set(keys).size).toBe(12);
+    for (const k of keys) {
+      expect(k).toMatch(/^Ui_Recipe\w+Prompt$/);
+      expect(uiEn[k as keyof typeof uiEn]).toBeTruthy();
+      expect(uiEs[k as keyof typeof uiEs]).toBeTruthy();
+      expect(uiEs[k as keyof typeof uiEs]).not.toBe(uiEn[k as keyof typeof uiEn]);
+    }
+  });
+
+  it('B8: prompts follow the language at call time, so a Spanish UI gets Spanish prompts', () => {
+    let table = enT;
+    const live = (k: string): string => table[k] ?? k;
+    expect(builtInRecipes(live)[2]!.prompt).toBe(
+      'Draft a concise follow-up email. Do not send it.',
+    );
+    table = esT;
+    expect(builtInRecipes(live)[2]!.prompt).toBe(
+      'Redacta un correo de seguimiento conciso. No lo envíes.',
+    );
+    expect(builtInRecipes(live)[6]!.prompt).toBe(
+      'Busca los conceptos más difíciles de esta grabación y explica cada uno de forma sencilla, con un ejemplo concreto. Sé fiel a lo que se dijo y marca cualquier ejemplo propio.',
+    );
+    expect(filterRecipes(recipesForScope('Meeting', live), '/correo').map((r) => r.id)).toEqual([
+      '11111111-1111-4111-8111-111111111103',
+    ]);
+  });
+
   it('B8: names follow the language at call time, not at load time', () => {
     let table = enT;
     const live = (k: string): string => table[k] ?? k;
