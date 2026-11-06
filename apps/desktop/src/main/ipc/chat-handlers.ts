@@ -1,4 +1,8 @@
 import {
+  chatAttachDrop,
+  chatAttachList,
+  chatAttachPick,
+  chatAttachRemove,
   chatCancel,
   chatCopyText,
   chatMeetingExists,
@@ -28,4 +32,8 @@ export function registerChatHandlers({ server, controller }: ChatHandlerDeps): v
   );
   registerRequest(server, chatCopyText, ({ text }) => controller.copyText(text));
   registerRequest(server, chatOpenExternal, ({ url }) => controller.openExternal(url));
+  registerRequest(server, chatAttachPick, () => controller.attachPick());
+  registerRequest(server, chatAttachDrop, ({ paths }) => controller.attachDrop(paths));
+  registerRequest(server, chatAttachRemove, ({ id }) => controller.attachRemove(id));
+  registerRequest(server, chatAttachList, () => controller.attachList());
 }

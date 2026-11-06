@@ -18,6 +18,7 @@ import {
   type ThemePreference,
 } from '@vozella/contracts';
 import {
+  ATTACHMENT_EXTENSIONS,
   ChatService,
   MeetingBusyRegistry,
   PatchQueue,
@@ -27,6 +28,7 @@ import {
   type HardwareProbe,
 } from '@vozella/core';
 import {
+  ChatAttachmentStore,
   fakeEngineOptionsFromEnv,
   SteppedModelStore,
   SteppedRuntimeStore,
@@ -102,6 +104,7 @@ import { registerSummariesHandlers } from './ipc/summaries-handlers';
 import { ObservedSummaryService } from './summaries/observed-summary-service';
 import { SummariesController } from './summaries/summaries-controller';
 import { ChatController, chatProviderSource } from './chat/chat-controller';
+import { recordingProviderSource } from './chat/chat-prompt-log';
 import { registerChatHandlers } from './ipc/chat-handlers';
 import {
   fakeModelScriptFromEnv,
@@ -813,10 +816,24 @@ function main(): void {
         title: null,
         notes: null,
       });
+      // Attached files: paths stay here; the page holds ids. Image copies for one send go to temp.
+      const chatAttachments = new ChatAttachmentStore({
+        translate: (key, ...args) => locale.t(key, ...args),
+        logger: logger.child('chat'),
+        tempRoot: app.getPath('temp'),
+      });
+      const chatPromptLog = fakeNative ? process.env.VOZELLA_FAKE_CHAT_PROMPT_LOG : undefined;
+      const chatProviders = chatPromptLog
+        ? // E2E double: each prompt is appended to a file the spec reads.
+          recordingProviderSource(chatProviderSource(summaryRuntime.resolver), (prompt) => {
+            fs.appendFileSync(chatPromptLog, `${prompt}\n<<<END>>>\n`);
+          })
+        : chatProviderSource(summaryRuntime.resolver);
       const chat = new ChatController({
         service: new ChatService({
           meetings: chatReader,
-          providers: chatProviderSource(summaryRuntime.resolver),
+          providers: chatProviders,
+          attachments: chatAttachments,
           clock: new SystemClock(),
           translate: (key, ...args) => locale.t(key, ...args),
           newId: () => randomUUID(),
@@ -843,6 +860,19 @@ function main(): void {
         translate: (key, ...args) => locale.t(key, ...args),
         logger: logger.child('chat'),
         liveContext: () => liveChatContext(),
+        attachments: chatAttachments,
+        pickAttachments: async () => {
+          const options = {
+            properties: ['openFile' as const, 'multiSelections' as const],
+            filters: [
+              { name: locale.t('Ui_ChatAttachFilter'), extensions: [...ATTACHMENT_EXTENSIONS] },
+            ],
+          };
+          const result = mainWindow
+            ? await dialog.showOpenDialog(mainWindow, options)
+            : await dialog.showOpenDialog(options);
+          return result.canceled ? [] : result.filePaths;
+        },
       });
       registerChatHandlers({
         server: {

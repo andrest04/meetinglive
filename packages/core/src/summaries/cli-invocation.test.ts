@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CLAUDE_LEAN_FLAGS,
   InvalidCliOptionError,
+  claudeImageArgs,
   claudePrintArgs,
   claudePrintLine,
   claudeStreamArgs,
   codexExecArgs,
+  codexImageArgs,
   codexExecLine,
   codexStreamArgs,
   validateCliOption,
@@ -190,5 +192,27 @@ describe('B30 option validation', () => {
   it('treats blank as not set', () => {
     expect(validateCliOption('model', '   ', [])).toBeNull();
     expect(validateCliOption('model', undefined, [])).toBeNull();
+  });
+});
+
+describe('image arguments', () => {
+  it('Claude reads one folder with the Read tool only', () => {
+    expect(claudeImageArgs('C:/Users/andres/AppData/Local/Temp/vz')).toEqual([
+      '--add-dir',
+      'C:/Users/andres/AppData/Local/Temp/vz',
+      '--tools',
+      'Read',
+      '--allowedTools',
+      'Read',
+    ]);
+  });
+
+  it('Codex gets -i once per image', () => {
+    expect(codexImageArgs(['a.png', 'b.jpg'])).toEqual(['-i', 'a.png', '-i', 'b.jpg']);
+    expect(codexImageArgs([])).toEqual([]);
+  });
+
+  it('Codex refuses a path with a comma, which its -i option would split', () => {
+    expect(() => codexImageArgs(['/tmp/a,b/x.png'])).toThrow(/comma/);
   });
 });

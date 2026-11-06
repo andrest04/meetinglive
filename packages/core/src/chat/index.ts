@@ -1,3 +1,4 @@
+export * from './attachments';
 export * from './chat-errors';
 export * from './chat-service';
 export * from './context-packer';

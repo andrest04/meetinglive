@@ -12,9 +12,11 @@ import {
   allowedExternalUrl,
   ChatController,
   chatProviderSource,
+  type ChatAttachmentsPort,
   type ChatControllerDeps,
   type ChatServicePort,
 } from '../chat/chat-controller';
+import type { ChatAttachmentView } from '@vozella/platform';
 import type { IpcEventLike } from '../security/trusted-origin';
 import { registerChatHandlers } from './chat-handlers';
 import type { IpcMainLike } from './ipc-server';
@@ -40,12 +42,14 @@ class FakeChatService implements ChatServicePort {
     draft: string;
     scope: ChatScopeDecision;
     live: string | LiveContextSnapshot | null;
+    attachmentIds?: readonly string[];
   }[] = [];
   chunks: string[] = [];
   outcome: (draft: string) => ChatSendOutcome = (draft) => ({
     status: 'sent',
     user: message('u1', 'user', draft),
     assistant: message('a1', 'assistant', this.chunks.at(-1) ?? ''),
+    notice: null,
   });
   hold: Promise<void> | null = null;
   cancelled = 0;
@@ -100,8 +104,14 @@ class FakeChatService implements ChatServicePort {
     draft: string,
     scope: ChatScopeDecision,
     live: string | LiveContextSnapshot | null,
+    options?: { readonly attachmentIds?: readonly string[] },
   ): Promise<ChatSendOutcome> {
-    this.sendCalls.push({ draft, scope, live });
+    this.sendCalls.push({
+      draft,
+      scope,
+      live,
+      ...(options?.attachmentIds ? { attachmentIds: options.attachmentIds } : {}),
+    });
     this.sending = true;
     this.pending = { userText: draft, assistantText: '' };
     this.notify();
@@ -128,6 +138,8 @@ function setup(
   options: {
     findMeetingId?: (id: string) => Promise<string | null>;
     liveContext?: ChatControllerDeps['liveContext'];
+    attachments?: ChatControllerDeps['attachments'];
+    pickAttachments?: ChatControllerDeps['pickAttachments'];
   } = {},
 ) {
   const handlers = new Map<string, (event: never, ...args: unknown[]) => unknown>();
@@ -152,6 +164,8 @@ function setup(
     broadcast: (channel, payload) => events.push({ name: channel.name, payload }),
     logger: logger(),
     ...(options.liveContext ? { liveContext: options.liveContext } : {}),
+    ...(options.attachments ? { attachments: options.attachments } : {}),
+    ...(options.pickAttachments ? { pickAttachments: options.pickAttachments } : {}),
   });
   registerChatHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
@@ -178,7 +192,7 @@ describe('chat handlers', () => {
   it('registers every chat request channel', () => {
     const { handlers } = setup();
     const expected = Object.keys(requestChannels).filter((name) => name.startsWith('chat.'));
-    expect(expected).toHaveLength(8);
+    expect(expected).toHaveLength(12);
     for (const name of expected) expect(handlers.has(name)).toBe(true);
   });
 
@@ -428,5 +442,150 @@ describe('chatProviderSource', () => {
     expect(
       await source({ status: 'unavailable', kind: 'Xai', reason: 'xai-removed' }).resolve(),
     ).toEqual({ status: 'unavailable' });
+  });
+});
+
+/** An attachment store double: paths in, chips out, every change reported. */
+class FakeAttachments implements ChatAttachmentsPort {
+  readonly added: (readonly string[])[] = [];
+  views: ChatAttachmentView[] = [];
+  notice: string | null = null;
+  cleared = 0;
+  private readonly listeners = new Set<() => void>();
+
+  list(): readonly ChatAttachmentView[] {
+    return this.views;
+  }
+
+  add(paths: readonly string[]): Promise<{ notice: string | null }> {
+    this.added.push(paths);
+    for (const p of paths) {
+      this.views.push({
+        id: `att-${String(this.views.length + 1)}`,
+        name: p.split(/[\\/]/).at(-1) ?? p,
+        kind: 'text',
+        sizeBytes: 3,
+        pages: null,
+        status: 'reading',
+        message: null,
+        truncated: false,
+      });
+    }
+    this.notify();
+    return Promise.resolve({ notice: this.notice });
+  }
+
+  remove(id: string): boolean {
+    const before = this.views.length;
+    this.views = this.views.filter((v) => v.id !== id);
+    this.notify();
+    return this.views.length < before;
+  }
+
+  clear(): void {
+    this.cleared += 1;
+    this.views = [];
+    this.notify();
+  }
+
+  onChange(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  notify(): void {
+    for (const l of [...this.listeners]) l();
+  }
+}
+
+describe('chat attachments', () => {
+  it('pick opens the dialog and answers the chips; the paths never leave main', async () => {
+    const attachments = new FakeAttachments();
+    const { call } = setup({
+      attachments,
+      pickAttachments: () => Promise.resolve(['C:\\docs\\plan.txt']),
+    });
+    const result = ok(await call('chat.attach.pick', {}));
+    expect(attachments.added).toEqual([['C:\\docs\\plan.txt']]);
+    expect(result).toEqual({
+      attachments: [expect.objectContaining({ id: 'att-1', name: 'plan.txt' })],
+      notice: null,
+    });
+    expect(JSON.stringify(result)).not.toContain('docs');
+  });
+
+  it('a cancelled dialog adds nothing', async () => {
+    const attachments = new FakeAttachments();
+    const { call } = setup({ attachments, pickAttachments: () => Promise.resolve([]) });
+    expect(ok(await call('chat.attach.pick', {}))).toEqual({ attachments: [], notice: null });
+    expect(attachments.added).toEqual([]);
+  });
+
+  it('drop hands the paths to the store, which checks them; the limit notice comes back', async () => {
+    const attachments = new FakeAttachments();
+    attachments.notice = 'Up to 10 files per chat.';
+    const { call } = setup({ attachments });
+    const result = ok(await call('chat.attach.drop', { paths: ['C:\\a.txt'] }));
+    expect(attachments.added).toEqual([['C:\\a.txt']]);
+    expect(result).toMatchObject({ notice: 'Up to 10 files per chat.' });
+  });
+
+  it('drop refuses an empty list or a path that is too long before main sees it', async () => {
+    const attachments = new FakeAttachments();
+    const { call } = setup({ attachments });
+    expect(await call('chat.attach.drop', { paths: [] })).toMatchObject({ ok: false });
+    expect(await call('chat.attach.drop', { paths: ['x'.repeat(5000)] })).toMatchObject({
+      ok: false,
+    });
+    expect(attachments.added).toEqual([]);
+  });
+
+  it('remove and list answer the current chips; changes are broadcast with the state', async () => {
+    const attachments = new FakeAttachments();
+    const { call, events } = setup({ attachments });
+    await call('chat.attach.drop', { paths: ['C:\\a.txt', 'C:\\b.txt'] });
+    const after = ok(await call('chat.attach.remove', { id: 'att-1' }));
+    expect(after).toMatchObject({ attachments: [{ id: 'att-2' }] });
+    expect(ok(await call('chat.attach.list', {}))).toEqual(after);
+    const states = events.filter((e) => e.name === 'chat.stateChanged');
+    expect(states.at(-1)?.payload).toMatchObject({ state: { attachments: [{ id: 'att-2' }] } });
+  });
+
+  it('New chat clears the files; a refused New chat keeps them', async () => {
+    const attachments = new FakeAttachments();
+    const { call, service } = setup({ attachments });
+    await call('chat.attach.drop', { paths: ['C:\\a.txt'] });
+    let release: () => void = () => undefined;
+    service.hold = new Promise<void>((r) => (release = r));
+    const sending = call('chat.send', sendInput());
+    expect(ok(await call('chat.newChat', {}))).toEqual({ started: false });
+    expect(attachments.cleared).toBe(0);
+    release();
+    await sending;
+    expect(ok(await call('chat.newChat', {}))).toEqual({ started: true });
+    expect(attachments.cleared).toBe(1);
+    expect(ok(await call('chat.state', {}))).toMatchObject({ attachments: [] });
+  });
+
+  it('send passes the attachment ids, and an answer carries its notice', async () => {
+    const { call, service } = setup({ attachments: new FakeAttachments() });
+    service.outcome = (draft) => ({
+      status: 'sent',
+      user: message('u1', 'user', draft),
+      assistant: message('a1', 'assistant', 'ok'),
+      notice: 'The local model does not read images.',
+    });
+    const result = ok(await call('chat.send', sendInput({ attachmentIds: ['att-1', 'att-2'] })));
+    expect(service.sendCalls[0]?.attachmentIds).toEqual(['att-1', 'att-2']);
+    expect(result).toMatchObject({
+      status: 'answered',
+      notice: 'The local model does not read images.',
+    });
+  });
+
+  it('without a store the attach requests answer an empty list', async () => {
+    const { call } = setup();
+    expect(ok(await call('chat.attach.pick', {}))).toEqual({ attachments: [], notice: null });
+    expect(ok(await call('chat.attach.list', {}))).toEqual({ attachments: [], notice: null });
   });
 });

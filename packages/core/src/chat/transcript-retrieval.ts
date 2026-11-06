@@ -61,6 +61,14 @@ function charWindows(lines: readonly string[], max: number): TranscriptWindow[] 
 }
 
 /**
+ * Plain text in pieces of at most `maxChars`, cut at line boundaries where it can be: the windows
+ * the BM25 ranking scores for attached files, which have no timestamps.
+ */
+export function splitTextChunks(text: string, maxChars: number): string[] {
+  return charWindows(text.split(/\r\n|\n|\r/), Math.max(1, maxChars)).map((w) => w.text);
+}
+
+/**
  * Cuts the transcript into windows. Stamped lines open a new window once they start `windowMs`
  * after the current window began; unstamped lines stay in the window they follow. A transcript
  * with no stamp at all is cut into windows of at most `fallbackChars`.

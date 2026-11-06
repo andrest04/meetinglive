@@ -28,7 +28,17 @@ const newRequestId = (): string => `req-${crypto.randomUUID()}`;
  * The conversation as the page sees it: optimistic rows, the stream, the provider gate and the
  * rollbacks. Main owns the real conversation; this hook mirrors it and answers for one send.
  */
-export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController {
+/** Attached files for a send: the ids it carries, and where the answer's notice goes. */
+export interface ChatSendFiles {
+  readonly ids: () => readonly string[];
+  readonly onNotice: (notice: string | null) => void;
+}
+
+export function useChat(
+  scope: ChatScopeDto,
+  gate: ProviderGate,
+  files?: ChatSendFiles,
+): ChatController {
   const t = useT();
   const [view, dispatch] = useReducer(chatViewReducer, INITIAL_VIEW);
   const [draft, setDraftState] = useState('');
@@ -38,8 +48,8 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
   const sendingRef = useRef(false);
   /** Stop pressed before `chat.send` reached main: main has nothing to cancel yet. */
   const stopEarly = useRef(false);
-  const latest = useRef({ t, gate, scope });
-  latest.current = { t, gate, scope };
+  const latest = useRef({ t, gate, scope, files });
+  latest.current = { t, gate, scope, files };
   const alive = useRef(true);
 
   const setDraft = useCallback((value: string): void => {
@@ -81,6 +91,9 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
       setLocalSendActive(true);
       stopEarly.current = false;
       let requestId = newRequestId();
+      // Read once, as the send starts, like the live transcript.
+      const attachmentIds = [...(latest.current.files?.ids() ?? [])];
+      latest.current.files?.onNotice(null);
       dispatch({ type: 'sendStarted', requestId, text, replace: mismatchRef.current });
       setDraft('');
 
@@ -97,6 +110,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
           draft: raw,
           scope: latest.current.scope,
           liveTranscript: workspace.liveTranscript === '' ? null : workspace.liveTranscript,
+          ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
         });
       };
 
@@ -123,6 +137,7 @@ export function useChat(scope: ChatScopeDto, gate: ProviderGate): ChatController
         }
         switch (outcome.status) {
           case 'answered':
+            latest.current.files?.onNotice(outcome.notice);
             dispatch({
               type: 'answered',
               requestId,

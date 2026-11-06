@@ -31,6 +31,38 @@ export const chatMessageSchema = z.object({
 });
 export type ChatMessageDto = z.infer<typeof chatMessageSchema>;
 
+export const chatAttachmentKindSchema = z.enum(['pdf', 'docx', 'pptx', 'text', 'image']);
+
+/**
+ * A file attached to the conversation, as a chip. The path stays in the main process: the page
+ * only ever holds this opaque id.
+ */
+export const chatAttachmentSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().max(400),
+  kind: chatAttachmentKindSchema,
+  sizeBytes: z.number().int().nonnegative(),
+  /** Pages of a PDF or slides of a presentation, once read; null otherwise. */
+  pages: z.number().int().nonnegative().nullable(),
+  /** `reading` while the text is extracted; `error` files are never sent. */
+  status: z.enum(['reading', 'ready', 'error']),
+  /** Why the file failed, or a note on a ready one, in the language of the app. */
+  message: z.string().nullable(),
+  /** Only the first 200,000 characters were read. */
+  truncated: z.boolean(),
+});
+export type ChatAttachmentDto = z.infer<typeof chatAttachmentSchema>;
+
+/** At most this many files per conversation, and per send. */
+export const CHAT_ATTACHMENT_MAX = 10;
+
+export const chatAttachmentListSchema = z.object({
+  attachments: z.array(chatAttachmentSchema).max(CHAT_ATTACHMENT_MAX),
+  /** A sentence about files that were not added (over the limit), or null. */
+  notice: z.string().nullable(),
+});
+export type ChatAttachmentListDto = z.infer<typeof chatAttachmentListSchema>;
+
 export const chatFailureKindSchema = z.enum([
   'setup-cancelled',
   'empty-answer',
@@ -43,6 +75,8 @@ export const chatSendOutcomeSchema = z.discriminatedUnion('status', [
     status: z.literal('answered'),
     user: chatMessageSchema,
     assistant: chatMessageSchema,
+    /** A line to show with the answer (images the local engine left out), or null. */
+    notice: z.string().nullable().default(null),
   }),
   /** No engine is ready: the page runs the provider gate and sends again with the same draft. */
   z.object({
@@ -70,6 +104,8 @@ export const chatStateSchema = z.object({
   showScopeMismatch: z.boolean(),
   hasMessages: z.boolean(),
   canStartNewChat: z.boolean(),
+  /** The files attached to this conversation, in the order they were added. */
+  attachments: z.array(chatAttachmentSchema).max(CHAT_ATTACHMENT_MAX).default([]),
 });
 export type ChatStateDto = z.infer<typeof chatStateSchema>;
 
@@ -80,8 +116,38 @@ export const chatSend = defineRequest('chat.send', {
     scope: chatScopeSchema,
     /** The live transcript as the renderer's workspace state held it when the user pressed send. */
     liveTranscript: z.string().max(2_000_000).nullable(),
+    /** Ids from `chat.attach.*`. Unknown or failed ids are skipped by main. */
+    attachmentIds: z.array(z.string().min(1).max(100)).max(CHAT_ATTACHMENT_MAX).default([]),
   }),
   output: chatSendOutcomeSchema,
+});
+
+/** Opens the file dialog (several files). Main remembers the paths; the answer is the chip list. */
+export const chatAttachPick = defineRequest('chat.attach.pick', {
+  input: empty,
+  output: chatAttachmentListSchema,
+});
+
+/**
+ * Files dropped on the panel. The preload turns the dropped `File`s into paths
+ * (`webUtils.getPathForFile`); main checks each one (a local regular file, an allowed type, at most
+ * 20 MB) before reading it.
+ */
+export const chatAttachDrop = defineRequest('chat.attach.drop', {
+  input: z.object({
+    paths: z.array(z.string().min(1).max(4_096)).min(1).max(CHAT_ATTACHMENT_MAX),
+  }),
+  output: chatAttachmentListSchema,
+});
+
+export const chatAttachRemove = defineRequest('chat.attach.remove', {
+  input: z.object({ id: z.string().min(1).max(100) }),
+  output: chatAttachmentListSchema,
+});
+
+export const chatAttachList = defineRequest('chat.attach.list', {
+  input: empty,
+  output: chatAttachmentListSchema,
 });
 
 /** The answer so far for the running send, about every 80 ms. */

@@ -3,8 +3,17 @@ import { CancelSource } from '../cancel';
 import type { Clock } from '../clock';
 import type { TranslateFn } from '../i18n/translator';
 import type { Logger } from '../logging';
-import type { PromptCallOptions, ProviderId } from '../summaries/provider';
+import type { CliPromptOptions } from '../summaries/cli-provider';
+import type { ProviderId } from '../summaries/provider';
 import type { SetupKind } from '../summaries/provider-resolver';
+import {
+  attachmentBudgetFor,
+  isCliEngine,
+  packAttachments,
+  type ChatAttachmentSource,
+  type ResolvedAttachments,
+  type StagedImages,
+} from './attachments';
 import {
   emptyAnswerFailure,
   isCancellation,
@@ -37,14 +46,18 @@ export interface ChatMeetingReader {
   listFolders(): Promise<readonly ContextFolder[]>;
 }
 
+/** What chat passes with a prompt: the shared options plus the images of the send. */
+export type ChatPromptOptions = CliPromptOptions;
+
 /** The slice of `SummaryProvider` chat uses. */
 export interface ChatStreamProvider {
   /** Sizes the packed context (T2). Unset is treated as the local engine, the smallest budget. */
   readonly id?: ProviderId;
+  /** Engines that cannot take images ignore `options.images`; chat only sends them to CLIs. */
   streamPrompt(
     prompt: string,
     cancel: CancelSignal,
-    options?: PromptCallOptions,
+    options?: ChatPromptOptions,
   ): AsyncIterable<string>;
 }
 
@@ -95,7 +108,13 @@ export interface ChatState {
 
 export type ChatSendOutcome =
   | { readonly status: 'ignored' }
-  | { readonly status: 'sent'; readonly user: ChatMessage; readonly assistant: ChatMessage }
+  | {
+      readonly status: 'sent';
+      readonly user: ChatMessage;
+      readonly assistant: ChatMessage;
+      /** A line to show next to the answer (images the local engine left out), or null. */
+      readonly notice: string | null;
+    }
   /** The user stopped the answer. Silent: no message, nothing kept. */
   | { readonly status: 'cancelled'; readonly originalDraft: string }
   /** No gate was given: the caller runs it and sends again. */
@@ -116,11 +135,17 @@ export interface ChatServiceDeps {
   readonly logger?: Logger;
   /** UI language tag (`es`, `en-US`), read on every send: the fallback answer language (T2). */
   readonly uiLanguage?: () => string;
+  /** Files attached to the conversation. Unset: sends never carry files. */
+  readonly attachments?: ChatAttachmentSource;
 }
 
 export interface SendOptions {
   readonly setupGate?: SetupGate;
+  /** Attachment ids the page holds for this conversation; only ready ones are used. */
+  readonly attachmentIds?: readonly string[];
 }
+
+const NO_FILES: ResolvedAttachments = { documents: [], imageNames: [] };
 
 /** Hands out a number per refresh so an older, slower refresh cannot overwrite a newer one. */
 export class ScopeRefreshGuard {
@@ -238,6 +263,7 @@ export class ChatService {
     this.pending = { userText, assistantText: '' };
     this.notify();
 
+    let staged: StagedImages | null = null;
     const wasStopped = (): boolean => cancelSource.cancelled;
     const cancelled = (): ChatSendOutcome => ({ status: 'cancelled', originalDraft: draft });
     const fail = (failure: ChatFailure): ChatSendOutcome => ({
@@ -269,13 +295,23 @@ export class ChatService {
       if (wasStopped()) return cancelled();
 
       const lastUserTurn = prior.findLast((m) => m.role === 'user')?.text ?? '';
-      const context = await this.pack(
-        scope,
-        live,
-        contextBudgetFor(provider.id),
-        `${userText}\n${lastUserTurn}`,
-      );
+      const query = `${userText}\n${lastUserTurn}`;
+      const context = await this.pack(scope, live, contextBudgetFor(provider.id), query);
       if (wasStopped()) return cancelled();
+
+      const ids = options.attachmentIds ?? [];
+      const source = this.deps.attachments;
+      const files = ids.length > 0 && source ? await source.resolve(ids) : NO_FILES;
+      if (wasStopped()) return cancelled();
+      // Only CLI engines see images; the local model is text only, so it answers without them.
+      const cli = isCliEngine(provider.id);
+      let notice: string | null = null;
+      if (files.imageNames.length > 0 && source) {
+        if (cli) staged = await source.stageImages(ids);
+        else notice = t('Ui_ChatAttachImagesLocal');
+      }
+      if (wasStopped()) return cancelled();
+
       const prompt = buildPrompt(
         scope.kind,
         context,
@@ -284,10 +320,26 @@ export class ChatService {
         {
           answerLanguage: answerLanguageName(this.deps.uiLanguage?.()),
           priorTurns: priorTurnLimitsFor(provider.id),
+          attachments: packAttachments(
+            files.documents,
+            attachmentBudgetFor(provider.id, context.length),
+            query,
+          ),
+          images:
+            staged === null
+              ? null
+              : { names: staged.names, readFromDisk: provider.id === 'claude-code' },
         },
       );
 
-      const answer = await this.stream(provider, prompt, cancelSource);
+      const answer = await this.stream(
+        provider,
+        prompt,
+        cancelSource,
+        staged === null
+          ? undefined
+          : { images: { directory: staged.directory, paths: staged.paths } },
+      );
       // B20: a stopped answer is dropped, even when the provider returned text before it noticed.
       if (wasStopped()) return cancelled();
 
@@ -308,11 +360,13 @@ export class ChatService {
         createdAt: this.deps.clock.now(),
       };
       this.conversation = { scope, messages: [...prior, user, assistant] };
-      return { status: 'sent', user, assistant };
+      return { status: 'sent', user, assistant, notice };
     } catch (error) {
       if (wasStopped() || isCancellation(error)) return cancelled();
       return fail(sendFailedFailure(error, t));
     } finally {
+      // The image copies live for one send only.
+      await staged?.release();
       this.sending = false;
       this.pending = null;
       this.cancelSource = null;
@@ -354,6 +408,7 @@ export class ChatService {
     provider: ChatStreamProvider,
     prompt: string,
     cancelSource: CancelSource,
+    options?: ChatPromptOptions,
   ): Promise<string> {
     const coalescer = new StreamCoalescer(this.deps.clock, (text) => {
       if (cancelSource.cancelled || this.pending === null) return;
@@ -365,7 +420,12 @@ export class ChatService {
     let firstChunkMs: number | null = null;
     let chunks = 0;
     try {
-      for await (const chunk of provider.streamPrompt(prompt, cancelSource.signal)) {
+      // S8: a send without images passes no options at all.
+      const pieces =
+        options === undefined
+          ? provider.streamPrompt(prompt, cancelSource.signal)
+          : provider.streamPrompt(prompt, cancelSource.signal, options);
+      for await (const chunk of pieces) {
         if (cancelSource.cancelled) break;
         firstChunkMs ??= clock.now().getTime() - started;
         chunks += 1;

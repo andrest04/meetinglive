@@ -305,6 +305,26 @@ describe('runLines (chat streaming)', () => {
   });
 });
 
+describe('working directory (chat images)', () => {
+  // `fakeexe` is a copy of node, so `-e` prints where the child runs.
+  const printCwd = ['-e', 'process.stdout.write(process.cwd())'];
+
+  it('run and runLines start the process in the given folder', async () => {
+    const folder = fs.realpathSync(fs.mkdtempSync(path.join(fake.binDir, 'cwd-')));
+    const result = await runner.run('fakeexe', printCwd, null, 10_000, never, { cwd: folder });
+    expect(path.resolve(result.stdout)).toBe(path.resolve(folder));
+    const lines = await readLines(
+      runner.runLines('fakeexe', printCwd, null, 10_000, never, { cwd: folder }),
+    );
+    expect(path.resolve(lines[0] ?? '')).toBe(path.resolve(folder));
+  });
+
+  it('keeps the app folder when no cwd is given', async () => {
+    const result = await runner.run('fakeexe', printCwd, null, 10_000, never);
+    expect(path.resolve(result.stdout)).toBe(path.resolve(process.cwd()));
+  });
+});
+
 describe('cmd shim (B11)', () => {
   it.runIf(windows)('launches the resolved .cmd through cmd.exe, prompt on stdin', async () => {
     const text = 'Reunión con acentos';

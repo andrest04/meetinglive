@@ -1,16 +1,21 @@
 import { STARTER_COUNT, recipesForScope, type ChatScopeDecision } from '@vozella/core';
-import { useMemo } from 'react';
+import { Paperclip } from 'lucide-react';
+import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import type { StringKey } from '../../i18n/translate';
 import { ProviderGateDialogs } from '../summaries/ProviderGateDialogs';
 import { useProviderGate } from '../summaries/use-provider-gate';
+import { Icon, Notice } from '../../ui';
 import { ApplySummaryNotice } from './ApplySummaryNotice';
+import { AttachmentChips } from './AttachmentChips';
+import { dragHasFiles, sendableAttachmentIds } from './chat-attachments-view';
 import { ChatErrorNotice } from './ChatErrorNotice';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { StarterChips } from './StarterChips';
 import { useApplyToSummary } from './use-apply-to-summary';
 import { useChat } from './use-chat';
+import { useChatAttachments } from './use-chat-attachments';
 import { useChatLinks } from './use-chat-links';
 import { useRecipeContext } from './use-recipe-context';
 
@@ -21,7 +26,14 @@ import { useRecipeContext } from './use-recipe-context';
 export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   const t = useT();
   const gate = useProviderGate();
-  const chat = useChat(scope, gate);
+  const files = useChatAttachments();
+  const { current, setNotice } = files;
+  const sendFiles = useMemo(
+    () => ({ ids: () => sendableAttachmentIds(current()), onNotice: setNotice }),
+    [current, setNotice],
+  );
+  const chat = useChat(scope, gate, sendFiles);
+  const drag = useFileDrop((dropped) => void files.drop(dropped));
   const { rows, error } = chat.view;
   const onLink = useChatLinks(chat.reportError);
   const summary = useApplyToSummary(scope.kind === 'Meeting' ? scope.meetingId : null);
@@ -41,7 +53,22 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div
+      data-testid="ZoneMeetingChatDrop"
+      className="relative flex h-full min-h-0 flex-col gap-2"
+      {...drag.handlers}
+    >
+      {drag.active ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 grid animate-fade-in place-items-center rounded-overlay border border-dashed border-border-control bg-paper-raised motion-reduce:animate-none forced-colors:border-[CanvasText]"
+        >
+          <span className="flex items-center gap-2 text-ui-lg text-ink">
+            <Icon icon={Paperclip} className="text-ink-muted" />
+            {t('Ui_ChatAttachDrop')}
+          </span>
+        </div>
+      ) : null}
       {rows.length > 0 ? (
         <MessageList
           rows={rows}
@@ -70,10 +97,31 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
         />
       ) : null}
       {error ? <ChatErrorNotice error={error} onDismiss={chat.dismissError} /> : null}
+      {files.notice ? (
+        <div data-testid="InfoMeetingChatAttachNotice">
+          <Notice
+            onDismiss={() => {
+              setNotice(null);
+            }}
+            dismissLabel={t('Ui_Close')}
+          >
+            <p>{files.notice}</p>
+          </Notice>
+        </div>
+      ) : null}
       {!chat.isSending && rows.length === 0 ? (
         <StarterChips recipes={starters} onPick={(prompt) => void chat.send(prompt)} />
       ) : null}
+      <AttachmentChips
+        items={files.items}
+        onRemove={(id) => {
+          void files.remove(id).then(() => {
+            document.getElementById('TxtMeetingChat')?.focus();
+          });
+        }}
+      />
       <Composer
+        onAttach={() => void files.pick()}
         draft={chat.draft}
         onDraftChange={chat.setDraft}
         onSend={() => void chat.send(chat.draft)}
@@ -84,4 +132,45 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
       <ProviderGateDialogs gate={gate} />
     </div>
   );
+}
+
+/**
+ * Drag-and-drop of files from the system onto the panel. Only drags that carry files show the
+ * overlay; text dragged inside the page is left alone. The paperclip is the keyboard path.
+ */
+function useFileDrop(onFiles: (files: readonly File[]) => void) {
+  const [active, setActive] = useState(false);
+  const depth = useRef(0);
+  const reset = (): void => {
+    depth.current = 0;
+    setActive(false);
+  };
+  const handlers = {
+    onDragEnter: (event: DragEvent) => {
+      if (!dragHasFiles(event.dataTransfer.types)) return;
+      event.preventDefault();
+      depth.current += 1;
+      setActive(true);
+    },
+    onDragOver: (event: DragEvent) => {
+      if (!dragHasFiles(event.dataTransfer.types)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (!dragHasFiles(event.dataTransfer.types)) return;
+      const next = event.relatedTarget;
+      if (next instanceof Node && event.currentTarget.contains(next)) return;
+      depth.current = Math.max(0, depth.current - 1);
+      if (depth.current === 0 || next === null || next instanceof Node) reset();
+    },
+    onDrop: (event: DragEvent) => {
+      if (!dragHasFiles(event.dataTransfer.types)) return;
+      event.preventDefault();
+      reset();
+      const dropped = Array.from(event.dataTransfer.files);
+      if (dropped.length > 0) onFiles(dropped);
+    },
+  };
+  return { active, handlers };
 }
