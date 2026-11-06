@@ -3,6 +3,7 @@
  * italic, inline code and links. It produces plain data; `MarkdownView` turns that into React
  * elements, so no string of the reply ever reaches the DOM as HTML. Raw HTML is just text.
  */
+import { hasMeetingPrefix, tryParseMeetingCitation } from '@vozella/core';
 
 export type Inline =
   | { readonly type: 'text'; readonly text: string }
@@ -33,13 +34,29 @@ export type Block =
     }
   | { readonly type: 'rule' };
 
-/** The normalized address when it is http or https; null for any other scheme or a non-URL. */
+/** `href` with percent escapes undone; the URL reader escapes a braced id as %7B...%7D. */
+export function decodedHref(href: string): string {
+  try {
+    return decodeURIComponent(href);
+  } catch {
+    return href;
+  }
+}
+
+/**
+ * The normalized address when it is http or https; null for any other scheme or a non-URL. A
+ * meeting citation must also be valid (id, optional `?t=` from 0 to one day): a broken one is
+ * dropped, so its label stays as text instead of a link that does nothing.
+ */
 export function safeHref(raw: string): string | null {
   const value = raw.trim();
   if (value === '') return null;
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    const href = decodedHref(url.href);
+    if (hasMeetingPrefix(href) && tryParseMeetingCitation(href) === null) return null;
+    return url.href;
   } catch {
     return null;
   }

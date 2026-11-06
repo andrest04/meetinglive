@@ -1,13 +1,50 @@
+import { tryParseMeetingCitation } from '@vozella/core';
+import { Play } from 'lucide-react';
 import { createContext, useContext, type MouseEvent, type ReactNode } from 'react';
-import { cn } from '../../ui';
-import { parseBlocks, type Block, type Inline } from './markdown';
+import { useT } from '../../i18n/I18nProvider';
+import { Icon, cn } from '../../ui';
+import { formatClock } from '../session/use-audio-player';
+import { decodedHref, parseBlocks, type Block, type Inline } from './markdown';
 
 /** Lets a host take over link clicks (chat citations, external links). Absent: default navigation. */
 export type LinkHandler = (href: string, event: MouseEvent<HTMLAnchorElement>) => void;
 const LinkContext = createContext<LinkHandler | undefined>(undefined);
 
+/**
+ * A citation of one transcript moment (T3): a compact chip with the time, named for where it goes.
+ * The time comes from the link, not from the model's label, so the chip and the jump agree.
+ */
+function TimeCitation({ href, seconds }: { readonly href: string; readonly seconds: number }) {
+  const onLink = useContext(LinkContext);
+  const t = useT();
+  const clock = formatClock(seconds);
+  return (
+    <a
+      href={href}
+      data-citation="time"
+      aria-label={t('Ui_ChatCitationGoToTime', clock)}
+      title={t('Ui_ChatCitationGoToTime', clock)}
+      onClick={
+        onLink
+          ? (event) => {
+              onLink(href, event);
+            }
+          : (event) => {
+              event.preventDefault();
+            }
+      }
+      className="mx-0.5 inline-flex items-baseline gap-1 rounded-control border border-hairline bg-paper-raised px-1.5 font-mono text-[0.8125em] leading-5 text-ink-muted no-underline transition-colors hover:border-border-control hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 forced-colors:border-[LinkText]"
+    >
+      <Icon icon={Play} size={12} className="self-center" />
+      {clock}
+    </a>
+  );
+}
+
 function Link({ href, children }: { readonly href: string; readonly children: ReactNode }) {
   const onLink = useContext(LinkContext);
+  const seconds = tryParseMeetingCitation(decodedHref(href))?.seconds ?? null;
+  if (seconds !== null) return <TimeCitation href={href} seconds={seconds} />;
   return (
     <a
       href={href}
@@ -158,7 +195,8 @@ function renderBlock(block: Block, key: number): ReactNode {
 
 /**
  * Model text as a document. Built from React elements, never from an HTML string, so nothing in
- * the reply can add markup or script; links are limited to http and https.
+ * the reply can add markup or script; links are limited to http and https. A meeting citation
+ * with a moment (`?t=`) renders as a time chip; it needs the I18nProvider for its name.
  */
 export function MarkdownView({
   source,

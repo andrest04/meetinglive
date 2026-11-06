@@ -61,3 +61,21 @@ export function toLines(text: string): readonly TranscriptLine[] {
     parts: parseLine(line),
   }));
 }
+
+/**
+ * The stamped line that covers `seconds` (T3): the last one starting at or before it, compared in
+ * whole seconds because citations carry whole seconds. Before the first stamp, the first stamped
+ * line. Null when no line has a stamp.
+ */
+export function lineAtSeconds(
+  lines: readonly TranscriptLine[],
+  seconds: number,
+): TranscriptLine | null {
+  let found: TranscriptLine | null = null;
+  for (const line of lines) {
+    if (line.startSeconds === null) continue;
+    if (found === null || Math.floor(line.startSeconds) <= seconds) found = line;
+    if (Math.floor(line.startSeconds) > seconds) break;
+  }
+  return found;
+}

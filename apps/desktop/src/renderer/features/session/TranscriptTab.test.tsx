@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { TooltipProvider } from '../../ui';
 import { TranscriptTab, type CopySource } from './TranscriptTab';
+import { peekTranscriptReveal, requestTranscriptReveal } from './transcript-reveal';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
@@ -327,5 +328,69 @@ describe('TranscriptTab audio seeking', () => {
     await userEvent.click(await screen.findByText(/Buenos días\./));
     expect(screen.queryByTestId('AudioBar')).toBeNull();
     expect(media.play).not.toHaveBeenCalled();
+  });
+});
+
+describe('TranscriptTab reveal from a chat citation (T3)', () => {
+  afterEach(() => {
+    delete (window as unknown as { vozella?: unknown }).vozella;
+    vi.restoreAllMocks();
+  });
+
+  it('highlights and focuses the line covering the cited second, then forgets the request', async () => {
+    install(STORED);
+    requestTranscriptReveal(ID.replaceAll('-', ''), 6);
+    mount(false);
+    const line = await screen.findByText(/Empecemos\./);
+    const p = line.closest('p');
+    await waitFor(() => {
+      expect(p?.getAttribute('data-highlighted')).toBe('true');
+    });
+    expect(document.activeElement).toBe(p);
+    expect(peekTranscriptReveal()).toBeNull();
+  });
+
+  it('plays from the start of that line when the meeting has audio', async () => {
+    const play = vi.fn(() => Promise.resolve());
+    let time = 0;
+    Object.defineProperties(HTMLMediaElement.prototype, {
+      play: { configurable: true, value: play },
+      pause: { configurable: true, value: vi.fn() },
+      paused: { configurable: true, get: () => true },
+      currentTime: {
+        configurable: true,
+        get: () => time,
+        set: (v: number) => {
+          time = v;
+        },
+      },
+    });
+    install(STORED);
+    requestTranscriptReveal(ID, 5);
+    mount(true);
+    await waitFor(() => {
+      expect(play).toHaveBeenCalledTimes(1);
+    });
+    expect(time).toBe(4.52);
+  });
+
+  it('a request for another meeting is left alone', async () => {
+    install(STORED);
+    requestTranscriptReveal(OTHER, 6);
+    mount(false);
+    await screen.findByTestId('TxtTranscriptContent');
+    expect(document.querySelector('[data-highlighted="true"]')).toBeNull();
+    expect(peekTranscriptReveal()?.seconds).toBe(6);
+    act(() => {
+      requestTranscriptReveal(ID, 0);
+    });
+    await waitFor(() => {
+      expect(
+        screen
+          .getByText(/Buenos días\./)
+          .closest('p')
+          ?.getAttribute('data-highlighted'),
+      ).toBe('true');
+    });
   });
 });

@@ -1,9 +1,12 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import {
   CancelledError,
+  CliExitError,
   CliTimeoutError,
   throwIfCancelled,
   type CancelSignal,
+  type CliLineRunner,
   type CliProcessRunner,
   type CliRunResult,
 } from '@vozella/core';
@@ -75,8 +78,46 @@ export function killProcessTree(pid: number | undefined): Promise<void> {
   return Promise.resolve();
 }
 
+/** How much stderr `runLines` keeps for a failure: the end, where CLIs print the error. */
+const STDERR_TAIL = 8192;
+
+/**
+ * True when every byte was handed to the child; a closed pipe is "not delivered", not an error.
+ * UTF-8 bytes with no BOM (B24), flushed and then closed.
+ */
+function writeAllStdin(child: ChildProcess, stdin: string | null): Promise<boolean> {
+  return new Promise((resolve) => {
+    const pipe = child.stdin;
+    if (stdin === null || !pipe) {
+      resolve(true);
+      return;
+    }
+    pipe.once('error', () => resolve(false));
+    pipe.once('close', () => resolve(false));
+    pipe.end(Buffer.from(stdin, 'utf8'), (error?: Error | null) => resolve(!error));
+  });
+}
+
+/** Splits UTF-8 stdout into lines; a character cut between chunks is kept whole. */
+class LineSplitter {
+  private readonly decoder = new StringDecoder('utf8');
+  private rest = '';
+
+  push(chunk: Buffer): string[] {
+    const parts = (this.rest + this.decoder.write(chunk)).split('\n');
+    this.rest = parts.pop() ?? '';
+    return parts.map((line) => line.replace(/\r$/, ''));
+  }
+
+  end(): string[] {
+    const last = (this.rest + this.decoder.end()).replace(/\r$/, '');
+    this.rest = '';
+    return last === '' ? [] : [last];
+  }
+}
+
 /** Spec 3.7 `CliProcessRunner`, on `child_process.spawn` with `shell: false`. */
-export class NodeCliProcessRunner implements CliProcessRunner {
+export class NodeCliProcessRunner implements CliProcessRunner, CliLineRunner {
   private readonly probe: PathCliProbe;
   private readonly platform: NodeJS.Platform;
 
@@ -93,20 +134,19 @@ export class NodeCliProcessRunner implements CliProcessRunner {
     return this.probe.resolve(executable);
   }
 
-  async run(
+  /** The one spawn both `run` and `runLines` use: no shell, hidden window, own process group. */
+  private async start(
     file: string,
     args: readonly string[],
     stdin: string | null,
-    timeoutMs: number,
     cancel: CancelSignal,
-  ): Promise<CliRunResult> {
+  ): Promise<ChildProcess> {
     throwIfCancelled(cancel);
     const resolved = await this.probe.resolve(file);
     if (resolved === null) throw notFound(file);
     const windows = this.platform === 'win32';
     const launch = planLaunch(resolved, args, windows);
-
-    const child = spawn(launch.command, [...launch.args], {
+    return spawn(launch.command, [...launch.args], {
       shell: false,
       windowsHide: true,
       windowsVerbatimArguments: launch.verbatim,
@@ -114,6 +154,107 @@ export class NodeCliProcessRunner implements CliProcessRunner {
       env: this.options.env ? { ...process.env, ...this.options.env } : process.env,
       stdio: [stdin === null ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
+  }
+
+  /**
+   * The `CliLineRunner` port: stdout lines as they arrive (CR stripped, blank lines skipped, a last
+   * line without a newline included). `timeoutMs` is an idle timeout that restarts on each line.
+   * Cancel, timeout, or a consumer that stops early kill the process tree. A non-zero exit ends
+   * with `CliExitError` and the last 8 KB of stderr.
+   */
+  async *runLines(
+    file: string,
+    args: readonly string[],
+    stdin: string | null,
+    timeoutMs: number,
+    cancel: CancelSignal,
+  ): AsyncGenerator<string> {
+    const child = await this.start(file, args, stdin, cancel);
+    const queue: string[] = [];
+    const state = {
+      exitCode: null as number | null,
+      failure: null as Error | null,
+      timedOut: false,
+      stderr: '',
+    };
+    let wake: (() => void) | null = null;
+    const notify = (): void => {
+      const resume = wake;
+      wake = null;
+      resume?.();
+    };
+
+    let timer = setTimeout(() => undefined, 0);
+    const arm = (): void => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        state.timedOut = true;
+        notify();
+      }, timeoutMs);
+    };
+    arm();
+    const unsubscribe = cancel.onCancel(notify);
+
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      state.failure = error.code === 'ENOENT' || error.code === 'ENOTDIR' ? notFound(file) : error;
+      notify();
+    });
+
+    const splitter = new LineSplitter();
+    const take = (lines: readonly string[]): void => {
+      const kept = lines.filter((line) => line.trim() !== '');
+      if (kept.length === 0) return;
+      queue.push(...kept);
+      arm();
+      notify();
+    };
+    child.stdout?.on('data', (chunk: Buffer) => take(splitter.push(chunk)));
+    child.stderr?.on('data', (chunk: Buffer) => {
+      state.stderr = (state.stderr + chunk.toString('utf8')).slice(-STDERR_TAIL);
+    });
+    child.once('close', (code) => {
+      take(splitter.end());
+      state.exitCode = code ?? 1;
+      notify();
+    });
+
+    const delivered = writeAllStdin(child, stdin);
+
+    try {
+      for (;;) {
+        if (cancel.cancelled) throw new CancelledError();
+        if (state.failure !== null) throw state.failure;
+        const line = queue.shift();
+        if (line !== undefined) {
+          yield line;
+          continue;
+        }
+        if (state.exitCode !== null) break;
+        if (state.timedOut) {
+          throw new CliTimeoutError(`'${file}' sent nothing for ${String(timeoutMs)} ms.`);
+        }
+        await new Promise<void>((resolve) => (wake = resolve));
+      }
+      if (state.exitCode !== 0) throw new CliExitError(file, state.exitCode, state.stderr);
+      if (!(await delivered)) throw new Error(`'${file}' exited before reading all of its input.`);
+    } finally {
+      clearTimeout(timer);
+      unsubscribe();
+      if (state.exitCode === null) {
+        await killProcessTree(child.pid);
+        child.kill();
+      }
+    }
+  }
+
+  async run(
+    file: string,
+    args: readonly string[],
+    stdin: string | null,
+    timeoutMs: number,
+    cancel: CancelSignal,
+  ): Promise<CliRunResult> {
+    const child = await this.start(file, args, stdin, cancel);
 
     const spawnFailed = new Promise<never>((_, reject) => {
       child.once('error', (error: NodeJS.ErrnoException) => {
@@ -136,25 +277,16 @@ export class NodeCliProcessRunner implements CliProcessRunner {
         stream.once('close', done);
       });
 
-    // True when every byte was handed to the child; a closed pipe is "not delivered", not an error.
-    const writeStdin = (): Promise<boolean> =>
-      new Promise((resolve) => {
-        const pipe = child.stdin;
-        if (stdin === null || !pipe) {
-          resolve(true);
-          return;
-        }
-        pipe.once('error', () => resolve(false));
-        pipe.once('close', () => resolve(false));
-        // UTF-8 bytes with no BOM (B24), flushed and then closed.
-        pipe.end(Buffer.from(stdin, 'utf8'), (error?: Error | null) => resolve(!error));
-      });
-
     const exited = new Promise<number>((resolve) => {
       child.once('close', (code) => resolve(code ?? 1));
     });
 
-    const work = Promise.all([collect(child.stdout), collect(child.stderr), writeStdin(), exited]);
+    const work = Promise.all([
+      collect(child.stdout),
+      collect(child.stderr),
+      writeAllStdin(child, stdin),
+      exited,
+    ]);
     work.catch(() => undefined);
 
     const state = { timedOut: false };

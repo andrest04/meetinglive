@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
 import { MarkdownView } from '../summaries/MarkdownView';
+import { peekTranscriptReveal } from '../session/transcript-reveal';
 import { classifyChatLink, useChatLinks } from './use-chat-links';
 
 const ID = 'a0000000000040008000000000000000';
@@ -137,5 +138,44 @@ describe('useChatLinks', () => {
     await waitFor(() => {
       expect(calls).toHaveLength(3);
     });
+  });
+});
+
+describe('time citations (T3)', () => {
+  it.each([
+    [
+      `https://meetinglive.local/meeting/${ID}?t=725`,
+      { kind: 'meeting', meetingId: ID, seconds: 725 },
+    ],
+    [`https://meetinglive.local/meeting/${ID}`, { kind: 'meeting', meetingId: ID, seconds: null }],
+    [`https://meetinglive.local/meeting/${ID}?t=-1`, { kind: 'ignored' }],
+    [`https://meetinglive.local/meeting/${ID}?x=1`, { kind: 'ignored' }],
+  ])('%s', (href, expected) => {
+    expect(classifyChatLink(href)).toEqual(expected);
+  });
+
+  it('selects the meeting, asks the transcript to reveal the moment and opens it', async () => {
+    show(`[12:05](https://meetinglive.local/meeting/${ID}?t=725)`);
+    fireEvent.click(screen.getByRole('link', { name: 'Go to 12:05 in the transcript' }));
+    await waitFor(() => {
+      expect(calls.map((c) => c.channel)).toEqual([
+        'chat.meetingExists',
+        'workspace.dispatch',
+        'workspace.dispatch',
+      ]);
+    });
+    expect(calls[1]?.input).toEqual({ action: { type: 'selectMeeting', id: ID } });
+    expect(calls[2]?.input).toEqual({ action: { type: 'openSession', tab: 'Transcript' } });
+    expect(peekTranscriptReveal()).toMatchObject({ meetingId: ID, seconds: 725 });
+  });
+
+  it('a missing meeting asks for no reveal', async () => {
+    existing = null;
+    const report = show(`[0:05](https://meetinglive.local/meeting/${ID}?t=5)`);
+    fireEvent.click(screen.getByRole('link', { name: 'Go to 0:05 in the transcript' }));
+    await waitFor(() => {
+      expect(report).toHaveBeenCalled();
+    });
+    expect(peekTranscriptReveal()?.seconds).not.toBe(5);
   });
 });

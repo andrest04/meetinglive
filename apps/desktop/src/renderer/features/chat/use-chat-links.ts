@@ -1,26 +1,31 @@
-import { sendFailedFailure, tryParseMeetingLink } from '@vozella/core';
+import { hasMeetingPrefix, sendFailedFailure, tryParseMeetingCitation } from '@vozella/core';
 import { useCallback, useRef, type MouseEvent } from 'react';
 import { toCoreT } from './chat-core-t';
 import { useT } from '../../i18n/I18nProvider';
+import { requestTranscriptReveal } from '../session/transcript-reveal';
+import { decodedHref } from '../summaries/markdown';
 
 export type ChatLinkTarget =
-  | { readonly kind: 'meeting'; readonly meetingId: string }
+  | {
+      readonly kind: 'meeting';
+      readonly meetingId: string;
+      /** A moment of its transcript (T3), or null for the meeting itself. */
+      readonly seconds: number | null;
+    }
   | { readonly kind: 'external'; readonly url: string }
   | { readonly kind: 'ignored' };
 
-function decoded(href: string): string {
-  try {
-    return decodeURIComponent(href);
-  } catch {
-    return href;
-  }
-}
-
-/** A citation to a meeting, a web address for the system browser, or anything else (ignored). */
+/**
+ * A citation to a meeting (optionally at a moment), a web address for the system browser, or
+ * anything else (ignored). A broken meeting citation is ignored too: its fake host must never
+ * reach the system browser.
+ */
 export function classifyChatLink(href: string): ChatLinkTarget {
   // The Markdown reader normalizes addresses, so a braced id arrives as %7B...%7D.
-  const meetingId = tryParseMeetingLink(decoded(href));
-  if (meetingId !== null) return { kind: 'meeting', meetingId };
+  const link = decodedHref(href).trim();
+  const citation = tryParseMeetingCitation(link);
+  if (citation !== null) return { kind: 'meeting', ...citation };
+  if (hasMeetingPrefix(link)) return { kind: 'ignored' };
   try {
     const url = new URL(href.trim());
     if (url.protocol === 'http:' || url.protocol === 'https:') {
@@ -34,7 +39,9 @@ export function classifyChatLink(href: string): ChatLinkTarget {
 
 /**
  * Click handler for links inside an answer. The page never navigates by itself: a citation selects
- * the meeting and opens its Summary tab, a web link goes to the system browser, and every failure
+ * the meeting and opens its Summary tab; a time citation (T3) opens its Transcript tab at that
+ * moment instead (the tab highlights the line and plays from there when the meeting has audio).
+ * A web link goes to the system browser, and every failure
  * is reported through `report` (the chat error notice). Works while the answer still streams.
  */
 export function useChatLinks(report: (message: string) => void) {
@@ -59,8 +66,12 @@ export function useChatLinks(report: (message: string) => void) {
           await window.vozella.invoke('workspace.dispatch', {
             action: { type: 'selectMeeting', id: found.meetingId },
           });
+          if (target.seconds !== null) requestTranscriptReveal(found.meetingId, target.seconds);
           await window.vozella.invoke('workspace.dispatch', {
-            action: { type: 'openSession', tab: 'Summary' },
+            action: {
+              type: 'openSession',
+              tab: target.seconds === null ? 'Summary' : 'Transcript',
+            },
           });
           return;
         }

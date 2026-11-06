@@ -49,11 +49,23 @@ export interface CliInvocationOptions {
   readonly webSearch?: boolean;
 }
 
-/** `claude -p [--model m] [--effort e] [--tools WebSearch --allowedTools WebSearch]`. */
+/**
+ * Skips the user's own Claude Code hooks, MCP servers and slash commands. Vozella needs none of
+ * them, and they dominate start-up: measured 19.2 s to the first token with them, 4.4 s without.
+ * Sign-in is unaffected (unlike `--bare`, which never reads OAuth).
+ */
+export const CLAUDE_LEAN_FLAGS = [
+  '--setting-sources',
+  '',
+  '--strict-mcp-config',
+  '--disable-slash-commands',
+] as const;
+
+/** `claude -p <lean flags> [--model m] [--effort e] [--tools WebSearch --allowedTools WebSearch]`. */
 export function claudePrintArgs(options: CliInvocationOptions = {}): string[] {
   const model = validateCliOption('model', options.model, CLAUDE_MODELS);
   const effort = validateCliOption('effort', options.effort, CLAUDE_EFFORTS);
-  const args = ['-p'];
+  const args: string[] = ['-p', ...CLAUDE_LEAN_FLAGS];
   if (model !== null) args.push('--model', model);
   if (effort !== null) args.push('--effort', effort);
   if (options.webSearch === true) args.push('--tools', 'WebSearch', '--allowedTools', 'WebSearch');
@@ -70,6 +82,27 @@ export function codexExecArgs(options: CliInvocationOptions = {}): string[] {
   if (model !== null) args.push('-m', model);
   if (effort !== null) args.push('-c', `model_reasoning_effort="${effort}"`);
   return args;
+}
+
+/** Appended to `claudePrintArgs` for chat streaming: one JSON event per line, with text deltas. */
+export const CLAUDE_STREAM_FLAGS = [
+  '--output-format',
+  'stream-json',
+  '--verbose',
+  '--include-partial-messages',
+] as const;
+
+/** Appended to `codexExecArgs` for chat streaming: `exec --json` prints JSONL events. */
+export const CODEX_STREAM_FLAGS = ['--json'] as const;
+
+/** `claudePrintArgs` plus the stream-json flags. */
+export function claudeStreamArgs(options: CliInvocationOptions = {}): string[] {
+  return [...claudePrintArgs(options), ...CLAUDE_STREAM_FLAGS];
+}
+
+/** `codexExecArgs` plus `--json` (an `exec` option, so it goes after `exec`). */
+export function codexStreamArgs(options: CliInvocationOptions = {}): string[] {
+  return [...codexExecArgs(options), ...CODEX_STREAM_FLAGS];
 }
 
 /** The WinUI quoting: double quotes only when the value has a space, no escaping. */

@@ -57,7 +57,6 @@ describe('built-in recipe catalog', () => {
     ]);
     for (const r of all.slice(5, 9)) {
       expect(r.prompt).toMatch(/^[ -~]+$/);
-      expect(r.prompt).toContain('Answer in the language of the recording.');
     }
     expect(all.every((r) => isBuiltInRecipe(r.id))).toBe(true);
     expect(isBuiltInRecipe('nope')).toBe(false);

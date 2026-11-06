@@ -227,6 +227,21 @@ describe('LocalLlmSummaryProvider requests', () => {
     expect((streamError as SummaryError).code).toBe('LocalEmpty');
   });
 
+  it('T2: a streamed (chat) prompt reuses the prompt cache; summaries do not', async () => {
+    const { provider, created } = setup();
+    const chunks: string[] = [];
+    for await (const chunk of provider.streamPrompt('Question', NEVER)) chunks.push(chunk);
+    expect(chunks.length).toBeGreaterThan(0);
+    await provider.summarize(
+      { transcript: 'hola', title: 'T', recordedAt, outputLanguage: 'es' },
+      NEVER,
+    );
+    const bodies = (await infoOf(created[0]!)).bodies.chat;
+    expect(bodies[0]).toMatchObject({ cache_prompt: true });
+    expect(bodies.slice(1).length).toBeGreaterThan(0);
+    for (const body of bodies.slice(1)) expect(body).toMatchObject({ cache_prompt: false });
+  });
+
   it('streams deltas as they arrive and they add up to the full text', async () => {
     const { provider } = setup(['--fake-reply-tokens', '5']);
     const chunks: string[] = [];

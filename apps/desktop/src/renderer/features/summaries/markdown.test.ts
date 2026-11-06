@@ -106,3 +106,30 @@ describe('parseBlocks tables and unfinished syntax', () => {
     expect(parseInline('[f](file:///c:/x)')).toEqual([{ type: 'text', text: 'f' }]);
   });
 });
+
+describe('safeHref meeting citations (T3)', () => {
+  const ID = '0123456789abcdef0123456789abcdef';
+  it('keeps a meeting citation with or without a valid moment', () => {
+    expect(safeHref(`https://meetinglive.local/meeting/${ID}`)).toBe(
+      `https://meetinglive.local/meeting/${ID}`,
+    );
+    expect(safeHref(`https://meetinglive.local/meeting/${ID}?t=725`)).toBe(
+      `https://meetinglive.local/meeting/${ID}?t=725`,
+    );
+  });
+
+  it.each([
+    'https://meetinglive.local/meeting/not-a-guid?t=5',
+    `https://meetinglive.local/meeting/${ID}?t=-3`,
+    `https://meetinglive.local/meeting/${ID}?t=999999`,
+    `https://meetinglive.local/meeting/${ID}?t=abc`,
+    `https://meetinglive.local/meeting/${ID}?x=1`,
+  ])('drops a broken meeting citation %s (its label stays as text)', (href) => {
+    expect(safeHref(href)).toBeNull();
+    expect(parseInline(`[12:05](${href})`)).toEqual([{ type: 'text', text: '12:05' }]);
+  });
+
+  it('other schemes stay rejected', () => {
+    expect(safeHref(`meeting://${ID}?t=5`)).toBeNull();
+  });
+});

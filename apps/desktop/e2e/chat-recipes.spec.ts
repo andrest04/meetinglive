@@ -74,7 +74,7 @@ const openMeeting = async (page: Page): Promise<void> => {
   await expect(page.getByTestId('LblMeetingChatScope')).toHaveText('Meeting: Weekly planning');
 };
 
-test('a meeting scope lists five recipes, a folder scope lists three', async () => {
+test('a meeting scope lists nine recipes, a folder scope lists three', async () => {
   const { launched, page } = await open();
   try {
     await openMeeting(page);
@@ -84,7 +84,8 @@ test('a meeting scope lists five recipes, a folder scope lists three', async () 
     await button.click();
     await expect(button).toHaveAttribute('aria-expanded', 'true');
     const options = page.getByTestId('ListMeetingChatRecipes').getByRole('option');
-    await expect(options).toHaveCount(5);
+    // Five meeting recipes plus four content recipes (key ideas, explain, quotes, review).
+    await expect(options).toHaveCount(9);
     await shot(page, 'chat-recipes-flyout-light');
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('ListMeetingChatRecipes')).toHaveCount(0);
@@ -100,14 +101,15 @@ test('a meeting scope lists five recipes, a folder scope lists three', async () 
   }
 });
 
-test('typing /ac filters, a click fills the draft without sending', async () => {
+test('typing /action filters, a click fills the draft without sending', async () => {
   const { launched, page } = await open();
   try {
     await openMeeting(page);
     await openPanel(page);
     const field = page.getByTestId('TxtMeetingChat');
     await field.click();
-    await field.pressSequentially('/ac');
+    // "/ac" also hits "each" in the content recipes' prompts; "/action" names one recipe.
+    await field.pressSequentially('/action');
     const options = page.getByTestId('ListMeetingChatRecipes').getByRole('option');
     await expect(options).toHaveCount(1);
     await expect(field).toBeFocused();

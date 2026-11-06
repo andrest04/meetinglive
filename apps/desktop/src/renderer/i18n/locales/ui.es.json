@@ -126,6 +126,7 @@
   "Ui_TranscriptionEngineUnavailable": "El motor de transcripción no está listo, así que el audio se guardó sin transcripción. Instala el motor en Ajustes y vuelve a transcribir la reunión.",
   "Ui_RetranscriptionEngineNotInstalled": "El motor de transcripción no está instalado. Instálalo en Ajustes y vuelve a intentarlo.",
   "Ui_ChatStop": "Detener",
+  "Ui_ChatCitationGoToTime": "Ir a {0} en la transcripción",
   "Ui_SessionPageOpenLocationFailedText": "No se pudo abrir la ubicación del archivo.",
   "Ui_SessionPageLoadFailedText": "No se pudo abrir esta reunión.",
   "Ui_SessionPageRetryContent": "Reintentar",

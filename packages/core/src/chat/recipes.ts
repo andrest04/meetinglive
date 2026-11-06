@@ -61,28 +61,28 @@ const CATALOG: readonly Entry[] = [
     nameKey: 'Ui_RecipeKeyIdeasName',
     availability: 'single',
     prompt:
-      'List the main ideas of this recording in order. For each one, give its time range and one or two sentences. Use only what is in the recording. Answer in the language of the recording.',
+      'List the main ideas of this recording in order. For each one, give its time range and one or two sentences. Use only what is in the recording.',
   },
   {
     id: `${ID_BASE}107`,
     nameKey: 'Ui_RecipeExplainName',
     availability: 'single',
     prompt:
-      'Find the hardest concepts in this recording and explain each one simply, with a concrete example. Stay faithful to what was said and mark any example of your own. Answer in the language of the recording.',
+      'Find the hardest concepts in this recording and explain each one simply, with a concrete example. Stay faithful to what was said and mark any example of your own.',
   },
   {
     id: `${ID_BASE}108`,
     nameKey: 'Ui_RecipeQuotesName',
     availability: 'single',
     prompt:
-      'Quote the most notable lines of this recording word for word, each with its timestamp and the speaker when known. Do not paraphrase or invent quotes. Answer in the language of the recording.',
+      'Quote the most notable lines of this recording word for word, each with its timestamp and the speaker when known. Do not paraphrase or invent quotes.',
   },
   {
     id: `${ID_BASE}109`,
     nameKey: 'Ui_RecipeStudyName',
     availability: 'single',
     prompt:
-      'Write 5 review questions about this recording, each followed by its answer taken from the content. Answer in the language of the recording.',
+      'Write 5 review questions about this recording, each followed by its answer taken from the content.',
   },
   {
     id: `${ID_BASE}201`,

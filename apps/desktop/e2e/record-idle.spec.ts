@@ -12,7 +12,7 @@ import {
 } from './launch';
 
 // The idle Record page in the real window on the fake native build: the action row against the
-// scroll container and the chat bar, keyboard focus around it, axe in both themes. Screenshots go
+// scroll container and the floating AI launcher, keyboard focus around it, axe in both themes. Screenshots go
 // to VOZELLA_RECORD_SHOTS_DIR when it is set, so a normal run writes nothing.
 
 const shotsDir = process.env.VOZELLA_RECORD_SHOTS_DIR;
@@ -68,26 +68,45 @@ async function serious(): Promise<{ id: string; impact: string | null }[]> {
   });
 }
 
-/** Where the row sits against the scroll container, and what the window draws under it. */
+/** Where the row sits against the scroll container and the bottom of the window. */
 function rowGeometry(): Promise<{
   rowTop: number;
   rowBottom: number;
   mainBottom: number;
-  barTop: number;
+  windowBottom: number;
   scrollable: boolean;
 }> {
   return page.evaluate(() => {
     const main = document.getElementById('content');
     const row = document.querySelector('[data-testid="record-actions"]');
-    const bar = main?.nextElementSibling;
-    if (!main || !row || !bar) throw new Error('expected the scroll container, row and chat bar');
+    if (!main || !row) throw new Error('expected the scroll container and the row');
     return {
       rowTop: row.getBoundingClientRect().top,
       rowBottom: row.getBoundingClientRect().bottom,
       mainBottom: main.getBoundingClientRect().bottom,
-      barTop: bar.getBoundingClientRect().top,
+      windowBottom: window.innerHeight,
       scrollable: main.scrollHeight > main.clientHeight,
     };
+  });
+}
+
+/**
+ * The row's buttons and links that the floating AI launcher overlaps. The launcher sits at the
+ * bottom right while the panel is closed and must never cover something the row asks you to press.
+ */
+function controlsUnderLauncher(): Promise<string[]> {
+  return page.evaluate(() => {
+    const launcher = document.querySelector('[data-testid="BtnAiPanelOpen"]');
+    const row = document.querySelector('[data-testid="record-actions"]');
+    if (!launcher || !row) throw new Error('expected the launcher and the row');
+    const l = launcher.getBoundingClientRect();
+    return [...row.querySelectorAll('button, a[href], input, [role="button"]')]
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return false;
+        return r.left < l.right && r.right > l.left && r.top < l.bottom && r.bottom > l.top;
+      })
+      .map((el) => el.getAttribute('data-testid') ?? el.textContent?.trim() ?? el.tagName);
   });
 }
 
@@ -116,9 +135,11 @@ test('setup missing: the action is in view at 1196x768 and the page passes axe',
   for (const theme of ['light', 'dark'] as const) {
     await setTheme(theme);
     await expect(page.getByTestId('BtnSetUpToRecord')).toBeInViewport({ ratio: 1 });
-    const { rowBottom, mainBottom, barTop } = await rowGeometry();
+    const { rowBottom, mainBottom, windowBottom } = await rowGeometry();
     expect(rowBottom).toBeLessThanOrEqual(mainBottom + 0.5);
-    expect(rowBottom).toBeLessThanOrEqual(barTop + 0.5);
+    expect(mainBottom).toBeLessThanOrEqual(windowBottom + 0.5);
+    await expect(page.getByTestId('BtnAiPanelOpen')).toBeVisible();
+    expect(await controlsUnderLauncher()).toEqual([]);
     expect(await serious()).toEqual([]);
     await shot(`setup-1196x768-${theme}.png`);
   }
@@ -144,13 +165,15 @@ test('the title has one h1 behind it and takes a long value without overflowing'
   await title.blur();
 });
 
-test('in a short window the row meets the chat bar, with nothing showing under it', async () => {
+test('in a short window the row meets the bottom of the window, clear of the AI launcher', async () => {
   await resize(1196, 480);
   await scrollMainTo(0);
-  const { scrollable, rowBottom, mainBottom, barTop } = await rowGeometry();
+  const { scrollable, rowBottom, mainBottom, windowBottom } = await rowGeometry();
   expect(scrollable).toBe(true);
   expect(Math.abs(rowBottom - mainBottom)).toBeLessThanOrEqual(0.5);
-  expect(rowBottom).toBeLessThanOrEqual(barTop + 0.5);
+  // No docked bar below the content any more: the content column runs to the window's bottom.
+  expect(Math.abs(mainBottom - windowBottom)).toBeLessThanOrEqual(0.5);
+  expect(await controlsUnderLauncher()).toEqual([]);
   // The hit test under the row's last pixel row lands on the row, not on the page behind it.
   const hit = await page.evaluate(() => {
     const row = document.querySelector('[data-testid="record-actions"]');
@@ -163,8 +186,9 @@ test('in a short window the row meets the chat bar, with nothing showing under i
 });
 
 test('keyboard focus is never left behind the row', async () => {
-  // Short enough that the radio below the microphone starts out under the row.
-  await resize(1196, 340);
+  // Short enough that the radio below the microphone starts out under the row. Without the docked
+  // chat bar the content column is taller, so the window has to be shorter than it used to be.
+  await resize(1196, 300);
   await scrollMainTo(0);
   await page.getByRole('textbox', { name: 'Title' }).focus();
   const before = await page.evaluate(
@@ -235,6 +259,7 @@ test('a narrow window keeps the row and does not overflow', async () => {
     await setTheme(theme);
     await expect(page.getByTestId('BtnRecord')).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(800);
+    expect(await controlsUnderLauncher()).toEqual([]);
     await shot(`ready-800x768-${theme}.png`);
   }
 });

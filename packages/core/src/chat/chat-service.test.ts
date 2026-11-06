@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CliToolError } from '../summaries/cli-failure';
 import { SummaryError } from '../summaries/cli-failure-messages';
-import { createChatRig, guid, meetingFixture, scopeOf } from './chat-test-kit';
+import type { LogContext, Logger } from '../logging';
+import { promptOutputCap } from '../summaries/local-prompt-budget';
+import { ChatService } from './chat-service';
+import { createChatRig, guid, meetingFixture, scopeOf, testTranslate } from './chat-test-kit';
 
 const MEETING = guid(7);
 
@@ -144,7 +147,7 @@ describe('B5 snapshot', () => {
     expect(rig.provider.prompts[0]).toContain('The live transcript is empty.');
   });
 
-  it('passes no output language to the prompt or the provider call (S8)', async () => {
+  it('passes no output language option to the provider call (S8)', async () => {
     const rig = rigWithMeeting();
     const args: unknown[][] = [];
     const original = rig.provider.streamPrompt.bind(rig.provider);
@@ -154,7 +157,7 @@ describe('B5 snapshot', () => {
     };
     await rig.service.send('When?', meetingScope, null);
     expect(args[0]).toHaveLength(2);
-    expect(rig.provider.prompts[0]).not.toMatch(/language/i);
+    expect(rig.provider.prompts[0]).toContain("Answer in the language of the user's message.");
   });
 
   it('keeps the scope of the send even if the scope changes while it runs', async () => {
@@ -373,5 +376,156 @@ describe('new chat and scope (B1, B24, parity 18)', () => {
     const before = calls;
     rig.service.newChat();
     expect(calls).toBe(before);
+  });
+});
+
+describe('ChatService stream timing', () => {
+  class RecordingLogger implements Logger {
+    readonly entries: { level: string; message: string; context?: LogContext }[] = [];
+    debug(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'debug', message, context });
+    }
+    info(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'info', message, context });
+    }
+    warn(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'warn', message, context });
+    }
+    error(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'error', message, context });
+    }
+  }
+
+  function rigWithLogger() {
+    const rig = rigWithMeeting();
+    const logger = new RecordingLogger();
+    const service = new ChatService({
+      meetings: rig.reader,
+      providers: rig.source,
+      clock: rig.clock,
+      translate: testTranslate as never,
+      newId: () => 'id',
+      logger,
+    });
+    return { rig, service, logger };
+  }
+
+  it('logs the time to the first chunk and the total, with the chunk count', async () => {
+    const { rig, service, logger } = rigWithLogger();
+    rig.provider.chunks = ['Friday', ' it', ' is.'];
+    rig.provider.beforeChunk = (index) => {
+      rig.clock.advance(index === 0 ? 1200 : 100);
+      return undefined;
+    };
+    expect((await service.send('When?', meetingScope, null)).status).toBe('sent');
+    expect(logger.entries).toEqual([
+      {
+        level: 'info',
+        message: 'chat answer streamed',
+        context: { firstChunkMs: 1200, totalMs: 1400, chunks: 3, chars: 13 },
+      },
+    ]);
+  });
+
+  it('logs no first chunk time when nothing arrived, and works without a logger', async () => {
+    const { rig, service, logger } = rigWithLogger();
+    rig.provider.chunks = [];
+    await service.send('When?', meetingScope, null);
+    expect(logger.entries[0]?.context).toMatchObject({ firstChunkMs: null, chunks: 0 });
+    const plain = rigWithMeeting();
+    expect((await plain.service.send('When?', meetingScope, null)).status).toBe('sent');
+  });
+});
+
+describe('engine-aware context and answer language (T2)', () => {
+  const stampOf = (ms: number): string => {
+    const s = Math.floor(ms / 1000);
+    const p = (v: number) => String(v).padStart(2, '0');
+    return `${p(Math.floor(s / 60))}:${p(s % 60)}.00`;
+  };
+  /** 38 minutes; only minute 10 talks about the budget. */
+  const talk = (): string => {
+    const lines: string[] = [];
+    for (let ms = 0; ms < 38 * 60_000; ms += 5000) {
+      const text =
+        Math.floor(ms / 60_000) === 10
+          ? 'el presupuesto de la campaña sube a cuarenta mil'
+          : 'we keep going with the next point of the agenda today';
+      lines.push(`[${stampOf(ms)}-${stampOf(ms + 4000)}] [ Speaker-1 ] ${text}`);
+    }
+    return lines.join('\n');
+  };
+
+  function rigWith(uiLanguage?: () => string) {
+    const rig = createChatRig();
+    rig.reader.meetings = [meetingFixture(7, { transcript: talk() })];
+    rig.provider.chunks = ['ok'];
+    const service = new ChatService({
+      meetings: rig.reader,
+      providers: rig.source,
+      clock: rig.clock,
+      translate: testTranslate as never,
+      newId: () => 'id',
+      ...(uiLanguage ? { uiLanguage } : {}),
+    });
+    return { rig, service };
+  }
+
+  it('a CLI engine gets the whole transcript, head included', async () => {
+    const { rig, service } = rigWith();
+    rig.provider.id = 'claude-code';
+    await service.send('¿Y el presupuesto?', meetingScope, null);
+    expect(rig.provider.prompts[0]).toContain(`Transcript:\n${talk()}`);
+  });
+
+  it('the local engine gets excerpts ranked by the question, within its budget', async () => {
+    const { rig, service } = rigWith();
+    rig.provider.id = 'local';
+    await service.send('¿Qué dijeron del presupuesto de la campaña?', meetingScope, null);
+    const prompt = rig.provider.prompts[0] ?? '';
+    expect(prompt).toContain('Transcript excerpts');
+    expect(prompt).toContain('sube a cuarenta mil');
+    expect(prompt).not.toContain('[00:00.00-00:04.00]');
+  });
+
+  it('local: a first question on a 38-minute meeting leaves room for the answer', async () => {
+    const { rig, service } = rigWith(() => 'es');
+    rig.provider.id = 'local';
+    await service.send('¿Qué dijeron del presupuesto de la campaña?', meetingScope, null);
+    // Pessimistic count for stamped Spanish text: 2.5 chars per token.
+    const counter = { count: (text: string) => Promise.resolve(Math.ceil(text.length / 2.5)) };
+    expect(await promptOutputCap(counter, rig.provider.prompts[0] ?? '')).toBeGreaterThan(900);
+  });
+
+  it('uses the user message and the last user turn as the retrieval query', async () => {
+    const { rig, service } = rigWith();
+    rig.provider.id = 'local';
+    await service.send('Hablemos del presupuesto de la campaña', meetingScope, null);
+    await service.send('¿y cuánto?', meetingScope, null);
+    expect(rig.provider.prompts[1]).toContain('sube a cuarenta mil');
+  });
+
+  it('names the UI language as the fallback answer language, read at send time', async () => {
+    let tag = 'es';
+    const { rig, service } = rigWith(() => tag);
+    await service.send('ok', meetingScope, null);
+    tag = 'en-US';
+    await service.send('ok', meetingScope, null);
+    expect(rig.provider.prompts[0]).toContain('Answer in Spanish (the app language)');
+    expect(rig.provider.prompts[1]).toContain('Answer in English (the app language)');
+  });
+});
+
+describe('engine-aware prior turns in the service (T3)', () => {
+  it('the local engine sends only the last 4 prior turns, each cut to 600 chars', async () => {
+    const rig = rigWithMeeting();
+    rig.provider.id = 'local';
+    rig.provider.chunks = ['z'.repeat(900)];
+    for (const q of ['q1', 'q2', 'q3', 'q4']) await rig.service.send(q, meetingScope, null);
+    const prompt = rig.provider.prompts[3] ?? '';
+    expect(prompt).not.toContain('user: q1\n');
+    expect(prompt).toContain('user: q2\n');
+    expect(prompt).toContain('user: q3\n');
+    expect(prompt).not.toContain('z'.repeat(601));
   });
 });

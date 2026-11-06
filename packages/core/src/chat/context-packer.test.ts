@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { packContext, type ContextFolder, type ContextMeeting } from './context-packer';
+import {
+  CLI_CONTEXT_BUDGET,
+  contextBudgetFor,
+  LOCAL_CONTEXT_BUDGET,
+  packContext,
+  TRANSCRIPT_EXCERPTS_LABEL,
+  type ContextFolder,
+  type ContextMeeting,
+} from './context-packer';
 
 const EN: Record<string, string> = {
   ChatLiveTranscriptEmpty: 'The live transcript is empty.',
@@ -154,14 +162,13 @@ describe('ChatContextPackerTests', () => {
     expect(withFolder).toContain(`Id: ${hex(guid(2))}`);
   });
 
-  it('Pack_MeetingScope_IncludesTranscriptTailNotHead', () => {
+  it('Pack_MeetingScope_TooLongForLocal_KeepsTheTailAsExcerpts', () => {
     const transcript = 'HEAD' + 'a'.repeat(7000) + 'TAIL';
     const out = pack('Meeting', null, guid(1), null, [meeting(1, { transcript })]);
-    expect(out).toContain('Transcript:\n');
+    expect(out).toContain(TRANSCRIPT_EXCERPTS_LABEL);
     expect(out.endsWith('TAIL')).toBe(true);
     expect(out).not.toContain('HEAD');
-    expect(out).toContain('a'.repeat(5996) + 'TAIL');
-    expect(out).not.toContain('a'.repeat(5997) + 'TAIL');
+    expect(out.length).toBeLessThanOrEqual(LOCAL_CONTEXT_BUDGET.meetingChars);
   });
 
   it('Pack_MeetingScope_IncludesMeetingIdForCitations', () => {
@@ -339,5 +346,94 @@ describe('ChatContextPackerTests', () => {
     );
     expect(folderOut).toContain(`Summary: ${'a'.repeat(799)}\n`);
     expect(folderOut).not.toMatch(lone);
+  });
+});
+
+const stampOf = (ms: number): string => {
+  const s = Math.floor(ms / 1000);
+  const p = (v: number) => String(v).padStart(2, '0');
+  return `${p(Math.floor(s / 60))}:${p(s % 60)}.00`;
+};
+
+/** 38 minutes, one stamped line every 5 s; minute 10 is about the campaign budget. */
+function talk(): string {
+  const lines: string[] = [];
+  for (let ms = 0; ms < 38 * 60_000; ms += 5000) {
+    const text =
+      Math.floor(ms / 60_000) === 10
+        ? 'el presupuesto de la campaña sube a cuarenta mil'
+        : 'we keep going with the next point of the agenda today';
+    lines.push(`[${stampOf(ms)}-${stampOf(ms + 4000)}] [ Speaker-1 ] ${text}`);
+  }
+  return lines.join('\n');
+}
+
+describe('engine-aware budgets (T2)', () => {
+  it('maps CLI engines to the large budget and local or unknown to the small one', () => {
+    expect(contextBudgetFor('claude-code')).toBe(CLI_CONTEXT_BUDGET);
+    expect(contextBudgetFor('codex')).toBe(CLI_CONTEXT_BUDGET);
+    expect(contextBudgetFor('local')).toBe(LOCAL_CONTEXT_BUDGET);
+    expect(contextBudgetFor(undefined)).toBe(LOCAL_CONTEXT_BUDGET);
+  });
+
+  it('CLI: a 38-minute transcript goes in whole, head included', () => {
+    const transcript = talk();
+    expect(transcript.length).toBeGreaterThan(30_000);
+    const out = packContext('Meeting', null, guid(1), null, [meeting(1, { transcript })], [], t, {
+      budget: CLI_CONTEXT_BUDGET,
+    });
+    expect(out).toContain(`Transcript:\n${transcript}`);
+    expect(out).not.toContain(TRANSCRIPT_EXCERPTS_LABEL);
+  });
+
+  it('CLI: a transcript over the cap becomes excerpts within the budget', () => {
+    const transcript = `${talk()}\n${talk()}\n${talk()}\n${talk()}`;
+    expect(transcript.length).toBeGreaterThan(CLI_CONTEXT_BUDGET.meetingChars);
+    const out = packContext('Meeting', null, guid(1), null, [meeting(1, { transcript })], [], t, {
+      budget: CLI_CONTEXT_BUDGET,
+      query: 'presupuesto campaña',
+    });
+    expect(out).toContain(TRANSCRIPT_EXCERPTS_LABEL);
+    expect(out.length).toBeLessThanOrEqual(CLI_CONTEXT_BUDGET.meetingChars);
+  });
+
+  it('local: summary, notes, the matching excerpt and the tail stay within ~6000 chars', () => {
+    const out = packContext(
+      'Meeting',
+      null,
+      guid(1),
+      null,
+      [meeting(1, { transcript: talk(), summary: 'S'.repeat(5000), notes: 'N'.repeat(5000) })],
+      [],
+      t,
+      { budget: LOCAL_CONTEXT_BUDGET, query: '¿Qué pasa con el presupuesto de la campana?' },
+    );
+    expect(out.length).toBeLessThanOrEqual(LOCAL_CONTEXT_BUDGET.meetingChars);
+    expect(out).toContain('el presupuesto de la campaña');
+    expect(out).toContain(TRANSCRIPT_EXCERPTS_LABEL);
+    expect(out.endsWith('today')).toBe(true);
+  });
+
+  it('Live: CLI keeps the last 20k chars, local the last 2500', () => {
+    const live = 'x'.repeat(30_000) + 'END';
+    const cli = packContext('Live', null, null, live, [], [], t, { budget: CLI_CONTEXT_BUDGET });
+    expect(cli.length).toBe('Live transcript:\n'.length + CLI_CONTEXT_BUDGET.liveChars);
+    const local = packContext('Live', null, null, live, [], [], t, {
+      budget: LOCAL_CONTEXT_BUDGET,
+    });
+    expect(local.length).toBe('Live transcript:\n'.length + 2500);
+  });
+
+  it('Folder: CLI raises the summary cap to 2000, still 12 meetings', () => {
+    const f = folder(1);
+    const meetings = Array.from({ length: 14 }, (_, i) =>
+      meeting(i + 1, { folderId: f.id, summary: 'S'.repeat(3000) }),
+    );
+    const out = packContext('Folder', f.id, null, null, meetings, [f], t, {
+      budget: CLI_CONTEXT_BUDGET,
+    });
+    expect(out).toContain(`Summary: ${'S'.repeat(2000)}\n`);
+    expect(out).not.toContain('S'.repeat(2001));
+    expect(out.match(/^Id: /gm)).toHaveLength(12);
   });
 });

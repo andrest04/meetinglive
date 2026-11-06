@@ -126,6 +126,7 @@
   "Ui_TranscriptionEngineUnavailable": "The transcription engine is not ready, so the audio was kept without a transcript. Install the engine in Settings, then retranscribe the meeting.",
   "Ui_RetranscriptionEngineNotInstalled": "The transcription engine is not installed. Install it in Settings, then try again.",
   "Ui_ChatStop": "Stop",
+  "Ui_ChatCitationGoToTime": "Go to {0} in the transcript",
   "Ui_SessionPageOpenLocationFailedText": "Could not open the file location.",
   "Ui_SessionPageLoadFailedText": "This meeting could not be opened.",
   "Ui_SessionPageRetryContent": "Try again",

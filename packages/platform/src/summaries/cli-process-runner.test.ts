@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   CancelSource,
+  CliExitError,
   CliToolError,
   CliTimeoutError,
   isCancellation,
@@ -201,6 +202,106 @@ describe('run (items 58, 65 to 69)', () => {
       .run(...exe('silent-ok'), null, 5000, source.signal)
       .catch((e: unknown) => e);
     expect(isCancellation(error)).toBe(true);
+  });
+});
+
+async function readLines(
+  stream: AsyncIterable<string>,
+  onLine?: (line: string, at: number) => void,
+): Promise<string[]> {
+  const lines: string[] = [];
+  for await (const line of stream) {
+    onLine?.(line, Date.now());
+    lines.push(line);
+  }
+  return lines;
+}
+
+describe('runLines (chat streaming)', () => {
+  it('yields stdout lines as they arrive, prompt on stdin, CR and blank lines dropped', async () => {
+    const [file, args] = exe('lines');
+    const times: number[] = [];
+    const lines = await readLines(runner.runLines(file, args, 'Reunión', 10_000, never), (_, at) =>
+      times.push(at),
+    );
+    expect(lines).toEqual(['first Reunión', 'second', 'third ✓', 'tail-no-newline']);
+    // Spread over time, not all at exit.
+    expect((times.at(-1) ?? 0) - (times[0] ?? 0)).toBeGreaterThanOrEqual(50);
+  });
+
+  it('ends with CliExitError carrying the stderr tail on a non-zero exit', async () => {
+    const [file, args] = exe('lines-fail', 'Error: not logged in');
+    const seen: string[] = [];
+    const error = await readLines(runner.runLines(file, args, null, 10_000, never), (line) =>
+      seen.push(line),
+    ).catch((e: unknown) => e);
+    expect(seen).toEqual(['partial']);
+    expect(error).toBeInstanceOf(CliExitError);
+    expect((error as CliExitError).exitCode).toBe(4);
+    expect((error as CliExitError).stderr.endsWith('Error: not logged in')).toBe(true);
+    expect((error as CliExitError).stderr.length).toBeLessThanOrEqual(8192);
+  });
+
+  it('times out after the idle time and kills the process', async () => {
+    const pidFile = path.join(fake.binDir, '..', 'lines-timeout.pid');
+    const seen: string[] = [];
+    const error = await readLines(
+      runner.runLines('fakeexe', [fake.script, 'lines-hang', pidFile], null, 1500, never),
+      (line) => seen.push(line),
+    ).catch((e: unknown) => e);
+    expect(seen).toEqual(['hello']);
+    expect(error).toBeInstanceOf(CliTimeoutError);
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    await waitFor(() => (alive(pid) ? undefined : true));
+    expect(alive(pid)).toBe(false);
+  });
+
+  it('cancel after the first line kills the process and rethrows the cancellation', async () => {
+    const pidFile = path.join(fake.binDir, '..', 'lines-cancel.pid');
+    const source = new CancelSource();
+    const error = await readLines(
+      runner.runLines('fakeexe', [fake.script, 'lines-hang', pidFile], null, 60_000, source.signal),
+      () => source.cancel(),
+    ).catch((e: unknown) => e);
+    expect(isCancellation(error)).toBe(true);
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    await waitFor(() => (alive(pid) ? undefined : true));
+    expect(alive(pid)).toBe(false);
+  });
+
+  it('a consumer that stops early kills the process', async () => {
+    const pidFile = path.join(fake.binDir, '..', 'lines-break.pid');
+    for await (const line of runner.runLines(
+      'fakeexe',
+      [fake.script, 'lines-hang', pidFile],
+      null,
+      60_000,
+      never,
+    )) {
+      expect(line).toBe('hello');
+      break;
+    }
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+    await waitFor(() => (alive(pid) ? undefined : true));
+    expect(alive(pid)).toBe(false);
+  });
+
+  it('reports a missing executable as ENOENT and never starts when already cancelled', async () => {
+    const missing = await readLines(runner.runLines('no-such-cli', [], null, 5000, never)).catch(
+      (e: unknown) => e,
+    );
+    expect((missing as { code?: string }).code).toBe('ENOENT');
+    const source = new CancelSource();
+    source.cancel();
+    const error = await readLines(
+      runner.runLines(...exe('silent-ok'), null, 5000, source.signal),
+    ).catch((e: unknown) => e);
+    expect(isCancellation(error)).toBe(true);
+  });
+
+  it.runIf(windows)('streams through a .cmd shim', async () => {
+    const lines = await readLines(runner.runLines('fakecmd', ['lines'], 'x', 15_000, never));
+    expect(lines[0]).toBe('first x');
   });
 });
 
