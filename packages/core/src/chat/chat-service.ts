@@ -186,6 +186,7 @@ export class ChatService {
   private sending = false;
   private pending: PendingTurn | null = null;
   private cancelSource: CancelSource | null = null;
+  private localStreaming = false;
   private readonly refreshGuard = new ScopeRefreshGuard();
   private readonly listeners = new Set<() => void>();
 
@@ -236,6 +237,14 @@ export class ChatService {
     this.conversation = null;
     this.notify();
     return true;
+  }
+
+  /**
+   * True while the local engine streams a chat answer. The rolling digest skips its update then,
+   * so it never competes with the answer for the same model.
+   */
+  get localAnswerInFlight(): boolean {
+    return this.localStreaming;
   }
 
   /** The stop button (B19). Does nothing when no send is running. */
@@ -339,6 +348,7 @@ export class ChatService {
         },
       );
 
+      this.localStreaming = !cli;
       const answer = await this.stream(
         provider,
         prompt,
@@ -373,6 +383,7 @@ export class ChatService {
       return fail(sendFailedFailure(error, t));
     } finally {
       // The image copies live for one send only.
+      this.localStreaming = false;
       await staged?.release();
       this.sending = false;
       this.pending = null;

@@ -202,6 +202,7 @@ export interface CliProcessRunner {
     stdin: string | null,
     timeoutMs: number,
     cancel: CancelSignal,
+    options?: { readonly cwd?: string },
   ): Promise<CliRunResult>;
 }
 
@@ -217,12 +218,16 @@ export async function runRequiredStdout(
   timeoutMs: number,
   displayName: string,
   cancel: CancelSignal,
+  options?: { readonly cwd?: string },
 ): Promise<string> {
   throwIfCancelled(cancel);
   if (!(await runner.isOnPath(executable))) throw new CliToolError(displayName, 'NotInstalled');
   let result: CliRunResult;
   try {
-    result = await runner.run(executable, args, stdin, timeoutMs, cancel);
+    result =
+      options === undefined
+        ? await runner.run(executable, args, stdin, timeoutMs, cancel)
+        : await runner.run(executable, args, stdin, timeoutMs, cancel, options);
   } catch (error) {
     throw wrapCliError(displayName, error);
   }

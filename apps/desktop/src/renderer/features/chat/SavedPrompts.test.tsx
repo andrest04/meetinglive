@@ -243,6 +243,71 @@ describe('running a saved prompt', () => {
     expect(api.calls('chat.send')[1]).not.toHaveProperty('engine');
   });
 
+  it('a failed send gives the text back with its engine still armed', async () => {
+    let sends = 0;
+    const api = install({
+      prompts: [saved(1, { engine: 'codex' })],
+      answer: (name, input) => {
+        if (name !== 'chat.send') return undefined;
+        sends += 1;
+        if (sends > 1) return undefined;
+        return {
+          status: 'failed',
+          kind: 'send-failed',
+          message: 'Could not answer. Codex is busy.',
+          originalDraft: input.draft as string,
+        };
+      },
+    });
+    const user = userEvent.setup();
+    mount();
+    await waitFor(() => {
+      expect(screen.getByTestId('ListMeetingChatStarters')).toHaveTextContent('Risk review 1');
+    });
+    await openMenu(user);
+    await user.click(first(options()));
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(box()).toHaveValue('List the risks, take 1.');
+    });
+    expect(screen.getByTestId('TxtChatPromptEngine')).toHaveTextContent('Answers with Codex');
+    await user.click(box());
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(api.calls('chat.send')).toHaveLength(2);
+    });
+    expect(api.calls('chat.send')[1]).toMatchObject({
+      draft: 'List the risks, take 1.',
+      engine: 'codex',
+    });
+  });
+
+  it('a chip whose send fails leaves its prompt in the box, armed with its engine', async () => {
+    install({
+      prompts: [saved(1, { engine: 'codex' })],
+      answer: (name, input) =>
+        name === 'chat.send'
+          ? {
+              status: 'failed',
+              kind: 'send-failed',
+              message: 'Could not answer.',
+              originalDraft: input.draft as string,
+            }
+          : undefined,
+    });
+    const user = userEvent.setup();
+    mount();
+    const chips = await screen.findByTestId('ListMeetingChatStarters');
+    await waitFor(() => {
+      expect(within(chips).getAllByRole('button')[0]).toHaveTextContent('Risk review 1');
+    });
+    await user.click(first(within(chips).getAllByRole('button')));
+    await waitFor(() => {
+      expect(box()).toHaveValue('List the risks, take 1.');
+    });
+    expect(screen.getByTestId('TxtChatPromptEngine')).toHaveTextContent('Answers with Codex');
+  });
+
   it('clearing the draft disarms the engine', async () => {
     const api = install({ prompts: [saved(1, { engine: 'codex' })] });
     const user = userEvent.setup();

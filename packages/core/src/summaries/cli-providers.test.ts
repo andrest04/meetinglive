@@ -454,6 +454,44 @@ describe('CLI streaming without a line runner', () => {
     expect(chunks).toEqual(['whole']);
     expect(runner.calls[0]?.args).toEqual(['-p', ...CLAUDE_LEAN_FLAGS]);
   });
+
+  const images: CliPromptOptions = {
+    images: {
+      directory: 'C:/Users/andres/AppData/Local/Temp/vz-1',
+      paths: ['C:/Users/andres/AppData/Local/Temp/vz-1/image-1.png'],
+    },
+  };
+
+  it('Claude keeps the attached images on the one-chunk path', async () => {
+    const runner = new FakeCliProcessRunner('seen');
+    const chunks = await collect(
+      createClaudeCodeProvider(runner).streamPrompt('p', cancel(), images),
+    );
+    expect(chunks).toEqual(['seen']);
+    expect(runner.calls[0]?.cwd).toBe('C:/Users/andres/AppData/Local/Temp/vz-1');
+    expect(runner.calls[0]?.args).toEqual([
+      '-p',
+      ...CLAUDE_LEAN_FLAGS,
+      ...claudeImageArgs('C:/Users/andres/AppData/Local/Temp/vz-1'),
+    ]);
+  });
+
+  it('Codex keeps the attached images on the one-chunk path', async () => {
+    const runner = new FakeCliProcessRunner('seen');
+    await collect(createCodexProvider(runner).streamPrompt('p', cancel(), images));
+    expect(runner.calls[0]?.cwd).toBeUndefined();
+    expect(runner.calls[0]?.args.slice(-2)).toEqual([
+      '-i',
+      'C:/Users/andres/AppData/Local/Temp/vz-1/image-1.png',
+    ]);
+  });
+
+  it('summaries never carry images or another working folder', async () => {
+    const runner = new FakeCliProcessRunner('whole');
+    await createClaudeCodeProvider(runner).completePrompt('p', cancel());
+    expect(runner.calls[0]?.cwd).toBeUndefined();
+    expect(runner.calls[0]?.args).toEqual(['-p', ...CLAUDE_LEAN_FLAGS]);
+  });
 });
 
 describe('CLI streaming with attached images', () => {
@@ -485,6 +523,28 @@ describe('CLI streaming with attached images', () => {
     expect(runner.lineCalls[0]?.args.slice(-2)).toEqual(
       codexImageArgs(['C:/Users/andres/AppData/Local/Temp/vz-1/image-1.png']),
     );
+  });
+
+  it('Codex reads images from a folder with a comma by name, run in that folder', async () => {
+    const runner = new FakeLineRunner();
+    runner.lines = CODEX_EXEC_JSON_LINES;
+    const comma: CliPromptOptions = {
+      images: {
+        directory: 'C:\\Users\\Smith, John\\AppData\\Local\\Temp\\vz-1',
+        paths: [
+          'C:\\Users\\Smith, John\\AppData\\Local\\Temp\\vz-1\\image-1.png',
+          'C:\\Users\\Smith, John\\AppData\\Local\\Temp\\vz-1\\shot (2).jpg',
+        ],
+      },
+    };
+    await collect(createCodexProvider(runner).streamPrompt('p', cancel(), comma));
+    expect(runner.lineCalls[0]?.cwd).toBe('C:\\Users\\Smith, John\\AppData\\Local\\Temp\\vz-1');
+    expect(runner.lineCalls[0]?.args.slice(-4)).toEqual([
+      '-i',
+      'image-1.png',
+      '-i',
+      'shot (2).jpg',
+    ]);
   });
 
   it('without images nothing changes', async () => {

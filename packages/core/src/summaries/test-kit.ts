@@ -1,11 +1,14 @@
 import type { CancelSignal } from '../cancel';
 import type { CliProcessRunner, CliRunResult } from './cli-failure';
+import type { CliRunOptions } from './cli-provider';
 
 export interface FakeRunCall {
   readonly executable: string;
   readonly args: readonly string[];
   readonly stdin: string | null;
   readonly timeoutMs: number;
+  /** Set only when the run asked for another working folder. */
+  readonly cwd?: string;
 }
 
 /**
@@ -34,8 +37,15 @@ export class FakeCliProcessRunner implements CliProcessRunner {
     stdin: string | null,
     timeoutMs: number,
     _cancel: CancelSignal,
+    options?: CliRunOptions,
   ): Promise<CliRunResult> {
-    this.calls.push({ executable, args: [...args], stdin, timeoutMs });
+    this.calls.push({
+      executable,
+      args: [...args],
+      stdin,
+      timeoutMs,
+      ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+    });
     // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the double rejects with any scripted value
     if (this.fail !== null) return Promise.reject(this.fail);
     return Promise.resolve(this.result);

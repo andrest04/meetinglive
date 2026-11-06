@@ -782,6 +782,54 @@ describe('apply to summary (T4)', () => {
     expect(screen.queryByTestId('BtnMeetingChatSummaryUndo')).toBeNull();
   });
 
+  it('a failed Undo keeps the previous content, shows the error and can try again', async () => {
+    let calls = 0;
+    const api = install({
+      state: seeded,
+      replace: () => {
+        calls += 1;
+        if (calls === 2) return { status: 'failed', detail: 'The file is locked.' };
+        if (calls === 3) throw new Error('Main went away.');
+        return {
+          status: 'saved',
+          previous: { summary: 'Old.', actionItems: [{ text: 'Keep', isDone: true }] },
+        };
+      },
+    });
+    mount(MEETING);
+    await userEvent.click(await screen.findByTestId('BtnMeetingChatApplySummary'));
+    await userEvent.click(await screen.findByTestId('DialogPrimary'));
+    const applied = await screen.findByTestId('InfoMeetingChatSummary');
+    await userEvent.click(within(applied).getByTestId('BtnMeetingChatSummaryUndo'));
+    const failed = await screen.findByTestId('InfoMeetingChatSummaryError');
+    expect(failed.textContent).toContain('The file is locked.');
+    await userEvent.click(within(failed).getByTestId('BtnMeetingChatSummaryUndo'));
+    await waitFor(() => {
+      expect(screen.getByTestId('InfoMeetingChatSummaryError').textContent).toContain(
+        'Main went away.',
+      );
+    });
+    await userEvent.click(
+      within(screen.getByTestId('InfoMeetingChatSummaryError')).getByTestId(
+        'BtnMeetingChatSummaryUndo',
+      ),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('InfoMeetingChatSummary').textContent).toContain(
+        'Summary restored',
+      );
+    });
+    const restore = {
+      meetingId: 'm1',
+      source: { kind: 'restore', summary: 'Old.', actionItems: [{ text: 'Keep', isDone: true }] },
+    };
+    expect(
+      replaces(api)
+        .slice(1)
+        .map((c) => c.input),
+    ).toEqual([restore, restore, restore]);
+  });
+
   it('a busy meeting answers a plain sentence and offers no Undo', async () => {
     install({ state: seeded, replace: () => ({ status: 'busy' }) });
     mount(MEETING);

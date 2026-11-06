@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Worker } from 'node:worker_threads';
 import { pathToFileURL } from 'node:url';
 import {
   libraryChanged,
@@ -29,6 +30,7 @@ import {
 } from '@vozella/core';
 import {
   ChatAttachmentStore,
+  createThreadedDocumentExtractor,
   fakeEngineOptionsFromEnv,
   SteppedModelStore,
   SteppedRuntimeStore,
@@ -825,6 +827,10 @@ function main(): void {
         translate: (key, ...args) => locale.t(key, ...args),
         logger: logger.child('chat'),
         tempRoot: app.getPath('temp'),
+        // PDF, Word and PowerPoint are parsed in a worker thread, never on this one.
+        extractor: createThreadedDocumentExtractor(
+          () => new Worker(path.join(__dirname, 'workers', 'extract.js')),
+        ),
       });
       const chatPromptLog = fakeNative ? process.env.VOZELLA_FAKE_CHAT_PROMPT_LOG : undefined;
       const chatProviders = chatPromptLog
@@ -836,17 +842,18 @@ function main(): void {
             );
           })
         : chatProviderSource(summaryRuntime.resolver);
+      const chatService = new ChatService({
+        meetings: chatReader,
+        providers: chatProviders,
+        attachments: chatAttachments,
+        clock: new SystemClock(),
+        translate: (key, ...args) => locale.t(key, ...args),
+        newId: () => randomUUID(),
+        logger: logger.child('chat'),
+        uiLanguage: () => locale.tag,
+      });
       const chat = new ChatController({
-        service: new ChatService({
-          meetings: chatReader,
-          providers: chatProviders,
-          attachments: chatAttachments,
-          clock: new SystemClock(),
-          translate: (key, ...args) => locale.t(key, ...args),
-          newId: () => randomUUID(),
-          logger: logger.child('chat'),
-          uiLanguage: () => locale.tag,
-        }),
+        service: chatService,
         findMeetingId: (id) => chatReader.findMeetingId(id),
         writeClipboard: (text) => {
           return clipboard.writeText(text);
@@ -1025,8 +1032,10 @@ function main(): void {
         broadcast,
         formatFailure: (error) => summaries.formatError(error),
         nowMs: () => Date.now(),
-        // The rolling digest never loads the local model; it runs only when it is already up.
-        localModelLoaded: () => summaryRuntime.host.loadedModelPath !== undefined,
+        // The rolling digest never loads the local model; it runs only when it is already up, and
+        // skips its update while a local chat answer streams, so the two never share the model.
+        localModelLoaded: () =>
+          summaryRuntime.host.loadedModelPath !== undefined && !chatService.localAnswerInFlight,
       });
       liveChatContext = () => liveAsk.chatContext();
       const recording = composeRecording({

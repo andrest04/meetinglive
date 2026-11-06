@@ -24,6 +24,10 @@ import {
   type TranslateFn,
 } from '@vozella/core';
 import { extractDocument, type ExtractFailure } from './attachment-extractors';
+import type { DocumentExtractor } from './document-extraction';
+
+// The off-thread extractor ships with the store that uses it (the package index lists this file).
+export * from './document-extraction';
 
 /** One chip, in the shape of the `chat.attach.*` contract. */
 export interface ChatAttachmentView {
@@ -92,6 +96,11 @@ export interface ChatAttachmentStoreOptions {
   readonly maxFiles?: number;
   readonly maxBytes?: number;
   readonly maxChars?: number;
+  /**
+   * How a document's text is extracted. The app passes a worker-thread extractor so a large PDF
+   * cannot freeze the main process; the default parses in the calling thread (tests, tools).
+   */
+  readonly extractor?: DocumentExtractor;
 }
 
 const MB = 1024 * 1024;
@@ -106,12 +115,14 @@ export class ChatAttachmentStore implements ChatAttachmentSource {
   private readonly maxFiles: number;
   private readonly maxBytes: number;
   private readonly maxChars: number;
+  private readonly extractor: DocumentExtractor;
 
   constructor(private readonly options: ChatAttachmentStoreOptions) {
     this.newId = options.newId ?? (() => `att-${randomUUID()}`);
     this.maxFiles = options.maxFiles ?? ATTACHMENT_MAX_FILES;
     this.maxBytes = options.maxBytes ?? ATTACHMENT_MAX_BYTES;
     this.maxChars = options.maxChars ?? ATTACHMENT_MAX_CHARS;
+    this.extractor = options.extractor ?? extractDocument;
   }
 
   list(): readonly ChatAttachmentView[] {
@@ -256,7 +267,7 @@ export class ChatAttachmentStore implements ChatAttachmentSource {
         if (data.byteLength > this.maxBytes) {
           next = { status: 'error', message: this.refusal('too-large') };
         } else {
-          const result = await extractDocument(entry.view.kind, data, this.maxChars);
+          const result = await this.extractor(entry.view.kind, data, this.maxChars);
           if (result.ok) {
             sections = result.sections;
             next = {

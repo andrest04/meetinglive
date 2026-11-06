@@ -30,6 +30,7 @@ import {
 import { SCOPE_ICON, scopeLabel } from './chat-scope-label';
 import { useLocalSendActive } from './chat-local-send';
 import { useChatScope } from './use-chat-scope';
+import { useRecordingPaused } from './use-recording-paused';
 import { LiveQuestionSlot } from '../record/LiveQuestionSlot';
 import { useLiveQuestionsStore } from '../record/use-live-questions';
 
@@ -77,6 +78,7 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
   // A new chat remounts the body, which drops its draft and error with the old messages.
   const [epoch, setEpoch] = useState(0);
   const localSending = useLocalSendActive();
+  const recordingPaused = useRecordingPaused();
   const area = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
@@ -190,7 +192,11 @@ export function AiPanelArea({ children, body }: AiPanelAreaProps) {
       <div className="flex h-10 shrink-0 items-center gap-1 ps-4 pe-2">
         {decision.kind === 'Live' ? (
           <span className="flex min-w-0 flex-1">
-            <LiveBadge label={label} />
+            <LiveBadge
+              label={label}
+              paused={recordingPaused}
+              pausedLabel={t('Ui_ChatLivePaused')}
+            />
           </span>
         ) : (
           <>

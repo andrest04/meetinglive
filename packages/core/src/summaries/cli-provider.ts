@@ -9,7 +9,7 @@ import {
   CLAUDE_STREAM_FLAGS,
   CODEX_STREAM_FLAGS,
   claudeImageArgs,
-  codexImageArgs,
+  codexImageInvocation,
 } from './cli-invocation';
 import {
   createClaudeStreamParser,
@@ -84,21 +84,23 @@ export function canStreamLines<T extends object>(runner: T): runner is T & CliLi
 interface CliStreamFormat {
   readonly flags: readonly string[];
   readonly parser: () => CliStreamParser;
-  /** How this CLI receives attached images: extra argv, and the folder to run in, if any. */
-  readonly images: (files: PromptImageFiles) => { args: string[]; cwd?: string };
 }
 
 const STREAM_FORMATS: Partial<Record<ProviderId, CliStreamFormat>> = {
-  'claude-code': {
-    flags: CLAUDE_STREAM_FLAGS,
-    parser: createClaudeStreamParser,
-    images: (files) => ({ args: claudeImageArgs(files.directory), cwd: files.directory }),
-  },
-  codex: {
-    flags: CODEX_STREAM_FLAGS,
-    parser: createCodexStreamParser,
-    images: (files) => ({ args: codexImageArgs(files.paths) }),
-  },
+  'claude-code': { flags: CLAUDE_STREAM_FLAGS, parser: createClaudeStreamParser },
+  codex: { flags: CODEX_STREAM_FLAGS, parser: createCodexStreamParser },
+};
+
+/** Extra argv for attached images, and the folder to run in, if any. */
+interface ImageInvocation {
+  readonly args: readonly string[];
+  readonly cwd?: string;
+}
+
+/** How each CLI receives attached images, on the streaming and the one-chunk path alike. */
+const IMAGE_FORMATS: Partial<Record<ProviderId, (files: PromptImageFiles) => ImageInvocation>> = {
+  'claude-code': (files) => ({ args: claudeImageArgs(files.directory), cwd: files.directory }),
+  codex: (files) => codexImageInvocation(files.directory, files.paths),
 };
 
 /** A stdout line that is not a JSON event: kept for the plain-text fallback and classification. */
@@ -136,8 +138,8 @@ export abstract class CliToolProvider implements SummaryProvider {
    * same argv plus the stream flags, parsed into text pieces. With no pieces, the CLI's final
    * answer is sent whole; with no JSON at all, the plain stdout is (the old one-chunk answer).
    * Other runners keep the one-chunk path. `completePrompt` (summaries) never streams.
-   * Attached images (`options.images`) ride only on the streaming path: Claude Code reads them from
-   * their folder, Codex gets `-i` per image. The one-chunk path has no way to pass them.
+   * Attached images (`options.images`) ride on both paths: Claude Code reads them from their
+   * folder, Codex gets `-i` per image.
    */
   streamPrompt(
     prompt: string,
@@ -146,9 +148,16 @@ export abstract class CliToolProvider implements SummaryProvider {
   ): AsyncIterable<string> {
     const format = STREAM_FORMATS[this.id];
     if (format === undefined || !canStreamLines(this.runner)) {
-      return withDefaultStream((p, c) => this.completePrompt(p, c))(prompt, cancel);
+      return withDefaultStream((p, c) => this.run(p, c, options?.images))(prompt, cancel);
     }
     return this.streamLines(this.runner, format, prompt, cancel, options?.images);
+  }
+
+  /** The argv extras and folder for the images of a send; null without images. */
+  private imageInvocation(images: PromptImageFiles | undefined): ImageInvocation | null {
+    const format = IMAGE_FORMATS[this.id];
+    if (format === undefined || images === undefined || images.paths.length === 0) return null;
+    return format(images);
   }
 
   private async *streamLines(
@@ -159,8 +168,7 @@ export abstract class CliToolProvider implements SummaryProvider {
     images: PromptImageFiles | undefined,
   ): AsyncGenerator<string> {
     throwIfCancelled(cancel);
-    const withImages =
-      images === undefined || images.paths.length === 0 ? null : format.images(images);
+    const withImages = this.imageInvocation(images);
     const args = [...this.buildArgs(), ...format.flags, ...(withImages?.args ?? [])];
     const runOptions = withImages?.cwd === undefined ? undefined : { cwd: withImages.cwd };
     if (!(await runner.isOnPath(this.executable))) {
@@ -211,15 +219,21 @@ export abstract class CliToolProvider implements SummaryProvider {
     yield whole;
   }
 
-  private async run(prompt: string, cancel: CancelSignal): Promise<string> {
+  private async run(
+    prompt: string,
+    cancel: CancelSignal,
+    images?: PromptImageFiles,
+  ): Promise<string> {
+    const withImages = this.imageInvocation(images);
     return await runRequiredStdout(
       this.runner,
       this.executable,
-      this.buildArgs(),
+      [...this.buildArgs(), ...(withImages?.args ?? [])],
       prompt,
       this.timeoutMs,
       this.displayName,
       cancel,
+      withImages?.cwd === undefined ? undefined : { cwd: withImages.cwd },
     );
   }
 }

@@ -1,4 +1,4 @@
-import type { ChatEngine, ChatScopeDecision } from '@vozella/core';
+import type { ChatRecipe, ChatScopeDecision } from '@vozella/core';
 import { Paperclip } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useT } from '../../i18n/I18nProvider';
@@ -48,16 +48,22 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
   // render, so a language change relabels the chips (B8).
   const lookup = useCallback((key: string) => t(key as StringKey), [t]);
   const library = usePromptLibrary({ kind: scope.kind, context, draft: chat.draft, lookup });
-  const { armed, disarm } = library;
+  const { armed, arm, disarm } = library;
   const { setDraft, send } = chat;
   const onDraftChange = (value: string): void => {
     setDraft(value);
     if (value.trim() === '') disarm();
   };
-  /** A saved prompt's engine answers this send only. */
-  const sendWith = (text: string, engine: ChatEngine | null | undefined): void => {
+  /**
+   * A saved prompt's engine answers this send only. When the send fails or stops and the text
+   * comes back to the composer, the prompt's engine is armed again with it.
+   */
+  const sendWith = (text: string, recipe: ChatRecipe | null | undefined): void => {
     disarm();
-    void send(text, engine ? { engine } : {});
+    const engine = recipe?.engine;
+    void send(text, engine ? { engine } : {}).then((result) => {
+      if (result === 'restored' && recipe?.engine) arm(recipe);
+    });
   };
 
   return (
@@ -129,7 +135,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
         <StarterChips
           recipes={library.starters}
           onPick={(recipe) => {
-            sendWith(recipe.prompt, recipe.engine);
+            sendWith(recipe.prompt, recipe);
           }}
         />
       ) : null}
@@ -151,7 +157,7 @@ export function ChatBody({ scope }: { readonly scope: ChatScopeDecision }) {
         draft={chat.draft}
         onDraftChange={onDraftChange}
         onSend={() => {
-          sendWith(chat.draft, armed?.engine);
+          sendWith(chat.draft, armed);
         }}
         onStop={chat.stop}
         isSending={chat.isSending}
