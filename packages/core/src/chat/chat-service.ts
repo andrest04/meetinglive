@@ -2,6 +2,7 @@ import type { CancelSignal } from '../cancel';
 import { CancelSource } from '../cancel';
 import type { Clock } from '../clock';
 import type { TranslateFn } from '../i18n/translator';
+import type { Logger } from '../logging';
 import type { PromptCallOptions } from '../summaries/provider';
 import type { SetupKind } from '../summaries/provider-resolver';
 import {
@@ -102,6 +103,8 @@ export interface ChatServiceDeps {
   readonly clock: Clock;
   readonly translate: TranslateFn;
   readonly newId: () => string;
+  /** Optional: gets one timing line per answer (time to first chunk, total). */
+  readonly logger?: Logger;
 }
 
 export interface SendOptions {
@@ -324,12 +327,27 @@ export class ChatService {
       this.pending = { userText: this.pending.userText, assistantText: text };
       this.notify();
     });
-    for await (const chunk of provider.streamPrompt(prompt, cancelSource.signal)) {
-      if (cancelSource.cancelled) break;
-      coalescer.append(chunk);
+    const clock = this.deps.clock;
+    const started = clock.now().getTime();
+    let firstChunkMs: number | null = null;
+    let chunks = 0;
+    try {
+      for await (const chunk of provider.streamPrompt(prompt, cancelSource.signal)) {
+        if (cancelSource.cancelled) break;
+        firstChunkMs ??= clock.now().getTime() - started;
+        chunks += 1;
+        coalescer.append(chunk);
+      }
+      if (!cancelSource.cancelled) coalescer.flush();
+      return coalescer.text;
+    } finally {
+      this.deps.logger?.info('chat answer streamed', {
+        firstChunkMs,
+        totalMs: clock.now().getTime() - started,
+        chunks,
+        chars: coalescer.text.length,
+      });
     }
-    if (!cancelSource.cancelled) coalescer.flush();
-    return coalescer.text;
   }
 
   private notify(): void {

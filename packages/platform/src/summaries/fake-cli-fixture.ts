@@ -4,7 +4,8 @@ import path from 'node:path';
 
 /**
  * A tiny fake CLI for runner tests. Never a real claude or codex. The behavior is picked by the
- * first argument after the script: echo, bytes, fail, silent-fail, silent-ok, hang, pid-hang.
+ * first argument after the script: echo, bytes, fail, silent-fail, silent-ok, hang, pid-hang,
+ * lines, lines-fail, lines-hang.
  */
 const SCRIPT = `
 const fs = require('node:fs');
@@ -30,6 +31,27 @@ if (mode === 'echo') {
 } else if (mode === 'silent-ok') {
   process.stdout.write('done'); process.exit(0);
 } else if (mode === 'hang') {
+  setInterval(() => {}, 1000);
+} else if (mode === 'lines') {
+  // Reads stdin, then prints one line per 30 ms, CRLF and a split write included.
+  readAll((b) => {
+    const out = ['first ' + b.toString('utf8'), 'second\\r', '', 'third ✓'];
+    let i = 0;
+    const tick = setInterval(() => {
+      if (i === out.length) { clearInterval(tick); process.stdout.write('tail-no-newline'); return; }
+      const line = out[i++] + '\\n';
+      process.stdout.write(line.slice(0, 2));
+      process.stdout.write(line.slice(2));
+    }, 30);
+  });
+} else if (mode === 'lines-fail') {
+  process.stdout.write('partial\\n');
+  process.stderr.write('x'.repeat(20000) + (arg || 'not logged in'));
+  process.exitCode = 4;
+} else if (mode === 'lines-hang') {
+  // One line, then silence; arg is the pid file.
+  fs.writeFileSync(arg, String(process.pid));
+  process.stdout.write('hello\\n');
   setInterval(() => {}, 1000);
 } else if (mode === 'pid-hang') {
   fs.writeFileSync(arg, String(process.pid));

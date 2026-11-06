@@ -7,6 +7,7 @@ export * from './cli-failure';
 export * from './cli-failure-messages';
 export * from './cli-invocation';
 export * from './cli-provider';
+export * from './cli-stream-parsers';
 export * from './claude-code-provider';
 export * from './codex-provider';
 export * from './llama-backend';

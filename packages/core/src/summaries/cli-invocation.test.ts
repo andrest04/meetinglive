@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CLAUDE_LEAN_FLAGS,
   InvalidCliOptionError,
   claudePrintArgs,
   claudePrintLine,
+  claudeStreamArgs,
   codexExecArgs,
   codexExecLine,
+  codexStreamArgs,
   validateCliOption,
 } from './cli-invocation';
 
 describe('Claude print invocation', () => {
   it('is a bare -p without options', () => {
-    expect(claudePrintArgs()).toEqual(['-p']);
+    expect(claudePrintArgs()).toEqual(['-p', ...CLAUDE_LEAN_FLAGS]);
     expect(claudePrintLine(null, null)).toBe('-p');
     expect(claudePrintLine('  ', '')).toBe('-p');
   });
@@ -18,19 +21,31 @@ describe('Claude print invocation', () => {
   it('adds model and effort in that order, each only when set', () => {
     expect(claudePrintArgs({ model: 'sonnet', effort: 'low' })).toEqual([
       '-p',
+      ...CLAUDE_LEAN_FLAGS,
       '--model',
       'sonnet',
       '--effort',
       'low',
     ]);
-    expect(claudePrintArgs({ model: ' opus ' })).toEqual(['-p', '--model', 'opus']);
-    expect(claudePrintArgs({ effort: 'high' })).toEqual(['-p', '--effort', 'high']);
+    expect(claudePrintArgs({ model: ' opus ' })).toEqual([
+      '-p',
+      ...CLAUDE_LEAN_FLAGS,
+      '--model',
+      'opus',
+    ]);
+    expect(claudePrintArgs({ effort: 'high' })).toEqual([
+      '-p',
+      ...CLAUDE_LEAN_FLAGS,
+      '--effort',
+      'high',
+    ]);
     expect(claudePrintLine('sonnet', 'low')).toBe('-p --model sonnet --effort low');
   });
 
   it('adds the web search tool flags after the model and effort', () => {
     expect(claudePrintArgs({ model: 'sonnet', effort: 'low', webSearch: true })).toEqual([
       '-p',
+      ...CLAUDE_LEAN_FLAGS,
       '--model',
       'sonnet',
       '--effort',
@@ -79,6 +94,40 @@ describe('Codex exec invocation', () => {
       'gpt-5.6',
     ]);
     expect(codexExecLine(null, null, true)).toBe('--search exec -');
+  });
+});
+
+describe('streaming invocation', () => {
+  it('asks Claude for partial stream-json events, keeping model, effort and web search', () => {
+    expect(claudeStreamArgs({ model: 'sonnet', effort: 'low', webSearch: true })).toEqual([
+      '-p',
+      ...CLAUDE_LEAN_FLAGS,
+      '--model',
+      'sonnet',
+      '--effort',
+      'low',
+      '--tools',
+      'WebSearch',
+      '--allowedTools',
+      'WebSearch',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--include-partial-messages',
+    ]);
+  });
+
+  it('asks Codex exec for JSONL events, keeping --search before exec', () => {
+    expect(codexStreamArgs({ model: 'gpt-5.6', effort: 'low', webSearch: true })).toEqual([
+      '--search',
+      'exec',
+      '-',
+      '-m',
+      'gpt-5.6',
+      '-c',
+      'model_reasoning_effort="low"',
+      '--json',
+    ]);
   });
 });
 

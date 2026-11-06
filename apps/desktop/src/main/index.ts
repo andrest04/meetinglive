@@ -803,6 +803,7 @@ function main(): void {
           clock: new SystemClock(),
           translate: (key, ...args) => locale.t(key, ...args),
           newId: () => randomUUID(),
+          logger: logger.child('chat'),
         }),
         findMeetingId: (id) => chatReader.findMeetingId(id),
         writeClipboard: (text) => {

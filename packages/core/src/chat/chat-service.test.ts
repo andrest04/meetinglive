@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CliToolError } from '../summaries/cli-failure';
 import { SummaryError } from '../summaries/cli-failure-messages';
-import { createChatRig, guid, meetingFixture, scopeOf } from './chat-test-kit';
+import type { LogContext, Logger } from '../logging';
+import { ChatService } from './chat-service';
+import { createChatRig, guid, meetingFixture, scopeOf, testTranslate } from './chat-test-kit';
 
 const MEETING = guid(7);
 
@@ -373,5 +375,63 @@ describe('new chat and scope (B1, B24, parity 18)', () => {
     const before = calls;
     rig.service.newChat();
     expect(calls).toBe(before);
+  });
+});
+
+describe('ChatService stream timing', () => {
+  class RecordingLogger implements Logger {
+    readonly entries: { level: string; message: string; context?: LogContext }[] = [];
+    debug(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'debug', message, context });
+    }
+    info(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'info', message, context });
+    }
+    warn(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'warn', message, context });
+    }
+    error(message: string, context?: LogContext): void {
+      this.entries.push({ level: 'error', message, context });
+    }
+  }
+
+  function rigWithLogger() {
+    const rig = rigWithMeeting();
+    const logger = new RecordingLogger();
+    const service = new ChatService({
+      meetings: rig.reader,
+      providers: rig.source,
+      clock: rig.clock,
+      translate: testTranslate as never,
+      newId: () => 'id',
+      logger,
+    });
+    return { rig, service, logger };
+  }
+
+  it('logs the time to the first chunk and the total, with the chunk count', async () => {
+    const { rig, service, logger } = rigWithLogger();
+    rig.provider.chunks = ['Friday', ' it', ' is.'];
+    rig.provider.beforeChunk = (index) => {
+      rig.clock.advance(index === 0 ? 1200 : 100);
+      return undefined;
+    };
+    expect((await service.send('When?', meetingScope, null)).status).toBe('sent');
+    expect(logger.entries).toEqual([
+      {
+        level: 'info',
+        message: 'chat answer streamed',
+        context: { firstChunkMs: 1200, totalMs: 1400, chunks: 3, chars: 13 },
+      },
+    ]);
+  });
+
+  it('logs no first chunk time when nothing arrived, and works without a logger', async () => {
+    const { rig, service, logger } = rigWithLogger();
+    rig.provider.chunks = [];
+    await service.send('When?', meetingScope, null);
+    expect(logger.entries[0]?.context).toMatchObject({ firstChunkMs: null, chunks: 0 });
+    const plain = rigWithMeeting();
+    expect((await plain.service.send('When?', meetingScope, null)).status).toBe('sent');
   });
 });
