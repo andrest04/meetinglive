@@ -170,20 +170,36 @@ export const recordingRetryProcessing = defineRequest('recording.retryProcessing
  * Imports an audio file through the same pipeline as a take (spec 2.12). The page picked the file
  * with `audio.import.pickFile`; main reads its time, converts it and runs the pipeline.
  */
+const recordingImportResultSchema = z.discriminatedUnion('started', [
+  z.object({ started: z.literal(true), meetingId: z.string() }),
+  z.object({
+    started: z.literal(false),
+    reason: z.enum(['busy', 'not-ready', 'failed', 'cancelled']),
+    message: recordingMessageSchema.nullable(),
+  }),
+]);
+
 export const recordingImport = defineRequest('recording.import', {
   input: z.object({
     title: z.string(),
     folderId: z.string().nullable(),
     path: z.string(),
   }),
-  output: z.discriminatedUnion('started', [
-    z.object({ started: z.literal(true), meetingId: z.string() }),
-    z.object({
-      started: z.literal(false),
-      reason: z.enum(['busy', 'not-ready', 'failed', 'cancelled']),
-      message: recordingMessageSchema.nullable(),
-    }),
-  ]),
+  output: recordingImportResultSchema,
+});
+
+/**
+ * Imports the audio of a YouTube video (spec 2.12): main downloads it with yt-dlp into a temp
+ * folder, then converts it and runs the pipeline like `recording.import`. Cancel is
+ * `recording.cancelProcessing` with a null meeting id.
+ */
+export const recordingImportUrl = defineRequest('recording.importUrl', {
+  input: z.object({
+    title: z.string(),
+    folderId: z.string().nullable(),
+    url: z.string(),
+  }),
+  output: recordingImportResultSchema,
 });
 
 /**

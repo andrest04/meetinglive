@@ -173,6 +173,7 @@ export const requestChannels = {
   [recording.recordingCancelProcessing.name]: recording.recordingCancelProcessing,
   [recording.recordingRetryProcessing.name]: recording.recordingRetryProcessing,
   [recording.recordingImport.name]: recording.recordingImport,
+  [recording.recordingImportUrl.name]: recording.recordingImportUrl,
   [recording.recordingCloseAnswer.name]: recording.recordingCloseAnswer,
   [recording.recordingAsk.name]: recording.recordingAsk,
   [recording.recordingCancelAsk.name]: recording.recordingCancelAsk,

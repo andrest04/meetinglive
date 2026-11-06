@@ -27,7 +27,7 @@ Review: RDD is off (global) → ordinary checks only.
 
 ## Tasks
 - [x] T1 — Platform: `YtDlpManager` (ensure binary in app data, sha256 verify, self-update) and `YtDlpDownloader` (spawn, cancel, error mapping) + unit tests. Route: delegated (multi-file). `parseYouTubeUrl` lives in `@vozella/core`.
-- [ ] T2 — Main: `recording.importUrl` contract + channel, `RecordingService.importUrl` (download → convertForImport → pipeline, temp cleanup, cancel), IPC handler, composition wiring + tests. Route: delegated.
+- [x] T2 — Main: `recording.importUrl` contract + channel, `RecordingService.importUrl` (download → convertForImport → pipeline, temp cleanup, cancel), IPC handler, composition wiring + tests. Route: delegated.
 - [ ] T3 — Renderer: "Import from YouTube" action with URL input on Record screen, store action, `Ui_` strings (en/es) + tests. Route: delegated.
 - [ ] T4 — Docs: `docs/port/specs/recording.md` §2.12 and `docs/port/parity/recording.md`. Route: delegated with T3.
 
@@ -45,5 +45,7 @@ Review: RDD is off (global) → ordinary checks only.
 ## Progress / evidence
 - T1: core 1721 passed (38 URL cases), platform youtube 20/20 (parent re-run), typecheck + prettier + eslint clean. RED observed before GREEN. Pre-existing unrelated failure: `settings-adapters.test.ts > catalog pins match the real 1B file (B18)` (machine-local spike model). Commit: see git log `feat(platform): add yt-dlp manager and downloader`.
 
+- T2: `recording.importUrl` contract (shares the `recording.import` result schema), `RecordingService.importUrl` over a shared private `runImport` (file and link sources; `importAudio` behavior unchanged), `YouTubeAudioPort` + `createYouTubeAudio` adapter in `main/recording/youtube-import.ts`, yt-dlp bin dir `appData/yt-dlp`, temp `os.tmpdir()/vozella-youtube/<meetingId>` removed in `finally`. `Ui_Error*` keys map to error severity. RED: 8 failing (7 service + 1 handler) before implementation; GREEN: desktop 2071 passed / 6 skipped, contracts 44 passed, typecheck + prettier + eslint clean. Commit: pending (parent).
+
 ## Next step
-T2.
+T3.

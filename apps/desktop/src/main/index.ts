@@ -2,6 +2,7 @@
 import { hasAudioBytes } from './audio-file';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -110,6 +111,7 @@ import { AsrWorkerHost } from './workers/asr-worker-host';
 import { createAppIconProvider } from './audio/app-icon';
 import { RecordingTakes } from './audio/recording-take';
 import { composeRecording } from './recording/compose-recording';
+import { createYouTubeAudio } from './recording/youtube-import';
 import { CloseGuard, RendererCloseDialogs } from './recording/close-guard';
 import { ExitFlow } from './bootstrap/exit-flow';
 import { StartupSequence } from './bootstrap/startup-sequence';
@@ -941,6 +943,12 @@ function main(): void {
         }),
         formatFailure: (error) => summaries.formatError(error),
         wavDurationSeconds: readWavDurationSeconds,
+        // yt-dlp is downloaded on first use beside the other runtimes; downloads go to temp.
+        youtube: createYouTubeAudio({
+          binDir: path.join(paths.appData, 'yt-dlp'),
+          tempRoot: path.join(os.tmpdir(), 'vozella-youtube'),
+          logger: logger.child('youtube'),
+        }),
       });
       // Entry points for the other modules, the busy probe (164), the take-notes request (180) and
       // close protection (165).

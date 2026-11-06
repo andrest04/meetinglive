@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { AudioRpcCall } from '@vozella/contracts';
 import {
+  CancelledError,
   FakeOfflineTranscriber,
   InMemorySettingsStore,
   RecordingPipeline,
@@ -11,9 +12,10 @@ import {
   Workspace,
   rememberAppPatch,
   rememberMicrophonePatch,
+  type CancelSignal,
   type Logger,
 } from '@vozella/core';
-import { JsonSettingsStore } from '@vozella/platform';
+import { JsonSettingsStore, YtDlpError, YtDlpInstallError } from '@vozella/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioController, type AudioHostLike } from '../audio/audio-controller';
 import { RecordingTakes } from '../audio/recording-take';
@@ -79,6 +81,47 @@ class FakeHost implements AudioHostLike {
   }
   methods(): string[] {
     return this.calls.map((c) => c.method);
+  }
+}
+
+/** yt-dlp as the service sees it: the download writes a real file into the work folder. */
+class FakeYouTube {
+  calls: string[] = [];
+  ensureError: Error | null = null;
+  downloadError: Error | null = null;
+  /** Holds the download until the cancel fires, then rejects like the real downloader. */
+  holdUntilCancel = false;
+  /** Runs while the download is in flight. */
+  duringDownload: (() => void) | null = null;
+  workRoot = '';
+
+  ensure(_cancel: CancelSignal): Promise<string> {
+    this.calls.push('ensure');
+    return this.ensureError ? Promise.reject(this.ensureError) : Promise.resolve('yt-dlp.exe');
+  }
+  update(): Promise<void> {
+    this.calls.push('update');
+    return Promise.resolve();
+  }
+  async download(url: string, directory: string, cancel: CancelSignal): Promise<string> {
+    this.calls.push(`download:${url}`);
+    fs.mkdirSync(directory, { recursive: true });
+    const file = path.join(directory, 'abc.m4a');
+    fs.writeFileSync(file, 'm4a');
+    this.duringDownload?.();
+    if (this.holdUntilCancel) {
+      await new Promise<void>((resolve) => cancel.onCancel(resolve));
+      throw new CancelledError();
+    }
+    if (this.downloadError) throw this.downloadError;
+    return file;
+  }
+  workDirectory(meetingId: string): string {
+    return path.join(this.workRoot, meetingId);
+  }
+  removeDirectory(directory: string): void {
+    this.calls.push('removeDirectory');
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 }
 
@@ -161,6 +204,8 @@ function build(options: Options = {}) {
   });
   const workspace = new Workspace();
   const repaired: string[] = [];
+  const youtube = new FakeYouTube();
+  youtube.workRoot = path.join(root, 'youtube');
   const service = new RecordingService({
     onRecordingStarted: options.onRecordingStarted,
     liveAsk: {
@@ -215,8 +260,10 @@ function build(options: Options = {}) {
     schedule: () => () => undefined,
     defaultTitle: () => 'Meeting 3 Nov, 10:00',
     meetingTitle: () => Promise.resolve(savedTitle.value),
+    youtube,
   });
   return {
+    youtube,
     host,
     settings,
     controller,
@@ -941,6 +988,118 @@ describe('RecordingService import (2.12)', () => {
       message: null,
     });
     expect(notReady.host.methods()).not.toContain('importAudio');
+  });
+});
+
+describe('RecordingService import from YouTube', () => {
+  const link = { title: 'Talk', folderId: null, url: 'https://youtu.be/dQw4w9WgXcQ' };
+  const canonical = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  const workFolder = (): string => path.join(root, 'youtube', 'meeting-1');
+
+  it('rejects a link that is not a YouTube video without downloading anything', async () => {
+    const t = build();
+    const result = await t.service.importUrl({ ...link, url: 'https://example.com/v' });
+    expect(result).toEqual({
+      started: false,
+      reason: 'failed',
+      message: { key: 'Ui_ErrorYouTubeUrl', args: [], severity: 'error' },
+    });
+    expect(t.youtube.calls).toEqual([]);
+    expect(t.host.methods()).not.toContain('importAudio');
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('installs, updates, downloads, then converts with no file time and runs the pipeline', async () => {
+    const t = build();
+    const statuses: string[] = [];
+    t.youtube.duringDownload = () => {
+      statuses.push(t.service.getState().status[0]?.key ?? '');
+    };
+    const result = await t.service.importUrl(link);
+    expect(result).toEqual({ started: true, meetingId: 'meeting-1' });
+    expect(statuses).toEqual(['Ui_StatusDownloadingYouTube']);
+    expect(t.service.getState().status[0]).toMatchObject({ key: 'Status_Importing' });
+    expect(t.youtube.calls).toEqual([
+      'ensure',
+      'update',
+      `download:${canonical}`,
+      'removeDirectory',
+    ]);
+    const call = t.host.calls.find((c) => c.method === 'importAudio');
+    expect(call).toMatchObject({ source: path.join(workFolder(), 'abc.m4a') });
+    await t.service.completion;
+    const saved = t.store.saves.at(-1);
+    expect(saved?.audioFilePath).toMatch(/Talk\.wav$/);
+    // No file time: the import ends now and starts 30 s earlier.
+    expect(Date.parse(saved?.endedAt ?? '')).toBe(now);
+    expect(Date.parse(saved?.recordedAt ?? '')).toBe(now - 30_000);
+    expect(fs.existsSync(workFolder())).toBe(false);
+  });
+
+  it('removes the temp folder when the conversion fails', async () => {
+    const t = build();
+    t.host.failImport = new Error('unsupported codec');
+    const result = await t.service.importUrl(link);
+    expect(result).toMatchObject({ started: false, reason: 'failed' });
+    expect(fs.existsSync(workFolder())).toBe(false);
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('maps a yt-dlp failure to Ui_ErrorYouTubeDownload and removes the temp folder', async () => {
+    const t = build();
+    t.youtube.downloadError = new YtDlpError(1, 'WARNING: slow\nERROR: Video unavailable');
+    const result = await t.service.importUrl(link);
+    expect(result).toEqual({
+      started: false,
+      reason: 'failed',
+      message: {
+        key: 'Ui_ErrorYouTubeDownload',
+        args: ['Video unavailable'],
+        severity: 'error',
+      },
+    });
+    expect(t.host.methods()).not.toContain('importAudio');
+    expect(fs.existsSync(workFolder())).toBe(false);
+    expect(t.service.getState().status[0]).toMatchObject({ key: 'Ui_ErrorYouTubeDownload' });
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('maps an install failure to Ui_ErrorYtDlpInstall without downloading', async () => {
+    const t = build();
+    t.youtube.ensureError = new YtDlpInstallError('checksum-mismatch', 'bad hash');
+    const result = await t.service.importUrl(link);
+    expect(result).toEqual({
+      started: false,
+      reason: 'failed',
+      message: { key: 'Ui_ErrorYtDlpInstall', args: [], severity: 'error' },
+    });
+    expect(t.youtube.calls).not.toContain(`download:${canonical}`);
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('cancel during the download stops it, removes the temp folder and reports cancelled', async () => {
+    const t = build();
+    t.youtube.holdUntilCancel = true;
+    const running = t.service.importUrl(link);
+    await vi.waitFor(() => {
+      expect(t.youtube.calls).toContain(`download:${canonical}`);
+    });
+    expect(t.service.cancelProcessing(null)).toBe(true);
+    expect(await running).toMatchObject({
+      started: false,
+      reason: 'cancelled',
+      message: { key: 'Status_ProcessingCancelled' },
+    });
+    expect(t.host.methods()).not.toContain('importAudio');
+    expect(fs.existsSync(workFolder())).toBe(false);
+    expect(t.service.gate.phase).toBe('Idle');
+  });
+
+  it('refuses while a take holds the session', async () => {
+    const t = build();
+    await t.service.start(sources);
+    expect(await t.service.importUrl(link)).toMatchObject({ reason: 'busy' });
+    expect(t.youtube.calls).toEqual([]);
   });
 });
 

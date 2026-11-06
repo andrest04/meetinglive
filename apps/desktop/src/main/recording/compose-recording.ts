@@ -24,6 +24,7 @@ import type { AudioController } from '../audio/audio-controller';
 import type { RecordingTakes } from '../audio/recording-take';
 import type { TranscriptionController } from '../transcription/transcription-controller';
 import { RecordingService, type LiveAskHooks } from './recording-service';
+import type { YouTubeAudioPort } from './youtube-import';
 
 export interface ComposeRecordingDeps {
   readonly library: LibraryRuntime;
@@ -46,6 +47,7 @@ export interface ComposeRecordingDeps {
   };
   readonly formatFailure: (error: unknown) => string;
   readonly wavDurationSeconds: (file: string) => number;
+  readonly youtube: YouTubeAudioPort;
   readonly liveAsk?: LiveAskHooks;
   readonly onRecordingStarted?: () => void;
 }
@@ -156,6 +158,7 @@ export function composeRecording(deps: ComposeRecordingDeps): RecordingService {
       };
     },
     meetingTitle: async (meetingId) => (await library.meetings.get(meetingId))?.title ?? null,
+    youtube: deps.youtube,
     defaultTitle: (atMs) => {
       const locale = deps.locale();
       return defaultMeetingTitle(new Date(atMs), locale, deps.titleCatalog(locale));

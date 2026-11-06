@@ -193,5 +193,9 @@
   "Ui_SpeakerDownloading": "Downloading the speaker model",
   "Ui_FitRunsWell": "Runs well on this PC",
   "Ui_FitMayBeSlow": "May be slow",
-  "Ui_FitTooHeavy": "Too heavy for this PC"
+  "Ui_FitTooHeavy": "Too heavy for this PC",
+  "Ui_ErrorYouTubeUrl": "That isn't a YouTube video link.",
+  "Ui_StatusDownloadingYouTube": "Downloading audio from YouTube…",
+  "Ui_ErrorYtDlpInstall": "Couldn't set up the YouTube downloader. Check your connection and try again.",
+  "Ui_ErrorYouTubeDownload": "Couldn't download the video's audio: {0}"
 }

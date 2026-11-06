@@ -52,6 +52,7 @@ function setup() {
     cancelProcessing: vi.fn(() => true),
     retryProcessing: vi.fn(() => false),
     importAudio: vi.fn(() => Promise.resolve({ started: true as const, meetingId: 'm2' })),
+    importUrl: vi.fn(() => Promise.resolve({ started: true as const, meetingId: 'm3' })),
   };
   registerRecordingHandlers({
     server: { ipc, logger: logger(), isTrusted: () => true },
@@ -121,6 +122,15 @@ describe('recording handlers', () => {
     expect(await call('recording.retryProcessing', {})).toMatchObject({
       value: { started: false },
     });
+  });
+
+  it('imports from a YouTube link', async () => {
+    const { call, service } = setup();
+    const input = { title: '', folderId: 'f1', url: 'https://youtu.be/dQw4w9WgXcQ' };
+    expect(await call('recording.importUrl', input)).toMatchObject({
+      value: { started: true, meetingId: 'm3' },
+    });
+    expect(service.importUrl).toHaveBeenCalledWith(input);
   });
 
   it('imports a picked file and relays the close dialog answers', async () => {
