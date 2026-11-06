@@ -10,7 +10,8 @@ import {
  * caller keeps the previous committed text and the keys it has already shown or dismissed.
  *
  * A line counts when it has `¿`, ends with `?`, or starts with an interrogative word ("por qué"
- * and "por que" included, "porque" not), is at least 12 characters once normalized, and is not a
+ * and "por que" included, "porque" not), an English auxiliary plus subject ("is the…", "do we…")
+ * or a Spanish request opener ("puedes…", "alguien sabe…"), is at least 12 characters once normalized, and is not a
  * whole-line rhetorical check ("¿se entiende?", "right?"). Of several new questions the last one
  * wins; a second-person cue ("¿puedes…?", "can you…") only breaks that tie, it never rejects.
  */
@@ -45,7 +46,81 @@ const INTERROGATIVE_WORDS: ReadonlySet<string> = new Set([
   'where',
   'who',
   'which',
+  // Port extra: contractions, as Nemotron writes "What's the budget…" with no "?" (T3).
+  "what's",
+  "how's",
+  "why's",
+  "when's",
+  "where's",
+  "who's",
 ]);
+
+/**
+ * Port extra (T3): live ASR often drops the "?" of an English yes/no question, which has no
+ * interrogative word. An auxiliary followed by a subject still marks one ("is the…", "do we…").
+ * "do/does/did" need a pronoun, since "do the review" is an order.
+ */
+const ENGLISH_AUXILIARIES: ReadonlySet<string> = new Set([
+  'is',
+  'are',
+  'was',
+  'were',
+  'do',
+  'does',
+  'did',
+  'can',
+  'could',
+  'will',
+  'would',
+  'should',
+  'have',
+  'has',
+]);
+const DO_AUXILIARIES: ReadonlySet<string> = new Set(['do', 'does', 'did']);
+const PRONOUN_SUBJECTS: ReadonlySet<string> = new Set([
+  'i',
+  'you',
+  'we',
+  'they',
+  'he',
+  'she',
+  'it',
+  'anyone',
+  'anybody',
+  'someone',
+  'somebody',
+  'everyone',
+  'everybody',
+]);
+const DETERMINER_SUBJECTS: ReadonlySet<string> = new Set([
+  'the',
+  'this',
+  'that',
+  'these',
+  'those',
+  'there',
+  'our',
+  'your',
+  'my',
+  'their',
+]);
+
+/**
+ * Port extra (T3): Spanish yes/no questions read like statements once ASR drops "¿?". Only
+ * openers that ask the listener for something count: "puedes…", "podrías…", "alguien sabe…".
+ */
+const SPANISH_REQUEST_OPENERS: readonly string[] = [
+  'puedes',
+  'podés',
+  'podrías',
+  'podrias',
+  'pueden',
+  'podrían',
+  'podrian',
+  'alguien puede',
+  'alguien sabe',
+  'alguien tiene',
+];
 
 /** "por qué" is WinUI; "por que" is a port extra (ASR drops the accent). "porque" never counts. */
 const INTERROGATIVE_PHRASES: readonly string[] = ['por qué', 'por que'];
@@ -199,13 +274,22 @@ function startsWithPhrase(normalized: string, phrase: string): boolean {
   return /\s/u.test(next) || EDGE_PUNCTUATION.has(next);
 }
 
+function startsWithEnglishYesNo(words: readonly string[]): boolean {
+  const [first, second] = words;
+  if (first === undefined || second === undefined || !ENGLISH_AUXILIARIES.has(first)) return false;
+  if (PRONOUN_SUBJECTS.has(second)) return true;
+  return !DO_AUXILIARIES.has(first) && DETERMINER_SUBJECTS.has(second);
+}
+
 function startsWithInterrogative(body: string): boolean {
-  const normalized = normalize(body);
+  // Curly apostrophes become straight ones so "what’s" matches "what's".
+  const normalized = normalize(body).replace(/’/gu, "'");
   if (normalized === '') return false;
-  if (INTERROGATIVE_PHRASES.some((phrase) => startsWithPhrase(normalized, phrase))) return true;
-  const space = normalized.indexOf(' ');
-  const first = trimEdges(space < 0 ? normalized : normalized.slice(0, space));
-  return INTERROGATIVE_WORDS.has(first);
+  const phrases = [...INTERROGATIVE_PHRASES, ...SPANISH_REQUEST_OPENERS];
+  if (phrases.some((phrase) => startsWithPhrase(normalized, phrase))) return true;
+  const words = normalized.split(' ').map(trimEdges);
+  const first = words[0] ?? '';
+  return INTERROGATIVE_WORDS.has(first) || startsWithEnglishYesNo(words);
 }
 
 function hasQuestionSignal(trimmed: string): boolean {

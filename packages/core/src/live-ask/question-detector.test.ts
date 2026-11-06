@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatEnded, formatHeader, formatLine } from '../transcription/stamp-format';
+import { NEMOTRON_EN_LINES, NEMOTRON_ES_LINES } from './fixtures/nemotron-live-lines';
 import { detectNewQuestion, questionKey } from './question-detector';
 
 /** Ported from MeetingLive.Core.Tests/Services/LiveQuestionDetectorTests.cs, plus es/en extras. */
@@ -139,8 +140,55 @@ describe('detectNewQuestion (port extras)', () => {
     expect(body(null, current)).toBe('¿Puedes contarnos cómo vas con el informe?');
   });
 
+  it.each([
+    "what's the budget for the third quarter",
+    'how’s the migration going this week',
+    "who's taking the notes for the retro",
+  ])('accepts an English contraction opener without a question mark: %s', (text) => {
+    expect(body(null, formatLine(0, 3000, text))).toBe(text);
+  });
+
+  it.each([
+    'is the staging environment ready for testing',
+    'do we have a timeline for the fix',
+    'can you send the numbers before friday',
+    'are they joining the call tomorrow',
+  ])('accepts an English yes/no opener without a question mark: %s', (text) => {
+    expect(body(null, formatLine(0, 3000, text))).toBe(text);
+  });
+
+  it.each([
+    'do the review before the release',
+    'could be the network again today',
+    'will do that after the meeting ends',
+  ])('rejects an auxiliary start that is not a question: %s', (text) => {
+    expect(body(null, formatLine(0, 3000, text))).toBeNull();
+  });
+
+  it.each([
+    'puedes enviarme el contrato mañana',
+    'podrías revisar el documento hoy',
+    'alguien puede organizar esa llamada',
+    'alguien sabe dónde quedó el acta',
+  ])('accepts a Spanish request opener without signs: %s', (text) => {
+    expect(body(null, formatLine(0, 3000, text))).toBe(text);
+  });
+
+  it('rejects a Spanish statement that only mentions someone', () => {
+    expect(body(null, formatLine(0, 3000, 'alguien me dijo que el servidor se cayó'))).toBeNull();
+  });
+
   it('returns the line start of the detected question, starred lines included', () => {
     const line = `* ${formatLine(65_000, 70_000, AGILE_EN)}`;
     expect(detectNewQuestion(null, line, none)?.lineStartMs).toBe(65_000);
   });
+});
+
+describe('detectNewQuestion (real Nemotron live lines)', () => {
+  it.each([...NEMOTRON_ES_LINES, ...NEMOTRON_EN_LINES])(
+    '$line -> question $question',
+    ({ line, question }) => {
+      expect(detectNewQuestion(null, line, none) !== null).toBe(question);
+    },
+  );
 });

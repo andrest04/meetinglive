@@ -19,7 +19,7 @@ Competitors (Fireflies Live Assist, Zoom AI Companion, Notion in-meeting skills,
 ## Tasks
 - [x] T1 — Question detector + hook + event + cards (pill, dock, AI panel) + optional LLM confirm + setting; unit tests; deterministic e2e via FakeSpeechEngine question phrase. Route: delegated.
 - [x] T2 — Live AI panel: badge, live chips, richer live context with rolling digest. Route: delegated.
-- [ ] T3 — Real-engine check: synthesize es/en question audio (SAPI TTS to WAV, no speaker playback), import it, confirm Nemotron punctuation and detector hits; record findings. Route: delegated.
+- [x] T3 — Real-engine check: synthesize es/en question audio (SAPI TTS to WAV, no speaker playback), import it, confirm Nemotron punctuation and detector hits; record findings. Route: delegated.
 
 ## Acceptance criteria
 - A spoken question appears as a card within ~2 s of its line being committed (rules path); Answer streams an answer; Dismiss hides it for the take.
@@ -46,5 +46,37 @@ Competitors (Fireflies Live Assist, Zoom AI Companion, Notion in-meeting skills,
 - Checks: see report in the T2 handoff (core 1902 passed; contracts 49; desktop 2197 passed, 1 known notepad-markdown flake; typecheck clean; prettier + eslint clean on touched code; e2e live-questions 4/4 incl. new live-panel test; targeted chat-*, live-questions, pill-panel(-error), recording-screen/bar/processing/notepad/pipeline: 79 passed, 3 skipped, 1 failed then fixed: `recording-bar` pause test hit two `pulse` elements once the remembered-open AI panel shows the Live badge, so its locators are now scoped to `recording-bar` and it passes 9/9).
 - Route: delegated (multi-file writer trigger).
 
+### T3 (delegated verifier/writer, 2026-11-06) — commit pending
+- Audio: SAPI to 16 kHz mono WAV files only (no playback). Voices: Microsoft Sabina Desktop (es-MX, 78 s, 16 lines) and Microsoft Zira Desktop (en-US, 68 s, 15 lines); scripts mix direct questions (with and without `?`), rhetorical checks and a "porque" statement.
+- Engine run: headless Node script (scratchpad, not in the repo) driving the app's own `loadNemoLibrary` (koffi, CUDA bin 0.3.0), `nemotron-3.5-asr-streaming-0.6b.q8_0`, `STREAMING_GEOMETRY`, live right context 3, no diarization, 100 ms frames paced in real time, `StreamingTranscriptAccumulator` for the committed lines and the real `LiveQuestionTracker` in `rules` mode. Each file ran with the explicit locale (`es-US`/`en-US`) and with `auto` (the app default: `transcriptionLanguage` unset).
+- Punctuation: `es-US` wrote no `?`/`¿` at all and mostly lower case; `auto` wrote one `¿…?` out of six Spanish questions plus periods and capitals. English (both locales): 3 of 6 questions ended in `?`; rhetorical checks came out bare ("right", "okay", "Does that make sense").
+- Latency (line end in audio to commit, wall clock): median ~0.97 s, ≤ 1.1 s for every line except the first greeting (3.6 s, committed together with the next phrase).
+- Detection (`auto` lines; ✓ = card, before → after the detector change):
+
+| Line (as committed) | Expected | Before | After |
+|---|---|---|---|
+| Cuando entregamos el informe final al cliente | yes | ✓ | ✓ |
+| Se entiende. / Ok / Verdad. | no | – | – |
+| Puedes enviarme el contrato mañana | yes | miss | ✓ |
+| El equipo … porque el cliente las pidió … | no | – | – |
+| ¿Cuánto nos queda del presupuesto de este trimestre? | yes | ✓ | ✓ (`es-US` lost "¿Cuánto nos qu-": "ada del presupuesto…", miss) |
+| Quien se encarga de las pruebas de rendimiento | yes | ✓ | ✓ |
+| por qué se retrasó la migración de la base de datos | yes | ✓ | ✓ |
+| por qué el proveedor cambió … ("Porque" spoken) | no | FP | FP (ASR wrote "por qué"; left to `rules+ai`) |
+| Alguien puede organizar esa llamada | yes | miss | ✓ |
+| What's the budget for Q three | yes | miss | ✓ |
+| Can you share the deck after the call? | yes | ✓ | ✓ |
+| right / okay / Does that make sense | no | – | – |
+| How long will the security review take? | yes | ✓ | ✓ |
+| Is the staging environment ready for testing | yes | miss | ✓ |
+| Who owns the customer escalation from Monday? | yes | ✓ | ✓ |
+| Do we have a timeline for the fix | yes | miss | ✓ |
+
+  Totals after: es 6/6 hits (`es-US`: 5/6), 1 FP; en 6/6 hits, 0 FP. Before: es 4/6, en 3/6. No question was split across lines; every question was its own committed line.
+- Detector change (`question-detector.ts`, port extras): English `wh`+`'s` contractions; English auxiliary + subject opener (`is/are/can/will/…` + pronoun or determiner, `do/does/did` + pronoun only, so "do the review" stays a statement); Spanish request openers (`puedes/podés/podrías/pueden/podrían`, `alguien puede/sabe/tiene`). Rhetorical whole-line rejects unchanged. Real lines kept as an anonymized fixture (`live-ask/fixtures/nemotron-live-lines.ts`).
+- RED observed: 16 new detector tests failed (11 rule cases + 5 real fixture lines) before the change; GREEN after.
+- Checks: `pnpm --filter @vozella/core test` 1952 passed; core `tsc --noEmit` clean; prettier + eslint clean on touched files.
+- Route: delegated (real-engine run + detector writer).
+
 ## Next step
-Commit T1 (if not yet) and T2, then T3.
+Commit T1 (if not yet), T2 and T3.
