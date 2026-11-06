@@ -211,5 +211,17 @@
   "Ui_RecipeKeyIdeasName": "Ideas principales",
   "Ui_RecipeExplainName": "Explícame lo más difícil",
   "Ui_RecipeQuotesName": "Citas destacadas",
-  "Ui_RecipeStudyName": "Preguntas de repaso"
+  "Ui_RecipeStudyName": "Preguntas de repaso",
+  "Ui_RecipeDiscussedPrompt": "Haz un breve resumen de lo que se ha hablado hasta ahora.",
+  "Ui_RecipeActionItemsPrompt": "Extrae los responsables y los próximos pasos. Si el responsable no aparece en el contexto, indica que está sin asignar.",
+  "Ui_RecipeFollowUpEmailPrompt": "Redacta un correo de seguimiento conciso. No lo envíes.",
+  "Ui_RecipeNextStepsPrompt": "Enumera mis próximos pasos a partir de esta reunión.",
+  "Ui_RecipeProjectPlanPrompt": "Redacta un plan de proyecto breve a partir de esta reunión: resultado, pasos, responsables y preguntas abiertas. No inventes responsables.",
+  "Ui_RecipeKeyIdeasPrompt": "Enumera en orden las ideas principales de esta grabación. Para cada una, indica su intervalo de tiempo y una o dos frases. Usa solo lo que aparece en la grabación.",
+  "Ui_RecipeExplainPrompt": "Busca los conceptos más difíciles de esta grabación y explica cada uno de forma sencilla, con un ejemplo concreto. Sé fiel a lo que se dijo y marca cualquier ejemplo propio.",
+  "Ui_RecipeQuotesPrompt": "Cita textualmente las frases más destacadas de esta grabación, cada una con su marca de tiempo y la persona que habla cuando se sepa. No parafrasees ni inventes citas.",
+  "Ui_RecipeStudyPrompt": "Escribe 5 preguntas de repaso sobre esta grabación, cada una seguida de su respuesta tomada del contenido.",
+  "Ui_RecipeFeatureRequestsPrompt": "Agrupa los comentarios sobre el producto por temas.",
+  "Ui_RecipeRecurringThemesPrompt": "Identifica patrones comunes en las reuniones incluidas.",
+  "Ui_RecipeWeeklyUpdatePrompt": "Escribe viñetas con las decisiones, los bloqueos y los próximos pasos. Solo un borrador. No lo envíes."
 }

@@ -413,6 +413,15 @@ describe('starter chips (items 39 to 41)', () => {
     expect(api.calls).not.toContain('library.getMeeting');
   });
 
+  it('in Spanish a chip sends the Spanish prompt, not the English one', async () => {
+    const api = install({ actionItems: () => [ITEM] });
+    mount(MEETING, 'es');
+    await userEvent.click(await screen.findByRole('button', { name: 'Qué se ha hablado' }));
+    await waitFor(() => {
+      expect(api.sends[0]?.draft).toBe('Haz un breve resumen de lo que se ha hablado hasta ahora.');
+    });
+  });
+
   it('a click sends the prompt at once and hides the chips', async () => {
     const api = install({ actionItems: () => [ITEM] });
     mount(MEETING);
