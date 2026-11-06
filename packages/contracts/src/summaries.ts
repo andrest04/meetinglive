@@ -131,6 +131,36 @@ export const summariesToggleAction = defineRequest('summaries.toggleAction', {
   ]),
 });
 
+/**
+ * T4: replaces a meeting's summary with a chat answer (`answer`, split in main like a summary run)
+ * or puts back what a replace answered (`restore`, the undo). `saved` carries the content it
+ * replaced, so the page can offer Undo; a running summary answers `busy`.
+ */
+export const summariesReplaceSummary = defineRequest('summaries.replaceSummary', {
+  input: z.object({
+    meetingId,
+    source: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('answer'), text: z.string().max(2_000_000) }),
+      z.object({
+        kind: z.literal('restore'),
+        summary: z.string().max(2_000_000).nullable(),
+        actionItems: z.array(actionItemSchema).max(1000).readonly(),
+      }),
+    ]),
+  }),
+  output: z.discriminatedUnion('status', [
+    z.object({
+      status: z.literal('saved'),
+      previous: z.object({
+        summary: z.string().nullable(),
+        actionItems: z.array(actionItemSchema).readonly(),
+      }),
+    }),
+    z.object({ status: z.enum(['busy', 'empty', 'not-found']) }),
+    z.object({ status: z.literal('failed'), detail: z.string() }),
+  ]),
+});
+
 export const summariesCopyActions = defineRequest('summaries.copyActions', {
   input: z.object({ meetingId }),
   output: z.discriminatedUnion('status', [

@@ -136,6 +136,17 @@ Errors from recipe operations show through `ShowSendError` ("Could not answer. {
 - Copy button copies the raw Markdown text (`item.Text`) as plain text to the clipboard. Blank text is ignored. Failure shows `Chat_CopyFailed` ("Could not copy. {0}"/"No se pudo copiar. {0}").
 - Auto-scroll: when rows are added, the list scrolls to the last item at low dispatcher priority. For a pending (streaming) row, every change to its `Text` property schedules a layout update and scrolls the inner `ScrollViewer` to its full extent (because item scrolling stops at the top of a row taller than the viewport). The `ScrollViewer` is found once and cached.
 
+### 2.7a Apply an answer to the summary (port T4)
+
+Port-only (no WinUI counterpart), `odd/tasks/chat-speed-citations.md` T4.
+
+- In Meeting scope only, a completed assistant answer shows a second action next to Copy: "Apply to summary" / "Aplicar al resumen" (`Ui_ChatApplySummary`, `FilePen` icon, tooltip and accessible name, `BtnMeetingChatApplySummary`).
+- A click asks through the dialog service: "Replace the summary?" / "¿Reemplazar el resumen?", body `Ui_ChatApplySummaryBody`, "Replace" / "Reemplazar" and "Cancel" / "Cancelar"; Cancel is the default focus. Cancel, Escape or the X write nothing.
+- Replace calls `summaries.replaceSummary { meetingId, source: { kind: 'answer', text } }`. Main (`SummaryTabService.replaceSummary`, queued with the other writes of the meeting) splits the answer with `summaryFromAnswer`: an answer with `## Summary` and/or `## Action Items` goes through `splitSummaryResponse`; its action items replace the stored ones only when it has an action section or checkbox lines (an empty action section clears them; action items alone keep the stored summary). Any other answer becomes the summary text as it is and the stored action items stay. A blank result answers `empty`. Reserved `##` headers in the text are escaped by the meeting file writer, as for every summary. Only `summary` and `actionItems` change; a running summary for the meeting answers `busy`.
+- Time citations stay links. The Summary tab now routes link clicks through the same handler as the chat (`useChatLinks`), so a chip in the summary opens the transcript at that moment; a missing meeting shows on the tab's status line.
+- A saved replace answers the previous `{ summary, actionItems }` and broadcasts `summaries.progress { running: false }`, which the open Summary tab already reloads on. The panel shows a status line "Summary updated" / "Resumen actualizado" with "Undo" / "Deshacer"; Undo sends `source: { kind: 'restore', summary, actionItems }` with the kept copy, which restores both exactly, then shows "Summary restored". The copy lives in the panel for the session; it is dropped when the line is closed, on the next apply, or when the scoped meeting changes. Busy, empty and failed answers show as an error line with no Undo.
+- The undo line is an inline status (not a timed toast): the shared toast has no action slot, and a timed Undo would disappear under a slow reader.
+
 ### 2.8 Related meetings (Summary page)
 
 - `SummaryPageViewModel.LoadRelatedMeetingsAsync` (`SummaryPageViewModel.cs:305-319`), called at the end of `LoadAsync`, loads all meetings, runs `RelatedMeetings.Find(currentRecord, all)`, keeps the first 5 (`MaxRelatedMeetings = 5`), and maps each to `RelatedMeetingItem { Id, Title, DateLabel }`. `DateLabel` is `RecordedAt.LocalDateTime.ToString("g", CurrentCulture)`.

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Providers } from '../library/library-test-kit';
+import { DialogHost } from '../shell/dialog-service';
 import { ChatBody } from './ChatBody';
 
 vi.mock('../summaries/ProviderGateDialogs', () => ({
@@ -59,6 +60,7 @@ interface Api {
   sends: { requestId: string; draft: string; liveTranscript: string | null }[];
   emit: (name: string, payload: unknown) => void;
   calls: string[];
+  inputs: { name: string; input: Record<string, unknown> }[];
 }
 
 function install(options: {
@@ -68,11 +70,13 @@ function install(options: {
   send?: (n: number, input: { requestId: string; draft: string }) => Promise<ChatSendOutcomeDto>;
   beforeSend?: () => Promise<void>;
   copy?: () => { status: 'written' } | { status: 'failed'; detail: string };
+  replace?: (input: Record<string, unknown>) => unknown;
 }): Api {
   const listeners = new Map<string, Set<Listener>>();
   const api: Api = {
     sends: [],
     calls: [],
+    inputs: [],
     emit: (name, payload) => {
       listeners.get(name)?.forEach((listener) => {
         listener(payload);
@@ -81,6 +85,7 @@ function install(options: {
   };
   const invoke = vi.fn(async (name: string, input: Record<string, unknown>) => {
     api.calls.push(name);
+    api.inputs.push({ name, input });
     switch (name) {
       case 'chat.state':
         return options.state ?? stateOf();
@@ -101,6 +106,13 @@ function install(options: {
       }
       case 'chat.cancel':
         return { cancelled: true };
+      case 'summaries.replaceSummary':
+        return (
+          options.replace?.(input) ?? {
+            status: 'saved',
+            previous: { summary: 'Old.', actionItems: [{ text: 'Keep', isDone: true }] },
+          }
+        );
       case 'chat.copyText':
         return options.copy?.() ?? { status: 'written' };
       case 'library.getMeeting':
@@ -137,7 +149,9 @@ afterEach(() => {
 const mount = (scope: typeof ALL | typeof MEETING = ALL, locale: 'en' | 'es' = 'en') =>
   render(
     <Providers locale={locale}>
-      <ChatBody scope={scope} />
+      <DialogHost>
+        <ChatBody scope={scope} />
+      </DialogHost>
     </Providers>,
   );
 
@@ -656,5 +670,101 @@ describe('audit fixes', () => {
     });
     expect(api.sends).toHaveLength(0);
     expect(box().value).toBe('q');
+  });
+});
+
+describe('apply to summary (T4)', () => {
+  const seeded = stateOf({
+    messages: [
+      msg('u', 'user', 'Make the summary more detailed'),
+      msg(
+        'a',
+        'assistant',
+        'Longer summary at [05:12](https://meetinglive.local/meeting/m1?t=312).',
+      ),
+    ],
+    hasMessages: true,
+  });
+  const applyButton = () => screen.queryByTestId('BtnMeetingChatApplySummary');
+  const replaces = (api: Api) => api.inputs.filter((c) => c.name === 'summaries.replaceSummary');
+
+  it('shows on completed answers in a meeting scope only, named for screen readers', async () => {
+    install({ state: seeded });
+    const view = mount(MEETING);
+    const button = await screen.findByTestId('BtnMeetingChatApplySummary');
+    expect(button.getAttribute('aria-label')).toBe('Apply to summary');
+    expect(screen.getAllByTestId('BtnMeetingChatApplySummary')).toHaveLength(1);
+    view.unmount();
+    install({ state: seeded });
+    mount(ALL);
+    await screen.findByTestId('BtnMeetingChatCopy');
+    expect(applyButton()).toBeNull();
+  });
+
+  it('asks first; Cancel writes nothing', async () => {
+    const api = install({ state: seeded });
+    mount(MEETING);
+    await userEvent.click(await screen.findByTestId('BtnMeetingChatApplySummary'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Replace the summary?')).toBeTruthy();
+    expect(within(dialog).getByTestId('DialogPrimary').textContent).toBe('Replace');
+    await userEvent.click(within(dialog).getByTestId('DialogClose'));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(replaces(api)).toHaveLength(0);
+    expect(screen.queryByTestId('InfoMeetingChatSummary')).toBeNull();
+  });
+
+  it('Replace sends the answer as is (citations kept) and Undo restores the previous content', async () => {
+    const api = install({ state: seeded });
+    mount(MEETING);
+    await userEvent.click(await screen.findByTestId('BtnMeetingChatApplySummary'));
+    await userEvent.click(await screen.findByTestId('DialogPrimary'));
+    const notice = await screen.findByTestId('InfoMeetingChatSummary');
+    expect(notice.textContent).toContain('Summary updated');
+    expect(replaces(api)[0]?.input).toEqual({
+      meetingId: 'm1',
+      source: {
+        kind: 'answer',
+        text: 'Longer summary at [05:12](https://meetinglive.local/meeting/m1?t=312).',
+      },
+    });
+    await userEvent.click(within(notice).getByTestId('BtnMeetingChatSummaryUndo'));
+    await waitFor(() => {
+      expect(screen.getByTestId('InfoMeetingChatSummary').textContent).toContain(
+        'Summary restored',
+      );
+    });
+    expect(replaces(api)[1]?.input).toEqual({
+      meetingId: 'm1',
+      source: { kind: 'restore', summary: 'Old.', actionItems: [{ text: 'Keep', isDone: true }] },
+    });
+    expect(screen.queryByTestId('BtnMeetingChatSummaryUndo')).toBeNull();
+  });
+
+  it('a busy meeting answers a plain sentence and offers no Undo', async () => {
+    install({ state: seeded, replace: () => ({ status: 'busy' }) });
+    mount(MEETING);
+    await userEvent.click(await screen.findByTestId('BtnMeetingChatApplySummary'));
+    await userEvent.click(await screen.findByTestId('DialogPrimary'));
+    const notice = await screen.findByTestId('InfoMeetingChatSummaryError');
+    expect(notice.textContent).toContain('A summary is being generated');
+    expect(screen.queryByTestId('BtnMeetingChatSummaryUndo')).toBeNull();
+  });
+
+  it('speaks Spanish', async () => {
+    install({ state: seeded });
+    mount(MEETING, 'es');
+    const button = await screen.findByTestId('BtnMeetingChatApplySummary');
+    expect(button.getAttribute('aria-label')).toBe('Aplicar al resumen');
+    await userEvent.click(button);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('¿Reemplazar el resumen?')).toBeTruthy();
+    expect(within(dialog).getByTestId('DialogClose').textContent).toBe('Cancelar');
+    await userEvent.click(within(dialog).getByTestId('DialogPrimary'));
+    expect((await screen.findByTestId('InfoMeetingChatSummary')).textContent).toContain(
+      'Resumen actualizado',
+    );
   });
 });

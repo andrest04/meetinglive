@@ -9,10 +9,12 @@ export function MessageList({
   rows,
   onCopy,
   onLink,
+  onApply,
 }: {
   readonly rows: readonly ChatRow[];
   readonly onCopy: (text: string) => Promise<boolean>;
   readonly onLink: LinkHandler;
+  readonly onApply?: (text: string) => void;
 }) {
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
@@ -31,7 +33,13 @@ export function MessageList({
         className="flex flex-col gap-4 py-1 pe-1"
       >
         {rows.map((row) => (
-          <MessageRow key={row.id} row={row} onCopy={onCopy} onLink={onLink} />
+          <MessageRow
+            key={row.id}
+            row={row}
+            onCopy={onCopy}
+            onLink={onLink}
+            {...(onApply ? { onApply } : {})}
+          />
         ))}
       </ul>
     </div>

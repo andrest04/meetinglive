@@ -285,3 +285,27 @@ describe('SummaryTab related meetings', () => {
     expect(screen.queryByRole('navigation')).toBeNull();
   });
 });
+
+describe('SummaryTab time citations (T4: answers applied from the chat keep their links)', () => {
+  it('a time chip in the summary opens the transcript at that moment instead of navigating', async () => {
+    const summary =
+      'Decided at [05:12](https://meetinglive.local/meeting/0123456789abcdef0123456789abcdef?t=312).';
+    const api = installSummariesApi({
+      ...loaded(withSummary(summary)),
+      'chat.meetingExists': () => ({ exists: true, meetingId: '0123456789abcdef0123456789abcdef' }),
+    });
+    mount();
+    const content = await screen.findByTestId('TxtSummaryContent');
+    const chip = content.querySelector<HTMLAnchorElement>('a[data-citation="time"]');
+    if (chip === null) throw new Error('no time chip');
+    await userEvent.click(chip);
+    await waitFor(() => {
+      expect(api.calls.filter((c) => c.name === 'workspace.dispatch').map((c) => c.input)).toEqual(
+        expect.arrayContaining([
+          { action: { type: 'selectMeeting', id: '0123456789abcdef0123456789abcdef' } },
+          { action: { type: 'openSession', tab: 'Transcript' } },
+        ]),
+      );
+    });
+  });
+});

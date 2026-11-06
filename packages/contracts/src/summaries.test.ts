@@ -11,6 +11,7 @@ import {
   summariesLoadTab,
   summariesProgress,
   summariesProviderStatus,
+  summariesReplaceSummary,
   summariesToggleAction,
 } from './index';
 
@@ -103,5 +104,34 @@ describe('summaries contracts', () => {
       defaultFileName: null,
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('summaries.replaceSummary (T4)', () => {
+  it('is registered and accepts an answer or a restore', () => {
+    expect(Object.keys(requestChannels)).toContain('summaries.replaceSummary');
+    const input = summariesReplaceSummary.input;
+    expect(
+      input.safeParse({ meetingId: 'm1', source: { kind: 'answer', text: 'x' } }).success,
+    ).toBe(true);
+    expect(
+      input.safeParse({
+        meetingId: 'm1',
+        source: { kind: 'restore', summary: null, actionItems: [{ text: 'a', isDone: true }] },
+      }).success,
+    ).toBe(true);
+    expect(input.safeParse({ meetingId: 'm1', source: { kind: 'other' } }).success).toBe(false);
+  });
+
+  it('answers the previous content, busy, empty, not-found or failed as values', () => {
+    const output = summariesReplaceSummary.output;
+    expect(
+      output.safeParse({ status: 'saved', previous: { summary: null, actionItems: [] } }).success,
+    ).toBe(true);
+    for (const status of ['busy', 'empty', 'not-found']) {
+      expect(output.safeParse({ status }).success).toBe(true);
+    }
+    expect(output.safeParse({ status: 'failed', detail: 'locked' }).success).toBe(true);
+    expect(output.safeParse({ status: 'saved' }).success).toBe(false);
   });
 });
