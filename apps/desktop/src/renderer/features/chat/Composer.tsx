@@ -1,5 +1,5 @@
 import type { ChatRecipe } from '@vozella/core';
-import { ArrowUp, BookOpenText, Square } from 'lucide-react';
+import { ArrowUp, BookOpenText, Paperclip, Square } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useT } from '../../i18n/I18nProvider';
 import { SHORTCUTS } from '../../app/shortcuts';
@@ -19,6 +19,8 @@ export interface ComposerProps {
   readonly isSending: boolean;
   /** Built-in recipes of the current scope for the Recipes flyout. */
   readonly recipes: readonly ChatRecipe[];
+  /** Opens the file picker. Unset hides the paperclip. */
+  readonly onAttach?: () => void;
 }
 
 /** The message box: Enter sends, Shift+Enter adds a line, and the box grows to three lines. */
@@ -29,6 +31,7 @@ export function Composer({
   onStop,
   isSending,
   recipes,
+  onAttach,
 }: ComposerProps) {
   const t = useT();
   const field = useRef<HTMLTextAreaElement>(null);
@@ -82,6 +85,16 @@ export function Composer({
         onClick={menu.toggle}
         className="mb-0.5"
       />
+      {onAttach ? (
+        <IconButton
+          label={t('Ui_ChatAttach')}
+          icon={Paperclip}
+          size="sm"
+          data-testid="BtnMeetingChatAttach"
+          onClick={onAttach}
+          className="mb-0.5 -ms-1.5"
+        />
+      ) : null}
       <textarea
         ref={field}
         id="TxtMeetingChat"

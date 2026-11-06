@@ -54,6 +54,7 @@ const stateOf = (over: Partial<ChatStateDto> = {}): ChatStateDto => ({
   showScopeMismatch: false,
   hasMessages: false,
   canStartNewChat: true,
+  attachments: [],
   ...over,
 });
 
@@ -102,6 +103,7 @@ function install(options: {
             status: 'answered',
             user: msg('u1', 'user', typed.draft),
             assistant: msg('a1', 'assistant', 'Fine **answer**'),
+            notice: null,
           } satisfies ChatSendOutcomeDto)
         );
       }
@@ -270,6 +272,7 @@ describe('optimistic rows, rollback and draft restore (items 33 to 35, 44)', () 
         status: 'answered',
         user: msg('u', 'user', 'Question'),
         assistant: msg('a', 'assistant', 'Done'),
+        notice: null,
       });
       await Promise.resolve();
     });
@@ -328,6 +331,7 @@ describe('optimistic rows, rollback and draft restore (items 33 to 35, 44)', () 
                 status: 'answered',
                 user: msg('u', 'user', input.draft),
                 assistant: msg('a', 'assistant', 'ok'),
+                notice: null,
               },
         );
       },
@@ -584,6 +588,7 @@ describe('provider gate (item 38)', () => {
                 status: 'answered',
                 user: msg('u', 'user', input.draft),
                 assistant: msg('a', 'assistant', 'ready now'),
+                notice: null,
               },
         ),
     });
@@ -650,6 +655,7 @@ describe('audit fixes', () => {
               status: 'answered',
               user: msg('u', 'user', 'again'),
               assistant: msg('a', 'assistant', 'second answer'),
+              notice: null,
             });
       },
     });

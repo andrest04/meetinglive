@@ -7,8 +7,16 @@ import {
   CLAUDE_STREAM_FLAGS,
   CODEX_STREAM_FLAGS,
   InvalidCliOptionError,
+  claudeImageArgs,
+  codexImageArgs,
 } from './cli-invocation';
-import { CLI_TIMEOUT_MS, CliExitError, type CliLineRunner } from './cli-provider';
+import {
+  CLI_TIMEOUT_MS,
+  CliExitError,
+  type CliLineRunner,
+  type CliPromptOptions,
+  type CliRunOptions,
+} from './cli-provider';
 import { CLAUDE_STREAM_JSON_LINES } from './fixtures/claude-stream-json';
 import { CODEX_EXEC_JSON_LINES } from './fixtures/codex-exec-json';
 import {
@@ -232,7 +240,7 @@ for (const f of flavors) {
 
 /** A runner that can also stream stdout lines, like the Node runner. */
 class FakeLineRunner extends FakeCliProcessRunner implements CliLineRunner {
-  readonly lineCalls: FakeRunCall[] = [];
+  readonly lineCalls: (FakeRunCall & { readonly cwd?: string })[] = [];
   lines: readonly string[] = [];
   /** Thrown after the lines, like a process that exits non-zero. */
   failAfterLines: unknown = null;
@@ -245,8 +253,15 @@ class FakeLineRunner extends FakeCliProcessRunner implements CliLineRunner {
     stdin: string | null,
     timeoutMs: number,
     _cancel: CancelSignal,
+    options?: CliRunOptions,
   ): AsyncIterable<string> {
-    this.lineCalls.push({ executable, args: [...args], stdin, timeoutMs });
+    this.lineCalls.push({
+      executable,
+      args: [...args],
+      stdin,
+      timeoutMs,
+      ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
+    });
     for (const line of this.lines) {
       await Promise.resolve();
       this.delivered += 1;
@@ -438,5 +453,45 @@ describe('CLI streaming without a line runner', () => {
     const chunks = await collect(createClaudeCodeProvider(runner).streamPrompt('p', cancel()));
     expect(chunks).toEqual(['whole']);
     expect(runner.calls[0]?.args).toEqual(['-p', ...CLAUDE_LEAN_FLAGS]);
+  });
+});
+
+describe('CLI streaming with attached images', () => {
+  const images: CliPromptOptions = {
+    images: {
+      directory: 'C:/Users/andres/AppData/Local/Temp/vz-1',
+      paths: ['C:/Users/andres/AppData/Local/Temp/vz-1/image-1.png'],
+    },
+  };
+
+  it('Claude runs in the image folder with only the Read tool, over that folder', async () => {
+    const runner = new FakeLineRunner();
+    runner.lines = CLAUDE_STREAM_JSON_LINES;
+    await collect(createClaudeCodeProvider(runner).streamPrompt('p', cancel(), images));
+    expect(runner.lineCalls[0]?.cwd).toBe('C:/Users/andres/AppData/Local/Temp/vz-1');
+    expect(runner.lineCalls[0]?.args).toEqual([
+      '-p',
+      ...CLAUDE_LEAN_FLAGS,
+      ...CLAUDE_STREAM_FLAGS,
+      ...claudeImageArgs('C:/Users/andres/AppData/Local/Temp/vz-1'),
+    ]);
+  });
+
+  it('Codex gets one -i per image and keeps its working folder', async () => {
+    const runner = new FakeLineRunner();
+    runner.lines = CODEX_EXEC_JSON_LINES;
+    await collect(createCodexProvider(runner).streamPrompt('p', cancel(), images));
+    expect(runner.lineCalls[0]?.cwd).toBeUndefined();
+    expect(runner.lineCalls[0]?.args.slice(-2)).toEqual(
+      codexImageArgs(['C:/Users/andres/AppData/Local/Temp/vz-1/image-1.png']),
+    );
+  });
+
+  it('without images nothing changes', async () => {
+    const runner = new FakeLineRunner();
+    runner.lines = CLAUDE_STREAM_JSON_LINES;
+    await collect(createClaudeCodeProvider(runner).streamPrompt('p', cancel(), {}));
+    expect(runner.lineCalls[0]?.cwd).toBeUndefined();
+    expect(runner.lineCalls[0]?.args).toEqual(['-p', ...CLAUDE_LEAN_FLAGS, ...CLAUDE_STREAM_FLAGS]);
   });
 });

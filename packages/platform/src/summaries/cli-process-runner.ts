@@ -8,6 +8,7 @@ import {
   type CancelSignal,
   type CliLineRunner,
   type CliProcessRunner,
+  type CliRunOptions,
   type CliRunResult,
 } from '@vozella/core';
 import { PathCliProbe, type PathCliProbeOptions } from '../settings/path-cli-probe';
@@ -134,12 +135,16 @@ export class NodeCliProcessRunner implements CliProcessRunner, CliLineRunner {
     return this.probe.resolve(executable);
   }
 
-  /** The one spawn both `run` and `runLines` use: no shell, hidden window, own process group. */
+  /**
+   * The one spawn both `run` and `runLines` use: no shell, hidden window, own process group.
+   * `options.cwd` runs it in another folder (chat images); unset keeps the app's own.
+   */
   private async start(
     file: string,
     args: readonly string[],
     stdin: string | null,
     cancel: CancelSignal,
+    options: CliRunOptions | undefined,
   ): Promise<ChildProcess> {
     throwIfCancelled(cancel);
     const resolved = await this.probe.resolve(file);
@@ -151,6 +156,7 @@ export class NodeCliProcessRunner implements CliProcessRunner, CliLineRunner {
       windowsHide: true,
       windowsVerbatimArguments: launch.verbatim,
       detached: !windows,
+      ...(options?.cwd === undefined ? {} : { cwd: options.cwd }),
       env: this.options.env ? { ...process.env, ...this.options.env } : process.env,
       stdio: [stdin === null ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
@@ -168,8 +174,9 @@ export class NodeCliProcessRunner implements CliProcessRunner, CliLineRunner {
     stdin: string | null,
     timeoutMs: number,
     cancel: CancelSignal,
+    options?: CliRunOptions,
   ): AsyncGenerator<string> {
-    const child = await this.start(file, args, stdin, cancel);
+    const child = await this.start(file, args, stdin, cancel, options);
     const queue: string[] = [];
     const state = {
       exitCode: null as number | null,
@@ -253,8 +260,9 @@ export class NodeCliProcessRunner implements CliProcessRunner, CliLineRunner {
     stdin: string | null,
     timeoutMs: number,
     cancel: CancelSignal,
+    options?: CliRunOptions,
   ): Promise<CliRunResult> {
-    const child = await this.start(file, args, stdin, cancel);
+    const child = await this.start(file, args, stdin, cancel, options);
 
     const spawnFailed = new Promise<never>((_, reject) => {
       child.once('error', (error: NodeJS.ErrnoException) => {

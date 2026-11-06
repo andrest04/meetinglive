@@ -1,6 +1,8 @@
 import {
   chatChunk,
   chatStateChanged,
+  type ChatAttachmentDto,
+  type ChatAttachmentListDto,
   type ChatScopeDto,
   type ChatSendOutcomeDto,
   type ChatStateDto,
@@ -16,7 +18,14 @@ import type {
   SummaryProviderResolver,
 } from '@vozella/core';
 import { sendFailedFailure, type TranslateFn } from '@vozella/core';
+import type { ChatAttachmentStore } from '@vozella/platform';
 import type { Broadcast } from '../summaries/summaries-controller';
+
+/** The slice of the attachment store the controller drives (the store owns the paths). */
+export type ChatAttachmentsPort = Pick<
+  ChatAttachmentStore,
+  'list' | 'add' | 'remove' | 'clear' | 'onChange'
+>;
 
 /** The slice of `ChatService` the controller drives. */
 export type ChatServicePort = Pick<
@@ -45,6 +54,10 @@ export interface ChatControllerDeps {
     readonly title: string | null;
     readonly notes: string | null;
   };
+  /** Files attached to the conversation. Unset: the attach requests answer an empty list. */
+  readonly attachments?: ChatAttachmentsPort;
+  /** The system file dialog, several files at once. Empty when the user cancels. */
+  readonly pickAttachments?: () => Promise<readonly string[]>;
 }
 
 /** S2: only http and https leave the app. Anything else, or a string that is not a URL, is refused. */
@@ -94,6 +107,9 @@ export class ChatController {
     deps.service.onChange(() => {
       this.publishState();
     });
+    deps.attachments?.onChange(() => {
+      this.publishState();
+    });
   }
 
   async send(input: {
@@ -101,6 +117,7 @@ export class ChatController {
     readonly draft: string;
     readonly scope: ChatScopeDto;
     readonly liveTranscript: string | null;
+    readonly attachmentIds?: readonly string[];
   }): Promise<ChatSendOutcomeDto> {
     const { service, broadcast } = this.deps;
     let lastText = '';
@@ -112,7 +129,12 @@ export class ChatController {
       broadcast(chatChunk, { requestId: input.requestId, text });
     });
     try {
-      const outcome = await service.send(input.draft, input.scope, this.liveSnapshot(input));
+      const ids = input.attachmentIds ?? [];
+      const live = this.liveSnapshot(input);
+      const outcome =
+        ids.length === 0
+          ? await service.send(input.draft, input.scope, live)
+          : await service.send(input.draft, input.scope, live, { attachmentIds: ids });
       return this.toDto(outcome);
     } catch (error) {
       // The service answers values; this guards a bug, not a normal outcome.
@@ -151,8 +173,52 @@ export class ChatController {
     return wasSending;
   }
 
+  /** New chat also drops the attached files. */
   newChat(): boolean {
-    return this.deps.service.newChat();
+    const started = this.deps.service.newChat();
+    if (started) this.deps.attachments?.clear();
+    return started;
+  }
+
+  /** Opens the file dialog; the picked paths stay in main. */
+  async attachPick(): Promise<ChatAttachmentListDto> {
+    let paths: readonly string[] = [];
+    try {
+      paths = (await this.deps.pickAttachments?.()) ?? [];
+    } catch (error) {
+      this.deps.logger.warn('chat attach dialog failed', { error });
+    }
+    return this.attachAdd(paths);
+  }
+
+  /** Paths of dropped files, from the preload. The store checks each one before reading it. */
+  attachDrop(paths: readonly string[]): Promise<ChatAttachmentListDto> {
+    return this.attachAdd(paths);
+  }
+
+  attachRemove(id: string): ChatAttachmentListDto {
+    this.deps.attachments?.remove(id);
+    return { attachments: this.attachmentDtos(), notice: null };
+  }
+
+  attachList(): ChatAttachmentListDto {
+    return { attachments: this.attachmentDtos(), notice: null };
+  }
+
+  private async attachAdd(paths: readonly string[]): Promise<ChatAttachmentListDto> {
+    const store = this.deps.attachments;
+    if (store === undefined || paths.length === 0) return this.attachList();
+    try {
+      const { notice } = await store.add(paths);
+      return { attachments: this.attachmentDtos(), notice };
+    } catch (error) {
+      this.deps.logger.error('chat attach failed', { error });
+      return this.attachList();
+    }
+  }
+
+  private attachmentDtos(): ChatAttachmentDto[] {
+    return (this.deps.attachments?.list() ?? []).map((a) => ({ ...a }));
   }
 
   state(): ChatStateDto {
@@ -207,6 +273,7 @@ export class ChatController {
           status: 'answered',
           user: messageDto(outcome.user),
           assistant: messageDto(outcome.assistant),
+          notice: outcome.notice,
         };
       case 'cancelled':
         return { status: 'cancelled', originalDraft: outcome.originalDraft };
@@ -234,6 +301,7 @@ export class ChatController {
       showScopeMismatch: state.showScopeMismatch,
       hasMessages: state.hasMessages,
       canStartNewChat: state.canStartNewChat,
+      attachments: this.attachmentDtos(),
     };
   }
 
@@ -246,6 +314,7 @@ export class ChatController {
       state.showScopeMismatch,
       state.hasMessages,
       state.canStartNewChat,
+      state.attachments,
     ]);
     if (key === this.lastStateKey) return;
     this.lastStateKey = key;

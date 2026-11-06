@@ -4,6 +4,7 @@ import { CancelledError, type ProviderId } from '../summaries/provider';
 import {
   ChatService,
   type ChatMeetingReader,
+  type ChatPromptOptions,
   type ChatProviderResolution,
   type ChatStreamProvider,
   type ProviderSource,
@@ -90,13 +91,20 @@ export class ScriptedChatProvider implements ChatStreamProvider {
   /** The engine the service sizes the context for; unset behaves as local. */
   id: ProviderId | undefined = undefined;
   readonly prompts: string[] = [];
+  /** The options of each call, in order (images of a send, for example). */
+  readonly options: (ChatPromptOptions | undefined)[] = [];
   chunks: string[] = [];
   failWith: unknown = null;
   /** Runs before chunk `index` is yielded. */
   beforeChunk: ((index: number) => void | Promise<void>) | null = null;
 
-  async *streamPrompt(prompt: string, cancel: CancelSignal): AsyncIterable<string> {
+  async *streamPrompt(
+    prompt: string,
+    cancel: CancelSignal,
+    options?: ChatPromptOptions,
+  ): AsyncIterable<string> {
     this.prompts.push(prompt);
+    this.options.push(options);
     for (let i = 0; i < this.chunks.length; i += 1) {
       await this.beforeChunk?.(i);
       if (cancel.cancelled) throw new CancelledError();

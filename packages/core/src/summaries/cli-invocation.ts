@@ -105,6 +105,27 @@ export function codexStreamArgs(options: CliInvocationOptions = {}): string[] {
   return [...codexExecArgs(options), ...CODEX_STREAM_FLAGS];
 }
 
+/**
+ * Chat with attached images on Claude Code: the CLI may read one folder (the per-send copies) and
+ * has only the Read tool, so it can open the images and do nothing else. The process also runs
+ * with that folder as its working directory.
+ */
+export function claudeImageArgs(directory: string): string[] {
+  return ['--add-dir', directory, '--tools', 'Read', '--allowedTools', 'Read'];
+}
+
+/**
+ * Chat with attached images on Codex: `-i <file>` per image (an `exec` option, so after `exec`).
+ * Codex splits an `-i` value at commas, so a path with one is refused instead of misread.
+ */
+export function codexImageArgs(paths: readonly string[]): string[] {
+  return paths.flatMap((path) => {
+    if (path.includes(','))
+      throw new Error('An image path with a comma cannot be passed to Codex.');
+    return ['-i', path];
+  });
+}
+
 /** The WinUI quoting: double quotes only when the value has a space, no escaping. */
 const quoteIfSpaced = (value: string): string => (value.includes(' ') ? `"${value}"` : value);
 const isBlank = (value: string | null | undefined): value is null | undefined =>

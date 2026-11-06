@@ -5,7 +5,12 @@ import {
   wrapCliError,
   type CliProcessRunner,
 } from './cli-failure';
-import { CLAUDE_STREAM_FLAGS, CODEX_STREAM_FLAGS } from './cli-invocation';
+import {
+  CLAUDE_STREAM_FLAGS,
+  CODEX_STREAM_FLAGS,
+  claudeImageArgs,
+  codexImageArgs,
+} from './cli-invocation';
 import {
   createClaudeStreamParser,
   createCodexStreamParser,
@@ -17,6 +22,7 @@ import {
   summaryResultFromResponse,
   throwIfCancelled,
   withDefaultStream,
+  type PromptCallOptions,
   type ProviderId,
   type SummarizeRequest,
   type SummaryProvider,
@@ -25,6 +31,22 @@ import {
 
 /** Spec 3.7 and B31: five minutes, kept for parity. Callers may inject another value. */
 export const CLI_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** Per-run process options. `cwd` unset keeps the app's own working directory. */
+export interface CliRunOptions {
+  readonly cwd?: string;
+}
+
+/** Images copied for one chat send: a folder that holds only them, and their paths. */
+export interface PromptImageFiles {
+  readonly directory: string;
+  readonly paths: readonly string[];
+}
+
+/** Chat's prompt options: the shared ones plus the images of the send. */
+export interface CliPromptOptions extends PromptCallOptions {
+  readonly images?: PromptImageFiles;
+}
 
 /**
  * Optional runner port for chat streaming: stdout as it arrives, one line at a time. The timeout
@@ -38,6 +60,7 @@ export interface CliLineRunner {
     stdin: string | null,
     timeoutMs: number,
     cancel: CancelSignal,
+    options?: CliRunOptions,
   ): AsyncIterable<string>;
 }
 
@@ -61,11 +84,21 @@ export function canStreamLines<T extends object>(runner: T): runner is T & CliLi
 interface CliStreamFormat {
   readonly flags: readonly string[];
   readonly parser: () => CliStreamParser;
+  /** How this CLI receives attached images: extra argv, and the folder to run in, if any. */
+  readonly images: (files: PromptImageFiles) => { args: string[]; cwd?: string };
 }
 
 const STREAM_FORMATS: Partial<Record<ProviderId, CliStreamFormat>> = {
-  'claude-code': { flags: CLAUDE_STREAM_FLAGS, parser: createClaudeStreamParser },
-  codex: { flags: CODEX_STREAM_FLAGS, parser: createCodexStreamParser },
+  'claude-code': {
+    flags: CLAUDE_STREAM_FLAGS,
+    parser: createClaudeStreamParser,
+    images: (files) => ({ args: claudeImageArgs(files.directory), cwd: files.directory }),
+  },
+  codex: {
+    flags: CODEX_STREAM_FLAGS,
+    parser: createCodexStreamParser,
+    images: (files) => ({ args: codexImageArgs(files.paths) }),
+  },
 };
 
 /** A stdout line that is not a JSON event: kept for the plain-text fallback and classification. */
@@ -103,13 +136,19 @@ export abstract class CliToolProvider implements SummaryProvider {
    * same argv plus the stream flags, parsed into text pieces. With no pieces, the CLI's final
    * answer is sent whole; with no JSON at all, the plain stdout is (the old one-chunk answer).
    * Other runners keep the one-chunk path. `completePrompt` (summaries) never streams.
+   * Attached images (`options.images`) ride only on the streaming path: Claude Code reads them from
+   * their folder, Codex gets `-i` per image. The one-chunk path has no way to pass them.
    */
-  streamPrompt(prompt: string, cancel: CancelSignal): AsyncIterable<string> {
+  streamPrompt(
+    prompt: string,
+    cancel: CancelSignal,
+    options?: CliPromptOptions,
+  ): AsyncIterable<string> {
     const format = STREAM_FORMATS[this.id];
     if (format === undefined || !canStreamLines(this.runner)) {
       return withDefaultStream((p, c) => this.completePrompt(p, c))(prompt, cancel);
     }
-    return this.streamLines(this.runner, format, prompt, cancel);
+    return this.streamLines(this.runner, format, prompt, cancel, options?.images);
   }
 
   private async *streamLines(
@@ -117,9 +156,13 @@ export abstract class CliToolProvider implements SummaryProvider {
     format: CliStreamFormat,
     prompt: string,
     cancel: CancelSignal,
+    images: PromptImageFiles | undefined,
   ): AsyncGenerator<string> {
     throwIfCancelled(cancel);
-    const args = [...this.buildArgs(), ...format.flags];
+    const withImages =
+      images === undefined || images.paths.length === 0 ? null : format.images(images);
+    const args = [...this.buildArgs(), ...format.flags, ...(withImages?.args ?? [])];
+    const runOptions = withImages?.cwd === undefined ? undefined : { cwd: withImages.cwd };
     if (!(await runner.isOnPath(this.executable))) {
       throw new CliToolError(this.displayName, 'NotInstalled');
     }
@@ -128,7 +171,14 @@ export abstract class CliToolProvider implements SummaryProvider {
     let streamed = false;
     let final: string | null = null;
     try {
-      const lines = runner.runLines(this.executable, args, prompt, this.timeoutMs, cancel);
+      const lines = runner.runLines(
+        this.executable,
+        args,
+        prompt,
+        this.timeoutMs,
+        cancel,
+        runOptions,
+      );
       for await (const line of lines) {
         if (isPlainLine(line)) plain.push(line);
         for (const event of parser.push(line)) {

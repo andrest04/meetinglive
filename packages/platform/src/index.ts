@@ -53,3 +53,5 @@ export * from './chat/library-chat-reader';
 export * from './shell/json-window-state-store';
 export * from './youtube/yt-dlp-manager';
 export * from './youtube/yt-dlp-downloader';
+export * from './chat/attachment-extractors';
+export * from './chat/attachment-store';
