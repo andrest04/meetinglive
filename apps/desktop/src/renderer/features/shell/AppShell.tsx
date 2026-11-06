@@ -5,7 +5,7 @@ import { CloseDialogs } from '../record/CloseDialogs';
 import { connectLiveAsk } from '../record/use-live-ask';
 import { connectLibrary } from '../library/library-store';
 import { LibraryFolders, type SidebarLocation } from '../library/LibraryFolders';
-import { ChatBar } from '../chat/ChatBar';
+import { AiPanelArea } from '../chat/AiPanel';
 import { ChatBody } from '../chat/ChatBody';
 import { CallPromptBar } from './CallPromptBar';
 import { Mark, cn } from '../../ui';
@@ -64,32 +64,34 @@ export function AppShell() {
         <div className="w-[232px] shrink-0 border-e border-hairline">
           <Sidebar />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Empty chrome: drags the window and sits behind the caption buttons. */}
-          <div className="app-drag h-10 shrink-0" />
-          <main
-            id="content"
-            tabIndex={-1}
-            className={cn(
-              'min-h-0 flex-1 outline-none',
-              paned ? 'flex flex-col overflow-hidden' : 'overflow-y-auto pb-8',
-            )}
-          >
-            <div
-              className={
-                paned
-                  ? 'flex min-h-0 flex-1 flex-col'
-                  : cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')
-              }
+        {/* The AI panel docks to the right of the content column, or floats over it. */}
+        <AiPanelArea body={(scope) => <ChatBody scope={scope} />}>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* Empty chrome: drags the window and sits behind the caption buttons. */}
+            <div className="app-drag h-10 shrink-0" />
+            <main
+              id="content"
+              tabIndex={-1}
+              className={cn(
+                'min-h-0 flex-1 outline-none',
+                paned ? 'flex flex-col overflow-hidden' : 'overflow-y-auto pb-8',
+              )}
             >
-              <div className={paned ? 'shrink-0 px-4' : undefined}>
-                <CallPromptBar />
+              <div
+                className={
+                  paned
+                    ? 'flex min-h-0 flex-1 flex-col'
+                    : cn('mx-auto w-full px-10 pt-8', wide ? 'max-w-[960px]' : 'max-w-[720px]')
+                }
+              >
+                <div className={paned ? 'shrink-0 px-4' : undefined}>
+                  <CallPromptBar />
+                </div>
+                <Outlet />
               </div>
-              <Outlet />
-            </div>
-          </main>
-          <ChatBar>{(scope) => <ChatBody scope={scope} />}</ChatBar>
-        </div>
+            </main>
+          </div>
+        </AiPanelArea>
       </div>
       <CloseDialogs />
       <StartupNotice />

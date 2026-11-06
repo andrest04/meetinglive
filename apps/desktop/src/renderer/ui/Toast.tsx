@@ -41,7 +41,11 @@ function ToastList({ dismissLabel }: { dismissLabel: string }) {
   });
 }
 
-/** Mount once. Notices appear bottom right, stay five seconds, and pause while hovered or focused. */
+/**
+ * Mount once. Notices appear bottom right, stay five seconds, and pause while hovered or focused.
+ * A floating control at the bottom right sets `--launcher-clearance` on the root while it shows,
+ * and the notices stack above it.
+ */
 export function ToastProvider({
   dismissLabel,
   children,
@@ -53,7 +57,7 @@ export function ToastProvider({
     <BaseToast.Provider timeout={5000} limit={3}>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport className="fixed right-4 bottom-4 z-50 flex w-80 flex-col gap-2">
+        <BaseToast.Viewport className="fixed right-4 bottom-[calc(1rem+var(--launcher-clearance,0px))] z-50 flex w-80 flex-col gap-2">
           <ToastList dismissLabel={dismissLabel} />
         </BaseToast.Viewport>
       </BaseToast.Portal>

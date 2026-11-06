@@ -42,7 +42,7 @@ function same(a: ChatScopeDecision | null, b: ChatScopeDecision): boolean {
 }
 
 /**
- * The scope the chat bar shows, from the workspace state main pushes (parity 1 to 11, 18). Each
+ * The scope the AI panel shows, from the workspace state main pushes (parity 1 to 11, 18). Each
  * refresh starts a new generation, so a name lookup that finishes late is discarded.
  */
 export function useChatScope(): ChatScopeView {

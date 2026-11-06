@@ -4,7 +4,7 @@ import type { LinkHandler } from '../summaries/MarkdownView';
 import type { ChatRow } from './chat-view-model';
 import { MessageRow } from './MessageRow';
 
-/** The transcript: at most 420 px tall, scrolls inside itself and follows the end of the answer. */
+/** The transcript: fills the panel's free height, scrolls inside itself and follows the end of the answer. */
 export function MessageList({
   rows,
   onCopy,
@@ -24,7 +24,7 @@ export function MessageList({
   }, [rows]);
 
   return (
-    <div ref={scroller} className="max-h-[420px] min-h-0 flex-1 overflow-y-auto" tabIndex={-1}>
+    <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto" tabIndex={-1}>
       <ul
         data-testid="ListMeetingChat"
         aria-label={t('Chat_Transcript.AutomationProperties.Name')}

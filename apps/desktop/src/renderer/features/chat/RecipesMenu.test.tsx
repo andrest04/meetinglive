@@ -59,14 +59,14 @@ const recipe = (index: number, kind: 'Meeting' | 'Folder' = 'Meeting') => {
 };
 
 describe('Recipes button (items 108, 111)', () => {
-  it('opens the full list of five for a meeting and three for a folder', async () => {
+  it('opens the full list of nine for a meeting and three for a folder', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<Harness kind="Meeting" />);
     expect(button()).toHaveAttribute('aria-haspopup', 'listbox');
     expect(button()).toHaveAttribute('aria-expanded', 'false');
     await user.click(button());
     expect(button()).toHaveAttribute('aria-expanded', 'true');
-    expect(items()).toHaveLength(5);
+    expect(items()).toHaveLength(9);
     unmount();
     render(<Harness kind="Folder" />);
     await user.click(button());
@@ -113,7 +113,7 @@ describe('slash filter (items 110, 111, S7)', () => {
     const user = userEvent.setup();
     render(<Harness />);
     await user.type(field(), '/');
-    expect(items()).toHaveLength(5);
+    expect(items()).toHaveLength(9);
   });
 
   it('filters by a case-insensitive substring of name or prompt', async () => {
@@ -122,7 +122,7 @@ describe('slash filter (items 110, 111, S7)', () => {
     await user.type(field(), '/ACT');
     const shown = items().map((o) => o.textContent);
     expect(shown.length).toBeGreaterThan(0);
-    expect(shown.length).toBeLessThan(5);
+    expect(shown.length).toBeLessThan(9);
     for (const text of shown) expect(text.toLowerCase()).toContain('act');
     await user.type(field(), 'zzzz');
     expect(screen.getByText('No recipes for this scope.')).toBeInTheDocument();

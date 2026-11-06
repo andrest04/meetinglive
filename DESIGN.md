@@ -219,7 +219,7 @@ The palette is a strict neutral ramp plus one red that only ever means "recordin
 
 ## Layout
 
-The desktop shell is a 232px sidebar on raised paper, separated by a hairline, beside a content column. A 40px drag strip at the top acts as the title bar and holds the 20px mark and the app name. The content column is padded 40px horizontally and 32px at the top, with a 720px maximum width (960px on the record screen). The library is the exception: a full-bleed, two-pane view whose list pane is `clamp(340px, 38%, 440px)`. A chat bar docks at the bottom, also at most 720px wide.
+The desktop shell is a 232px sidebar on raised paper, separated by a hairline, beside a content column. A 40px drag strip at the top acts as the title bar and holds the 20px mark and the app name. The content column is padded 40px horizontally and 32px at the top, with a 720px maximum width (960px on the record screen). The library is the exception: a full-bleed, two-pane view whose list pane is `clamp(340px, 38%, 440px)`. An AI panel docks on the right of the content column on raised paper (hairline handle, no shadow at rest), 320 to 520px wide (380 by default), opened from a round ink launcher at the bottom right or with Ctrl+J. When docking would leave the page under 560px it floats over the page as a right-anchored sheet with the overlay shadow, sliding in over 150ms. Its top 40px is drag strip, like the content column, so its buttons stay clear of the caption buttons.
 
 Spacing follows Tailwind's 4px base. Controls are 28px (sm) or 32px (md) tall. Setting rows use 14px vertical padding. Navigation items are 32px with a 1px gap. The app is a fixed-size desktop window, not a responsive layout, so breakpoints are effectively absent.
 

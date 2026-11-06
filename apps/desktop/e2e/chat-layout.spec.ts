@@ -4,7 +4,7 @@ import { launchApp, type LaunchedApp } from './launch';
 import { writeMeeting } from './library-data';
 
 // Layout proofs for the chat that jsdom cannot give: composer sizes, bubble alignment and cap,
-// the 420 transcript cap with its own scroll, auto-scroll to the end, and New chat clearing state.
+// the transcript filling the panel with its own scroll, auto-scroll to the end, and New chat clearing state.
 test.describe.configure({ timeout: 120_000 });
 
 const MEETING = 'a0000000-0000-4000-8000-000000000000';
@@ -18,14 +18,23 @@ const seed = (dataRoot: string): void => {
   });
 };
 
+/** Opens the AI panel from the launcher; it may already be open, since the panel remembers. */
+const openPanel = async (page: Page): Promise<void> => {
+  const launcher = page.getByTestId('BtnAiPanelOpen');
+  const composer = page.getByTestId('TxtMeetingChat');
+  // The closed panel keeps its composer in the DOM, so only the visible one counts.
+  await expect(launcher.or(composer).filter({ visible: true })).toBeVisible();
+  if (await launcher.isVisible()) await launcher.click();
+  await expect(composer).toBeVisible();
+};
+
 async function open(env: Record<string, string>): Promise<{ launched: LaunchedApp; page: Page }> {
   const launched = await launchApp({ VOZELLA_E2E_SHOW: '1', ...env }, seed);
   const page = await launched.app.firstWindow();
   await expect(page.getByRole('navigation')).toBeVisible();
   await page.evaluate(() => window.vozella.invoke('summaries.chooseCli', { kind: 'ClaudeCode' }));
   await page.getByRole('navigation').getByRole('link', { name: 'Record' }).click();
-  await page.getByTestId('BarMeetingChat').getByRole('button', { expanded: false }).first().click();
-  await expect(page.getByTestId('TxtMeetingChat')).toBeVisible();
+  await openPanel(page);
   return { launched, page };
 }
 
@@ -51,7 +60,7 @@ test('composer grows from 32 to 96, scrolls past that and keeps a 180 wide field
   }
 });
 
-test('the transcript right-aligns bubbles at 75 percent, caps at 420 and follows new rows', async () => {
+test('the transcript right-aligns bubbles at 75 percent, fills the panel and follows new rows', async () => {
   const { launched, page } = await open({});
   try {
     const box = page.getByTestId('TxtMeetingChat');
@@ -71,6 +80,10 @@ test('the transcript right-aligns bubbles at 75 percent, caps at 420 and follows
       const b = bubble.getBoundingClientRect();
       return {
         scrollerHeight: s.height,
+        scrollerBottom: s.bottom,
+        composerTop: document
+          .getElementById('TxtMeetingChat')!
+          .parentElement!.getBoundingClientRect().top,
         scrollable: scroller.scrollHeight > scroller.clientHeight,
         atEnd: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 2,
         rightGap: s.right - b.right,
@@ -78,7 +91,9 @@ test('the transcript right-aligns bubbles at 75 percent, caps at 420 and follows
         userSelect: getComputedStyle(bubble).userSelect,
       };
     });
-    expect(geometry.scrollerHeight).toBeLessThanOrEqual(420);
+    // The transcript takes the panel's free height above the composer, inside the window.
+    expect(geometry.scrollerHeight).toBeGreaterThan(200);
+    expect(geometry.scrollerBottom).toBeLessThanOrEqual(geometry.composerTop);
     expect(geometry.scrollable).toBe(true);
     expect(geometry.atEnd).toBe(true);
     expect(geometry.rightGap).toBeLessThan(24);

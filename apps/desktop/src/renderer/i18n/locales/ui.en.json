@@ -203,5 +203,12 @@
   "Ui_ImportYouTubeLabel": "Video link",
   "Ui_ImportYouTubePlaceholder": "https://www.youtube.com/watch?v=…",
   "Ui_ImportYouTubeSubmit": "Import",
-  "Ui_ImportYouTubeCancel": "Cancel"
+  "Ui_ImportYouTubeCancel": "Cancel",
+  "Ui_AiPanelOpen": "Ask AI",
+  "Ui_AiPanelClose": "Close AI panel",
+  "Ui_AiPanelResize": "Resize AI panel",
+  "Ui_RecipeKeyIdeasName": "Key ideas",
+  "Ui_RecipeExplainName": "Explain the hard parts",
+  "Ui_RecipeQuotesName": "Notable quotes",
+  "Ui_RecipeStudyName": "Review questions"
 }

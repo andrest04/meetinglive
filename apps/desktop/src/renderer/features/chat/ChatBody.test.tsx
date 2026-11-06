@@ -63,6 +63,8 @@ interface Api {
 
 function install(options: {
   state?: ChatStateDto;
+  /** Action items of the scoped meeting; undefined answers no record. */
+  actionItems?: () => { text: string; isDone: boolean }[];
   send?: (n: number, input: { requestId: string; draft: string }) => Promise<ChatSendOutcomeDto>;
   beforeSend?: () => Promise<void>;
   copy?: () => { status: 'written' } | { status: 'failed'; detail: string };
@@ -101,6 +103,10 @@ function install(options: {
         return { cancelled: true };
       case 'chat.copyText':
         return options.copy?.() ?? { status: 'written' };
+      case 'library.getMeeting':
+        return {
+          record: options.actionItems ? { id: input.id, actionItems: options.actionItems() } : null,
+        };
       default:
         throw new Error(`unhandled ${name}`);
     }
@@ -318,27 +324,99 @@ describe('optimistic rows, rollback and draft restore (items 33 to 35, 44)', () 
   });
 });
 
+const chipNames = async (): Promise<string[]> =>
+  within(await screen.findByTestId('ListMeetingChatStarters'))
+    .getAllByRole('button')
+    .map((b) => b.textContent);
+
+const MEETING_CHIPS = [
+  "What's been discussed",
+  'Action items',
+  'Follow-up email',
+  'What should I do next',
+];
+const CONTENT_CHIPS = [
+  'Key ideas',
+  'Explain the hard parts',
+  'Notable quotes',
+  "What's been discussed",
+];
+const ITEM = { text: 'Send the deck', isDone: false };
+
 describe('starter chips (items 39 to 41)', () => {
-  it('shows the first four recipes of the scope, with the prompt as tooltip content', () => {
-    install({});
+  it('a meeting with action items shows the four meeting recipes', async () => {
+    install({ actionItems: () => [ITEM] });
     mount(MEETING);
-    const list = screen.getByTestId('ListMeetingChatStarters');
-    expect(within(list).getAllByRole('button')).toHaveLength(4);
-    expect(within(list).getByRole('button', { name: "What's been discussed" })).toBeTruthy();
+    expect(await chipNames()).toEqual(MEETING_CHIPS);
   });
 
-  it('uses the multi-meeting recipes for a folder or all meetings', () => {
+  it('a meeting without action items (a talk, a class) shows the content recipes', async () => {
+    install({ actionItems: () => [] });
+    mount(MEETING);
+    expect(await chipNames()).toEqual(CONTENT_CHIPS);
+  });
+
+  it('a meeting the library cannot find falls back to the content recipes', async () => {
     install({});
+    mount(MEETING);
+    expect(await chipNames()).toEqual(CONTENT_CHIPS);
+  });
+
+  it('follows the library: action items arriving switch the chips to the meeting recipes', async () => {
+    let items: { text: string; isDone: boolean }[] = [];
+    const api = install({ actionItems: () => items });
+    mount(MEETING);
+    expect(await chipNames()).toEqual(CONTENT_CHIPS);
+    items = [ITEM];
+    act(() => {
+      api.emit('library.changed', {});
+    });
+    await waitFor(async () => {
+      expect(await chipNames()).toEqual(MEETING_CHIPS);
+    });
+  });
+
+  it('the recipes menu lists every single-meeting recipe, content first without action items', async () => {
+    install({ actionItems: () => [] });
+    mount(MEETING);
+    await chipNames();
+    await userEvent.click(screen.getByTestId('BtnMeetingChatRecipes'));
+    const names = within(screen.getByTestId('ListMeetingChatRecipes'))
+      .getAllByRole('option')
+      .map((o) => o.textContent);
+    expect(names).toHaveLength(9);
+    expect(names[0]?.startsWith('Key ideas')).toBe(true);
+    expect(names[5]?.startsWith('Action items')).toBe(true);
+  });
+
+  it('the recipes menu puts the meeting recipes first when there are action items', async () => {
+    install({ actionItems: () => [ITEM] });
+    mount(MEETING);
+    await chipNames();
+    await userEvent.click(screen.getByTestId('BtnMeetingChatRecipes'));
+    const names = within(screen.getByTestId('ListMeetingChatRecipes'))
+      .getAllByRole('option')
+      .map((o) => o.textContent);
+    expect(names).toHaveLength(9);
+    expect(names[1]?.startsWith('Action items')).toBe(true);
+    expect(names[5]?.startsWith('Key ideas')).toBe(true);
+  });
+
+  it('uses the multi-meeting recipes for a folder or all meetings', async () => {
+    const api = install({});
     mount(ALL);
-    expect(
-      within(screen.getByTestId('ListMeetingChatStarters')).getAllByRole('button'),
-    ).toHaveLength(3);
+    expect(await chipNames()).toEqual([
+      'Top feature requests',
+      'Recurring themes',
+      'Weekly update',
+    ]);
+    expect(api.calls).not.toContain('library.getMeeting');
   });
 
   it('a click sends the prompt at once and hides the chips', async () => {
-    const api = install({});
+    const api = install({ actionItems: () => [ITEM] });
     mount(MEETING);
-    await userEvent.click(screen.getByRole('button', { name: "What's been discussed" }));
+    await userEvent.click(await screen.findByRole('button', { name: "What's been discussed" }));
     await waitFor(() => {
       expect(api.sends[0]?.draft).toBe('Give a short recap of what has been discussed so far.');
     });
@@ -477,13 +555,16 @@ describe('provider gate (item 38)', () => {
 });
 
 describe('language (B8)', () => {
-  it('relabels the chips and the placeholder in Spanish', () => {
-    install({});
+  it('relabels the chips and the placeholder in Spanish', async () => {
+    install({ actionItems: () => [] });
     mount(MEETING, 'es');
     expect(box().placeholder).toBe('Pregunta sobre tus reuniones');
-    expect(
-      within(screen.getByTestId('ListMeetingChatStarters')).getAllByRole('button')[0]?.textContent,
-    ).not.toBe("What's been discussed");
+    expect(await chipNames()).toEqual([
+      'Ideas principales',
+      'Explícame lo más difícil',
+      'Citas destacadas',
+      'Qué se ha hablado',
+    ]);
   });
 });
 

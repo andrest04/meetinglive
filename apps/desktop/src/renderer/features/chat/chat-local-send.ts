@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * True from the moment the page starts a send until it settles. It lives above the chat bar so the
- * bar can keep New chat disabled in the gap before main marks the send as started.
+ * True from the moment the page starts a send until it settles. It lives above the AI panel so the
+ * panel can keep New chat disabled in the gap before main marks the send as started.
  */
 let active = false;
 const listeners = new Set<() => void>();
